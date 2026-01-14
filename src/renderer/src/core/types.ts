@@ -1,0 +1,56 @@
+export type NoteMeta = {
+  id: string
+  title: string
+  updatedAt: number
+  path?: string
+}
+
+export type FolderItem = {
+  id: string
+  name: string
+  type: 'folder'
+  path: string
+  children: (FolderItem | NoteMeta)[]
+  collapsed?: boolean
+}
+
+export type TreeItem = FolderItem | NoteMeta
+
+export type NotePayload = NoteMeta & {
+  content: string
+}
+
+export type AppState = {
+  notes: NoteMeta[]
+  tree: TreeItem[]
+  expandedFolders: Set<string>
+  openTabs: NoteMeta[]
+  activeId: string
+  isDirty: boolean
+  lastSavedAt: number
+  applyingRemote: boolean
+  activeView: 'notes' | 'search' | 'settings'
+  projectName: string
+  vaultPath?: string
+  settings?: AppSettings
+  pinnedTabs: Set<string>
+}
+
+export type AppSettings = {
+  vaultPath?: string
+  theme?: string
+  sidebarVisible?: boolean
+  autoSave?: boolean
+  autoSaveDelay?: number
+  fontSize?: number
+  lineNumbers?: boolean
+  wordWrap?: boolean
+  minimap?: boolean
+  recentVaults?: string[]
+  lastOpenedNote?: string
+  expandedFolders?: string[]
+  openTabs?: { id: string; path?: string }[]
+  pinnedTabs?: string[]
+  activeId?: string
+  windowBounds?: { width: number; height: number; x?: number; y?: number }
+}

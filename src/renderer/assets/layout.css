@@ -1,0 +1,163 @@
+@import './base.css';
+
+:root {
+  --activity-width: 48px;
+  --sidebar-width: 300px;
+  --right-panel-width: 0px;
+  --tab-height: 40px;
+  --statusbar-height: 28px;
+}
+
+body {
+  padding: 0;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.vscode-shell {
+  height: 100vh;
+  display: grid;
+  grid-template-columns: var(--activity-width) var(--sidebar-width) 1fr var(--right-panel-width);
+  grid-template-rows: 1fr var(--statusbar-height);
+  gap: 0;
+  background: var(--bg);
+  color: var(--text-strong);
+  transition: grid-template-columns 0.2s ease;
+  overflow: hidden;
+  padding-top: 32px; /* account for fixed window header */
+}
+
+.vscode-shell.sidebar-hidden {
+  grid-template-columns: var(--activity-width) 0px 1fr var(--right-panel-width);
+}
+
+.vscode-shell.sidebar-hidden .sidebar {
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
+}
+
+.activitybar {
+  grid-row: 1;
+  grid-column: 1;
+  min-height: 0;
+  z-index: 5;
+}
+
+.sidebar {
+  grid-column: 2;
+  grid-row: 1;
+  min-height: 0;
+  z-index: 4;
+}
+
+.main {
+  grid-column: 3;
+  grid-row: 1;
+  display: grid;
+  grid-template-rows: var(--tab-height) 1fr;
+  background: var(--panel);
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  position: relative;
+  z-index: 1;
+}
+
+.right-panel {
+  grid-column: 4;
+  grid-row: 1;
+  background: var(--panel);
+  border-left: 1px solid var(--border);
+  display: none;
+  min-height: 0;
+}
+
+.right-panel__empty {
+  padding: 20px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.statusbar {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  min-height: 0;
+  z-index: 50;
+  height: var(--statusbar-height);
+  overflow: hidden;
+}
+
+/* Responsive behavior */
+@media (max-width: 800px) {
+  .vscode-shell {
+    /* Main layout collapses sidebar space */
+    grid-template-columns: var(--activity-width) 0px 1fr 0px;
+  }
+  
+  /* When NOT hidden, sidebar floats over content */
+  .vscode-shell:not(.sidebar-hidden) .sidebar {
+    position: absolute;
+    left: var(--activity-width);
+    top: 32px;
+    bottom: var(--statusbar-height);
+    width: var(--sidebar-width);
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    box-shadow: 4px 0 12px rgba(0,0,0,0.25);
+    visibility: visible;
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+
+.btn {
+  border: 1px solid var(--border);
+  background: var(--panel-strong);
+  color: var(--text-strong);
+  border-radius: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: transform 100ms ease, box-shadow 160ms ease, border-color 120ms ease;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+  border-color: #31405c;
+}
+
+.btn:active {
+  transform: translateY(0);
+}
+
+.btn--primary {
+  background: linear-gradient(135deg, var(--primary), var(--primary-strong));
+  border-color: transparent;
+  color: #0b1220;
+}
+
+.btn--danger {
+  background: rgba(248, 113, 113, 0.12);
+  border-color: rgba(248, 113, 113, 0.35);
+  color: #ffc6c6;
+}
+
+.btn--ghost {
+  background: transparent;
+}
+
+input,
+button {
+  font-family: inherit;
+}
+
+@media (max-width: 1040px) {
+  :root {
+    --sidebar-width: 260px;
+  }
+}
+

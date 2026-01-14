@@ -1,0 +1,115 @@
+.sidebar {
+  background: var(--panel);
+  border-right: 1px solid var(--border);
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+  gap: 8px;
+  padding: 10px;
+  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.02);
+}
+
+.sidebar__header {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 2px 4px;
+}
+
+.sidebar__title {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.sidebar__brand {
+  display: none;
+}
+
+.sidebar__search input {
+  width: 100%;
+  background: var(--panel-strong);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  color: var(--text-strong);
+  font-family: inherit;
+}
+
+.sidebar__search input::placeholder {
+  color: var(--muted);
+}
+
+.note-list {
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: linear-gradient(180deg, var(--panel), var(--panel-strong));
+  scroll-behavior: smooth;
+}
+
+.note-list:focus {
+  outline: none;
+}
+
+.note-list__item {
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease;
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  align-items: center;
+  column-gap: 8px;
+}
+
+.note-list__item:hover {
+  background: rgba(127, 167, 255, 0.08);
+  border-color: #2a3a57;
+}
+
+.note-list__item.is-active {
+  background: rgba(127, 167, 255, 0.12);
+  border-left: 3px solid var(--primary);
+  padding-left: 5px;
+}
+
+.note-list__icon {
+  font-family: 'Fira Code', Consolas, monospace;
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1;
+}
+
+.note-list__title {
+  font-weight: 600;
+  font-size: 13px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-strong);
+  padding: 2px 4px;
+  border-radius: 4px;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.note-list__title:focus {
+  outline: none;
+  border-color: var(--primary);
+  background: rgba(127, 167, 255, 0.08);
+}
+
+.note-list__title::placeholder {
+  color: var(--muted);
+}
+
+.note-list__empty {
+  padding: 14px;
+  text-align: center;
+  color: var(--muted);
+}

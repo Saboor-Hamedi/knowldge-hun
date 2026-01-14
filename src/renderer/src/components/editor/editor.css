@@ -1,0 +1,92 @@
+.editor-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--panel);
+  position: relative;
+}
+
+.editor-container.drag-over {
+  background: rgba(127, 167, 255, 0.08);
+}
+
+.editor-container.drag-over::after {
+  content: 'Drop file or folder';
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 3px dashed rgba(127, 167, 255, 0.6);
+  border-radius: 12px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--primary);
+  background: rgba(127, 167, 255, 0.06);
+  z-index: 50;
+  pointer-events: none;
+  margin: 20px;
+}
+
+.editor-host {
+  position: relative;
+  flex: 1;
+  min-height: 400px;
+}
+
+/* Ensure all monaco widgets are on top */
+.monaco-editor-hover,
+.monaco-editor-hover-content,
+.suggest-widget,
+.monaco-editor .suggest-widget,
+.monaco-hover,
+.monaco-hover-content {
+  z-index: 99999 !important;
+}
+
+.wiki-link {
+    color: #4daafc;
+    text-decoration: underline;
+    cursor: pointer;
+    font-weight: 500;
+    transition: opacity 0.2s ease;
+}
+
+.wiki-link:hover {
+    color: #88c9ff;
+    opacity: 0.8;
+}
+
+.editor-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  color: var(--muted);
+  flex: 1;
+  font-size: 15px;
+  text-align: center;
+  line-height: 1.6;
+  position: relative;
+  transition: background 200ms ease, color 200ms ease;
+}
+
+.editor-empty.drag-over {
+  background: rgba(127, 167, 255, 0.08);
+  color: var(--primary);
+}
+
+.editor-empty.drag-over::after {
+  content: 'Drop folder to open vault';
+  position: absolute;
+  inset: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px dashed rgba(127, 167, 255, 0.6);
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--primary);
+  pointer-events: none;
+}

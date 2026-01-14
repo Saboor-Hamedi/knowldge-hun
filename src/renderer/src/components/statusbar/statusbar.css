@@ -1,0 +1,18 @@
+.statusbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 10px;
+  color: #dfe7f3;
+  font-size: 11px;
+  background: var(--status);
+  border-top: 1px solid #0b4f7c;
+}
+
+.statusbar__left,
+.statusbar__right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}

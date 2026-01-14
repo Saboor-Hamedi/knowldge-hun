@@ -1,0 +1,122 @@
+.tabbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: var(--tab-height);
+  padding: 0 6px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.tabbar::-webkit-scrollbar {
+  display: none;
+}
+
+.tab {
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid transparent;
+  border-radius: 6px 6px 0 0;
+  padding: 0 10px;
+  background: transparent;
+  color: var(--text-soft);
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.tab.is-active {
+  background: var(--panel);
+  color: var(--text-strong);
+  border-color: var(--border);
+  border-bottom-color: var(--panel);
+  box-shadow: inset 0 -1px 0 var(--panel);
+}
+
+.tab.is-pinned {
+  padding: 0 10px;
+  min-width: fit-content;
+  border-right: 1px solid var(--border);
+}
+
+.tab.is-pinned .tab__icon {
+  margin-right: 6px;
+}
+
+.tab:hover {
+  color: var(--text-strong);
+  background: rgba(127, 167, 255, 0.08);
+}
+
+.tab__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-soft); /* Default backup */
+  opacity: 1;
+  flex-shrink: 0;
+}
+
+/* Dynamic Icon Colors */
+.tab[data-ext="md"] .tab__icon { color: #519aba; }
+.tab[data-ext="js"] .tab__icon { color: #f7df1e; }
+.tab[data-ext="ts"] .tab__icon { color: #3178c6; }
+.tab[data-ext="jsx"] .tab__icon { color: #61dafb; }
+.tab[data-ext="tsx"] .tab__icon { color: #61dafb; }
+.tab[data-ext="html"] .tab__icon { color: #e34c26; }
+.tab[data-ext="css"] .tab__icon { color: #264de4; }
+.tab[data-ext="json"] .tab__icon { color: #f1e05a; }
+.tab[data-ext="png"] .tab__icon,
+.tab[data-ext="jpg"] .tab__icon { color: #b83998; }
+
+.tab__icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.tab__pin-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-soft);
+  margin-left: 6px;
+  opacity: 0.8;
+}
+
+.tab__pin-icon svg {
+  width: 12px;
+  height: 12px;
+}
+
+.tab__label {
+  white-space: nowrap;
+  font-size: 13px;
+}
+
+.tab__close {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1;
+}
+
+.tab__close:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-strong);
+}
+
+.tabbar__empty {
+  color: var(--muted);
+  padding: 0 10px;
+  font-size: 13px;
+}
+
+/* Pinned Tabs - Cleaned up */

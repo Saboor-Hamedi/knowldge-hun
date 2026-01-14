@@ -1,0 +1,422 @@
+@import './base.css';
+
+:root {
+  --activity-width: 50px;
+  --sidebar-width: 300px;
+  --tab-height: 36px;
+  --statusbar-height: 28px;
+}
+
+body {
+  padding: 0;
+  margin: 0;
+  overflow: hidden;
+}
+
+.vscode-shell {
+  height: 100vh;
+  display: grid;
+  grid-template-columns: var(--activity-width) var(--sidebar-width) 1fr;
+  grid-template-rows: 1fr var(--statusbar-height);
+  gap: 0;
+  background: var(--bg);
+  color: var(--text-strong);
+  transition: grid-template-columns 200ms ease;
+  overflow: hidden;
+  /* Ensure header space */
+  padding-top: 32px;
+}
+
+.vscode-shell.sidebar-hidden {
+  grid-template-columns: var(--activity-width) 0 1fr;
+}
+
+.vscode-shell.sidebar-hidden .sidebar {
+  display: none;
+}
+
+.activitybar {
+  grid-row: 1 / 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 6px;
+  gap: 6px;
+  background: var(--panel-strong);
+  border-right: 1px solid var(--border);
+  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.02);
+  z-index: 10;
+}
+
+/* ... existing activitybar items ... */
+.activitybar__item {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-soft);
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+
+.activitybar__item:hover {
+  background: rgba(127, 167, 255, 0.12);
+  color: var(--text-strong);
+}
+
+.activitybar__item.is-active {
+  background: rgba(127, 167, 255, 0.18);
+  color: var(--text-strong);
+  border-color: rgba(127, 167, 255, 0.35);
+  box-shadow: inset 0 0 0 1px rgba(127, 167, 255, 0.08);
+}
+
+.sidebar {
+  grid-column: 2;
+  grid-row: 1;
+  background: var(--panel);
+  border-right: 1px solid var(--border);
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+  gap: 12px;
+  padding: 14px;
+  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.02);
+  min-height: 0;
+  overflow: hidden;
+  z-index: 5;
+}
+
+.sidebar__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.brand {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.brand__logo {
+  height: 32px;
+  width: 32px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  background: linear-gradient(140deg, #3f6df3, #9ac6ff 80%);
+  color: #0c1220;
+}
+
+.brand__text {
+  font-weight: 700;
+  color: var(--text-strong);
+}
+
+.sidebar__search input {
+  width: 100%;
+  background: var(--panel-strong);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  color: var(--text-strong);
+}
+
+.sidebar__search input::placeholder {
+  color: var(--muted);
+}
+
+.note-list {
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: linear-gradient(180deg, var(--panel), var(--panel-strong));
+}
+
+.note-list__item {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+
+.note-list__item:hover {
+  background: rgba(127, 167, 255, 0.08);
+  border-color: #2a3a57;
+}
+
+.note-list__item.is-active {
+  background: rgba(127, 167, 255, 0.12);
+  border-left: 3px solid var(--primary);
+  padding-left: 11px;
+}
+
+.note-list__title {
+  font-weight: 600;
+}
+
+.note-list__meta {
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+.note-list__empty {
+  padding: 14px;
+  text-align: center;
+  color: var(--muted);
+}
+
+.main {
+  grid-column: 3;
+  grid-row: 1;
+  display: grid;
+  grid-template-rows: var(--tab-height) 1fr;
+  background: var(--panel);
+}
+
+.tabbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 6px;
+  background: #1c1f27;
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.tabbar::-webkit-scrollbar {
+  display: none;
+}
+
+.tab {
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid transparent;
+  border-radius: 6px 6px 0 0;
+  padding: 0 10px;
+  background: transparent;
+  color: var(--text-soft);
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.tab.is-active {
+  background: var(--panel);
+  color: var(--text-strong);
+  border-color: var(--border);
+  border-bottom-color: var(--panel);
+  box-shadow: inset 0 -1px 0 var(--panel);
+}
+
+.tab:hover {
+  color: var(--text-strong);
+  background: rgba(127, 167, 255, 0.08);
+}
+
+.tab__label {
+  white-space: nowrap;
+}
+
+.tab__close {
+  display: inline-block;
+  padding: 0 6px;
+  border-radius: 4px;
+  color: var(--muted);
+}
+
+.tab__close:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-strong);
+}
+
+.tabbar__empty {
+  color: var(--muted);
+  padding: 0 10px;
+}
+
+.editor-area {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  gap: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.title-input {
+  flex: 1;
+  background: var(--panel-strong);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  color: var(--text-strong);
+  font-size: 16px;
+  font-weight: 650;
+}
+
+.title-input::placeholder {
+  color: var(--muted);
+}
+
+.workspace__actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn {
+  border: 1px solid var(--border);
+  background: var(--panel-strong);
+  color: var(--text-strong);
+  border-radius: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: transform 100ms ease, box-shadow 160ms ease, border-color 120ms ease;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+  border-color: #31405c;
+}
+
+.btn:active {
+  transform: translateY(0);
+}
+
+.btn--primary {
+  background: linear-gradient(135deg, var(--primary), var(--primary-strong));
+  border-color: transparent;
+  color: #0b1220;
+}
+
+.btn--danger {
+  background: rgba(248, 113, 113, 0.12);
+  border-color: rgba(248, 113, 113, 0.35);
+  color: #ffc6c6;
+}
+
+.btn--ghost {
+  background: transparent;
+}
+
+.editor {
+  position: relative;
+  min-height: 400px;
+  flex: 1;
+  border-top: 1px solid var(--border);
+}
+
+.statusbar {
+  grid-column: 1 / 4;
+  grid-row: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 12px;
+  color: #dfe7f3;
+  font-size: 12px;
+  background: var(--status);
+  border-top: 1px solid #0b4f7c;
+  z-index: 50;
+  overflow: hidden;
+}
+
+.empty {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  color: var(--muted);
+  flex: 1;
+}
+
+input,
+button {
+  font-family: inherit;
+}
+
+@media (max-width: 1040px) {
+  :root {
+    --sidebar-width: 260px;
+  }
+}
+
+@media (max-width: 900px) {
+  .vscode-shell {
+    grid-template-columns: var(--activity-width) 0 1fr; /* Hide sidebar column by default in grid layout */
+    position: relative;
+    /* Reset rows */
+    grid-template-rows: 1fr var(--statusbar-height);
+  }
+
+  /* Override previous mobile styles which shifted rows around */
+  .sidebar {
+    grid-column: 2; /* Still visually in col 2 but we manage it absolute */
+    grid-row: 1;
+    display: block !important; /* Force display for transform logic */
+
+    position: absolute;
+    left: var(--activity-width);
+    top: 0;
+    bottom: 26px; /* Respect status bar height */
+    width: 280px;
+    z-index: 100;
+    background: var(--panel); /* Ensure background is opaque */
+    transform: translateX(0);
+    transition: transform 200ms cubic-bezier(0.33, 1, 0.68, 1);
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.4);
+    border-right: 1px solid var(--border);
+  }
+
+  .main, .editor-container {
+    grid-column: 3; /* Content takes the rest */
+    grid-row: 1;
+  }
+
+  .statusbar {
+    grid-column: 1 / 4;
+    grid-row: 2;
+  }
+
+  /* When sidebar is hidden (app logic), slide it out */
+  .vscode-shell.sidebar-hidden .sidebar {
+    transform: translateX(-100%);
+  }
+
+  /* Overlay backdrop when sidebar is open on mobile */
+  .vscode-shell:not(.sidebar-hidden)::after {
+    content: '';
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 26px; /* Above statusbar */
+    left: calc(var(--activity-width) + 280px);
+    background: rgba(0, 0, 0, 0.3);
+    z-index: 90;
+    pointer-events: auto;
+    animation: fadeIn 200ms ease;
+    backdrop-filter: blur(2px);
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
