@@ -3,18 +3,14 @@ export type NoteMeta = {
   title: string
   updatedAt: number
   path?: string
-}
-
-export type FolderItem = {
-  id: string
-  name: string
-  type: 'folder'
-  path: string
-  children: (FolderItem | NoteMeta)[]
+  type?: 'note' | 'folder'
+  children?: NoteMeta[]
   collapsed?: boolean
 }
 
-export type TreeItem = FolderItem | NoteMeta
+export type FolderItem = NoteMeta & { type: 'folder' }
+
+export type TreeItem = NoteMeta
 
 export type NotePayload = NoteMeta & {
   content: string

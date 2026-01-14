@@ -50,7 +50,8 @@ export class ActivityBar {
       if (!view) return
 
       // Do NOT set active for modal actions (theme, settings is also kinda modal but treated as view in previous logic)
-      if (view === 'theme' || view === 'graph') {
+      // theme is a modal popup, don't change active view status
+      if (view === 'theme') {
         this.onViewChange?.(view)
         return
       }

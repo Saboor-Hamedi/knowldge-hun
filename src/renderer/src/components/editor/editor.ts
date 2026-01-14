@@ -301,6 +301,17 @@ export class EditorComponent {
     this.editor?.focus()
   }
 
+  layout(): void {
+    if (this.editor) {
+      const width = this.container.clientWidth
+      // Auto-hide minimap on narrow screens to prevent overlap
+      this.editor.updateOptions({
+        minimap: { enabled: width > 600 && (state.settings?.minimap ?? true) }
+      })
+      this.editor.layout()
+    }
+  }
+
   insertAtCursor(text: string): void {
       if (!this.editor || !this.monacoInstance) return
       const selection = this.editor.getSelection()

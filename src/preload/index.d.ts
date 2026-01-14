@@ -5,18 +5,12 @@ type NoteMeta = {
   title: string
   updatedAt: number
   path?: string
-}
-
-type FolderItem = {
-  id: string
-  name: string
-  type: 'folder'
-  path: string
-  children: (FolderItem | NoteMeta)[]
+  type?: 'note' | 'folder'
+  children?: NoteMeta[]
   collapsed?: boolean
 }
 
-type TreeItem = FolderItem | NoteMeta
+type TreeItem = NoteMeta
 
 type NotePayload = NoteMeta & {
   content: string
@@ -30,7 +24,7 @@ type VaultInfo = {
 
 type AppSettings = {
   vaultPath?: string
-  theme?: 'dark' | 'light' | 'auto'
+  theme?: string
   autoSave?: boolean
   autoSaveDelay?: number
   fontSize?: number
@@ -61,7 +55,6 @@ type NoteApi = {
   importNote: (filePath: string, folderPath?: string) => Promise<NoteMeta>
   saveAsset: (buffer: ArrayBuffer, name: string) => Promise<string>
   createFolder: (name: string, parentPath?: string) => Promise<{ name: string; path: string }>
-  updateBacklinks: (oldId: string, newId: string) => Promise<void>
   renameFolder: (path: string, newName: string) => Promise<{ path: string }> 
   deleteFolder: (path: string) => Promise<{ path: string }>
   moveFolder: (sourcePath: string, targetPath: string) => Promise<{ path: string }>
@@ -71,10 +64,13 @@ type NoteApi = {
   getVault: () => Promise<VaultInfo>
   chooseVault: () => Promise<VaultInfo>
   setVault: (dir: string) => Promise<VaultInfo>
+  revealVault: () => Promise<void>
   getSettings: () => Promise<AppSettings>
   updateSettings: (updates: Partial<AppSettings>) => Promise<AppSettings>
   resetSettings: () => Promise<AppSettings>
   window: WindowApi
+  onVaultChanged: (callback: (data: any) => void) => () => void
+  onNoteOpened: (callback: (id: string) => void) => void
 }
 
 declare global {

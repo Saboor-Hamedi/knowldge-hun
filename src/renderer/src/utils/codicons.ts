@@ -73,7 +73,7 @@ export function getFolderIcon(folderName: string): string {
   return folderIcons[name] || codicons.folder
 }
 
-export function getFileIcon(filename: string): string {
+export function getFileIcon(_: string): string {
   // All note files are markdown
   return codicons.markdown
 }

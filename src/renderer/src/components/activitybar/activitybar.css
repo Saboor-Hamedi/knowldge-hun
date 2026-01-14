@@ -16,6 +16,8 @@
   padding: 0 8px;
 }
 
+
+
 .activitybar__item {
   width: 40px;
   height: 40px;
@@ -26,13 +28,12 @@
   display: grid;
   place-items: center;
   cursor: pointer;
-  transition: background 120ms ease, color 120ms ease, border-color 120ms ease, transform 120ms ease, box-shadow 120ms ease;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
 }
 
 .activitybar__item:hover {
   background: rgba(127, 167, 255, 0.12);
   color: var(--primary-strong);
-  transform: translateY(-1px);
 }
 
 .activitybar__item.is-active {

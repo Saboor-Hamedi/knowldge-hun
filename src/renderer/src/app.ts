@@ -8,30 +8,80 @@ import { SidebarTree } from './components/sidebar/sidebar-tree'
 import { TabBar } from './components/tabbar/tabbar'
 import { EditorComponent } from './components/editor/editor'
 import { StatusBar } from './components/statusbar/statusbar'
-import { SettingsPanel } from './components/settings/settings-panel'
+import { SettingsView } from './components/settings/settings-view'
 import { contextMenu } from './components/contextmenu/contextmenu'
 import { codicons } from './utils/codicons'
-// ... import others
-
-// Inside setupMobileEvents or similar setup section in App constructor/wireComponents:
-// Actually, editor handles events internally, but App knows about contextMenu singleton.
-// Let's pass a context menu handler to editor.
-
 import { ThemeModal } from './components/theme-modal/theme-modal'
 import { FuzzyFinder } from './components/fuzzy-finder/fuzzy-finder'
 import { GraphView } from './components/graph/graph'
 import { themeManager } from './core/themeManager'
+import { ErrorHandler } from './utils/error-handler'
 
-function flattenTree(items: TreeItem[]): NoteMeta[] {
-  const notes: NoteMeta[] = []
-  for (const item of items) {
-    if ('type' in item && item.type === 'folder') {
-      notes.push(...flattenTree(item.children))
-    } else {
-      notes.push(item as NoteMeta)
+function buildTree(items: NoteMeta[], newlyCreatedIds: Set<string> = new Set()): TreeItem[] {
+  const root: TreeItem[] = []
+  const folderMap = new Map<string, TreeItem>()
+
+  // 1. Create a map of all folders first
+  items.forEach(item => {
+    if (item.type === 'folder') {
+      const folderItem: TreeItem = {
+        ...item,
+        children: []
+      }
+      folderMap.set(folderItem.id, folderItem)
     }
+  })
+
+  // 2. Process all items and attach to parents
+  items.forEach(item => {
+    const type = item.type || 'note'
+    const treeItem: TreeItem = type === 'folder' 
+      ? folderMap.get(item.id)! 
+      : { ...item, type, children: [] }
+
+    let parentPath = ''
+    if (type === 'folder') {
+      const p = item.path || ''
+      const lastSlash = Math.max(p.lastIndexOf('/'), p.lastIndexOf('\\'))
+      parentPath = lastSlash > -1 ? p.substring(0, lastSlash) : ''
+    } else {
+      parentPath = item.path || ''
+    }
+    
+    if (parentPath === '') {
+      root.push(treeItem)
+    } else if (folderMap.has(parentPath)) {
+      folderMap.get(parentPath)!.children?.push(treeItem)
+    } else {
+      root.push(treeItem)
+    }
+  })
+
+  // 3. Sort recursively
+  const sortFn = (a: TreeItem, b: TreeItem) => {
+    // Priority for newly created items to appear at the top
+    const aNew = newlyCreatedIds.has(a.id)
+    const bNew = newlyCreatedIds.has(b.id)
+    if (aNew && !bNew) return -1
+    if (!aNew && bNew) return 1
+
+    if (a.type !== b.type) {
+      return a.type === 'folder' ? -1 : 1
+    }
+    return (a.title || a.id || '').localeCompare(b.title || b.id || '')
   }
-  return notes
+
+  const sortRecursive = (list: TreeItem[]) => {
+    list.sort(sortFn)
+    list.forEach(i => {
+      if (i.children && i.children.length > 0) {
+        sortRecursive(i.children)
+      }
+    })
+  }
+
+  sortRecursive(root)
+  return root
 }
 
 class App {
@@ -40,10 +90,11 @@ class App {
   private tabBar: TabBar
   private editor: EditorComponent
   private statusBar: StatusBar
-  private settingsPanel: SettingsPanel
+  private settingsView: SettingsView
   private themeModal: ThemeModal
   private fuzzyFinder: FuzzyFinder
   private graphView: GraphView
+  private newlyCreatedNoteIds = new Set<string>()
 
   constructor() {
     this.activityBar = new ActivityBar('activityBar')
@@ -51,7 +102,7 @@ class App {
     this.tabBar = new TabBar('tabBar')
     this.editor = new EditorComponent('editorContainer')
     this.statusBar = new StatusBar('statusBar')
-    this.settingsPanel = new SettingsPanel('settingsPanel')
+    this.settingsView = new SettingsView('settingsHost')
     this.themeModal = new ThemeModal('app') // Mount to app container
     this.fuzzyFinder = new FuzzyFinder('app')
     this.graphView = new GraphView() // Mount to app container
@@ -59,27 +110,33 @@ class App {
     this.registerGlobalShortcuts()
     this.registerVaultChangeListener()
     this.setupMobileEvents()
+    
+    // Ensure editor resizes correctly when window size changes
+    window.addEventListener('resize', () => {
+      this.editor.layout()
+    })
   }
 
   private setupMobileEvents(): void {
-    const handleCheck = () => {
+    const handleCheck = (): void => {
       const isSmall = window.matchMedia('(max-width: 800px)').matches
       const shell = document.querySelector('.vscode-shell')
       
-      // Auto-close if resizing to small and sidebar is open
-      if (isSmall && shell && !shell.classList.contains('sidebar-hidden')) {
-        this.sidebar.hide()
+      if (!shell) return
+
+      if (isSmall) {
+        shell.classList.add('sidebar-hidden')
       }
+      // Do NOT auto-open on large screens. Let the user decide.
     }
 
-    // Check on resize
-    window.addEventListener('resize', () => {
-       handleCheck()
-    })
-    
-    // Check on load
+    // Run once on init
     handleCheck()
 
+    // Check on resize
+    window.addEventListener('resize', handleCheck)
+
+    // Close sidebar when clicking outside on mobile
     document.addEventListener('click', (e) => {
       // Only run on mobile/small screens
       if (!window.matchMedia('(max-width: 800px)').matches) return
@@ -103,7 +160,7 @@ class App {
     // Activity bar handlers
     this.activityBar.setViewChangeHandler((view) => {
       if (view === 'settings') {
-        this.settingsPanel.open()
+        void this.openSettings()
         return
       }
       if (view === 'theme') {
@@ -115,6 +172,19 @@ class App {
         return
       }
       this.sidebar.setVisible(view === 'notes')
+      
+      // Trigger editor layout to follow the sidebar transition
+      // We do this multiple times over the 200ms transition for smoothness
+      const startTime = Date.now()
+      const duration = 250 // slightly longer than 200ms transition
+      const layoutLoop = () => {
+          this.editor.layout()
+          if (Date.now() - startTime < duration) {
+              requestAnimationFrame(layoutLoop)
+          }
+      }
+      requestAnimationFrame(layoutLoop)
+      
       // TODO: Handle search view if different pane
     })
 
@@ -147,10 +217,26 @@ class App {
         }
     })
 
-    // TabBar handlers
-    this.tabBar.setTabSelectHandler((id) => void this.openNoteFromTab(id))
+    // Tab handlers
+    this.tabBar.setTabSelectHandler(async (id) => {
+        if (id === 'settings') {
+            await this.openSettings()
+        } else {
+            const tab = state.openTabs.find(t => t.id === id)
+            if (tab) await this.openNote(tab.id, tab.path)
+        }
+    })
     this.tabBar.setTabCloseHandler((id) => void this.closeTab(id))
     this.tabBar.setTabContextMenuHandler((id, e) => this.handleTabContextMenu(id, e))
+
+    this.settingsView.setSettingChangeHandler((newSettings) => {
+        if (state.settings) {
+            state.settings = { ...state.settings, ...newSettings }
+            this.editor.applySettings(state.settings)
+            void window.api.updateSettings(newSettings as any)
+            this.statusBar.setStatus('Settings auto-saved')
+        }
+    })
 
     // Editor handlers
     this.editor.setContentChangeHandler(() => {
@@ -174,14 +260,6 @@ class App {
         }
     })
     this.editor.attachKeyboardShortcuts()
-
-    // ... existing settings handlers ... 
-    this.settingsPanel.setSettingChangeHandler((settings) => {
-      if (settings.theme) {
-        themeManager.setTheme(settings.theme)
-      }
-      this.editor.applySettings(settings)
-    })
 
     this.themeModal.setThemeChangeHandler((themeId) => {
       this.editor.applySettings({ ...state.settings, theme: themeId })
@@ -314,6 +392,18 @@ class App {
         state.pinnedTabs.delete(id)
     }
     
+    const tab = state.openTabs.find(t => t.id === id);
+    if (tab && (this.newlyCreatedNoteIds.has(id) || this.newlyCreatedNoteIds.has(tab.id))) {
+        console.log(`[App] Cleaning up unused new note: ${id}`)
+        try {
+            await window.api.deleteNote(id, tab.path)
+            this.newlyCreatedNoteIds.delete(id)
+            await this.refreshNotes()
+        } catch (e) {
+            console.error('[App] Failed to cleanup new note', e)
+        }
+    }
+
     state.openTabs = state.openTabs.filter((tab) => tab.id !== id)
 
     if (wasActive) {
@@ -330,6 +420,7 @@ class App {
     }
 
     this.tabBar.render()
+    this.updateViewVisibility() // Added
     void this.persistWorkspace()
   }
   private registerVaultChangeListener(): void {
@@ -346,37 +437,60 @@ class App {
       }) as EventListener
     )
 
-    window.addEventListener('item-rename', ((event: CustomEvent) => {
+    window.addEventListener('item-rename', (async (event: CustomEvent) => {
       const { id, type, newTitle } = event.detail
-      if (type === 'note') {
-        void this.renameNote(id, newTitle)
-      } else if (type === 'folder') {
-        void this.renameFolder(id, newTitle)
-      }
-    }) as EventListener)
-  }
-
-  private async renameFolder(id: string, newName: string): Promise<void> {
-      const findFolder = (items: TreeItem[]): any => {
-          for (const item of items) {
-              if ('type' in item && item.type === 'folder') {
-                  if (item.id === id) return item
-                  const found = findFolder(item.children)
-                  if (found) return found
-              }
-          }
-          return null
-      }
-      
-      const folder = findFolder(state.tree)
-      if (!folder) {
-          console.error("Folder not found", id)
+      if (id === newTitle || !newTitle.trim()) {
+          this.statusBar.setStatus('Rename cancelled')
+          await this.refreshNotes()
           return
       }
       
       try {
-          await window.api.renameFolder(folder.path, newName)
+          // If the folder/note with same name already exists, show error clearly
+          if (type === 'folder') {
+              await this.renameFolder(id, newTitle)
+          } else {
+              await this.renameNote(id, newTitle)
+          }
+      } catch (err) {
+          const message = (err as Error).message
+          this.statusBar.setStatus(`Failed: ${message}`)
+          await this.refreshNotes()
+      }
+    }) as unknown as EventListener)
+  }
+
+  private async renameFolder(id: string, newName: string): Promise<void> {
+      const oldPath = id
+
+      try {
+          const result = await window.api.renameFolder(oldPath, newName)
+          const actualNewPath = result.path
+          
+          // Update expandedFolders to prevent collapse
+          if (state.expandedFolders.has(oldPath)) {
+              state.expandedFolders.delete(oldPath)
+              state.expandedFolders.add(actualNewPath)
+          }
+
+          // Update any open tabs that might be inside this folder
+          state.openTabs = state.openTabs.map(tab => {
+              if (tab.path === oldPath || tab.path?.startsWith(oldPath + '/')) {
+                  const newTabPath = tab.path.replace(oldPath, actualNewPath)
+                  // Note IDs are path-based, so they also need updating
+                  const newId = tab.id.startsWith(oldPath) ? tab.id.replace(oldPath, actualNewPath) : tab.id
+                  
+                  if (state.activeId === tab.id) {
+                      state.activeId = newId
+                  }
+                  
+                  return { ...tab, id: newId, path: newTabPath }
+              }
+              return tab
+          })
+
           this.statusBar.setStatus(`Renamed folder to ${newName}`)
+          await this.saveExpandedFolders()
           await this.refreshNotes()
       } catch (error) {
           console.error('Failed to rename folder', error)
@@ -458,7 +572,7 @@ class App {
           { separator: true },
           {
                 label: 'Knowledge Graph',
-                keybinding: 'Ctrl+G',
+                keybinding: 'Alt+G',
                 onClick: () => this.graphView.open()
           }
       ])
@@ -475,14 +589,37 @@ class App {
           // return the live content instead of reading stale data from disk.
           if (note.id === state.activeId && this.editor) {
               const content = this.editor.getValue()
-              const snippet = content.replace(/^<!--\s*.+?\s*-->\n?/, '').substring(0, 1000).trim()
+              // Sanitize content for preview
+              const clean = content
+                  .replace(/^---\n[\s\S]*?\n---\n/, '') // Frontmatter
+                  .replace(/<!--[\s\S]*?-->/g, '') // Comments
+                  .replace(/#+\s/g, '') // Headers
+                  .replace(/\[\[([^\]|]+)\|?.*?\]\]/g, '$1') // WikiLinks
+                  .replace(/\[([^\]]+)\]\(.*?\)/g, '$1') // Markdown Links
+                  .replace(/(\*\*|__)(.*?)\1/g, '$2') // Bold
+                  .replace(/(\*|_)(.*?)\1/g, '$2') // Italic
+                  .replace(/`{3}[\s\S]*?`{3}/g, '[Code]') // Code blocks
+                  .replace(/`/g, '') // Inline code
+              
+              const snippet = clean.substring(0, 1000).trim()
               return snippet + (content.length > 1000 ? '...' : '') || '(Empty unsaved note)'
           }
 
           try {
               const loaded = await window.api.loadNote(note.id, note.path)
               if (loaded && loaded.content && loaded.content.trim()) {
-                  const snippet = loaded.content.substring(0, 1000).trim()
+                  const clean = loaded.content
+                  .replace(/^---\n[\s\S]*?\n---\n/, '')
+                  .replace(/<!--[\s\S]*?-->/g, '')
+                  .replace(/#+\s/g, '')
+                  .replace(/\[\[([^\]|]+)\|?.*?\]\]/g, '$1')
+                  .replace(/\[([^\]]+)\]\(.*?\)/g, '$1')
+                  .replace(/(\*\*|__)(.*?)\1/g, '$2')
+                  .replace(/(\*|_)(.*?)\1/g, '$2')
+                  .replace(/`{3}[\s\S]*?`{3}/g, '[Code]')
+                  .replace(/`/g, '')
+
+                  const snippet = clean.substring(0, 1000).trim()
                   return snippet + (loaded.content.length > 1000 ? '...' : '')
               }
               return '(Note is empty)'
@@ -539,7 +676,7 @@ class App {
 
   private registerGlobalShortcuts(): void {
     keyboardManager.register({
-       key: 'Control+g',
+       key: 'Alt+g',
        scope: 'global',
        description: 'Open Knowledge Graph',
        handler: () => {
@@ -658,7 +795,10 @@ class App {
       
       if (noteToOpen) {
           await this.openNote(noteToOpen.id, noteToOpen.path)
-      } else {
+      } else if (toOpen === 'settings') { // Handle settings tab restore
+          await this.openSettings()
+      }
+      else {
           console.warn(`[App] Failed to find note to restore: ${toOpen}. Showing first.`)
           if (state.notes.length > 0) await this.openNote(state.notes[0].id)
           else this.editor.showEmpty()
@@ -674,6 +814,7 @@ class App {
     }
     
     this.tabBar.render()
+    this.updateViewVisibility() // Added
     console.log('[App] Init complete')
     document.body.classList.remove('is-loading')
 
@@ -726,6 +867,7 @@ class App {
         this.statusBar.setStatus('Empty vault')
         this.statusBar.setMeta('Create a note to begin')
       }
+      this.updateViewVisibility() // Added
 
       this.statusBar.setMeta(`📁 ${info.path}`)
     } catch (error) {
@@ -737,45 +879,84 @@ class App {
   }
 
   private async openSettings(): Promise<void> {
-    if (!state.settings) return
-
-    this.settingsPanel.setSettingChangeHandler(() => {
-      this.editor.applySettings(state.settings || {})
-      this.statusBar.setStatus('Settings saved')
+    state.activeId = 'settings'
+    
+    // Ensure "Settings" tab exists
+    state.openTabs = ensureTab(state.openTabs, {
+        id: 'settings',
+        title: 'Settings',
+        updatedAt: 0
     })
+    state.openTabs = sortTabs(state.openTabs, state.pinnedTabs)
+    
+    this.tabBar.render()
+    this.updateViewVisibility()
+    this.settingsView.update()
+    this.statusBar.setStatus('Settings Editor')
+  }
 
-    this.settingsPanel.open()
+  private updateViewVisibility(): void {
+      const editorCont = document.getElementById('editorContainer')
+      const settingsHost = document.getElementById('settingsHost')
+      
+      if (state.activeId === 'settings') {
+          if (editorCont) editorCont.style.display = 'none'
+          if (settingsHost) settingsHost.style.display = 'flex'
+      } else {
+          if (editorCont) editorCont.style.display = 'flex'
+          if (settingsHost) settingsHost.style.display = 'none'
+          this.editor.layout() // Recalculate layout when coming back
+      }
   }
 
   private async refreshNotes(): Promise<void> {
-    state.tree = await window.api.listNotes()
-    state.notes = flattenTree(state.tree)
+    const rawNotes = await window.api.listNotes()
+    state.tree = buildTree(rawNotes, this.newlyCreatedNoteIds)
+    // Keep state.notes as flat list of notes (excluding folders) for search/fuzz
+    state.notes = rawNotes.filter(n => n.type !== 'folder')
+    
     sortNotes(state.notes)
+    
+    // Ensure active note metadata is fresh
+    if (state.activeId && state.activeId !== 'settings') {
+        const found = state.notes.find(n => n.id === state.activeId)
+        if (!found) {
+             // Note might have been deleted or moved outside?
+        }
+    }
+    
+    // Sync tabs
     state.openTabs = syncTabsWithNotes(state.openTabs, state.notes)
     state.openTabs = sortTabs(state.openTabs, state.pinnedTabs)
+
     this.sidebar.renderTree(this.sidebar.getSearchValue())
     this.tabBar.render()
   }
 
   private async createNote(title?: string, path?: string): Promise<void> {
     const meta = await window.api.createNote(title || '', path)
-    state.tree = await window.api.listNotes()
-    state.notes = flattenTree(state.tree)
-    sortNotes(state.notes)
-    state.openTabs = ensureTab(state.openTabs, meta)
-    state.openTabs = sortTabs(state.openTabs, state.pinnedTabs)
-    this.sidebar.renderTree(this.sidebar.getSearchValue())
-    this.tabBar.render()
-    await this.openNote(meta.id, meta.path)
+    this.newlyCreatedNoteIds.add(meta.id)
+    
+    // Ensure parent folder is expanded
+    if (path) {
+        state.expandedFolders.add(path)
+    }
+
+    await this.refreshNotes()
+    
+    this.statusBar.setStatus(`Created note "${meta.title}"`)
     void this.persistWorkspace()
+
+    // Start rename in sidebar
+    setTimeout(() => {
+        this.sidebar.startRename(meta.id)
+    }, 100)
   }
 
   private async openNote(id: string, path?: string, focusTarget: 'editor' | 'sidebar' | 'none' = 'editor'): Promise<void> {
-    const isMobile = window.matchMedia('(max-width: 900px)').matches
-    if (isMobile) {
-      this.sidebar.hide()
-    }
-
+    // We no longer automatically hide the sidebar on mobile here.
+    // The user can explicitly close it or we can close it when they focus the editor.
+    
     const note = await window.api.loadNote(id, path)
     if (!note) {
       console.warn(`[App] Note ${id} not found at ${path}. Refreshing...`)
@@ -801,6 +982,7 @@ class App {
     }
 
     await this.editor.loadNote(note)
+    this.updateViewVisibility()
     this.statusBar.setStatus('Ready')
     this.statusBar.setMeta(`📁 ${state.vaultPath || ''}`)
     
@@ -839,7 +1021,7 @@ class App {
         currentPath = currentPath ? `${currentPath}-${part}` : part
         
         if (index < parts.length - 1 || isFolder) {
-            const folderId = `folder-${currentPath}`
+            const folderId = currentPath
             if (!state.expandedFolders.has(folderId)) {
                 state.expandedFolders.add(folderId)
                 changed = true
@@ -856,17 +1038,11 @@ class App {
     return false
   }
 
-  private async openNoteFromTab(id: string): Promise<void> {
-    const note = state.notes.find(n => n.id === id)
-    if (note) {
-      await this.openNote(note.id, note.path)
-    }
-  }
-
   private async saveNote(payload: NotePayload): Promise<void> {
     if (!state.activeId) return
 
     const meta = await window.api.saveNote(payload)
+    this.newlyCreatedNoteIds.delete(payload.id) // It's no longer "untouched"
     state.lastSavedAt = meta.updatedAt
     state.isDirty = false
 
@@ -889,16 +1065,24 @@ class App {
   }
   private async deleteNote(id: string, path?: string): Promise<void> {
     try {
-      await window.api.deleteNote(id, path)
-      
-      // Refresh tree
-      state.tree = await window.api.listNotes()
-      state.notes = flattenTree(state.tree)
+      // Optimistically update UI first for immediate feedback
+      const wasActive = state.activeId === id
       state.openTabs = state.openTabs.filter((t) => t.id !== id)
       state.pinnedTabs.delete(id)
+      
+      // Update UI immediately
+      this.tabBar.render()
+      
+      // Then delete from disk
+      await window.api.deleteNote(id, path)
+      
+      // Refresh tree from disk
+      const rawNotes = await window.api.listNotes()
+      state.tree = buildTree(rawNotes)
+      state.notes = rawNotes.filter(n => n.type !== 'folder')
 
       // If deleted note was active, switch to another
-      if (state.activeId === id) {
+      if (wasActive) {
         const fallback = state.openTabs[state.openTabs.length - 1] || state.notes[0]
         if (fallback) {
           await this.openNote(fallback.id, fallback.path)
@@ -911,57 +1095,35 @@ class App {
       }
 
       this.sidebar.renderTree(this.sidebar.getSearchValue())
-      this.tabBar.render()
       this.statusBar.setStatus('Note deleted')
     } catch (error) {
+      // If delete failed, refresh to restore correct state
+      await this.refreshNotes()
       this.statusBar.setStatus('Failed to delete note')
       console.error('Delete error:', error)
     }
   }
 
   private async createFolder(parentPath?: string): Promise<void> {
-    const header = this.createModalHeader('New Folder')
-    modalManager.open({
-      customHeader: header,
-      size: 'sm',
-      inputs: [
-        {
-          name: 'folderName',
-          label: 'Folder Name',
-          placeholder: 'Enter folder name',
-          value: '',
-          required: true
+    try {
+        const result = await window.api.createFolder('New Folder', parentPath)
+        
+        if (parentPath) {
+            state.expandedFolders.add(parentPath)
         }
-      ],
-      buttons: [
-        { label: 'Cancel', variant: 'ghost', onClick: (m) => m.close() },
-        {
-          label: 'Create',
-          variant: 'primary',
-          onClick: async (m) => {
-            const values = m.getValues()
-            const folderName = (values.folderName as string)?.trim()
-            if (!folderName) {
-              this.statusBar.setStatus('Folder name required')
-              return
-            }
 
-            try {
-              await window.api.createFolder(folderName, parentPath)
-              state.tree = await window.api.listNotes()
-              state.notes = flattenTree(state.tree)
-              this.sidebar.renderTree(this.sidebar.getSearchValue())
-              this.statusBar.setStatus(`Created folder "${folderName}"`)
-              m.close()
-            } catch (error) {
-              const message = (error as Error).message || 'Unknown error'
-              this.statusBar.setStatus(`Failed: ${message}`)
-              console.error('Folder creation failed:', error)
-            }
-          }
-        }
-      ]
-    })
+        await this.refreshNotes()
+        this.statusBar.setStatus(`Created folder "${result.name}"`)
+
+        // Start rename in sidebar
+        setTimeout(() => {
+            this.sidebar.startRename(result.path)
+        }, 100)
+    } catch (error) {
+        const message = (error as Error).message || 'Unknown error'
+        this.statusBar.setStatus(`Failed: ${message}`)
+        console.error('Folder creation failed:', error)
+    }
   }
 
   private async promptRenameActiveNote(): Promise<void> {
@@ -1060,26 +1222,24 @@ class App {
     const newId = newTitle.trim().replace(/[<>:"/\\|?*]/g, '-')
     if (noteId === newId) return;
 
+    this.newlyCreatedNoteIds.delete(noteId) // Rename counts as interacting
+
     try {
         // 1. Rename on disk (changes ID)
         const newMeta = await (window.api as any).renameNote(noteId, newId, notePath)
-        
-        // 2. Update Backup links in other notes
-        if (typeof window.api.updateBacklinks === 'function') {
-             await window.api.updateBacklinks(noteId, newId)
-        }
-        
+        const actualNewId = newMeta.id
+
         // 3. Update state.openTabs (manually update the ID so sync doesn't filter it)
         state.openTabs = state.openTabs.map(tab => {
             if (tab.id === noteId) {
-                return { ...tab, id: newId, title: newTitle }
+                return { ...tab, id: actualNewId, title: newTitle, path: newMeta.path }
             }
             return tab
         })
 
         // 4. Update activeId if needed
         if (isActive) {
-            state.activeId = newId
+            state.activeId = actualNewId
         }
 
         // 5. Refresh from disk
@@ -1087,7 +1247,10 @@ class App {
         
         // 6. Re-open to ensure editor is synced with new ID
         if (isActive) {
-             await this.openNote(newId, newMeta.path)
+             state.isDirty = false 
+             await this.openNote(actualNewId, newMeta.path)
+        } else {
+             this.tabBar.render()
         }
         
         this.statusBar.setStatus(`Renamed to "${newTitle}"`)
@@ -1138,6 +1301,13 @@ class App {
         void this.openNote(note.id, note.path)
         return
       }
+    }
+
+    // Ignore internal folder drags from sidebar
+    // External paths are absolute (C:\... or /...), internal are relative
+    if (!isFile && path && !path.match(/^[a-zA-Z]:[\\\/]|^[\\\/]/)) {
+      // This is an internal folder drag - ignore it (handled by sidebar)
+      return
     }
 
     if (isFile) {
@@ -1197,6 +1367,7 @@ class App {
   }
 }
 
+ErrorHandler.init()
 window.addEventListener('DOMContentLoaded', () => {
   const app = new App()
   void app.init()

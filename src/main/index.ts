@@ -1,39 +1,14 @@
 import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
-import { join, basename, dirname, normalize } from 'path'
-import { mkdir, readdir, readFile, rm, stat, writeFile, access, rename } from 'fs/promises'
-import { existsSync, readFileSync, writeFileSync } from 'fs'
-import { randomUUID } from 'crypto'
+import { join, basename } from 'path'
+import { writeFile, mkdir } from 'fs/promises'
+import { existsSync, readFileSync, writeFileSync, mkdirSync, cpSync, readdirSync } from 'fs'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 
 import icon from '../../resources/icon.png?asset'
 
-type NoteMeta = {
-  id: string
-  title: string
-  updatedAt: number
-  path?: string // relative path from vault root
-}
+import { vault } from './vault'
+import type { NotePayload } from './vault'
 
-type NotePayload = NoteMeta & {
-  content: string
-}
-
-type FolderItem = {
-  id: string
-  name: string
-  type: 'folder'
-  path: string
-  children: (FolderItem | NoteMeta)[]
-  collapsed?: boolean
-}
-
-const NOTE_EXTENSION = '.md'
-const NOTE_EXTENSIONS = ['.md', '.txt']
-function isNoteFile(filename: string): boolean {
-    const lower = filename.toLowerCase()
-    return NOTE_EXTENSIONS.some(ext => lower.endsWith(ext))
-}
-let notesDir = ''
 let mainWindowRef: BrowserWindow | null = null
 const settingsFile = join(app.getPath('userData'), 'settings.json')
 
@@ -76,11 +51,8 @@ function loadSettings(): Settings {
     
     const raw = readFileSync(settingsFile, 'utf-8')
     const loaded = JSON.parse(raw) as Partial<Settings>
-    
-    // Merge with defaults to ensure all keys exist
     const merged: Settings = { ...DEFAULT_SETTINGS, ...loaded }
     
-    // Validate and sanitize values
     if (merged.autoSaveDelay && (merged.autoSaveDelay < 100 || merged.autoSaveDelay > 5000)) {
       merged.autoSaveDelay = DEFAULT_SETTINGS.autoSaveDelay
     }
@@ -89,13 +61,8 @@ function loadSettings(): Settings {
       merged.fontSize = DEFAULT_SETTINGS.fontSize
     }
     
-    if (!merged.recentVaults) {
-      merged.recentVaults = []
-    }
-    
-    if (!merged.expandedFolders) {
-      merged.expandedFolders = []
-    }
+    if (!merged.recentVaults) merged.recentVaults = []
+    if (!merged.expandedFolders) merged.expandedFolders = []
     
     return merged
   } catch (error) {
@@ -123,11 +90,7 @@ function updateSettings(updates: Partial<Settings>): Settings {
 function addRecentVault(path: string): void {
   const settings = loadSettings()
   const recents = settings.recentVaults || []
-  
-  // Remove if already exists
   const filtered = recents.filter((p) => p !== path)
-  
-  // Add to front, limit to 10
   settings.recentVaults = [path, ...filtered].slice(0, 10)
   saveSettings(settings)
 }
@@ -141,17 +104,54 @@ function isValidVaultPath(path: string): boolean {
   }
 }
 
+function migrateVaultContent(oldPath: string, newPath: string) {
+    if (!existsSync(oldPath)) return
+    if (!existsSync(newPath)) {
+        try {
+            mkdirSync(newPath, { recursive: true })
+        } catch (e) {
+             console.error('Failed to create new vault dir', e)
+             return
+        }
+    }
+    
+    try {
+        const files = readdirSync(newPath)
+        if (files.length > 0) {
+            console.warn('Target vault not empty, skipping migration')
+            return
+        }
+        console.log(`Migrating vault from ${oldPath} to ${newPath}`)
+        cpSync(oldPath, newPath, { recursive: true })
+    } catch (err) {
+        console.error('Migration failed:', err)
+    }
+}
+
 function resolveVaultPath(): string {
   const settings = loadSettings()
-  const defaultPath = join(app.getPath('userData'), 'notes')
+  const defaultPath = join(app.getPath('documents'), 'KnowledgeHub')
+  const oldDefault = join(app.getPath('userData'), 'notes')
+  
+  if (settings.vaultPath === oldDefault) {
+      migrateVaultContent(oldDefault, defaultPath)
+      settings.vaultPath = undefined
+      saveSettings(settings)
+  }
   
   if (settings.vaultPath && isValidVaultPath(settings.vaultPath)) {
     return settings.vaultPath
   }
   
-  // Fallback: clear invalid path and use default
+  if (!existsSync(defaultPath)) {
+      try {
+          mkdirSync(defaultPath, { recursive: true })
+      } catch (e) {
+          console.error('Failed to create default notes dir', e)
+      }
+  }
+
   if (settings.vaultPath && settings.vaultPath !== defaultPath) {
-    console.warn('Configured vault path invalid, falling back to default')
     settings.vaultPath = undefined
     saveSettings(settings)
   }
@@ -159,64 +159,14 @@ function resolveVaultPath(): string {
   return defaultPath
 }
 
-function getNotePath(id: string, relativePath?: string): string {
-  if (relativePath) {
-    return join(notesDir, relativePath, `${id}${NOTE_EXTENSION}`)
-  }
-  return join(notesDir, `${id}${NOTE_EXTENSION}`)
-}
-
-function extractTitleFromContent(content: string): string {
-  // First check for HTML comment with title
-  const commentMatch = content.match(/^<!--\s*(.+?)\s*-->/)
-  if (commentMatch) {
-    return commentMatch[1].trim()
-  }
-  
-  // Fallback to first line H1
-  const firstLine = content.split(/\r?\n/)[0] ?? ''
-  const cleaned = firstLine.replace(/^#\s*/, '').trim()
-  return cleaned.length > 0 ? cleaned : 'Untitled note'
-}
-
-function normalizeTitle(raw: string | undefined | null): string {
-  const trimmed = (raw ?? '').trim()
-  return trimmed.length > 0 ? trimmed : 'Untitled note'
-}
-
-async function ensureNotesDir(): Promise<void> {
-  if (!notesDir) {
-    notesDir = resolveVaultPath()
-  }
-  await mkdir(notesDir, { recursive: true })
-}
-
-async function setVaultPath(dir: string): Promise<string> {
-  if (!dir || dir.trim().length === 0) {
-    throw new Error('Vault path cannot be empty')
-  }
-  
-  if (!existsSync(dir)) {
-    throw new Error('Selected folder does not exist')
-  }
-  
-  notesDir = dir
-  
-  updateSettings({ vaultPath: dir })
-  addRecentVault(dir)
-  
-  try {
-    await ensureNotesDir()
-  } catch (error) {
-    throw new Error(`Failed to access vault folder: ${(error as Error).message}`)
-  }
-  
-  return notesDir
+async function ensureVault() {
+    if (vault.getRootPath()) return
+    const path = resolveVaultPath()
+    await vault.setVaultPath(path)
 }
 
 async function chooseVault(): Promise<{ path: string; name: string; changed: boolean }> {
-  const currentPath = notesDir || resolveVaultPath()
-  
+  const currentPath = vault.getRootPath() || resolveVaultPath()
   const result = await dialog.showOpenDialog({
     title: 'Select Knowledge Hub Vault',
     properties: ['openDirectory', 'createDirectory'],
@@ -229,547 +179,30 @@ async function chooseVault(): Promise<{ path: string; name: string; changed: boo
   }
 
   const selected = result.filePaths[0]
-  
-  // No change if same folder selected
   if (selected === currentPath) {
     return { path: selected, name: basename(selected), changed: false }
   }
   
   try {
-    await setVaultPath(selected)
+    await vault.setVaultPath(selected)
+    updateSettings({ vaultPath: selected })
+    addRecentVault(selected)
     return { path: selected, name: basename(selected), changed: true }
   } catch (error) {
     throw new Error(`Cannot use selected folder: ${(error as Error).message}`)
   }
 }
 
-// Graph Index
-// Source ID -> Set of Target IDs
-const forwardIndex = new Map<string, Set<string>>()
-// Target ID -> Set of Source IDs
-const reverseIndex = new Map<string, Set<string>>()
-
-function extractLinks(content: string): string[] {
-  const regex = /\[\[(.*?)\]\]/g
-  const links: string[] = []
-  let match
-  while ((match = regex.exec(content)) !== null) {
-      const [target] = match[1].split('|')
-      links.push(target.trim())
-  }
-  return links
-}
-
-function updateLinkIndex(sourceId: string, links: string[]) {
-  // Clear old links from reverse index
-  const oldTargets = forwardIndex.get(sourceId)
-  if (oldTargets) {
-      for (const target of oldTargets) {
-          const sources = reverseIndex.get(target)
-          if (sources) {
-              sources.delete(sourceId)
-          }
-      }
-  }
-
-  // Update forward index
-  const newTargets = new Set(links)
-  forwardIndex.set(sourceId, newTargets)
-
-  // Update reverse index
-  for (const target of newTargets) {
-      if (!reverseIndex.has(target)) {
-          reverseIndex.set(target, new Set())
-      }
-      reverseIndex.get(target)!.add(sourceId)
-  }
-}
-
-async function searchNotes(query: string): Promise<NoteMeta[]> {
-    if (!query) return []
-    const lowerQuery = query.toLowerCase()
-    
-    // Naive search: iterate all notes in forwardIndex keys?
-    // forwardIndex covers all SCANNED notes.
-    // But we need Title and Path.
-    // Index doesn't store metadata.
-    // We should probably rely on re-scanning or caching metadata?
-    // listNotes returns everything. Renderer handles Title search.
-    // User wants CONTENT search.
-    // We need to read files. 
-    // To be fast, we can cache content? No, memory usage.
-    // We iterate files.
-    
-    const matches: NoteMeta[] = []
-    
-    async function scan(dir: string) {
-        const entries = await readdir(dir, { withFileTypes: true })
-        for (const entry of entries) {
-            const fullPath = join(dir, entry.name)
-            if (entry.isDirectory()) {
-                await scan(fullPath)
-            } else if (entry.isFile() && entry.name.endsWith(NOTE_EXTENSION)) {
-                const content = await readFile(fullPath, 'utf-8')
-                if (content.toLowerCase().includes(lowerQuery)) {
-                    const id = entry.name.slice(0, -NOTE_EXTENSION.length)
-                    const stats = await stat(fullPath)
-                    matches.push({
-                        id,
-                        title: extractTitleFromContent(content),
-                        updatedAt: stats.mtimeMs,
-                        path: undefined // TODO: relative path
-                    })
-                }
-            }
-        }
-    }
-    
-    // This assumes recursive scan.
-    // `scanFolder` does this but constructs tree.
-    // Let's use `scanFolder` logic but optimized for search?
-    // Actually, renderer can just use `listNotes` to get ID list, 
-    // but reading content for 1000 notes in Renderer is bad.
-    // Search MUST be in Main.
-    await scan(notesDir)
-    return matches
-}
-
-async function scanFolder(
-  folderPath: string,
-  relativePath = ''
-): Promise<(FolderItem | NoteMeta)[]> {
-  const items: (FolderItem | NoteMeta)[] = []
-  
-  try {
-    const entries = await readdir(folderPath, { withFileTypes: true })
-    
-    for (const entry of entries) {
-      const fullPath = join(folderPath, entry.name)
-      const stats = await stat(fullPath)
-
-      if (stats.isDirectory()) {
-          const subPath = relativePath ? join(relativePath, entry.name) : entry.name
-          const children = await scanFolder(fullPath, subPath)
-          items.push({
-            id: `folder-${subPath.replace(/[\\/]/g, '-')}`,
-            name: entry.name,
-            type: 'folder',
-            path: subPath,
-            children,
-            collapsed: false
-          })
-      } else if (stats.isFile() && isNoteFile(entry.name)) {
-          // Strip extension
-          let id = entry.name;
-          const ext = NOTE_EXTENSIONS.find(e => entry.name.toLowerCase().endsWith(e));
-          if (ext) id = entry.name.slice(0, -ext.length);
-          
-          const content = await readFile(fullPath, 'utf-8')
-          const links = extractLinks(content)
-          updateLinkIndex(id, links)
-          
-          items.push({
-            id,
-            title: extractTitleFromContent(content),
-            updatedAt: stats.mtimeMs,
-            path: relativePath || undefined
-          })
-      }
-    }
-  } catch (error) {
-    console.error('Error scanning folder:', folderPath, error)
-  }
-  
-  return items
-}
-
-async function listNotes(): Promise<(FolderItem | NoteMeta)[]> {
-  await ensureNotesDir()
-  return await scanFolder(notesDir)
-}
-
-async function loadNote(id: string, relativePath?: string): Promise<NotePayload | null> {
-  await ensureNotesDir()
-  
-  // Resolve which extension it actually has
-  let fullPath = '';
-  for (const ext of NOTE_EXTENSIONS) {
-      const p = relativePath ? join(notesDir, relativePath, `${id}${ext}`) : join(notesDir, `${id}${ext}`);
-      if (existsSync(p)) {
-          fullPath = p;
-          break;
-      }
-  }
-
-  if (!fullPath || !existsSync(fullPath)) return null
-
-  const stats = await stat(fullPath)
-  if (!stats.isFile()) {
-    console.warn(`[Main] Requested note ${fullPath} is not a file (EISDIR safety).`)
-    return null
-  }
-
-  const rawContent = await readFile(fullPath, 'utf-8')
-  
-  // Strip title comment if present
-  const content = rawContent.replace(/^<!--\s*.+?\s*-->\n?/, '')
-  
-  return {
-    id,
-    title: extractTitleFromContent(rawContent),
-    content,
-    updatedAt: stats.mtimeMs,
-    path: relativePath
-  }
-}
-
-async function updateBacklinks(oldId: string, newId: string): Promise<void> {
-    console.log(`[Main] updateBacklinks: "${oldId}" -> "${newId}"`);
-    await ensureNotesDir();
-    
-    let processedCount = 0;
-    let updatedCount = 0;
-
-    async function processDirectory(dirPath: string): Promise<void> {
-        const entries = await readdir(dirPath);
-        for (const entryName of entries) {
-            const fullPath = join(dirPath, entryName);
-            try {
-                const stats = await stat(fullPath);
-                if (stats.isDirectory()) {
-                    await processDirectory(fullPath);
-                } else if (stats.isFile() && isNoteFile(entryName)) {
-                    processedCount++;
-                    let content = await readFile(fullPath, 'utf-8');
-                    
-                    const escapedOld = oldId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                    const regex = new RegExp(`\\[\\[${escapedOld}(\\|.*?)?\\]\\]`, 'g');
-                    
-                    if (regex.test(content)) {
-                        console.log(`[Main] Updating links in: ${fullPath}`);
-                        content = content.replace(regex, (_match, alias) => {
-                            return `[[${newId}${alias || ''}]]`;
-                        });
-                        await writeFile(fullPath, content, 'utf-8');
-                        updatedCount++;
-                    }
-                }
-            } catch (e) {
-                console.warn(`[Main] Skipping "${fullPath}" during link update:`, (e as any).message);
-            }
-        }
-    }
-
-    try {
-        await processDirectory(notesDir);
-        console.log(`[Main] Backlink update complete. Scanned ${processedCount} notes, updated ${updatedCount} links.`);
-    } catch (error) {
-        console.error('[Main] Critical error during updateBacklinks:', error);
-    }
-}
-
-
-
-async function saveNote(payload: NotePayload): Promise<NoteMeta> {
-  const title = normalizeTitle(payload.title)
-  await ensureNotesDir()
-  
-  const fullPath = getNotePath(payload.id, payload.path)
-  const dir = join(fullPath, '..')
-  await mkdir(dir, { recursive: true })
-  
-  // Prepend title as HTML comment so it can be extracted on load
-  const contentWithTitle = `<!-- ${title} -->\n${payload.content}`
-  
-  await writeFile(fullPath, contentWithTitle, 'utf-8')
-  
-  // Update Graph Index
-  const links = extractLinks(payload.content)
-  updateLinkIndex(payload.id, links)
-  
-  const stats = await stat(fullPath)
-  return { id: payload.id, title, updatedAt: stats.mtimeMs, path: payload.path }
-}
-
-async function createNote(title?: string, relativePath?: string): Promise<NoteMeta> {
-  const safeTitle = normalizeTitle(title)
-  
-  // Use sanitized title as ID (filename) if provided, otherwise UUID
-  // This ensures [[My Note]] creates "My Note.md"
-  const shouldUseTitle = safeTitle !== 'Untitled note'
-  const id = shouldUseTitle ? safeTitle.replace(/[<>:"/\\|?*]/g, '-') : randomUUID()
-
-  const content = shouldUseTitle ? `<!-- ${safeTitle} -->\n` : ''
-  await ensureNotesDir()
-  
-  const fullPath = getNotePath(id, relativePath)
-  const dir = join(fullPath, '..')
-  await mkdir(dir, { recursive: true })
-  
-  // Check if exists to prevent overwrite?
-  // For now default to overwrite or handle gracefully? 
-  // If we overwrite, we lose data. Better to append number?
-  // Given user request "must save automatically set the name", implying creation.
-  // If exists, existing content is overwritten which is bad.
-  // Implementation of append number:
-  
-  let finalPath = fullPath
-  let finalId = id
-  let counter = 1
-  while (existsSync(finalPath)) {
-      finalId = `${id} ${counter}`
-      finalPath = getNotePath(finalId, relativePath)
-      counter++
-  }
-
-  await writeFile(finalPath, content, 'utf-8')
-  const stats = await stat(finalPath)
-  return { id: finalId, title: safeTitle, updatedAt: stats.mtimeMs, path: relativePath }
-}
-
-async function deleteNote(id: string, relativePath?: string): Promise<void> {
-  await ensureNotesDir()
-  await rm(getNotePath(id, relativePath), { force: true })
-}
-
-async function createFolder(
-  name: string,
-  parentPath = ''
-): Promise<{ name: string; path: string }> {
-  await ensureNotesDir()
-  const folderPath = parentPath ? join(notesDir, parentPath, name) : join(notesDir, name)
-  // Guard: prevent duplicate folders
-  if (existsSync(folderPath)) {
-    throw new Error('Folder already exists')
-  }
-  await mkdir(folderPath, { recursive: true })
-  const relativePath = parentPath ? join(parentPath, name) : name
-  return { name, path: relativePath }
-}
-
-async function deleteFolder(relativePath: string): Promise<void> {
-  await ensureNotesDir()
-  const folderPath = join(notesDir, relativePath)
-  await rm(folderPath, { recursive: true, force: true })
-}
-
-async function renameFolder(path: string, newName: string): Promise<{ path: string }> {
-  await ensureNotesDir()
-  const sourceFullPath = join(notesDir, path)
-  
-  // Calculate new path relative to parent
-  const parent = dirname(path)
-  // dirname of "A" is "."
-  let newPath = ''
-  if (parent === '.' || parent === '') {
-      newPath = newName
-  } else {
-      newPath = join(parent, newName)
-  }
-  
-  const targetFullPath = join(notesDir, newPath)
-  
-  if (path === newPath) return { path }
-  
-  // Check if target exists
-  try {
-      await access(targetFullPath)
-      throw new Error('Folder already exists') 
-  } catch (e: any) {
-      if (e.code !== 'ENOENT') throw e
-  }
-
-  await rename(sourceFullPath, targetFullPath)
-  return { path: newPath }
-}
-
-async function moveFolder(sourcePath: string, targetPath: string): Promise<{ path: string }> {
-  await ensureNotesDir()
-
-  const sourceFullPath = join(notesDir, sourcePath)
-  const targetFullPath = join(notesDir, targetPath)
-  
-  // RENAME LOGIC:
-  // If targetPath does NOT end with source folder name, and we are just renaming in place (same parent),
-  // then we should just rename.
-  // Actually, let's create a specific renameFolder function to avoid ambiguity.
-  // But strictly staying in this function:
-  
-  // Get folder name from source path
-  const folderName = basename(sourcePath)
-  const newFolderPath = join(targetFullPath, folderName)
-
-  // Check if source and target are the same
-  if (sourceFullPath === newFolderPath) {
-    return { path: join(targetPath, folderName) }
-  }
-
-  // Ensure target parent directory exists
-  await mkdir(dirname(newFolderPath), { recursive: true })
-
-  // Manual recursive copy then delete
-  const copyDir = async (src: string, dst: string): Promise<void> => {
-
-    await mkdir(dst, { recursive: true })
-    const files = await readdir(src)
-
-    for (const file of files) {
-      const srcFile = join(src, file)
-      const dstFile = join(dst, file)
-      const stats = await stat(srcFile)
-
-      if (stats.isDirectory()) {
-        await copyDir(srcFile, dstFile)
-      } else {
-        await writeFile(dstFile, await readFile(srcFile))
-      }
-    }
-  }
-
-  await copyDir(sourceFullPath, newFolderPath)
-  await rm(sourceFullPath, { recursive: true, force: true })
-
-  return { path: join(targetPath, folderName) }
-}
-
-async function renameNote(
-  oldId: string,
-  newId: string,
-  relativePath: string | undefined
-): Promise<NoteMeta> {
-  await ensureNotesDir()
-  
-  const oldPath = getNotePath(oldId, relativePath)
-  const newPath = getNotePath(newId, relativePath)
-  
-  const oldStats = await stat(oldPath)
-  if (!oldStats.isFile()) {
-      throw new Error(`Cannot rename "${oldId}": it is a directory.`)
-  }
-  if (oldPath === newPath) {
-    const stats = await stat(oldPath)
-    const content = await readFile(oldPath, 'utf-8')
-    return { id: oldId, title: extractTitleFromContent(content), updatedAt: stats.mtimeMs, path: relativePath }
-  }
-
-  if (existsSync(newPath)) {
-      throw new Error(`A note with the name "${newId}" already exists in this folder.`)
-  }
-  
-  await rename(oldPath, newPath)
-  
-  // Update title comment in content
-  let content = await readFile(newPath, 'utf-8')
-  const newComment = `<!-- ${newId} -->`
-  const hasComment = content.startsWith('<!--')
-  
-  if (hasComment) {
-      content = content.replace(/^<!--\s*.+?\s*-->/, newComment)
-  } else {
-      content = `${newComment}\n${content}`
-  }
-  
-  await writeFile(newPath, content, 'utf-8')
-  
-  const stats = await stat(newPath)
-  
-  return { 
-    id: newId, 
-    title: newId, // Use newId as title
-    updatedAt: stats.mtimeMs, 
-    path: relativePath 
-  }
-}
-
-async function moveNote(
-  id: string,
-  fromPath: string | undefined,
-  toPath: string | undefined
-): Promise<NoteMeta> {
-  await ensureNotesDir()
-  
-  const oldPath = getNotePath(id, fromPath)
-  const newPath = getNotePath(id, toPath)
-  
-  if (oldPath === newPath) {
-    const stats = await stat(oldPath)
-    const content = await readFile(oldPath, 'utf-8')
-    return { id, title: extractTitleFromContent(content), updatedAt: stats.mtimeMs, path: toPath }
-  }
-  
-  const newDir = join(newPath, '..')
-  await mkdir(newDir, { recursive: true })
-  
-  const content = await readFile(oldPath, 'utf-8')
-  await writeFile(newPath, content, 'utf-8')
-  await rm(oldPath, { force: true })
-  
-  const stats = await stat(newPath)
-  return { id, title: extractTitleFromContent(content), updatedAt: stats.mtimeMs, path: toPath }
-}
-
-async function importNote(externalFilePath: string, folderPath?: string): Promise<NoteMeta> {
-  const normalizedPath = normalize(externalFilePath)
-
-  // Verify file exists before trying to read
-  // This prevents ENOENT crashes if the path is malformed or file was moved
-  if (!existsSync(normalizedPath)) {
-    throw new Error(`File not found: ${normalizedPath}`)
-  }
-
-  await ensureNotesDir()
-  
-  // Read the external file
-  const content = await readFile(normalizedPath, 'utf-8')
-  
-  // Create a proper ID instead of relying on filename (since filename might conflict)
-  // But wait, the system relies on ID == Filename for some reason in getNotePath?
-  // getNotePath(id, path) uses `join(notesDir, path || '', `${id}${NOTE_EXTENSION}`)`
-  // So yes, ID must match filename logic.
-  
-  const fileName = basename(externalFilePath)
-  // const ext = fileName.match(/\.[^.]+$/)?.[0] || ''
-  
-  // If dragging .txt, convert to .md but keep original name content?
-  // Or just create a new ID if it conflicts?
-  // Current logic: fileName = nameWithoutExt + NOTE_EXTENSION
-  
-  let nameWithoutExt = fileName.replace(/\.[^.]+$/, '')
-  let id = nameWithoutExt
-  let targetFileName = id + NOTE_EXTENSION
-  let targetPath = folderPath ? join(notesDir, folderPath, targetFileName) : join(notesDir, targetFileName)
-  
-  // If file exists, try appending a number
-  let counter = 1
-  while (existsSync(targetPath)) {
-      id = `${nameWithoutExt} ${counter}`
-      targetFileName = id + NOTE_EXTENSION
-      targetPath = folderPath ? join(notesDir, folderPath, targetFileName) : join(notesDir, targetFileName)
-      counter++
-  }
-  
-  // Ensure directory exists
-  await mkdir(dirname(targetPath), { recursive: true })
-  
-  // Write the file
-  await writeFile(targetPath, content, 'utf-8')
-  
-  // Get stats
-  const stats = await stat(targetPath)
-  
-  return {
-    id,
-    title: extractTitleFromContent(content),
-    updatedAt: stats.mtimeMs,
-    path: folderPath
-  }
+function getVaultRoot() {
+  const root = vault.getRootPath()
+  if (!root) throw new Error('Vault not open')
+  return root
 }
 
 function createWindow(): void {
   const settings = loadSettings()
   const bounds = settings.windowBounds || { width: 1200, height: 800 }
   
-  // Create the browser window.
   const mainWindow = new BrowserWindow({
     width: bounds.width,
     height: bounds.height,
@@ -787,7 +220,6 @@ function createWindow(): void {
   })
   mainWindowRef = mainWindow
   
-  // Save window bounds on resize/move
   let boundsTimeout: NodeJS.Timeout
   mainWindow.on('resize', () => {
     clearTimeout(boundsTimeout)
@@ -807,6 +239,7 @@ function createWindow(): void {
 
   mainWindow.on('ready-to-show', () => {
     mainWindow.show()
+    vault.setMainWindow(mainWindow)
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
@@ -814,8 +247,6 @@ function createWindow(): void {
     return { action: 'deny' }
   })
 
-  // HMR for renderer base on electron-vite cli.
-  // Load the remote URL for development or the local html file for production.
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
@@ -823,69 +254,69 @@ function createWindow(): void {
   }
 }
 
-// This method will be called when Electron has finished
-// initialization and is ready to create browser windows.
-// Some APIs can only be used after this event occurs.
-app.whenReady().then(() => {
-  // Set app user model id for windows
+app.whenReady().then(async () => {
   electronApp.setAppUserModelId('com.electron')
 
-  // Default open or close DevTools by F12 in development
-  // and ignore CommandOrControl + R in production.
-  // see https://github.com/alex8088/electron-toolkit/tree/master/packages/utils
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)
   })
 
-  ipcMain.handle('notes:list', async () => listNotes())
-  ipcMain.handle('notes:load', async (_event, id: string, path?: string) => loadNote(id, path))
-  ipcMain.handle('notes:create', async (_event, title?: string, path?: string) =>
-    createNote(title, path)
-  )
-  ipcMain.handle('notes:save', async (_event, payload: NotePayload) => saveNote(payload))
-  ipcMain.handle('notes:delete', async (_event, id: string, path?: string) => {
-    await deleteNote(id, path)
+  ipcMain.handle('notes:list', async () => vault.getNotes())
+  ipcMain.handle('notes:load', async (_event, id: string) => vault.getNote(id))
+  ipcMain.handle('notes:create', async (_event, title?: string, path?: string) => {
+    await ensureVault()
+    return vault.createNote(title || 'Untitled', path)
+  })
+  ipcMain.handle('notes:save', async (_event, payload: NotePayload) => {
+     await ensureVault()
+     return vault.saveNote(payload.id, payload.content, payload.title)
+  })
+  ipcMain.handle('notes:delete', async (_event, id: string) => {
+    await ensureVault()
+    await vault.deleteNote(id)
     return { id }
   })
-  ipcMain.handle('notes:move', async (_event, id: string, fromPath?: string, toPath?: string) =>
-    moveNote(id, fromPath, toPath)
-  )
-  ipcMain.handle('notes:rename', async (_event, id: string, newId: string, path?: string) =>
-    renameNote(id, newId, path)
-  )
-  ipcMain.handle('notes:import', async (_event, filePath: string, folderPath?: string) =>
-    importNote(filePath, folderPath)
-  )
-  ipcMain.handle('assets:save', async (_event, buffer: ArrayBuffer, name: string) => {
-      await ensureNotesDir()
-      const assetsDir = join(notesDir, 'assets')
-      await mkdir(assetsDir, { recursive: true })
-      
-      const fileName = `${name}` 
-      // Ensure unique name?
-      // For now client provides timestamp
-      
-      const filePath = join(assetsDir, fileName)
-      await writeFile(filePath, Buffer.from(buffer))
-      return `assets/${fileName}`
+  ipcMain.handle('notes:move', async (_event, id: string, fromPath?: string, toPath?: string) => {
+    await ensureVault()
+    return vault.moveNote(id, fromPath, toPath) 
   })
-  ipcMain.handle('folder:create', async (_event, name: string, parentPath?: string) =>
-    createFolder(name, parentPath)
-  )
+  ipcMain.handle('notes:rename', async (_event, id: string, newId: string, path?: string) => {
+    await ensureVault()
+    const newName = await vault.renameNote(id, newId, path)
+    const note = await vault.getNote(newName)
+    return note
+  })
+  ipcMain.handle('notes:import', async (_event, filePath: string, folderPath?: string) => {
+    await ensureVault()
+    return vault.importNote(filePath, folderPath)
+  })
+  ipcMain.handle('folder:create', async (_event, name: string, parentPath?: string) => {
+    await ensureVault()
+    return vault.createFolder(name, parentPath)
+  })
   ipcMain.handle('folder:delete', async (_event, path: string) => {
-    await deleteFolder(path)
+    await ensureVault()
+    await vault.deleteFolder(path)
     return { path }
   })
   ipcMain.handle('folder:rename', async (_event, path: string, newName: string) => {
-      const res = await renameFolder(path, newName)
-      return res
+    await ensureVault()
+    return vault.renameFolder(path, newName)
   })
-  ipcMain.handle('folder:move', async (_event, sourcePath: string, targetPath: string) =>
-    moveFolder(sourcePath, targetPath)
-  )
+  ipcMain.handle('folder:move', async (_event, sourcePath: string, targetPath: string) => {
+    await ensureVault()
+    return vault.moveFolder(sourcePath, targetPath)
+  })
+
   ipcMain.handle('vault:get', async () => {
-    const path = notesDir || resolveVaultPath()
+    const path = vault.getRootPath() || resolveVaultPath()
     return { path, name: basename(path) }
+  })
+  
+  ipcMain.handle('vault:reveal', async () => {
+      let root = vault.getRootPath()
+      if (!root) root = resolveVaultPath()
+      if (root && existsSync(root)) await shell.openPath(root)
   })
   
   ipcMain.handle('vault:choose', async () => {
@@ -899,83 +330,71 @@ app.whenReady().then(() => {
   
   ipcMain.handle('vault:set', async (_event, dir: string) => {
     try {
-      const path = await setVaultPath(dir)
-      return { path, name: basename(path), changed: true }
+      await vault.setVaultPath(dir)
+      updateSettings({ vaultPath: dir })
+      addRecentVault(dir)
+      return { path: dir, name: basename(dir), changed: true }
     } catch (error) {
       console.error('Vault set error:', error)
       throw error
     }
   })
   
-  ipcMain.handle('notes:search', async (_event, query: string) => searchNotes(query))
+  ipcMain.handle('notes:search', async (_event, query: string) => vault.search(query))
+  ipcMain.handle('notes:getBacklinks', async (_event, id: string) => vault.getBacklinks(id))
+  ipcMain.handle('graph:get', async () => { return { links: vault.getAllLinks() } })
   
-  ipcMain.handle('notes:getBacklinks', async (_event, id: string) => {
-      const sources = reverseIndex.get(id)
-      return sources ? Array.from(sources) : []
-  })
-
-  ipcMain.handle('graph:get', async () => {
-      const links: { source: string; target: string }[] = []
-      for (const [source, targets] of forwardIndex.entries()) {
-          for (const target of targets) {
-              links.push({ source, target })
-          }
-      }
-      return { links }
+  ipcMain.handle('assets:save', async (_event, buffer: ArrayBuffer, name: string) => {
+      const root = getVaultRoot()
+      const assetsDir = join(root, 'assets')
+      await mkdir(assetsDir, { recursive: true })
+      const filePath = join(assetsDir, name)
+      await writeFile(filePath, Buffer.from(buffer))
+      return `assets/${name}`
   })
 
   ipcMain.handle('settings:get', async () => loadSettings())
-  ipcMain.handle('settings:update', async (_event, updates: Partial<Settings>) =>
-    updateSettings(updates)
-  )
+  ipcMain.handle('settings:update', async (_event, updates: Partial<Settings>) => updateSettings(updates))
   ipcMain.handle('settings:reset', async () => {
-    saveSettings(DEFAULT_SETTINGS)
-    return DEFAULT_SETTINGS
+      saveSettings(DEFAULT_SETTINGS)
+      return DEFAULT_SETTINGS
   })
 
-  // Window control IPC
-  ipcMain.handle('window:minimize', () => {
+  ipcMain.handle('window:minimize', async () => {
     const win = BrowserWindow.getFocusedWindow() || mainWindowRef
     win?.minimize()
   })
-  ipcMain.handle('window:maximize', () => {
+  ipcMain.handle('window:maximize', async () => {
     const win = BrowserWindow.getFocusedWindow() || mainWindowRef
-    if (win && !win.isMaximized()) win.maximize()
+    win?.maximize()
   })
-  ipcMain.handle('window:unmaximize', () => {
+  ipcMain.handle('window:unmaximize', async () => {
     const win = BrowserWindow.getFocusedWindow() || mainWindowRef
-    if (win && win.isMaximized()) win.unmaximize()
+    win?.unmaximize()
   })
-  ipcMain.handle('window:isMaximized', () => {
+  ipcMain.handle('window:isMaximized', async () => {
     const win = BrowserWindow.getFocusedWindow() || mainWindowRef
-    return win?.isMaximized() || false
+    return win?.isMaximized()
   })
-  ipcMain.handle('window:close', () => {
+  ipcMain.handle('window:close', async () => {
     const win = BrowserWindow.getFocusedWindow() || mainWindowRef
     win?.close()
   })
 
-  ipcMain.handle('notes:rename-links', async (_event, oldId: string, newId: string) => 
-     updateBacklinks(oldId, newId)
-  )
+  try {
+     const savedPath = resolveVaultPath()
+     await vault.setVaultPath(savedPath)
+  } catch (err) {
+      console.error('Failed to initialize vault:', err)
+  }
 
   createWindow()
 
   app.on('activate', function () {
-    // On macOS it's common to re-create a window in the app when the
-    // dock icon is clicked and there are no other windows open.
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
 })
 
-// Quit when all windows are closed, except on macOS. There, it's common
-// for applications and their menu bar to stay active until the user quits
-// explicitly with Cmd + Q.
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit()
-  }
+  if (process.platform !== 'darwin') app.quit()
 })
-
-// In this file you can include the rest of your app's specific main process
-// code. You can also put them in separate files and require them here.

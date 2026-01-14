@@ -6,18 +6,12 @@ type NoteMeta = {
   title: string
   updatedAt: number
   path?: string
-}
-
-type FolderItem = {
-  id: string
-  name: string
-  type: 'folder'
-  path: string
-  children: (FolderItem | NoteMeta)[]
+  type?: 'note' | 'folder'
+  children?: NoteMeta[]
   collapsed?: boolean
 }
 
-type TreeItem = FolderItem | NoteMeta
+type TreeItem = NoteMeta
 
 type NotePayload = NoteMeta & {
   content: string
@@ -67,8 +61,7 @@ const api = {
     ipcRenderer.invoke('assets:save', buffer, name),
   createFolder: (name: string, parentPath?: string): Promise<{ name: string; path: string }> =>
     ipcRenderer.invoke('folder:create', name, parentPath),
-  updateBacklinks: (oldId: string, newId: string): Promise<void> =>
-    ipcRenderer.invoke('notes:rename-links', oldId, newId),
+
   deleteFolder: (path: string): Promise<{ path: string }> =>
     ipcRenderer.invoke('folder:delete', path),
   renameFolder: (path: string, newName: string): Promise<{ path: string }> =>
@@ -78,6 +71,8 @@ const api = {
   getVault: (): Promise<VaultInfo> => ipcRenderer.invoke('vault:get'),
   chooseVault: (): Promise<VaultInfo> => ipcRenderer.invoke('vault:choose'),
   setVault: (dir: string): Promise<VaultInfo> => ipcRenderer.invoke('vault:set', dir),
+  revealVault: (): Promise<void> => ipcRenderer.invoke('vault:reveal'),
+
   
   searchNotes: (query: string): Promise<NoteMeta[]> => ipcRenderer.invoke('notes:search', query),
   getBacklinks: (id: string): Promise<string[]> => ipcRenderer.invoke('notes:getBacklinks', id),
@@ -93,7 +88,13 @@ const api = {
     unmaximize: (): Promise<void> => ipcRenderer.invoke('window:unmaximize'),
     isMaximized: (): Promise<boolean> => ipcRenderer.invoke('window:isMaximized'),
     close: (): Promise<void> => ipcRenderer.invoke('window:close')
-  }
+  },
+  onVaultChanged: (callback: (data: any) => void) => {
+    const subscription = (_event: any, data: any) => callback(data)
+    ipcRenderer.on('vault:changed', subscription)
+    return () => ipcRenderer.removeListener('vault:changed', subscription)
+  },
+  onNoteOpened: (_callback: (id: string) => void) => {} // Unused but maybe needed for typing
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

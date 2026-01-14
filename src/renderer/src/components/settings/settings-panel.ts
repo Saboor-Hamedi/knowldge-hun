@@ -7,7 +7,6 @@ import './settings-panel.css'
 export class SettingsPanel {
   private container: HTMLElement
   private isOpen = false
-  private originalSettings: AppSettings | null = null
   private currentSettings: Partial<AppSettings> = {}
   private onSettingChange?: (settings: Partial<AppSettings>) => void
 
@@ -25,7 +24,6 @@ export class SettingsPanel {
     if (!state.settings) return
 
     this.isOpen = true
-    this.originalSettings = { ...state.settings }
     this.currentSettings = { ...state.settings }
     this.updateUI()
     this.container.classList.add('settings-panel--open')
@@ -36,7 +34,6 @@ export class SettingsPanel {
     this.isOpen = false
     this.container.classList.remove('settings-panel--open')
     this.currentSettings = {}
-    this.originalSettings = null
   }
 
   private render(): void {

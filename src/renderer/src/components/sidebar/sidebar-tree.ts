@@ -116,6 +116,10 @@ export class SidebarTree {
     else this.hide()
   }
 
+  isEditing(): boolean {
+    return this.editingId !== null
+  }
+
   private render(): void {
     this.container.innerHTML = `
       <header class="sidebar__header">
@@ -128,6 +132,9 @@ export class SidebarTree {
           </button>
           <button class="sidebar__action" title="New Note (Ctrl+N)" data-action="new">
             ${codicons.add}
+          </button>
+          <button class="sidebar__action" title="Reveal in Explorer" data-action="reveal">
+            ${codicons.folderOpened}
           </button>
         </div>
       </header>
@@ -178,9 +185,7 @@ export class SidebarTree {
       if (!aIsFolder && bIsFolder) return 1
       
       // Then alphabetical
-      const aTitle = 'name' in a ? a.name : a.title
-      const bTitle = 'name' in b ? b.name : b.title
-      return aTitle.localeCompare(bTitle)
+      return a.title.localeCompare(b.title)
     })
   }
 
@@ -188,11 +193,12 @@ export class SidebarTree {
     const result: (FolderItem | NoteMeta)[] = []
     
     for (const item of items) {
-      if ('children' in item) {
+      if (item.type === 'folder') {
         // It's a folder
         const folder = item as FolderItem
-        const matchesSelf = folder.name.toLowerCase().includes(term)
-        const filteredChildren = this.filterTree(folder.children, term)
+        const matchesSelf = (folder.title || '').toLowerCase().includes(term)
+        const children = folder.children || []
+        const filteredChildren = this.filterTree(children, term)
         
         if (matchesSelf || filteredChildren.length > 0) {
           result.push({
@@ -202,7 +208,7 @@ export class SidebarTree {
         }
       } else {
         // It's a note
-        if (item.title.toLowerCase().includes(term)) {
+        if ((item.title || '').toLowerCase().includes(term)) {
           result.push(item)
         }
       }
@@ -213,7 +219,7 @@ export class SidebarTree {
 
   private renderItems(items: (FolderItem | NoteMeta)[], container: HTMLElement, depth: number): void {
     for (const item of items) {
-      if ('children' in item) {
+      if (item.type === 'folder') {
         this.renderFolder(item as FolderItem, container, depth)
       } else {
         this.renderNote(item as NoteMeta, container, depth)
@@ -245,11 +251,11 @@ export class SidebarTree {
     
     const icon = document.createElement('span')
     icon.className = 'tree-item__icon'
-    icon.innerHTML = getFolderIcon(folder.name)
+    icon.innerHTML = getFolderIcon(folder.title)
     
     const label = document.createElement('span')
     label.className = 'tree-item__label'
-    label.textContent = folder.name
+    label.textContent = folder.title
     label.dataset.itemId = folder.id
     
     el.appendChild(indent)
@@ -310,6 +316,8 @@ export class SidebarTree {
         this.onNoteCreate?.(this.selectedFolderPath || undefined)
       } else if (action === 'new-folder') {
         this.onFolderCreate?.(this.selectedFolderPath || undefined)
+      } else if (action === 'reveal') {
+        void window.api.revealVault()
       } else if (action === 'graph') {
         this.onGraphClick?.()
       }
@@ -496,7 +504,7 @@ export class SidebarTree {
       return
     }
 
-    if (item && item.dataset.type === 'folder' && item.dataset.id !== this.draggedItem.id) {
+    if (item && item.dataset.id !== this.draggedItem.id) {
       event.dataTransfer!.dropEffect = 'move'
       item.classList.add('drag-over')
     }
@@ -534,12 +542,15 @@ export class SidebarTree {
         return
       }
     } else {
-      if (folder.dataset.type !== 'folder') {
-        this.draggedItem = null
-        return
-      }
-      if (folder.dataset.id === this.draggedItem.id) return
-      targetPath = folder.dataset.path || ''
+        // Dropping on an item (folder or note)
+        if (folder.dataset.id === this.draggedItem.id) return
+        
+        // If target is a folder, move INTO it. If note, move into its parent.
+        if (folder.dataset.type === 'folder') {
+            targetPath = folder.dataset.id!
+        } else {
+            targetPath = folder.dataset.path || ''
+        }
     }
 
     try {
@@ -550,9 +561,21 @@ export class SidebarTree {
           targetPath || undefined
         )
       } else if (this.draggedItem.type === 'folder') {
-        if (this.draggedItem.path) {
-          await window.api.moveFolder(this.draggedItem.path, targetPath)
+        const sourcePath = this.draggedItem.id.replace(/\\/g, '/')
+        const targetPathNorm = targetPath.replace(/\\/g, '/')
+        
+        console.log('[Drag] Moving folder:', sourcePath, '->', targetPathNorm)
+        
+        if (targetPathNorm.startsWith(sourcePath + '/') || targetPathNorm === sourcePath) {
+          console.warn('[Drag] Blocked: Cannot move folder into itself')
+          window.dispatchEvent(new CustomEvent('status', { 
+            detail: { message: 'Cannot move folder into itself or its descendants' } 
+          }))
+          this.draggedItem = null
+          return
         }
+        
+        await window.api.moveFolder(sourcePath, targetPath)
       }
       window.dispatchEvent(new CustomEvent('vault-changed'))
     } catch (error) {
@@ -689,11 +712,11 @@ export class SidebarTree {
       contextMenu.show(event.clientX, event.clientY, [
         {
           label: 'New Note',
-          onClick: () => this.onNoteCreate?.(item.dataset.path || undefined)
+          onClick: () => this.onNoteCreate?.(item.dataset.id)
         },
         {
           label: 'New Folder',
-          onClick: () => this.onFolderCreate?.(item.dataset.path || undefined)
+          onClick: () => this.onFolderCreate?.(item.dataset.id)
         },
         { separator: true },
         {
@@ -704,7 +727,7 @@ export class SidebarTree {
         {
           label: 'Delete',
           keybinding: 'Del',
-          onClick: () => void this.deleteFolder(item.dataset.path!)
+          onClick: () => void this.deleteFolder(item.dataset.id!)
         }
       ])
     } else {
@@ -724,27 +747,39 @@ export class SidebarTree {
     }
   }
 
-  private startRename(itemId: string): void {
-    const item = this.bodyEl.querySelector(`.tree-item[data-id="${itemId}"]`) as HTMLElement
-    if (!item) return
-    const label = item.querySelector('.tree-item__label') as HTMLElement
-    if (!label) return
+  public startRename(itemId: string): void {
+    const attemptRename = (retries = 5) => {
+        const item = this.bodyEl.querySelector(`.tree-item[data-id="${itemId}"]`) as HTMLElement
+        if (!item) {
+            if (retries > 0) setTimeout(() => attemptRename(retries - 1), 50)
+            return
+        }
+        
+        const label = item.querySelector('.tree-item__label') as HTMLElement
+        if (!label) return
 
-    this.editingId = itemId
-    label.dataset.originalTitle = label.textContent || ''
-    label.contentEditable = 'true'
-    label.classList.add('is-editing')
-    
-    setTimeout(() => {
-       if (label.isConnected) {
-         label.focus()
-         const range = document.createRange()
-         range.selectNodeContents(label)
-         const sel = window.getSelection()
-         sel?.removeAllRanges()
-         sel?.addRange(range)
-       }
-    }, 10)
+        this.editingId = itemId
+        label.dataset.originalTitle = label.textContent || ''
+        label.contentEditable = 'true'
+        label.classList.add('is-editing')
+        
+        // Explicitly focus and select all text
+        setTimeout(() => {
+           if (label.isConnected) {
+             label.focus()
+             const range = document.createRange()
+             range.selectNodeContents(label)
+             const sel = window.getSelection()
+             sel?.removeAllRanges()
+             sel?.addRange(range)
+             
+             // Ensure it's scrolled into view
+             label.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+           }
+        }, 50)
+    }
+
+    attemptRename()
   }
 
   private async finishRename(label: HTMLElement): Promise<void> {

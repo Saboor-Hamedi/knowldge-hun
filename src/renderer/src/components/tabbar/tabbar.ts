@@ -37,7 +37,8 @@ export class TabBar {
 
     state.openTabs.forEach((tab) => {
       const isPinned = state.pinnedTabs.has(tab.id)
-      const ext = tab.title.split('.').pop()?.toLowerCase() || 'txt'
+      const title = tab.title || ''
+      const ext = title.includes('.') ? title.split('.').pop()?.toLowerCase() || 'txt' : 'txt'
       
       const button = document.createElement('button')
       button.className = `tab${tab.id === state.activeId ? ' is-active' : ''}${isPinned ? ' is-pinned' : ''}`
@@ -49,7 +50,7 @@ export class TabBar {
 
       const icon = document.createElement('span')
       icon.className = 'tab__icon'
-      icon.innerHTML = getFileIcon(tab.title)
+      icon.innerHTML = tab.id === 'settings' ? codicons.settingsGear : getFileIcon(tab.title)
 
       const label = document.createElement('span')
       label.className = 'tab__label'

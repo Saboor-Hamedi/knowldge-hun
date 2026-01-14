@@ -41,7 +41,7 @@ export class ContextMenu {
 
       const label = document.createElement('span')
       label.className = 'context-menu__label'
-      label.textContent = item.label
+      label.textContent = item.label || null
       menuItem.appendChild(label)
 
       if (item.keybinding) {

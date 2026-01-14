@@ -78,9 +78,7 @@
 }
 
 /* Try to ensure they are not clipped */
-.monaco-editor, .editor-container {
-    overflow: visible !important; 
-}
+/* Monaco handles its own overflow for minimap and wrapping */
 
 .wiki-link {
     color: #4daafc !important;
@@ -127,4 +125,30 @@
   font-weight: 700;
   color: var(--primary);
   pointer-events: none;
+}
+/* Faded Syntax for Premium Document Feel */
+/* Targets markdown tokens like #, **, [[ ]] to make them subtle */
+.monaco-editor .mtk9, /* Often used for markdown headers/symbols */
+.monaco-editor .mtk15, 
+.monaco-editor .mtk20 {
+    opacity: 0.35;
+    transition: opacity 0.2s ease;
+}
+
+/* Bring back full opacity on the current line for editing clarity */
+.monaco-editor .view-line:hover .mtk9,
+.monaco-editor .view-line:hover .mtk15,
+.monaco-editor .view-line:hover .mtk20 {
+    opacity: 0.8 !important;
+}
+
+/* Ensure the cursor line is always clear */
+.monaco-editor .current-line ~ .view-line .mtk9 {
+    opacity: 0.35;
+}
+/* Monaco doesn't have a simple way to target 'not current line' in pure CSS without complex selectors, 
+   but we can at least fade them globally for that 'clean' look. */
+   
+.editor-empty {
+    opacity: 0.6;
 }
