@@ -13,6 +13,8 @@ export class SidebarTree {
   private onNoteSelect?: (id: string, path?: string) => void
   private onNoteCreate?: (path?: string) => void
   private onNoteDelete?: (id: string, path?: string) => void
+  private onNoteMove?: (id: string, fromPath?: string, toPath?: string) => Promise<void>
+  private onFolderMove?: (sourcePath: string, targetPath: string) => Promise<void>
   private onItemsDelete?: (items: { id: string, type: 'note' | 'folder', path?: string }[]) => void
   private onFolderCreate?: (parentPath?: string) => void
   private editingId: string | null = null
@@ -83,6 +85,14 @@ export class SidebarTree {
 
   setNoteDeleteHandler(handler: (id: string, path?: string) => void): void {
     this.onNoteDelete = handler
+  }
+
+  setNoteMoveHandler(handler: (id: string, fromPath?: string, toPath?: string) => Promise<void>): void {
+    this.onNoteMove = handler
+  }
+
+  setFolderMoveHandler(handler: (sourcePath: string, targetPath: string) => Promise<void>): void {
+    this.onFolderMove = handler
   }
 
   setItemsDeleteHandler(handler: (items: { id: string, type: 'note' | 'folder', path?: string }[]) => void): void {
@@ -642,11 +652,15 @@ export class SidebarTree {
 
         try {
           if (item.type === 'note') {
-            await window.api.moveNote(
-              item.id,
-              item.path,
-              targetPath || undefined
-            )
+            if (this.onNoteMove) {
+              await this.onNoteMove(item.id, item.path, targetPath || undefined)
+            } else {
+              await window.api.moveNote(
+                item.id,
+                item.path,
+                targetPath || undefined
+              )
+            }
             hasChanges = true
           } else if (item.type === 'folder') {
             const sourcePath = item.id.replace(/\\/g, '/')
@@ -657,7 +671,11 @@ export class SidebarTree {
               continue
             }
             
-            await window.api.moveFolder(sourcePath, targetPath)
+            if (this.onFolderMove) {
+               await this.onFolderMove(sourcePath, targetPath)
+            } else {
+               await window.api.moveFolder(sourcePath, targetPath)
+            }
             hasChanges = true
           }
         } catch (error) {

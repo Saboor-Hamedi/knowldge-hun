@@ -164,6 +164,8 @@ class App {
     this.sidebar.setNoteCreateHandler((path) => void this.createNote(undefined, path))
     this.sidebar.setNoteDeleteHandler((id, path) => void this.deleteNote(id, path))
     this.sidebar.setItemsDeleteHandler((items) => void this.deleteItems(items))
+    this.sidebar.setNoteMoveHandler((id, from, to) => this.handleNoteMove(id, from, to))
+    this.sidebar.setFolderMoveHandler((source, target) => this.handleFolderMove(source, target))
     this.sidebar.setFolderCreateHandler((parentPath) => void this.createFolder(parentPath))
     this.sidebar.setVisibilityChangeHandler((visible) => {
       void window.api.updateSettings({ sidebarVisible: visible } as any)
@@ -1095,6 +1097,89 @@ class App {
 
   private async deleteNote(id: string, path?: string): Promise<void> {
     await this.deleteItems([{ id, type: 'note', path }])
+  }
+
+  private async handleNoteMove(id: string, fromPath?: string, toPath?: string): Promise<void> {
+    try {
+        const newMeta = await window.api.moveNote(id, fromPath, toPath)
+        
+        // Update tabs and active state
+        let updatedTabs = false
+        state.openTabs = state.openTabs.map(tab => {
+            if (tab.id === id) {
+                updatedTabs = true
+                return { ...newMeta }
+            }
+            return tab
+        })
+        
+        if (state.activeId === id) {
+            state.activeId = newMeta.id
+        }
+
+        if (state.pinnedTabs.has(id)) {
+            state.pinnedTabs.delete(id)
+            state.pinnedTabs.add(newMeta.id)
+        }
+        
+        if (updatedTabs) {
+            this.tabBar.render()
+        }
+        
+        await this.refreshNotes()
+    } catch (error) {
+        console.error('Note move failed:', error)
+        this.statusBar.setStatus('Move failed')
+    }
+  }
+
+  private async handleFolderMove(sourcePath: string, targetPath: string): Promise<void> {
+    try {
+        const result = await window.api.moveFolder(sourcePath, targetPath)
+        const newFolderPath = result.path
+        
+        const oldPrefix = sourcePath + '/'
+        const newPrefix = newFolderPath + '/'
+        
+        let updatedTabs = false
+        state.openTabs = state.openTabs.map(tab => {
+            if (tab.id.startsWith(oldPrefix)) {
+                updatedTabs = true
+                const newId = tab.id.replace(oldPrefix, newPrefix)
+                const lastSlash = newId.lastIndexOf('/')
+                const newNotePath = lastSlash === -1 ? '' : newId.substring(0, lastSlash)
+                return { ...tab, id: newId, path: newNotePath }
+            }
+            return tab
+        })
+        
+        if (state.activeId.startsWith(oldPrefix)) {
+            state.activeId = state.activeId.replace(oldPrefix, newPrefix)
+        }
+
+        for (const id of Array.from(state.pinnedTabs)) {
+            if (id.startsWith(oldPrefix)) {
+                state.pinnedTabs.delete(id)
+                state.pinnedTabs.add(id.replace(oldPrefix, newPrefix))
+            }
+        }
+        
+        for (const path of Array.from(state.expandedFolders)) {
+            if (path === sourcePath || path.startsWith(oldPrefix)) {
+                state.expandedFolders.delete(path)
+                state.expandedFolders.add(path === sourcePath ? newFolderPath : path.replace(oldPrefix, newPrefix))
+            }
+        }
+        
+        if (updatedTabs) {
+            this.tabBar.render()
+        }
+        
+        await this.refreshNotes()
+    } catch (error) {
+        console.error('Folder move failed:', error)
+        this.statusBar.setStatus('Move failed')
+    }
   }
 
   private async createFolder(parentPath?: string): Promise<void> {
