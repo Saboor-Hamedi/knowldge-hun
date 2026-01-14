@@ -30,6 +30,7 @@ export type AppState = {
   vaultPath?: string
   settings?: AppSettings
   pinnedTabs: Set<string>
+  newlyCreatedIds: Set<string>
 }
 
 export type AppSettings = {

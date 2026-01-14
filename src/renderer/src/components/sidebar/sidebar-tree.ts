@@ -365,13 +365,12 @@ export class SidebarTree {
 
       // Selection logic
       if (item.dataset.type === 'note' && item.dataset.id) {
-        // Note selection is handled via handler which updates state and renders
+        this.selectedId = item.dataset.id
+        this.selectedFolderPath = item.dataset.path || null
         this.onNoteSelect?.(item.dataset.id, item.dataset.path || undefined)
       } else if (item.dataset.type === 'folder') {
-        // Select logic for folder
         this.selectedId = item.dataset.id!
-        this.selectedFolderPath = item.dataset.path || null
-        
+        this.selectedFolderPath = item.dataset.id || null
         this.toggleFolder(item.dataset.id!)
       }
     })
@@ -577,6 +576,12 @@ export class SidebarTree {
         
         await window.api.moveFolder(sourcePath, targetPath)
       }
+      
+      // Auto-expand the target folder so the user sees the dropped item
+      if (targetPath) {
+          state.expandedFolders.add(targetPath)
+      }
+      
       window.dispatchEvent(new CustomEvent('vault-changed'))
     } catch (error) {
       console.error('Failed to move item:', error)

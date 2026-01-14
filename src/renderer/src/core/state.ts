@@ -13,5 +13,6 @@ export const state: AppState = {
   projectName: 'Knowledge Hub',
   vaultPath: undefined,
   settings: undefined,
-  pinnedTabs: new Set<string>()
+  pinnedTabs: new Set<string>(),
+  newlyCreatedIds: new Set<string>()
 }

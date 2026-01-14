@@ -17,7 +17,8 @@ import { GraphView } from './components/graph/graph'
 import { themeManager } from './core/themeManager'
 import { ErrorHandler } from './utils/error-handler'
 
-function buildTree(items: NoteMeta[], newlyCreatedIds: Set<string> = new Set()): TreeItem[] {
+function buildTree(items: NoteMeta[]): TreeItem[] {
+  const newlyCreatedIds = state.newlyCreatedIds
   const root: TreeItem[] = []
   const folderMap = new Map<string, TreeItem>()
 
@@ -39,14 +40,7 @@ function buildTree(items: NoteMeta[], newlyCreatedIds: Set<string> = new Set()):
       ? folderMap.get(item.id)! 
       : { ...item, type, children: [] }
 
-    let parentPath = ''
-    if (type === 'folder') {
-      const p = item.path || ''
-      const lastSlash = Math.max(p.lastIndexOf('/'), p.lastIndexOf('\\'))
-      parentPath = lastSlash > -1 ? p.substring(0, lastSlash) : ''
-    } else {
-      parentPath = item.path || ''
-    }
+    const parentPath = (item.path || '').replace(/\\/g, '/')
     
     if (parentPath === '') {
       root.push(treeItem)
@@ -59,11 +53,12 @@ function buildTree(items: NoteMeta[], newlyCreatedIds: Set<string> = new Set()):
 
   // 3. Sort recursively
   const sortFn = (a: TreeItem, b: TreeItem) => {
-    // Priority for newly created items to appear at the top
+    // Priority for newly created items to appear at the absolute top of their parent
     const aNew = newlyCreatedIds.has(a.id)
     const bNew = newlyCreatedIds.has(b.id)
     if (aNew && !bNew) return -1
     if (!aNew && bNew) return 1
+    if (aNew && bNew) return (a.title || a.id || '').localeCompare(b.title || b.id || '')
 
     if (a.type !== b.type) {
       return a.type === 'folder' ? -1 : 1
@@ -94,7 +89,6 @@ class App {
   private themeModal: ThemeModal
   private fuzzyFinder: FuzzyFinder
   private graphView: GraphView
-  private newlyCreatedNoteIds = new Set<string>()
 
   constructor() {
     this.activityBar = new ActivityBar('activityBar')
@@ -393,11 +387,11 @@ class App {
     }
     
     const tab = state.openTabs.find(t => t.id === id);
-    if (tab && (this.newlyCreatedNoteIds.has(id) || this.newlyCreatedNoteIds.has(tab.id))) {
+    if (tab && (state.newlyCreatedIds.has(id) || state.newlyCreatedIds.has(tab.id))) {
         console.log(`[App] Cleaning up unused new note: ${id}`)
         try {
             await window.api.deleteNote(id, tab.path)
-            this.newlyCreatedNoteIds.delete(id)
+            state.newlyCreatedIds.delete(id)
             await this.refreshNotes()
         } catch (e) {
             console.error('[App] Failed to cleanup new note', e)
@@ -439,8 +433,12 @@ class App {
 
     window.addEventListener('item-rename', (async (event: CustomEvent) => {
       const { id, type, newTitle } = event.detail
+      
+      // Remove from newly created list once user interacts
+      state.newlyCreatedIds.delete(id)
+
       if (id === newTitle || !newTitle.trim()) {
-          this.statusBar.setStatus('Rename cancelled')
+          this.statusBar.setStatus('Rename finished')
           await this.refreshNotes()
           return
       }
@@ -911,7 +909,7 @@ class App {
 
   private async refreshNotes(): Promise<void> {
     const rawNotes = await window.api.listNotes()
-    state.tree = buildTree(rawNotes, this.newlyCreatedNoteIds)
+    state.tree = buildTree(rawNotes)
     // Keep state.notes as flat list of notes (excluding folders) for search/fuzz
     state.notes = rawNotes.filter(n => n.type !== 'folder')
     
@@ -935,7 +933,7 @@ class App {
 
   private async createNote(title?: string, path?: string): Promise<void> {
     const meta = await window.api.createNote(title || '', path)
-    this.newlyCreatedNoteIds.add(meta.id)
+    state.newlyCreatedIds.add(meta.id)
     
     // Ensure parent folder is expanded
     if (path) {
@@ -1037,12 +1035,11 @@ class App {
     
     return false
   }
-
   private async saveNote(payload: NotePayload): Promise<void> {
     if (!state.activeId) return
 
     const meta = await window.api.saveNote(payload)
-    this.newlyCreatedNoteIds.delete(payload.id) // It's no longer "untouched"
+    state.newlyCreatedIds.delete(payload.id) // It's no longer "untouched"
     state.lastSavedAt = meta.updatedAt
     state.isDirty = false
 
@@ -1107,6 +1104,7 @@ class App {
   private async createFolder(parentPath?: string): Promise<void> {
     try {
         const result = await window.api.createFolder('New Folder', parentPath)
+        state.newlyCreatedIds.add(result.path)
         
         if (parentPath) {
             state.expandedFolders.add(parentPath)
@@ -1222,7 +1220,7 @@ class App {
     const newId = newTitle.trim().replace(/[<>:"/\\|?*]/g, '-')
     if (noteId === newId) return;
 
-    this.newlyCreatedNoteIds.delete(noteId) // Rename counts as interacting
+    state.newlyCreatedIds.delete(noteId) // Rename counts as interacting
 
     try {
         // 1. Rename on disk (changes ID)

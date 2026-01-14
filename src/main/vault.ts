@@ -290,11 +290,16 @@ export class VaultManager {
     await writeFile(fullPath, content, 'utf-8')
     await this.indexFile(fullPath)
     
-    return this.notes.get(finalId) || {
-        id: finalId,
+    const relPath = relative(this.rootPath, fullPath).replace(/\\/g, '/')
+    const finalFullId = this.getIdFromPath(relPath)
+    const dir = dirname(relPath)
+    const finalParentPath = dir === '.' ? '' : dir
+    
+    return this.notes.get(finalFullId) || {
+        id: finalFullId,
         title: safeTitle,
         updatedAt: Date.now(),
-        path: relative(this.rootPath, fullPath),
+        path: finalParentPath,
         type: 'note'
     }
   }
@@ -433,13 +438,14 @@ export class VaultManager {
 
   public async renameFolder(path: string, newName: string): Promise<{ path: string }> {
     const normalizedPath = path.replace(/\\/g, '/')
-    const sourcePath = join(this.rootPath, normalizedPath)
+    const sourceDir = join(this.rootPath, normalizedPath)
     const parent = dirname(normalizedPath)
-    const newRelPath = (parent === '.' || parent === '') ? newName : join(parent, newName)
-    const targetPath = join(this.rootPath, newRelPath)
+    const parentDir = (parent === '.' || parent === '') ? '' : parent
+    const newRelPath = parentDir === '' ? newName : `${parentDir}/${newName}`
+    const targetDir = join(this.rootPath, newRelPath)
     
-    if (existsSync(targetPath)) throw new Error('Folder already exists')
-    await rename(sourcePath, targetPath)
+    if (existsSync(targetDir)) throw new Error('Folder already exists')
+    await rename(sourceDir, targetDir)
     
     const finalRelPath = newRelPath.replace(/\\/g, '/')
     
@@ -475,6 +481,7 @@ export class VaultManager {
     const folderName = basename(sourceNorm)
     
     if (targetNorm.startsWith(sourceNorm + '/') || targetNorm === sourceNorm) {
+      console.error(`[Vault] Move blocked: Cannot move ${sourceNorm} into ${targetNorm}`);
       throw new Error('Cannot move a folder into itself or its descendants')
     }
 
@@ -488,10 +495,13 @@ export class VaultManager {
       counter++
     }
     
+    
+    console.log(`[Vault] Moving ${sourceFullPath} to ${newFolderPath}`)
     await mkdir(targetFullPath, { recursive: true })
     await rename(sourceFullPath, newFolderPath)
     
     const finalPath = join(targetNorm, safeFolderName).replace(/\\/g, '/')
+    console.log(`[Vault] Move complete. New path: ${finalPath}`)
     
     // Update cache
     this.folders.delete(sourceNorm)
