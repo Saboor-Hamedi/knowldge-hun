@@ -177,14 +177,22 @@ export class SidebarTree {
 
   private sortTree(items: (FolderItem | NoteMeta)[]): (FolderItem | NoteMeta)[] {
     return [...items].sort((a, b) => {
-      // Folders first
+      // 1. Priority for newly created items (they go to the absolute top)
+      const aNew = state.newlyCreatedIds.has(a.id)
+      const bNew = state.newlyCreatedIds.has(b.id)
+      
+      if (aNew && !bNew) return -1
+      if (!aNew && bNew) return 1
+      if (aNew && bNew) return a.title.localeCompare(b.title)
+
+      // 2. Folders first
       const aIsFolder = 'children' in a
       const bIsFolder = 'children' in b
       
       if (aIsFolder && !bIsFolder) return -1
       if (!aIsFolder && bIsFolder) return 1
       
-      // Then alphabetical
+      // 3. Then alphabetical
       return a.title.localeCompare(b.title)
     })
   }
@@ -442,11 +450,16 @@ export class SidebarTree {
 
       if (event.key === 'Escape') {
         event.preventDefault()
+        const itemId = label.dataset.itemId || label.dataset.noteId
+        if (itemId) state.newlyCreatedIds.delete(itemId) // Clear priority on cancel too
+        
         const original = label.dataset.originalTitle || ''
         label.textContent = original
         label.contentEditable = 'false'
         label.classList.remove('is-editing')
         this.editingId = null
+        
+        window.dispatchEvent(new CustomEvent('vault-changed'))
         label.blur()
       }
     })
@@ -548,8 +561,20 @@ export class SidebarTree {
         if (folder.dataset.type === 'folder') {
             targetPath = folder.dataset.id!
         } else {
+            // Fix: For notes, dataset.path is already the parent folder ID
             targetPath = folder.dataset.path || ''
         }
+    }
+    
+    // Normalize both for comparison
+    const sourceParent = (this.draggedItem.path || '').replace(/\\/g, '/')
+    const targetParent = targetPath.replace(/\\/g, '/')
+    
+    console.log('[Drag] Drop check:', { sourceParent, targetParent })
+    
+    if (sourceParent === targetParent) {
+        this.draggedItem = null
+        return
     }
 
     try {
@@ -799,10 +824,16 @@ export class SidebarTree {
     label.classList.remove('is-editing')
     this.editingId = null
     
+    // Clear priority once renaming is attempted (even if same name)
+    state.newlyCreatedIds.delete(itemId)
+
     if (newTitle !== originalTitle) {
         window.dispatchEvent(new CustomEvent('item-rename', {
             detail: { id: itemId, type: itemType, newTitle, oldTitle: originalTitle }
         }))
+    } else {
+        // Refresh to move it from the top back to its alpha position
+        window.dispatchEvent(new CustomEvent('vault-changed'))
     }
   }
 

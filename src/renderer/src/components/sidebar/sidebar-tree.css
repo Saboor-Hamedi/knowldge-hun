@@ -197,6 +197,13 @@
   padding: 1px 3px;
   border-radius: 3px;
   background: rgba(127, 167, 255, 0.08);
+  cursor: text !important;
+  position: relative;
+  z-index: 10;
+}
+
+.tree-item:has(.is-editing) {
+  cursor: default !important;
 }
 
 /* Tree Lines - Enhanced visual hierarchy */

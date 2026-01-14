@@ -53,17 +53,21 @@ function buildTree(items: NoteMeta[]): TreeItem[] {
 
   // 3. Sort recursively
   const sortFn = (a: TreeItem, b: TreeItem) => {
-    // Priority for newly created items to appear at the absolute top of their parent
+    // 1. Priority for newly created items (they go to the absolute top of their section)
     const aNew = newlyCreatedIds.has(a.id)
     const bNew = newlyCreatedIds.has(b.id)
+    
     if (aNew && !bNew) return -1
     if (!aNew && bNew) return 1
-    if (aNew && bNew) return (a.title || a.id || '').localeCompare(b.title || b.id || '')
+    if (aNew && bNew) return (a.title || '').localeCompare(b.title || '')
 
+    // 2. Folders first
     if (a.type !== b.type) {
       return a.type === 'folder' ? -1 : 1
     }
-    return (a.title || a.id || '').localeCompare(b.title || b.id || '')
+    
+    // 3. Then alphabetical
+    return (a.title || '').localeCompare(b.title || '')
   }
 
   const sortRecursive = (list: TreeItem[]) => {
