@@ -147,7 +147,63 @@ export class EditorComponent {
         }
 
         if (filePath) {
-          console.log('Calling handler with:', filePath)
+          console.log('Detected file path:', filePath)
+          const ext = filePath.split('.').pop()?.toLowerCase() || ''
+          const isImage = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp'].includes(ext)
+          
+          if (isImage) {
+              // Handle image drop directly
+              const files = e.dataTransfer?.files
+              let file: File | null = null
+              
+              if (files && files.length > 0) {
+                  file = files[0]
+              } else {
+                  // If we only have path (e.g. from sidebar), we can't easily read it as blob in renderer without node integration?
+                  // Actually, "preload" exposes specific APIs.
+                  // We don't have "readFile".
+                  // But if it's external drag, we have 'files'.
+                  // If it's internal sidebar drag, it's not a new asset, just a link?
+                  // If dragging image FROM sidebar to editor?
+                  // Sidebar currently doesn't show images.
+                  // So likely external drop.
+              }
+
+              if (file) {
+                  try {
+                      const buffer = await file.arrayBuffer()
+                      const name = file.name // or `image-${Date.now()}.${ext}`
+                      const savedPath = await window.api.saveAsset(buffer, name)
+                      
+                      // Calculate drop position
+                      // Monaco doesn't use standard caretRange easily.
+                      // We can use editor.getTargetAtClientPoint
+                      
+                      const target = this.editor?.getTargetAtClientPoint({ x: e.clientX, y: e.clientY })
+                      if (target && target.position) {
+                          this.editor!.executeEdits('', [{
+                              range: new this.monacoInstance!.Range(target.position.lineNumber, target.position.column, target.position.lineNumber, target.position.column),
+                              text: `![${name}](${savedPath})`,
+                              forceMoveMarkers: true
+                          }])
+                      } else {
+                          // Fallback to cursor
+                          const pos = this.editor?.getPosition()
+                          if (pos) {
+                               this.editor!.executeEdits('', [{
+                                  range: new this.monacoInstance!.Range(pos.lineNumber, pos.column, pos.lineNumber, pos.column),
+                                  text: `![${name}](${savedPath})`,
+                                  forceMoveMarkers: true
+                              }])
+                          }
+                      }
+                  } catch (err) {
+                      console.error('Failed to save dropped image', err)
+                  }
+                  return
+              }
+          }
+          
           const isFile = /\.[^.]+$/.test(filePath)
           handler(filePath, isFile)
         } else {
@@ -218,6 +274,10 @@ export class EditorComponent {
 
   focus(): void {
     this.editor?.focus()
+  }
+
+  triggerAction(actionId: string): void {
+      this.editor?.trigger('context-menu', actionId, null)
   }
 
   private async ensureEditor(): Promise<void> {

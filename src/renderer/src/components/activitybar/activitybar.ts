@@ -4,15 +4,15 @@ import './activitybar.css'
 
 export class ActivityBar {
   private container: HTMLElement
-  private onViewChange?: (view: 'notes' | 'search' | 'settings' | 'theme') => void
-
+  private onViewChange?: (view: 'notes' | 'search' | 'settings' | 'theme' | 'graph') => void
+  
   constructor(containerId: string) {
     this.container = document.getElementById(containerId) as HTMLElement
     this.render()
     this.attachEvents()
   }
 
-  setViewChangeHandler(handler: (view: 'notes' | 'search' | 'settings' | 'theme') => void): void {
+  setViewChangeHandler(handler: (view: 'notes' | 'search' | 'settings' | 'theme' | 'graph') => void): void {
     this.onViewChange = handler
   }
 
@@ -24,6 +24,9 @@ export class ActivityBar {
         </button>
         <button class="activitybar__item" data-view="search" title="Search">
           ${codicons.search}
+        </button>
+        <button class="activitybar__item" data-view="graph" title="Graph View">
+          <svg width="24" height="24" viewBox="0 0 16 16" fill="currentColor"><circle cx="4" cy="4" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="4" r="2"/><path d="M4 4l8 8m0-8l-8 8" stroke="currentColor" stroke-width="1.5"/></svg>
         </button>
       </div>
       <div class="activitybar__bottom">
@@ -43,11 +46,11 @@ export class ActivityBar {
       const button = target.closest('.activitybar__item') as HTMLButtonElement
       if (!button) return
 
-      const view = button.dataset.view as 'notes' | 'search' | 'settings' | 'theme'
+      const view = button.dataset.view as 'notes' | 'search' | 'settings' | 'theme' | 'graph'
       if (!view) return
 
       // Do NOT set active for modal actions (theme, settings is also kinda modal but treated as view in previous logic)
-      if (view === 'theme') {
+      if (view === 'theme' || view === 'graph') {
         this.onViewChange?.(view)
         return
       }

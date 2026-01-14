@@ -18,6 +18,7 @@ export class SidebarTree {
   private selectedFolderPath: string | null = null
   private selectedId: string | null = null
   private onVisibilityChange?: (visible: boolean) => void
+  private onGraphClick?: () => void
 
   constructor(containerId: string) {
     this.container = document.getElementById(containerId) as HTMLElement
@@ -29,6 +30,10 @@ export class SidebarTree {
     
     this.attachEvents()
     this.attachBackdropListener()
+  }
+
+  setGraphClickHandler(handler: () => void): void {
+      this.onGraphClick = handler
   }
 
   private attachBackdropListener(): void {
@@ -305,6 +310,8 @@ export class SidebarTree {
         this.onNoteCreate?.(this.selectedFolderPath || undefined)
       } else if (action === 'new-folder') {
         this.onFolderCreate?.(this.selectedFolderPath || undefined)
+      } else if (action === 'graph') {
+        this.onGraphClick?.()
       }
     })
 

@@ -78,6 +78,11 @@ const api = {
   getVault: (): Promise<VaultInfo> => ipcRenderer.invoke('vault:get'),
   chooseVault: (): Promise<VaultInfo> => ipcRenderer.invoke('vault:choose'),
   setVault: (dir: string): Promise<VaultInfo> => ipcRenderer.invoke('vault:set', dir),
+  
+  searchNotes: (query: string): Promise<NoteMeta[]> => ipcRenderer.invoke('notes:search', query),
+  getBacklinks: (id: string): Promise<string[]> => ipcRenderer.invoke('notes:getBacklinks', id),
+  getGraph: (): Promise<{ links: { source: string; target: string }[] }> => ipcRenderer.invoke('graph:get'),
+
   getSettings: (): Promise<AppSettings> => ipcRenderer.invoke('settings:get'),
   updateSettings: (updates: Partial<AppSettings>): Promise<AppSettings> =>
     ipcRenderer.invoke('settings:update', updates),

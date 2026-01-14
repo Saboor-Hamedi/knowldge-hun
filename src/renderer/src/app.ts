@@ -19,6 +19,7 @@ import { codicons } from './utils/codicons'
 
 import { ThemeModal } from './components/theme-modal/theme-modal'
 import { FuzzyFinder } from './components/fuzzy-finder/fuzzy-finder'
+import { GraphView } from './components/graph/graph'
 import { themeManager } from './core/themeManager'
 
 function flattenTree(items: TreeItem[]): NoteMeta[] {
@@ -42,6 +43,7 @@ class App {
   private settingsPanel: SettingsPanel
   private themeModal: ThemeModal
   private fuzzyFinder: FuzzyFinder
+  private graphView: GraphView
 
   constructor() {
     this.activityBar = new ActivityBar('activityBar')
@@ -52,6 +54,7 @@ class App {
     this.settingsPanel = new SettingsPanel('settingsPanel')
     this.themeModal = new ThemeModal('app') // Mount to app container
     this.fuzzyFinder = new FuzzyFinder('app')
+    this.graphView = new GraphView() // Mount to app container
     this.wireComponents()
     this.registerGlobalShortcuts()
     this.registerVaultChangeListener()
@@ -100,12 +103,19 @@ class App {
     // Activity bar handlers
     this.activityBar.setViewChangeHandler((view) => {
       if (view === 'settings') {
-        void this.openSettings()
-      } else if (view === 'theme') {
-        this.themeModal.toggle()
-      } else if (view === 'notes') {
-        this.sidebar.toggle()
+        this.settingsPanel.open()
+        return
       }
+      if (view === 'theme') {
+        this.themeModal.open()
+        return
+      }
+      if (view === 'graph') {
+        this.graphView.open()
+        return
+      }
+      this.sidebar.setVisible(view === 'notes')
+      // TODO: Handle search view if different pane
     })
 
     // Sidebar handlers
@@ -116,7 +126,45 @@ class App {
     this.sidebar.setVisibilityChangeHandler((visible) => {
       void window.api.updateSettings({ sidebarVisible: visible } as any)
     })
+    this.sidebar.setGraphClickHandler(() => this.graphView.open())
     
+    // Editor Context Menu
+    this.editor.setContextMenuHandler((e) => {
+        contextMenu.show(e.clientX, e.clientY, [
+            {
+                label: 'Cut',
+                icon: '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path fill-rule="evenodd" clip-rule="evenodd" d="M11.05 7L13.8 2.3l-.86-.5L10.5 5.6 8.35 2h-.86l.66 1.32L5.8 2H2v1h2.5l2 4H2v1h5.05l-2.7 5.3-.92-.4-1.2-2.3H5.5v-1h-2v3h.64l1.37 2.62.9.36L10.05 9h3.45v-1h-2l2.3-4.6.86.5L11.05 7z"/></svg>',
+                keybinding: 'Ctrl+X',
+                onClick: () => this.editor.triggerAction('editor.action.clipboardCutAction')
+            },
+            {
+                label: 'Copy',
+                icon: codicons.copy,
+                keybinding: 'Ctrl+C',
+                onClick: () => this.editor.triggerAction('editor.action.clipboardCopyAction')
+            },
+            {
+                label: 'Paste',
+                icon: codicons.files, // Use generic file icon or similar if paste missing
+                keybinding: 'Ctrl+V',
+                onClick: () => this.editor.triggerAction('editor.action.clipboardPasteAction') // Paste requires permission, might fail?
+            },
+            { separator: true },
+            {
+                label: 'Command Palette',
+                icon: codicons.search,
+                keybinding: 'F1',
+                onClick: () => this.editor.triggerAction('editor.action.quickCommand')
+            }
+        ])
+    })
+    
+    // Graph Navigation
+    window.addEventListener('knowledge-hub:open-note', ((e: CustomEvent) => {
+        const { id, path } = e.detail
+        this.openNote(id, path)
+    }) as EventListener)
+
     // Fuzzy Finder
     this.fuzzyFinder.setSelectHandler(async (id, path, type, isFinal) => {
         if (type === 'folder') {

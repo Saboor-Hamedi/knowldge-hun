@@ -1,0 +1,117 @@
+/* Graph View Modal Styles */
+.graph-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  visibility: hidden; /* CRITICAL: Hides drag regions when closed */
+  pointer-events: none;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
+}
+
+.graph-modal.is-visible {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.graph-modal__content {
+  width: 90vw;
+  height: 90vh;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+
+.graph-modal__header {
+  height: var(--header-height);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  background: var(--panel-strong);
+}
+
+.graph-modal__title {
+  font-weight: 600;
+  color: var(--text-strong);
+}
+
+.graph-modal__close {
+  background: transparent;
+  border: none;
+  color: var(--text-soft);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+}
+
+.graph-modal__close:hover {
+  background: var(--hover);
+  color: var(--text-strong);
+}
+
+.graph-modal__canvas {
+  flex: 1;
+  background: var(--bg);
+  position: relative;
+  overflow: hidden;
+}
+
+.graph-modal__controls {
+  position: absolute;
+  bottom: 20px;
+  left: 20px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  padding: 8px;
+  border-radius: 6px;
+  display: flex;
+  gap: 8px;
+}
+
+/* D3 Graph Styles */
+.node circle {
+  stroke: #fff;
+  stroke-width: 1.5px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.node text {
+  font-family: sans-serif;
+  font-size: 10px;
+  pointer-events: none;
+  fill: var(--text-soft);
+  text-shadow: 0 1px 0 var(--bg);
+}
+
+.link {
+  stroke: var(--border-subtle);
+  stroke-opacity: 0.6;
+}
+
+.node:hover circle {
+  fill: var(--primary) !important;
+  r: 8 !important;
+}
+
+.node:hover text {
+  fill: var(--text-strong);
+  font-size: 12px;
+  font-weight: bold;
+}

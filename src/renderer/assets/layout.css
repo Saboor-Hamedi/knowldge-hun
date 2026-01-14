@@ -25,6 +25,7 @@ body {
   transition: grid-template-columns 0.2s ease;
   overflow: hidden;
   padding-top: 32px; /* account for fixed window header */
+  position: relative;
 }
 
 .vscode-shell.sidebar-hidden {

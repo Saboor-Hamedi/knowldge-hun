@@ -238,6 +238,97 @@ async function chooseVault(): Promise<{ path: string; name: string; changed: boo
   }
 }
 
+// Graph Index
+// Source ID -> Set of Target IDs
+const forwardIndex = new Map<string, Set<string>>()
+// Target ID -> Set of Source IDs
+const reverseIndex = new Map<string, Set<string>>()
+
+function extractLinks(content: string): string[] {
+  const regex = /\[\[(.*?)\]\]/g
+  const links: string[] = []
+  let match
+  while ((match = regex.exec(content)) !== null) {
+      const [target] = match[1].split('|')
+      links.push(target.trim())
+  }
+  return links
+}
+
+function updateLinkIndex(sourceId: string, links: string[]) {
+  // Clear old links from reverse index
+  const oldTargets = forwardIndex.get(sourceId)
+  if (oldTargets) {
+      for (const target of oldTargets) {
+          const sources = reverseIndex.get(target)
+          if (sources) {
+              sources.delete(sourceId)
+          }
+      }
+  }
+
+  // Update forward index
+  const newTargets = new Set(links)
+  forwardIndex.set(sourceId, newTargets)
+
+  // Update reverse index
+  for (const target of newTargets) {
+      if (!reverseIndex.has(target)) {
+          reverseIndex.set(target, new Set())
+      }
+      reverseIndex.get(target)!.add(sourceId)
+  }
+}
+
+async function searchNotes(query: string): Promise<NoteMeta[]> {
+    if (!query) return []
+    const lowerQuery = query.toLowerCase()
+    
+    // Naive search: iterate all notes in forwardIndex keys?
+    // forwardIndex covers all SCANNED notes.
+    // But we need Title and Path.
+    // Index doesn't store metadata.
+    // We should probably rely on re-scanning or caching metadata?
+    // listNotes returns everything. Renderer handles Title search.
+    // User wants CONTENT search.
+    // We need to read files. 
+    // To be fast, we can cache content? No, memory usage.
+    // We iterate files.
+    
+    const matches: NoteMeta[] = []
+    
+    async function scan(dir: string) {
+        const entries = await readdir(dir, { withFileTypes: true })
+        for (const entry of entries) {
+            const fullPath = join(dir, entry.name)
+            if (entry.isDirectory()) {
+                await scan(fullPath)
+            } else if (entry.isFile() && entry.name.endsWith(NOTE_EXTENSION)) {
+                const content = await readFile(fullPath, 'utf-8')
+                if (content.toLowerCase().includes(lowerQuery)) {
+                    const id = entry.name.slice(0, -NOTE_EXTENSION.length)
+                    const stats = await stat(fullPath)
+                    matches.push({
+                        id,
+                        title: extractTitleFromContent(content),
+                        updatedAt: stats.mtimeMs,
+                        path: undefined // TODO: relative path
+                    })
+                }
+            }
+        }
+    }
+    
+    // This assumes recursive scan.
+    // `scanFolder` does this but constructs tree.
+    // Let's use `scanFolder` logic but optimized for search?
+    // Actually, renderer can just use `listNotes` to get ID list, 
+    // but reading content for 1000 notes in Renderer is bad.
+    // Search MUST be in Main.
+    await scan(notesDir)
+    return matches
+}
+
 async function scanFolder(
   folderPath: string,
   relativePath = ''
@@ -265,6 +356,9 @@ async function scanFolder(
       } else if (stats.isFile() && entry.name.endsWith(NOTE_EXTENSION)) {
           const id = entry.name.slice(0, -NOTE_EXTENSION.length)
           const content = await readFile(fullPath, 'utf-8')
+          const links = extractLinks(content)
+          updateLinkIndex(id, links)
+          
           items.push({
             id,
             title: extractTitleFromContent(content),
@@ -369,6 +463,11 @@ async function saveNote(payload: NotePayload): Promise<NoteMeta> {
   const contentWithTitle = `<!-- ${title} -->\n${payload.content}`
   
   await writeFile(fullPath, contentWithTitle, 'utf-8')
+  
+  // Update Graph Index
+  const links = extractLinks(payload.content)
+  updateLinkIndex(payload.id, links)
+  
   const stats = await stat(fullPath)
   return { id: payload.id, title, updatedAt: stats.mtimeMs, path: payload.path }
 }
@@ -789,6 +888,23 @@ app.whenReady().then(() => {
     }
   })
   
+  ipcMain.handle('notes:search', async (_event, query: string) => searchNotes(query))
+  
+  ipcMain.handle('notes:getBacklinks', async (_event, id: string) => {
+      const sources = reverseIndex.get(id)
+      return sources ? Array.from(sources) : []
+  })
+
+  ipcMain.handle('graph:get', async () => {
+      const links: { source: string; target: string }[] = []
+      for (const [source, targets] of forwardIndex.entries()) {
+          for (const target of targets) {
+              links.push({ source, target })
+          }
+      }
+      return { links }
+  })
+
   ipcMain.handle('settings:get', async () => loadSettings())
   ipcMain.handle('settings:update', async (_event, updates: Partial<Settings>) =>
     updateSettings(updates)
