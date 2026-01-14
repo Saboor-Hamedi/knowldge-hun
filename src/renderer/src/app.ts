@@ -63,7 +63,7 @@ class App {
 
   private setupMobileEvents(): void {
     const handleCheck = () => {
-      const isSmall = window.matchMedia('(max-width: 900px)').matches
+      const isSmall = window.matchMedia('(max-width: 800px)').matches
       const shell = document.querySelector('.vscode-shell')
       
       // Auto-close if resizing to small and sidebar is open
@@ -82,11 +82,11 @@ class App {
 
     document.addEventListener('click', (e) => {
       // Only run on mobile/small screens
-      if (!window.matchMedia('(max-width: 900px)').matches) return
+      if (!window.matchMedia('(max-width: 800px)').matches) return
 
       const target = e.target as HTMLElement
-      // Do not close if clicking inside sidebar or activity bar
-      if (target.closest('.sidebar') || target.closest('.activitybar')) return
+      // Do not close if clicking inside sidebar, activity bar, or modal
+      if (target.closest('.sidebar') || target.closest('.activitybar') || target.closest('.graph-modal')) return
       
       // Do not close if clicking the specific toggle button (usually in activity bar, but just in case)
       if (target.closest('[data-action="toggle-sidebar"]')) return
@@ -128,36 +128,7 @@ class App {
     })
     this.sidebar.setGraphClickHandler(() => this.graphView.open())
     
-    // Editor Context Menu
-    this.editor.setContextMenuHandler((e) => {
-        contextMenu.show(e.clientX, e.clientY, [
-            {
-                label: 'Cut',
-                icon: '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path fill-rule="evenodd" clip-rule="evenodd" d="M11.05 7L13.8 2.3l-.86-.5L10.5 5.6 8.35 2h-.86l.66 1.32L5.8 2H2v1h2.5l2 4H2v1h5.05l-2.7 5.3-.92-.4-1.2-2.3H5.5v-1h-2v3h.64l1.37 2.62.9.36L10.05 9h3.45v-1h-2l2.3-4.6.86.5L11.05 7z"/></svg>',
-                keybinding: 'Ctrl+X',
-                onClick: () => this.editor.triggerAction('editor.action.clipboardCutAction')
-            },
-            {
-                label: 'Copy',
-                icon: codicons.copy,
-                keybinding: 'Ctrl+C',
-                onClick: () => this.editor.triggerAction('editor.action.clipboardCopyAction')
-            },
-            {
-                label: 'Paste',
-                icon: codicons.files, // Use generic file icon or similar if paste missing
-                keybinding: 'Ctrl+V',
-                onClick: () => this.editor.triggerAction('editor.action.clipboardPasteAction') // Paste requires permission, might fail?
-            },
-            { separator: true },
-            {
-                label: 'Command Palette',
-                icon: codicons.search,
-                keybinding: 'F1',
-                onClick: () => this.editor.triggerAction('editor.action.quickCommand')
-            }
-        ])
-    })
+    // Note: Handler is registered below at line 201 via handleEditorContextMenu
     
     // Graph Navigation
     window.addEventListener('knowledge-hub:open-note', ((e: CustomEvent) => {
@@ -428,14 +399,67 @@ class App {
       
       contextMenu.show(e.clientX, e.clientY, [
           {
-              label: 'Smart Paste', 
-              icon: codicons.cloudDownload,
-              onClick: () => { /* ... */ }
+                label: 'Cut',
+                keybinding: 'Ctrl+X',
+                onClick: () => {
+                    this.editor.focus()
+                    this.editor.triggerAction('editor.action.clipboardCutAction')
+                }
           },
           {
-               label: 'Insert Date',
-               icon: codicons.calendar,
-               onClick: () => { /* ... */ }
+                label: 'Copy',
+                keybinding: 'Ctrl+C',
+                onClick: () => {
+                    this.editor.focus()
+                    this.editor.triggerAction('editor.action.clipboardCopyAction')
+                }
+          },
+          {
+                label: 'Paste',
+                keybinding: 'Ctrl+V',
+                onClick: () => {
+                    this.editor.focus()
+                    this.editor.triggerAction('editor.action.clipboardPasteAction')
+                }
+          },
+          { separator: true },
+          {
+                label: 'Smart Paste', 
+                onClick: () => {
+                    this.editor.focus()
+                    // Logic for smart paste: this is a placeholder for future AI/Sanitize features
+                    this.editor.triggerAction('editor.action.clipboardPasteAction') 
+                }
+          },
+          {
+                label: 'Insert Data',
+                onClick: () => {
+                    const date = new Date().toLocaleDateString()
+                    const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                    this.editor.insertAtCursor(`${date} ${time}`)
+                }
+          },
+          { separator: true },
+          {
+                label: 'Delete',
+                onClick: () => {
+                    this.editor.focus()
+                    this.editor.insertAtCursor('') // This effectively deletes the selection
+                }
+          },
+          {
+                label: 'Select All',
+                keybinding: 'Ctrl+A',
+                onClick: () => {
+                    this.editor.focus()
+                    this.editor.triggerAction('editor.action.selectAll')
+                }
+          },
+          { separator: true },
+          {
+                label: 'Knowledge Graph',
+                keybinding: 'Ctrl+G',
+                onClick: () => this.graphView.open()
           }
       ])
   }
@@ -444,26 +468,49 @@ class App {
       const cleanTarget = target.trim().toLowerCase()
       const note = this.resolveNote(cleanTarget)
       
+      console.log(`[App] getNotePreview for "${target}":`, note ? `Found (${note.id})` : 'NOT FOUND')
+      
       if (note) {
-          const loaded = await window.api.loadNote(note.id, note.path)
-          return loaded ? loaded.content : null
+          // Optimization: If the target note is the one currently open in the editor,
+          // return the live content instead of reading stale data from disk.
+          if (note.id === state.activeId && this.editor) {
+              const content = this.editor.getValue()
+              const snippet = content.replace(/^<!--\s*.+?\s*-->\n?/, '').substring(0, 1000).trim()
+              return snippet + (content.length > 1000 ? '...' : '') || '(Empty unsaved note)'
+          }
+
+          try {
+              const loaded = await window.api.loadNote(note.id, note.path)
+              if (loaded && loaded.content && loaded.content.trim()) {
+                  const snippet = loaded.content.substring(0, 1000).trim()
+                  return snippet + (loaded.content.length > 1000 ? '...' : '')
+              }
+              return '(Note is empty)'
+          } catch (err) {
+              console.error(`[App] loadNote failed for preview:`, err)
+              return '(Failed to load note)'
+          }
       }
       return null
   }
 
   private resolveNote(target: string): NoteMeta | undefined {
       const cleanTarget = target.toLowerCase()
-      let note = state.notes.find(n => {
-          const fullPath = n.path ? `${n.path}/${n.id}`.toLowerCase() : n.id.toLowerCase()
-          return fullPath === cleanTarget
-      })
       
-      if (!note) {
-          note = state.notes.find(n => n.id.toLowerCase() === cleanTarget)
-      }
+      // 1. Exact match (ID, Path, Title)
+      let note = state.notes.find(n => 
+          n.id.toLowerCase() === cleanTarget || 
+          (n.path && `${n.path}/${n.id}`.toLowerCase() === cleanTarget) ||
+          (n.title && n.title.toLowerCase() === cleanTarget)
+      )
       
-      if (!note) {
-          note = state.notes.find(n => n.title.toLowerCase() === cleanTarget)
+      // 2. Strip extension if present (e.g. "note.md" -> "note")
+      if (!note && cleanTarget.endsWith('.md')) {
+          const base = cleanTarget.slice(0, -3)
+          note = state.notes.find(n => 
+              n.id.toLowerCase() === base || 
+              (n.title && n.title.toLowerCase() === base)
+          )
       }
       
       return note
@@ -478,18 +525,28 @@ class App {
         await this.openNote(note.id, note.path)
         this.statusBar.setStatus(`Jumped to [[${target}]]`)
     } else {
-        if (confirm(`Note "${target}" does not exist. Create it?`)) {
-             try {
-                await this.createNote(target)
-                this.statusBar.setStatus(`Created [[${target}]]`)
-             } catch (e) {
-                 this.statusBar.setStatus(`Failed to create note`)
-             }
+        // Auto-create note on click if it doesn't exist (Wiki behavior)
+        console.log(`[App] Note "${linkTarget}" not found, creating...`)
+        try {
+             await this.createNote(linkTarget.trim())
+             this.statusBar.setStatus(`Created new note: [[${linkTarget}]]`)
+        } catch (e) {
+             console.error('Failed to create note from link', e)
+             this.statusBar.setStatus(`Failed to create note: ${linkTarget}`)
         }
     }
   }
 
   private registerGlobalShortcuts(): void {
+    keyboardManager.register({
+       key: 'Control+g',
+       scope: 'global',
+       description: 'Open Knowledge Graph',
+       handler: () => {
+           this.graphView.open()
+       }
+    })
+
     keyboardManager.register({
        key: 'Control+p',
        scope: 'global',
@@ -533,6 +590,12 @@ class App {
       description: 'Save current note',
       handler: () => {
         this.editor.manualSave()
+        
+        // If the note is new/untitled, prompt for rename after saving content
+        const note = state.notes.find(n => n.id === state.activeId)
+        if (note && note.title === 'Untitled note') {
+            void this.promptRenameActiveNote()
+        }
       }
     })
 
@@ -574,34 +637,55 @@ class App {
   }
 
   async init(): Promise<void> {
+    console.log('[App] Init started')
     this.statusBar.setStatus('Initializing...')
     await this.initSettings()
     await this.initVault()
 
     if (state.settings?.openTabs && state.settings.openTabs.length > 0) {
-        state.openTabs = state.settings.openTabs as any
+        state.openTabs = [...state.settings.openTabs] as any
     }
 
     await this.refreshNotes()
+    console.log(`[App] Notes refreshed: ${state.notes.length} notes found.`)
 
     if (state.openTabs.length > 0) {
       this.statusBar.setStatus('Restoring workspace...')
       const toOpen = state.settings?.activeId || state.openTabs[0].id
+      console.log(`[App] Restoring tab: ${toOpen}`)
       const noteToOpen = state.notes.find(n => n.id === toOpen) || 
                          state.notes.find(n => n.id === state.openTabs[0].id)
       
       if (noteToOpen) {
           await this.openNote(noteToOpen.id, noteToOpen.path)
+      } else {
+          console.warn(`[App] Failed to find note to restore: ${toOpen}. Showing first.`)
+          if (state.notes.length > 0) await this.openNote(state.notes[0].id)
+          else this.editor.showEmpty()
       }
     } else if (state.notes.length > 0) {
+      console.log(`[App] No tabs. Opening first note: ${state.notes[0].id}`)
       await this.openNote(state.notes[0].id)
     } else {
+      console.log('[App] No notes or tabs. Showing empty.')
       this.editor.showEmpty()
       this.statusBar.setStatus('No notes yet')
       this.statusBar.setMeta('Create a note to begin')
     }
     
     this.tabBar.render()
+    console.log('[App] Init complete')
+    document.body.classList.remove('is-loading')
+
+    // Global context menu suppression to prevent browser default appearing over custom menus
+    window.addEventListener('contextmenu', (e) => {
+        const target = e.target as HTMLElement
+        if (target.closest('.vscode-shell')) {
+            // If we don't handle it specifically, we still want to block the browser's ugly menu
+            // Our components (sidebar, editor, tabs) handle their own and call e.preventDefault()
+            // This is a safety net.
+        }
+    }, true)
   }
 
   private async initVault(): Promise<void> {

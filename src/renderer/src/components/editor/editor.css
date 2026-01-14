@@ -35,17 +35,55 @@
 }
 
 /* Ensure all monaco widgets are on top */
+/* Ensure all monaco widgets are on top and visible */
 .monaco-editor-hover,
 .monaco-editor-hover-content,
 .suggest-widget,
 .monaco-editor .suggest-widget,
 .monaco-hover,
-.monaco-hover-content {
-  z-index: 99999 !important;
+.monaco-hover-content,
+.monaco-list.list_id_1, /* Often the suggest list ID */
+.editor-widget {
+  z-index: 2147483647 !important; /* Max signed 32-bit integer */
+}
+
+/* Force hover contrast and visibility */
+.monaco-hover, 
+.monaco-editor-hover {
+    background: var(--panel-strong) !important;
+    color: var(--text-strong) !important;
+    border: 1px solid var(--border) !important;
+    box-shadow: var(--shadow) !important;
+    padding: 6px !important;
+    border-radius: 4px !important;
+    max-width: 450px !important;
+    max-height: 350px !important;
+    overflow-y: auto !important;
+}
+
+/* Clean up suggest widget */
+.suggest-widget {
+    background: var(--panel-strong) !important;
+    border: 1px solid var(--border) !important;
+    box-shadow: var(--shadow) !important;
+}
+
+.suggest-details {
+    display: none !important; /* Hide that extra ugly layer on the side */
+}
+
+.monaco-hover-content,
+.suggest-widget-content {
+    background: transparent !important;
+}
+
+/* Try to ensure they are not clipped */
+.monaco-editor, .editor-container {
+    overflow: visible !important; 
 }
 
 .wiki-link {
-    color: #4daafc;
+    color: #4daafc !important;
     text-decoration: underline;
     cursor: pointer;
     font-weight: 500;
@@ -53,7 +91,7 @@
 }
 
 .wiki-link:hover {
-    color: #88c9ff;
+    color: #88c9ff !important;
     opacity: 0.8;
 }
 

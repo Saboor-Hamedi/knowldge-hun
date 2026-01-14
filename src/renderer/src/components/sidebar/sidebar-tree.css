@@ -91,7 +91,7 @@
   overflow-y: auto;
   overflow-x: hidden;
   min-height: 0;
-  padding: 4px 0;
+  padding: 4px 0 300px 0; /* Huge bottom space for root selection */
   position: relative;
 }
 
@@ -105,6 +105,9 @@
   position: relative;
   outline: none;
   transition: background 60ms ease;
+  border: 1px solid transparent; /* Prevent layout shift */
+  margin: 0 4px; /* Slight horizontal margin for better item isolation */
+  border-radius: 4px;
 }
 
 .tree-item:hover {
@@ -113,6 +116,8 @@
 
 .tree-item.is-active {
   background: rgba(127, 167, 255, 0.15);
+  border: 1px solid rgba(127, 167, 255, 0.45);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.15);
 }
 
 .tree-item:focus {

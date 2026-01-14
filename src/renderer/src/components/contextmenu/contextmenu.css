@@ -13,8 +13,7 @@
 .context-menu__item {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
+  padding: 5px 20px;
   cursor: pointer;
   transition: background 80ms ease;
   color: var(--text-strong);
@@ -22,7 +21,7 @@
 
 .context-menu__item:hover:not(.is-disabled) {
   background: var(--primary);
-  color: #fff;
+  color: #0b1220; /* High contrast on primary blue */
 }
 
 .context-menu__item.is-disabled {

@@ -28,6 +28,11 @@ type FolderItem = {
 }
 
 const NOTE_EXTENSION = '.md'
+const NOTE_EXTENSIONS = ['.md', '.txt']
+function isNoteFile(filename: string): boolean {
+    const lower = filename.toLowerCase()
+    return NOTE_EXTENSIONS.some(ext => lower.endsWith(ext))
+}
 let notesDir = ''
 let mainWindowRef: BrowserWindow | null = null
 const settingsFile = join(app.getPath('userData'), 'settings.json')
@@ -353,8 +358,12 @@ async function scanFolder(
             children,
             collapsed: false
           })
-      } else if (stats.isFile() && entry.name.endsWith(NOTE_EXTENSION)) {
-          const id = entry.name.slice(0, -NOTE_EXTENSION.length)
+      } else if (stats.isFile() && isNoteFile(entry.name)) {
+          // Strip extension
+          let id = entry.name;
+          const ext = NOTE_EXTENSIONS.find(e => entry.name.toLowerCase().endsWith(e));
+          if (ext) id = entry.name.slice(0, -ext.length);
+          
           const content = await readFile(fullPath, 'utf-8')
           const links = extractLinks(content)
           updateLinkIndex(id, links)
@@ -381,8 +390,18 @@ async function listNotes(): Promise<(FolderItem | NoteMeta)[]> {
 
 async function loadNote(id: string, relativePath?: string): Promise<NotePayload | null> {
   await ensureNotesDir()
-  const fullPath = getNotePath(id, relativePath)
-  if (!existsSync(fullPath)) return null
+  
+  // Resolve which extension it actually has
+  let fullPath = '';
+  for (const ext of NOTE_EXTENSIONS) {
+      const p = relativePath ? join(notesDir, relativePath, `${id}${ext}`) : join(notesDir, `${id}${ext}`);
+      if (existsSync(p)) {
+          fullPath = p;
+          break;
+      }
+  }
+
+  if (!fullPath || !existsSync(fullPath)) return null
 
   const stats = await stat(fullPath)
   if (!stats.isFile()) {
@@ -419,7 +438,7 @@ async function updateBacklinks(oldId: string, newId: string): Promise<void> {
                 const stats = await stat(fullPath);
                 if (stats.isDirectory()) {
                     await processDirectory(fullPath);
-                } else if (stats.isFile() && entryName.endsWith(NOTE_EXTENSION)) {
+                } else if (stats.isFile() && isNoteFile(entryName)) {
                     processedCount++;
                     let content = await readFile(fullPath, 'utf-8');
                     

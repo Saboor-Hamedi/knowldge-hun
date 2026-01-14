@@ -10,6 +10,7 @@ export class TabBar {
 
   constructor(containerId: string) {
     this.container = document.getElementById(containerId) as HTMLElement
+    this.attachEvents()
   }
 
   setTabSelectHandler(handler: (id: string) => void): void {
@@ -25,7 +26,6 @@ export class TabBar {
   }
 
   render(): void {
-    // ... same as before ...
     this.container.innerHTML = ''
     if (state.openTabs.length === 0) {
       const empty = document.createElement('div')
@@ -77,24 +77,21 @@ export class TabBar {
       
       this.container.appendChild(button)
     })
-
-    this.attachEvents()
   }
 
   private attachEvents(): void {
-    this.container.removeEventListener('click', this.handleClick)
     this.container.addEventListener('click', this.handleClick)
-    
-    this.container.removeEventListener('contextmenu', this.handleContextMenu)
     this.container.addEventListener('contextmenu', this.handleContextMenu)
   }
 
   private handleClick = (event: MouseEvent): void => {
     const target = event.target as HTMLElement
 
-    if (target.dataset.action === 'close' && target.dataset.id) {
+    // Robust close check
+    const closeBtn = target.closest('.tab__close') as HTMLElement
+    if (closeBtn && closeBtn.dataset.id) {
       event.stopPropagation()
-      this.onTabClose?.(target.dataset.id)
+      this.onTabClose?.(closeBtn.dataset.id)
       return
     }
 

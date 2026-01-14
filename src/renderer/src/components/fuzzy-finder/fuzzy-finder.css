@@ -41,7 +41,7 @@
 }
 
 .fuzzy-input:focus {
-  border-color: var(--focus-border);
+  border-color: var(--border);
 }
 
 .fuzzy-list {

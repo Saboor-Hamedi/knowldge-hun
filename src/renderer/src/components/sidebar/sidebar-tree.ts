@@ -1,6 +1,6 @@
 import { state } from '../../core/state'
 import type { NoteMeta, FolderItem } from '../../core/types'
-import { getFileIcon, codicons } from '../../utils/codicons'
+import { getFolderIcon, getFileIcon, codicons } from '../../utils/codicons'
 import { contextMenu } from '../contextmenu/contextmenu'
 import './sidebar-tree.css'
 
@@ -245,7 +245,7 @@ export class SidebarTree {
     
     const icon = document.createElement('span')
     icon.className = 'tree-item__icon'
-    icon.innerHTML = codicons.folder
+    icon.innerHTML = getFolderIcon(folder.name)
     
     const label = document.createElement('span')
     label.className = 'tree-item__label'
@@ -326,7 +326,14 @@ export class SidebarTree {
       const item = target.closest('.tree-item') as HTMLElement
       
       if (!item) {
-        // Background click
+        // Background click - Select Root
+        this.selectedId = null
+        this.selectedFolderPath = null
+        
+        const currentActive = this.bodyEl.querySelector('.tree-item.is-active')
+        if (currentActive) {
+            currentActive.classList.remove('is-active')
+        }
         return
       }
 
@@ -371,12 +378,10 @@ export class SidebarTree {
         contextMenu.show(event.clientX, event.clientY, [
           {
             label: 'New Note',
-            icon: codicons.add,
             onClick: () => this.onNoteCreate?.()
           },
           {
             label: 'New Folder',
-            icon: codicons.newFolder,
             onClick: () => this.onFolderCreate?.('')
           }
         ])
@@ -684,24 +689,20 @@ export class SidebarTree {
       contextMenu.show(event.clientX, event.clientY, [
         {
           label: 'New Note',
-          icon: codicons.add,
           onClick: () => this.onNoteCreate?.(item.dataset.path || undefined)
         },
         {
           label: 'New Folder',
-          icon: codicons.newFolder,
           onClick: () => this.onFolderCreate?.(item.dataset.path || undefined)
         },
         { separator: true },
         {
           label: 'Rename',
-          icon: codicons.edit,
           keybinding: 'Ctrl+R',
           onClick: () => this.startRename(item.dataset.id!)
         },
         {
           label: 'Delete',
-          icon: codicons.trash,
           keybinding: 'Del',
           onClick: () => void this.deleteFolder(item.dataset.path!)
         }
@@ -710,14 +711,12 @@ export class SidebarTree {
       contextMenu.show(event.clientX, event.clientY, [
         {
           label: 'Rename',
-          icon: codicons.edit,
           keybinding: 'Ctrl+R',
           onClick: () => this.startRename(item.dataset.id!)
         },
         { separator: true },
         {
           label: 'Delete',
-          icon: codicons.trash,
           keybinding: 'Ctrl+D',
           onClick: () => this.onNoteDelete?.(item.dataset.id!, item.dataset.path || undefined)
         }

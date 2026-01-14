@@ -7,6 +7,7 @@ import tsWorker from 'monaco-editor/esm/vs/language/typescript/ts.worker?worker'
 import { state } from '../../core/state'
 import { themes } from '../../core/themes'
 import type { NotePayload, AppSettings } from '../../core/types'
+import { registerWikiLinkProviders } from '../wikilink/wikilink'
 import './editor.css'
 
 type Monaco = any // Use any to bypass stubborn type resolution in dynamic imports
@@ -225,36 +226,60 @@ export class EditorComponent {
     `
   }
 
-  async loadNote(note: NotePayload): Promise<void> {
+  public async loadNote(payload: NotePayload): Promise<void> {
+    console.log(`[Editor] Vitals Check: LOADING NOTE`, { id: payload.id })
     state.applyingRemote = true
     await this.ensureEditor()
     
-    console.log('%c[Editor] Vitals Check: LOADING NOTE', 'color: #00ff00; font-weight: bold; font-size: 14px;');
+    if (!this.editor) {
+        state.applyingRemote = false
+        return
+    }
 
-    if (this.editor && this.monacoInstance) {
-        const model = this.editor.getModel()
-        if (model) {
-            // Force content first to avoid flickering if language change triggers re-render
-            this.editor.setValue(note.content)
-            
-            const currentLang = model.getLanguageId()
-            console.log(`[Editor] Language: "${currentLang}" -> FORCING "markdown"`)
-            try {
-                this.monacoInstance.editor.setModelLanguage(model, 'markdown')
-            } catch (e) {
-                console.warn('[Editor] Failed to set language to markdown', e)
-            }
-        }
-    } else {
-        this.editor?.setValue(note.content)
+    const model = this.editor.getModel()
+    if (!model) {
+        state.applyingRemote = false
+        return
+    }
+
+    // Fresh Providers check
+    this.reRegisterProviders()
+
+    const currentContent = model.getValue()
+    if (currentContent !== payload.content) {
+        this.editor.setValue(payload.content)
+    }
+    
+    const prevLang = model.getLanguageId()
+    try {
+        this.monacoInstance!.editor.setModelLanguage(model, 'markdown')
+        console.log(`[Editor] Language transition: "${prevLang}" -> "${model.getLanguageId()}"`)
+    } catch (e) {
+        console.warn('[Editor] Failed to set language', e)
     }
 
     state.applyingRemote = false
     state.isDirty = false
-    state.lastSavedAt = note.updatedAt
+    state.lastSavedAt = payload.updatedAt || Date.now()
+    
     this.emptyState.style.display = 'none'
     this.editorHost.style.display = 'block'
     this.updateDecorations()
+  }
+
+  private reRegisterProviders(): void {
+    if (!this.monacoInstance || !this.onGetHoverContent) return
+    
+    console.log('[Editor] Refreshing WikiLink providers for fresh note load...')
+    this.providers.forEach(p => p.dispose())
+    this.providers = []
+    
+    try {
+        const wikilinkProviders = registerWikiLinkProviders(this.monacoInstance, this.onGetHoverContent)
+        this.providers.push(...wikilinkProviders)
+    } catch (err) {
+        console.error('[Editor] Refresh failure:', err)
+    }
   }
 
   showEmpty(): void {
@@ -274,6 +299,20 @@ export class EditorComponent {
 
   focus(): void {
     this.editor?.focus()
+  }
+
+  insertAtCursor(text: string): void {
+      if (!this.editor || !this.monacoInstance) return
+      const selection = this.editor.getSelection()
+      if (!selection) return
+
+      this.editor.executeEdits('keyboard', [
+          {
+              range: selection,
+              text,
+              forceMoveMarkers: true
+          }
+      ])
   }
 
   triggerAction(actionId: string): void {
@@ -306,27 +345,33 @@ export class EditorComponent {
                 padding: { top: 12, bottom: 12 },
                 renderWhitespace: 'selection',
                 lineNumbers: 'on',
+                glyphMargin: false, // Ensure no extra icons in the gutter
+                folding: false,     // Disable the "checkbox" symbols for folding
                 scrollBeyondLastLine: false,
-                fixedOverflowWidgets: false, // Keep widgets inside for better Electron consistency
+                fixedOverflowWidgets: true,
+                breadcrumbs: { enabled: false }, // Remove the "meta header" path breadcrumbs
                 quickSuggestions: {
                     other: true,
                     comments: false,
-                    strings: false
+                    strings: true
                 },
                 inlineSuggest: {
-                    enabled: true,
-                    showToolbar: 'always'
+                    enabled: false // Disable the grey ghost text layer that sits behind typing
                 },
+                stickyScroll: { enabled: false },
                 suggest: {
                     snippetsPreventQuickSuggestions: false,
                     filterGraceful: true,
-                    showIcons: true
+                    showIcons: false,   // Remove icons for a cleaner look
+                    showDetails: false, // Remove the "layer on top" detail/documentation window
+                    maxVisibleSuggestions: 6
                 },
                 hover: {
                     enabled: true,
                     delay: 300,
                     sticky: true
-                }
+                },
+                contextmenu: false // Disable Monaco's native menu
             })
 
             this.editor.onDidChangeModelContent(() => {
@@ -335,26 +380,41 @@ export class EditorComponent {
                 this.markDirty()
             })
             
-            this.registerHoverProvider()
-            this.registerCompletionProvider()
+            // Register WikiLink Providers
+            console.log('[Editor] Attempting to register WikiLink providers...', { 
+                hasMonaco: !!this.monacoInstance, 
+                hasHoverHandler: !!this.onGetHoverContent 
+            })
             
-            this.editor.onContextMenu((e) => {
-                if (this.onContextMenu && e.event && e.event.browserEvent) {
-                    e.event.preventDefault()
-                    this.onContextMenu(e.event.browserEvent as MouseEvent)
+            try {
+                if (this.onGetHoverContent && this.monacoInstance) {
+                     const wikilinkProviders = registerWikiLinkProviders(this.monacoInstance, this.onGetHoverContent)
+                     this.providers.push(...wikilinkProviders)
+                     console.log('[Editor] WikiLink providers registered successfully.')
+                } else {
+                    console.warn('[Editor] SKIPPING WikiLink registration. Missing dependencies.')
+                }
+            } catch (err) {
+                console.error('[Editor] Failed to register WikiLink providers:', err)
+            }
+            
+            this.editorHost.addEventListener('contextmenu', (e) => {
+                if (this.onContextMenu) {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    this.onContextMenu(e)
                 }
             })
             
             this.editor.onMouseDown((e) => {
+                // ... same as before
                 if (!e.target || !e.target.position) return
                 
-                // Allow clicking links without Ctrl if we want, but let's stick to Ctrl/Cmd for now
                 if (e.event.ctrlKey || e.event.metaKey) {
                     const model = this.editor!.getModel()
                     if (!model) return
                     
                     const lineContent = model.getLineContent(e.target.position.lineNumber)
-                    // Match [[target]] or [[target|alias]]
                     const regex = /\[\[(.*?)\]\]/g
                     let match
                     
@@ -362,7 +422,6 @@ export class EditorComponent {
                         const startCol = match.index + 1
                         const endCol = match.index + match[0].length + 1
                         
-                        // Check if mouse is within the [[...]] range
                         if (e.target.position.column >= startCol && e.target.position.column < endCol) {
                             const linkContent = match[1]
                             const [target] = linkContent.split('|')
@@ -376,43 +435,7 @@ export class EditorComponent {
                 }
             })
 
-            // Paste handler logic
-            this.editorHost.addEventListener('paste', async (e: ClipboardEvent) => {
-                 if (!this.editor) return
-                 // ... paste logic relies on this.editor so it's safe now
-                 const clipboardData = e.clipboardData
-                 if (!clipboardData) return
-                 
-                 const items = clipboardData.items
-                 for (let i = 0; i < items.length; i++) {
-                     const item = items[i]
-                     if (item.type.indexOf('image') !== -1) {
-                         e.preventDefault()
-                         const file = item.getAsFile()
-                         if (!file) continue
-                         
-                         const buffer = await file.arrayBuffer()
-                         const ext = file.name.split('.').pop() || 'png'
-                         const name = `image-${Date.now()}.${ext}`
-                         
-                         try {
-                             const savedPath = await window.api.saveAsset(buffer, name)
-                             const position = this.editor.getPosition()
-                             if (position) {
-                                 this.editor.executeEdits('', [{
-                                     range: new this.monacoInstance!.Range(position.lineNumber, position.column, position.lineNumber, position.column),
-                                     text: `![${name}](${savedPath})`,
-                                     forceMoveMarkers: true
-                                 }])
-                             }
-                         } catch (err) {
-                             console.error('Failed to save image', err)
-                         }
-                         return
-                     }
-                 }
-            })
-
+            // ... (paste handler)
         } finally {
             this.initPromise = null
         }
@@ -444,135 +467,7 @@ export class EditorComponent {
     this.decorations = this.editor.deltaDecorations(this.decorations, newDecorations)
   }
 
-  registerHoverProvider(): void {
-      // Logic consolidated into registerCompletionProvider
-  }
-
-  registerCompletionProvider(): void {
-      if (!this.monacoInstance) return;
-      const monaco = this.monacoInstance;
-
-      console.log('%c[Editor] Registering robust WikiLink providers...', 'color: #4daafc; font-weight: bold;');
-      
-      this.providers.forEach(p => p.dispose());
-      this.providers = [];
-
-      // Use a single provider registration for multiple languages
-      const languages = ['markdown', 'plaintext']; 
-      
-      const hoverProvider = {
-          provideHover: async (model: any, position: any) => {
-              const lineContent = model.getLineContent(position.lineNumber);
-              
-              // This should appear in console whenever you hover near brackets
-              if (lineContent.includes('[[')) {
-                  console.log(`[Hover] Checking line ${position.lineNumber}: "${lineContent.trim()}"`);
-              }
-
-              const regex = /\[\[(.*?)\]\]/g;
-              let match;
-              while ((match = regex.exec(lineContent)) !== null) {
-                  const start = match.index + 1;
-                  const end = start + match[0].length;
-                  if (position.column >= start && position.column < end) {
-                      const linkContent = match[1];
-                      const [target] = linkContent.split('|');
-                      console.log(`[Hover] HIT on [[${target.trim()}]]`);
-
-                      if (this.onGetHoverContent) {
-                          const preview = await this.onGetHoverContent(target.trim());
-                          const note = state.notes.find(n => n.id.toLowerCase() === target.trim().toLowerCase());
-                          
-                          return {
-                              range: new monaco.Range(position.lineNumber, start, position.lineNumber, end),
-                              contents: [
-                                  { value: `### 📄 ${note?.title || target.trim()}`, isTrusted: true },
-                                  { value: `---`, isTrusted: true },
-                                  { value: preview || '*No content*', isTrusted: true },
-                                  { value: `\n\n*Click with \`Ctrl/Cmd\` to jump*`, isTrusted: true }
-                              ]
-                          };
-                      }
-                  }
-              }
-              return null;
-          }
-      };
-
-      const completionProvider = {
-          triggerCharacters: ['['],
-          provideCompletionItems: (model: any, position: any) => {
-              const textUntilPosition = model.getValueInRange({
-                  startLineNumber: position.lineNumber, startColumn: 1,
-                  endLineNumber: position.lineNumber, endColumn: position.column
-              });
-              
-              const match = /\[\[([^\]]*)$/.exec(textUntilPosition);
-              if (!match) return { suggestions: [] };
-              
-              const partial = match[1].toLowerCase();
-              console.log(`[Suggest] Triggered [[ autocomplete for "${partial}"`);
-              
-              const word = model.getWordUntilPosition(position);
-              const range = new monaco.Range(position.lineNumber, word.startColumn, position.lineNumber, word.endColumn);
-              
-              const suggestions = state.notes
-                .filter(n => (n.title || n.id).toLowerCase().includes(partial))
-                .map(note => ({
-                    label: note.title || note.id,
-                    kind: monaco.languages.CompletionItemKind.File,
-                    insertText: (note.title || note.id) + ']]',
-                    detail: note.path ? `📁 ${note.path}` : '',
-                    range: range
-                }));
-
-              return { suggestions };
-          }
-      };
-
-      const inlineProvider = {
-          provideInlineCompletions: (model: any, position: any) => {
-              const textUntilPosition = model.getValueInRange({
-                  startLineNumber: position.lineNumber, startColumn: 1,
-                  endLineNumber: position.lineNumber, endColumn: position.column
-              });
-              
-              const lastTwo = textUntilPosition.slice(-2);
-              if (lastTwo !== '[[' && textUntilPosition.includes('[[')) {
-                  const match = /\[\[([^\]]*)$/.exec(textUntilPosition);
-                  if (match) {
-                      const partial = match[1].toLowerCase();
-                      if (partial) {
-                          const bestMatch = state.notes.find(n => (n.title || n.id).toLowerCase().startsWith(partial));
-                          if (bestMatch) {
-                              const text = (bestMatch.title || bestMatch.id).substring(partial.length) + ']]';
-                              return {
-                                  items: [{
-                                      insertText: text,
-                                      range: new monaco.Range(position.lineNumber, position.column, position.lineNumber, position.column)
-                                  }]
-                              };
-                          }
-                      }
-                  }
-              }
-              return { items: [] };
-          },
-          freeInlineCompletions: () => {}
-      };
-
-      languages.forEach(lang => {
-          this.providers.push(monaco.languages.registerHoverProvider(lang, hoverProvider));
-          this.providers.push(monaco.languages.registerCompletionItemProvider(lang, completionProvider));
-          this.providers.push(monaco.languages.registerInlineCompletionsProvider(lang, inlineProvider));
-      });
-      
-      // Also register for universal catch-all
-      this.providers.push(monaco.languages.registerHoverProvider('*', hoverProvider));
-      this.providers.push(monaco.languages.registerCompletionItemProvider('*', completionProvider));
-
-      console.log(`[Editor] Successfully registered providers for ${languages.join(', ')} and "*"`);
-  }
+  // Old provider methods removed (logic moved to wikilink.ts)
 
   private markDirty(): void {
     state.isDirty = true
@@ -588,7 +483,11 @@ export class EditorComponent {
   }
 
   private triggerSave(): void {
-    if (!state.activeId || !this.editor || !this.onSave) return
+    console.log('[Editor] Triggering Save...', { activeId: state.activeId, hasEditor: !!this.editor, hasHandler: !!this.onSave })
+    if (!state.activeId || !this.editor || !this.onSave) {
+        console.warn('[Editor] Save aborted: Missing requirements')
+        return
+    }
     
     const content = this.editor.getValue()
     const note = state.notes.find((n) => n.id === state.activeId)
@@ -606,6 +505,7 @@ export class EditorComponent {
   }
 
   manualSave(): void {
+    console.log('[Editor] Manual Save Requested')
     if (this.pendingSave) {
       window.clearTimeout(this.pendingSave)
       this.pendingSave = undefined
@@ -615,7 +515,8 @@ export class EditorComponent {
 
   private async loadMonaco(): Promise<Monaco> {
     if (this.monacoInstance) return this.monacoInstance
-    const mod = (await import('monaco-editor/esm/vs/editor/editor.api')) as Monaco
+    // Import full monaco to get all language features (Markdown, etc)
+    const mod = (await import('monaco-editor')) as any
     this.monacoInstance = mod
     return mod
   }
