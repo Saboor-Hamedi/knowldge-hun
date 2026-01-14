@@ -99,13 +99,13 @@
 .tree-item {
   display: flex;
   align-items: center;
-  padding: 4px 8px;
   cursor: pointer;
   user-select: none;
   position: relative;
   outline: none;
   transition: background 60ms ease;
   border: 1px solid transparent; /* Prevent layout shift */
+  border-left: 2px solid transparent;
   margin: 0; 
   padding: 4px 12px;
   border-radius: 0;
