@@ -1,6 +1,7 @@
 import { state } from '../../core/state'
 import type { NoteMeta, FolderItem } from '../../core/types'
 import { getFolderIcon, getFileIcon, codicons } from '../../utils/codicons'
+import { sortTreeItems } from '../../utils/tree-utils'
 import { contextMenu } from '../contextmenu/contextmenu'
 import './sidebar-tree.css'
 
@@ -12,11 +13,13 @@ export class SidebarTree {
   private onNoteSelect?: (id: string, path?: string) => void
   private onNoteCreate?: (path?: string) => void
   private onNoteDelete?: (id: string, path?: string) => void
+  private onItemsDelete?: (items: { id: string, type: 'note' | 'folder', path?: string }[]) => void
   private onFolderCreate?: (parentPath?: string) => void
   private editingId: string | null = null
   private draggedItem: { type: 'note' | 'folder'; id: string; path?: string } | null = null
   private selectedFolderPath: string | null = null
   private selectedId: string | null = null
+  private lastSelectedId: string | null = null
   private onVisibilityChange?: (visible: boolean) => void
   private onGraphClick?: () => void
 
@@ -80,6 +83,10 @@ export class SidebarTree {
 
   setNoteDeleteHandler(handler: (id: string, path?: string) => void): void {
     this.onNoteDelete = handler
+  }
+
+  setItemsDeleteHandler(handler: (items: { id: string, type: 'note' | 'folder', path?: string }[]) => void): void {
+    this.onItemsDelete = handler
   }
 
   setFolderCreateHandler(handler: (parentPath?: string) => void): void {
@@ -152,11 +159,6 @@ export class SidebarTree {
   renderTree(filter = ''): void {
     const term = filter.trim().toLowerCase()
     
-    // If we have an activeId from state but no local selection, sync them initially
-    if (!this.selectedId && state.activeId) {
-        this.selectedId = state.activeId
-    }
-
     this.bodyEl.innerHTML = ''
     
     // Ensure state.tree is valid before processing
@@ -176,25 +178,7 @@ export class SidebarTree {
   }
 
   private sortTree(items: (FolderItem | NoteMeta)[]): (FolderItem | NoteMeta)[] {
-    return [...items].sort((a, b) => {
-      // 1. Priority for newly created items (they go to the absolute top)
-      const aNew = state.newlyCreatedIds.has(a.id)
-      const bNew = state.newlyCreatedIds.has(b.id)
-      
-      if (aNew && !bNew) return -1
-      if (!aNew && bNew) return 1
-      if (aNew && bNew) return a.title.localeCompare(b.title)
-
-      // 2. Folders first
-      const aIsFolder = 'children' in a
-      const bIsFolder = 'children' in b
-      
-      if (aIsFolder && !bIsFolder) return -1
-      if (!aIsFolder && bIsFolder) return 1
-      
-      // 3. Then alphabetical
-      return a.title.localeCompare(b.title)
-    })
+    return sortTreeItems(items)
   }
 
   private filterTree(items: (FolderItem | NoteMeta)[], term: string): (FolderItem | NoteMeta)[] {
@@ -239,9 +223,10 @@ export class SidebarTree {
     const isFiltered = this.searchEl.value.trim().length > 0
     const isExpanded = isFiltered || state.expandedFolders.has(folder.id)
     const isActive = this.selectedId === folder.id
+    const isSelected = state.selectedIds.has(folder.id)
     
     const el = document.createElement('div')
-    el.className = `tree-item tree-item--folder${isExpanded ? ' is-expanded' : ''}${isActive ? ' is-active' : ''}`
+    el.className = `tree-item tree-item--folder${isExpanded ? ' is-expanded' : ''}${isActive ? ' is-active' : ''}${isSelected ? ' is-selected' : ''}`
     el.dataset.id = folder.id
     el.dataset.type = 'folder'
     if (folder.path) el.dataset.path = folder.path
@@ -279,9 +264,10 @@ export class SidebarTree {
 
   private renderNote(note: NoteMeta, container: HTMLElement, depth: number): void {
     const isActive = this.selectedId === note.id
+    const isSelected = state.selectedIds.has(note.id)
     
     const el = document.createElement('div')
-    el.className = `tree-item tree-item--note${isActive ? ' is-active' : ''}`
+    el.className = `tree-item tree-item--note${isActive ? ' is-active' : ''}${isSelected ? ' is-selected' : ''}`
     el.dataset.id = note.id
     el.dataset.type = 'note'
     if (note.path) el.dataset.path = note.path
@@ -345,11 +331,12 @@ export class SidebarTree {
         // Background click - Select Root
         this.selectedId = null
         this.selectedFolderPath = null
+        state.selectedIds.clear()
+        this.lastSelectedId = null
         
-        const currentActive = this.bodyEl.querySelector('.tree-item.is-active')
-        if (currentActive) {
-            currentActive.classList.remove('is-active')
-        }
+        this.bodyEl.querySelectorAll('.tree-item.is-active, .tree-item.is-selected').forEach(el => {
+          el.classList.remove('is-active', 'is-selected')
+        })
         return
       }
 
@@ -371,15 +358,58 @@ export class SidebarTree {
       // Stop propagation for selection clicks too
       event.stopPropagation()
 
-      // Selection logic
-      if (item.dataset.type === 'note' && item.dataset.id) {
-        this.selectedId = item.dataset.id
+      const id = item.dataset.id!
+      const isMultiSelect = event.ctrlKey || event.metaKey
+      const isRangeSelect = event.shiftKey
+
+      if (isRangeSelect && this.lastSelectedId) {
+        // Range selection
+        const items = Array.from(this.bodyEl.querySelectorAll('.tree-item')) as HTMLElement[]
+        const startIdx = items.findIndex(el => el.dataset.id === this.lastSelectedId)
+        const endIdx = items.findIndex(el => el.dataset.id === id)
+        
+        if (startIdx !== -1 && endIdx !== -1) {
+          const [minIdx, maxIdx] = [Math.min(startIdx, endIdx), Math.max(startIdx, endIdx)]
+          if (!isMultiSelect) state.selectedIds.clear()
+          
+          for (let i = minIdx; i <= maxIdx; i++) {
+            const itemId = items[i].dataset.id
+            if (itemId) state.selectedIds.add(itemId)
+          }
+        }
+      } else if (isMultiSelect) {
+        // Toggle individual item
+        if (state.selectedIds.has(id)) {
+          state.selectedIds.delete(id)
+        } else {
+          state.selectedIds.add(id)
+        }
+      } else {
+        // Single selection
+        state.selectedIds.clear()
+        state.selectedIds.add(id)
+      }
+
+      this.lastSelectedId = id
+      
+      // Update visual selection regardless of modifiers
+      if (item.dataset.type === 'note') {
+        this.selectedId = id
         this.selectedFolderPath = item.dataset.path || null
-        this.onNoteSelect?.(item.dataset.id, item.dataset.path || undefined)
+        this.updateSelectionStates()
+        if (!isMultiSelect && !isRangeSelect) {
+           this.onNoteSelect?.(id, item.dataset.path || undefined)
+        }
       } else if (item.dataset.type === 'folder') {
-        this.selectedId = item.dataset.id!
-        this.selectedFolderPath = item.dataset.id || null
-        this.toggleFolder(item.dataset.id!)
+        this.selectedId = id
+        this.selectedFolderPath = id
+        this.updateSelectionStates()
+        if (!isMultiSelect && !isRangeSelect) {
+           // Toggle folder only on single click (or maybe double click is better? but current logic does it on single click)
+           // Actually, the previous logic was: if folder, toggle.
+           // Let's keep it for now but maybe it's annoying with multi-selection.
+           this.toggleFolder(id)
+        }
       }
     })
     
@@ -485,22 +515,50 @@ export class SidebarTree {
     const item = target.closest('.tree-item') as HTMLElement
     if (!item) return
 
-    this.draggedItem = {
-      type: item.dataset.type as 'note' | 'folder',
-      id: item.dataset.id!,
-      path: item.dataset.path || undefined
+    const id = item.dataset.id!
+    
+    // If dragging an item not in selection, select it first
+    if (!state.selectedIds.has(id)) {
+      state.selectedIds.clear()
+      state.selectedIds.add(id)
+      this.selectedId = id
+      this.updateSelectionStates()
+    }
+
+    const itemsToDrag = Array.from(state.selectedIds).map(dragId => {
+      const el = this.bodyEl.querySelector(`.tree-item[data-id="${dragId}"]`) as HTMLElement
+      return {
+        id: dragId,
+        type: el?.dataset.type as 'note' | 'folder',
+        path: el?.dataset.path || undefined
+      }
+    }).filter(i => i.type)
+
+    if (itemsToDrag.length === 0) return
+
+    this.draggedItem = itemsToDrag[0] as any // Keep for backward compatibility if needed, but we'll use dataTransfer for the list
+    
+    const dragData = {
+      items: itemsToDrag
     }
 
     event.dataTransfer!.effectAllowed = 'copyMove'
-    
-    if (this.draggedItem.type === 'note') {
-         event.dataTransfer!.setData('text/plain', `note:${this.draggedItem.id}`)
-    } else {
-         event.dataTransfer!.setData('text/plain', this.draggedItem.path || '') 
-    }
-    
+    event.dataTransfer!.setData('application/json', JSON.stringify(dragData))
     event.dataTransfer!.setData('from-sidebar', 'true')
-    item.style.opacity = '0.5'
+    
+    // Set a specialized mime type for internal drag
+    event.dataTransfer!.setData('knowledge-hub/items', JSON.stringify(itemsToDrag))
+
+    // Visual feedback for all dragged items
+    state.selectedIds.forEach(dragId => {
+       const el = this.bodyEl.querySelector(`.tree-item[data-id="${dragId}"]`) as HTMLElement
+       if (el) el.style.opacity = '0.5'
+    })
+
+    // Set drag image if multiple
+    if (itemsToDrag.length > 1) {
+       // Optional: create a drag image showing the count
+    }
   }
 
   private handleDragOver(event: DragEvent): void {
@@ -540,7 +598,15 @@ export class SidebarTree {
     document.querySelectorAll('.drag-over').forEach((el) => el.classList.remove('drag-over'))
     this.bodyEl.classList.remove('drag-over-root')
 
-    if (!this.draggedItem) return
+    const itemsJson = event.dataTransfer!.getData('knowledge-hub/items')
+    if (!itemsJson) {
+        // Fallback or external drop?
+        if (!this.draggedItem) return
+    }
+
+    const itemsToMove: { type: 'note' | 'folder'; id: string; path?: string }[] = itemsJson 
+        ? JSON.parse(itemsJson) 
+        : [this.draggedItem!]
 
     const target = event.target as HTMLElement
     const folder = target.closest('.tree-item') as HTMLElement | null
@@ -550,80 +616,78 @@ export class SidebarTree {
       if (target.classList.contains('sidebar__body') || target === this.bodyEl) {
         targetPath = ''
       } else {
-        this.draggedItem = null
+        this.clearDragState()
         return
       }
     } else {
         // Dropping on an item (folder or note)
-        if (folder.dataset.id === this.draggedItem.id) return
-        
         // If target is a folder, move INTO it. If note, move into its parent.
         if (folder.dataset.type === 'folder') {
             targetPath = folder.dataset.id!
         } else {
-            // Fix: For notes, dataset.path is already the parent folder ID
             targetPath = folder.dataset.path || ''
         }
     }
     
-    // Normalize both for comparison
-    const sourceParent = (this.draggedItem.path || '').replace(/\\/g, '/')
-    const targetParent = targetPath.replace(/\\/g, '/')
-    
-    console.log('[Drag] Drop check:', { sourceParent, targetParent })
-    
-    if (sourceParent === targetParent) {
-        this.draggedItem = null
-        return
-    }
+    let hasChanges = false
 
-    try {
-      if (this.draggedItem.type === 'note') {
-        await window.api.moveNote(
-          this.draggedItem.id,
-          this.draggedItem.path,
-          targetPath || undefined
-        )
-      } else if (this.draggedItem.type === 'folder') {
-        const sourcePath = this.draggedItem.id.replace(/\\/g, '/')
-        const targetPathNorm = targetPath.replace(/\\/g, '/')
+    for (const item of itemsToMove) {
+        if (item.id === targetPath) continue
         
-        console.log('[Drag] Moving folder:', sourcePath, '->', targetPathNorm)
+        // Normalize both for comparison
+        const sourceParent = (item.path || '').replace(/\\/g, '/')
+        const targetParent = targetPath.replace(/\\/g, '/')
         
-        if (targetPathNorm.startsWith(sourcePath + '/') || targetPathNorm === sourcePath) {
-          console.warn('[Drag] Blocked: Cannot move folder into itself')
-          window.dispatchEvent(new CustomEvent('status', { 
-            detail: { message: 'Cannot move folder into itself or its descendants' } 
-          }))
-          this.draggedItem = null
-          return
+        if (sourceParent === targetParent) continue
+
+        try {
+          if (item.type === 'note') {
+            await window.api.moveNote(
+              item.id,
+              item.path,
+              targetPath || undefined
+            )
+            hasChanges = true
+          } else if (item.type === 'folder') {
+            const sourcePath = item.id.replace(/\\/g, '/')
+            const targetPathNorm = targetPath.replace(/\\/g, '/')
+            
+            if (targetPathNorm.startsWith(sourcePath + '/') || targetPathNorm === sourcePath) {
+              console.warn('[Drag] Blocked: Cannot move folder into itself:', sourcePath)
+              continue
+            }
+            
+            await window.api.moveFolder(sourcePath, targetPath)
+            hasChanges = true
+          }
+        } catch (error) {
+          console.error('Failed to move item:', item.id, error)
         }
-        
-        await window.api.moveFolder(sourcePath, targetPath)
-      }
-      
+    }
+    
+    if (hasChanges) {
       // Auto-expand the target folder so the user sees the dropped item
       if (targetPath) {
           state.expandedFolders.add(targetPath)
       }
-      
       window.dispatchEvent(new CustomEvent('vault-changed'))
-    } catch (error) {
-      console.error('Failed to move item:', error)
     }
 
+    this.clearDragState()
+  }
+
+  private clearDragState(): void {
     this.draggedItem = null
+    this.bodyEl.querySelectorAll('.tree-item').forEach(el => {
+       (el as HTMLElement).style.opacity = ''
+    })
   }
 
   private handleDragEnd(event: DragEvent): void {
-    const target = event.target as HTMLElement
-    const item = target.closest('.tree-item') as HTMLElement
-    if (item) item.style.opacity = ''
-    
     document.querySelectorAll('.drag-over').forEach((el) => el.classList.remove('drag-over'))
     this.bodyEl.classList.remove('drag-over-root')
     
-    this.draggedItem = null
+    this.clearDragState()
   }
 
   private handleKeyboard(event: KeyboardEvent): void {
@@ -643,14 +707,51 @@ export class SidebarTree {
       return
     }
 
+    // Ctrl+A: Select All
+    if ((event.ctrlKey || event.metaKey) && key === 'a') {
+      event.preventDefault()
+      state.selectedIds.clear()
+      this.bodyEl.querySelectorAll('.tree-item').forEach(el => {
+        const id = (el as HTMLElement).dataset.id
+        if (id) state.selectedIds.add(id)
+      })
+      this.updateSelectionStates()
+      return
+    }
+
     // Delete or Ctrl+D
     if (key === 'delete' || ((event.ctrlKey || event.metaKey) && key === 'd')) {
       event.preventDefault()
-      if (item.dataset.type === 'note' && item.dataset.id) {
-        this.onNoteDelete?.(item.dataset.id, item.dataset.path || undefined)
+      
+      const idsToDelete = state.selectedIds.size > 0 ? Array.from(state.selectedIds) : (item.dataset.id ? [item.dataset.id] : [])
+      
+      if (idsToDelete.length === 0) return
+
+      const itemsToDelete = idsToDelete.map(id => {
+        const targetItem = this.bodyEl.querySelector(`.tree-item[data-id="${id}"]`) as HTMLElement
+        return {
+          id: id,
+          type: targetItem?.dataset.type as 'note' | 'folder',
+          path: targetItem?.dataset.path || undefined
+        }
+      }).filter(i => i.type)
+
+      if (this.onItemsDelete) {
+        this.onItemsDelete(itemsToDelete)
       } else {
-        void this.deleteFolder(item.dataset.path!)
+        // Fallback to individual deletes if no bulk handler
+        for (const it of itemsToDelete) {
+          if (it.type === 'note') {
+            this.onNoteDelete?.(it.id, it.path)
+          } else {
+            void this.deleteFolder(it.id)
+          }
+        }
       }
+      
+      state.selectedIds.clear()
+      this.selectedId = null
+      this.updateSelectionStates()
       return
     }
 
@@ -702,25 +803,44 @@ export class SidebarTree {
 
     // Arrow Up/Down: Navigation
     if (key === 'arrowdown' || key === 'arrowup') {
-      if (!event.shiftKey) {
-        event.preventDefault()
-        const items = Array.from(this.bodyEl.querySelectorAll('.tree-item')) as HTMLElement[]
-        const currentIndex = items.indexOf(item)
-        
-        let nextIndex = currentIndex
-        if (key === 'arrowdown') nextIndex = Math.min(currentIndex + 1, items.length - 1)
-        if (key === 'arrowup') nextIndex = Math.max(currentIndex - 1, 0)
+      event.preventDefault()
+      const items = Array.from(this.bodyEl.querySelectorAll('.tree-item')) as HTMLElement[]
+      const currentIndex = items.indexOf(item)
+      
+      let nextIndex = currentIndex
+      if (key === 'arrowdown') nextIndex = Math.min(currentIndex + 1, items.length - 1)
+      if (key === 'arrowup') nextIndex = Math.max(currentIndex - 1, 0)
 
-        const nextItem = items[nextIndex]
-        if (nextItem && nextIndex !== currentIndex) {
-            const nextId = nextItem.dataset.id!
+      const nextItem = items[nextIndex]
+      if (nextItem && nextIndex !== currentIndex) {
+          const nextId = nextItem.dataset.id!
+          
+          if (event.shiftKey) {
+            // Extend selection
+            if (!this.lastSelectedId) this.lastSelectedId = item.dataset.id!
             
-            // Just move visual focus/selection. DO NOT open/toggle.
+            const startIdx = items.findIndex(el => el.dataset.id === this.lastSelectedId)
+            const endIdx = nextIndex
+            
+            const [minIdx, maxIdx] = [Math.min(startIdx, endIdx), Math.max(startIdx, endIdx)]
+            state.selectedIds.clear()
+            for (let i = minIdx; i <= maxIdx; i++) {
+              const itemId = items[i].dataset.id
+              if (itemId) state.selectedIds.add(itemId)
+            }
+            // In VS Code, Shift+Arrow moves the "focused" item but keeps the "active" item fixed?
+            // Actually, the active item (selectedId) should probably move to the next item.
+            this.selectedId = nextId
+            this.updateSelectionStates()
+          } else {
+            // Regular navigation
+            this.selectedId = nextId
             this.selectedFolderPath = nextItem.dataset.path || null
-            
-            this.updateSelection(nextId)
-            // Function updateSelection calls scrollToActive(true), which ensures focus
-        }
+            state.selectedIds.clear()
+            state.selectedIds.add(nextId)
+            this.lastSelectedId = nextId
+            this.updateSelectionStates()
+          }
       }
       return
     }
@@ -738,6 +858,55 @@ export class SidebarTree {
   }
 
   private showContextMenu(event: MouseEvent, item: HTMLElement): void {
+    const id = item.dataset.id!
+    const isSelected = state.selectedIds.has(id)
+    
+    // If we right click an item that is NOT selected, we should select it (clearing others)
+    if (!isSelected) {
+      state.selectedIds.clear()
+      state.selectedIds.add(id)
+      this.selectedId = id
+      this.updateSelectionStates()
+    }
+
+    const selectedCount = state.selectedIds.size
+
+    if (selectedCount > 1) {
+      contextMenu.show(event.clientX, event.clientY, [
+        {
+          label: `Delete ${selectedCount} items`,
+          keybinding: 'Del',
+          onClick: () => {
+            const idsToDelete = Array.from(state.selectedIds)
+            const itemsToDelete = idsToDelete.map(idToDel => {
+               const targetItem = this.bodyEl.querySelector(`.tree-item[data-id="${idToDel}"]`) as HTMLElement
+               return {
+                 id: idToDel,
+                 type: targetItem?.dataset.type as 'note' | 'folder',
+                 path: targetItem?.dataset.path || undefined
+               }
+            }).filter(i => i.type)
+
+            if (this.onItemsDelete) {
+              this.onItemsDelete(itemsToDelete)
+            } else {
+              for (const it of itemsToDelete) {
+                if (it.type === 'note') {
+                  this.onNoteDelete?.(it.id, it.path)
+                } else {
+                  void this.deleteFolder(it.id)
+                }
+              }
+            }
+            state.selectedIds.clear()
+            this.selectedId = null
+            this.updateSelectionStates()
+          }
+        }
+      ])
+      return
+    }
+
     if (item.dataset.type === 'folder') {
       contextMenu.show(event.clientX, event.clientY, [
         {
@@ -847,21 +1016,31 @@ export class SidebarTree {
     }
   }
 
-  updateSelection(id: string): void {
-      if (this.selectedId === id) return // No change
+  updateSelectionStates(): void {
+      this.bodyEl.querySelectorAll('.tree-item').forEach((el) => {
+          const item = el as HTMLElement
+          const id = item.dataset.id
+          if (!id) return
+          
+          const isActive = this.selectedId === id
+          const isSelected = state.selectedIds.has(id)
+          
+          item.classList.toggle('is-active', isActive)
+          item.classList.toggle('is-selected', isSelected)
+      })
       
-      this.selectedId = id
-      
-      const currentActive = this.bodyEl.querySelector('.tree-item.is-active')
-      if (currentActive) {
-          currentActive.classList.remove('is-active')
-      }
-      
-      const newActive = this.bodyEl.querySelector(`.tree-item[data-id="${id}"]`) as HTMLElement
-      if (newActive) {
-          newActive.classList.add('is-active')
+      if (this.selectedId) {
           this.scrollToActive(true)
       }
+  }
+
+  updateSelection(id: string): void {
+      this.selectedId = id
+      if (!state.selectedIds.has(id)) {
+          state.selectedIds.clear()
+          state.selectedIds.add(id)
+      }
+      this.updateSelectionStates()
   }
 
   scrollToActive(shouldFocus: boolean = true): void {

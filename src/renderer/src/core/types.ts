@@ -31,6 +31,7 @@ export type AppState = {
   settings?: AppSettings
   pinnedTabs: Set<string>
   newlyCreatedIds: Set<string>
+  selectedIds: Set<string>
 }
 
 export type AppSettings = {

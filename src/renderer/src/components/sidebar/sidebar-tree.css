@@ -106,18 +106,22 @@
   outline: none;
   transition: background 60ms ease;
   border: 1px solid transparent; /* Prevent layout shift */
-  margin: 0 4px; /* Slight horizontal margin for better item isolation */
-  border-radius: 4px;
+  margin: 0; 
+  padding: 4px 12px;
+  border-radius: 0;
 }
 
 .tree-item:hover {
   background: rgba(127, 167, 255, 0.08);
 }
 
+.tree-item.is-selected {
+  background: rgba(127, 167, 255, 0.08);
+}
+
 .tree-item.is-active {
-  background: rgba(127, 167, 255, 0.15);
-  border: 1px solid rgba(127, 167, 255, 0.45);
-  box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+  background: rgba(127, 167, 255, 0.12);
+  border-left: 2px solid var(--primary); /* Stronger left indicator */
 }
 
 .tree-item:focus {
@@ -329,10 +333,7 @@
   opacity: 1;
 }
 
-/* Selected folder highlight */
-.tree-item--folder.is-selected {
-  background: rgba(250, 204, 21, 0.10);
-}
+/* Selected folder highlight - REMOVED, now uses generic .is-active */
 
 /* Empty State */
 .sidebar__empty {

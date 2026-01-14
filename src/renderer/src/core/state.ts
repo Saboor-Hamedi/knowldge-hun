@@ -14,5 +14,6 @@ export const state: AppState = {
   vaultPath: undefined,
   settings: undefined,
   pinnedTabs: new Set<string>(),
-  newlyCreatedIds: new Set<string>()
+  newlyCreatedIds: new Set<string>(),
+  selectedIds: new Set<string>()
 }
