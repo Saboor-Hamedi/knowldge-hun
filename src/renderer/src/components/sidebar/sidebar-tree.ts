@@ -175,12 +175,23 @@ export class SidebarTree {
       const results = searchBody.querySelector('.search-results') as HTMLElement;
       let lastQuery = '';
       let lastResults: any[] = [];
+        let selectedIndex = 0;
       input.addEventListener('input', async () => {
+              // Forward arrow key and enter events from input to results for keyboard navigation
+              input.addEventListener('keydown', (e) => {
+                const resultsList = searchBody.querySelector('.search-results') as HTMLElement;
+                if (!resultsList) return;
+                if (["ArrowDown", "ArrowUp", "Enter"].includes(e.key)) {
+                  resultsList.dispatchEvent(new KeyboardEvent('keydown', e));
+                  e.preventDefault();
+                }
+              });
         const query = input.value.trim();
         lastQuery = query;
         if (!query) {
           results.innerHTML = '';
           lastResults = [];
+          selectedIndex = 0;
           // Remove any selection highlight
           Array.from(results.querySelectorAll('.search-result-item.selected')).forEach(el => el.classList.remove('selected'));
           return;
@@ -227,11 +238,8 @@ export class SidebarTree {
             }).join('');
             // Focus first result for keyboard nav and add selection highlight
             setTimeout(() => {
-              const first = results.querySelector('.search-result-item') as HTMLElement;
-              if (first) {
-                first.classList.add('selected');
-                // Do NOT call first.focus();
-              }
+              const items = results.querySelectorAll('.search-result-item');
+              items.forEach((el, i) => el.classList.toggle('selected', i === selectedIndex));
             }, 50);
           }
         } catch (e) {
@@ -262,32 +270,22 @@ export class SidebarTree {
       });
       results?.addEventListener('keydown', (e) => {
         const items = Array.from(results.querySelectorAll('.search-result-item')) as HTMLElement[];
-        const selected = results.querySelector('.search-result-item.selected') as HTMLElement;
+        if (items.length === 0) return;
         if (e.key === 'ArrowDown') {
           e.preventDefault();
-          let idx = items.indexOf(selected);
-          if (idx < items.length - 1) {
-            if (selected) selected.classList.remove('selected');
-            items[idx + 1].classList.add('selected');
-            // Do NOT call .focus() to keep input focused
-          }
+          selectedIndex = (selectedIndex + 1) % items.length;
+          items.forEach((el, i) => el.classList.toggle('selected', i === selectedIndex));
         } else if (e.key === 'ArrowUp') {
           e.preventDefault();
-          let idx = items.indexOf(selected);
-          if (idx > 0) {
-            if (selected) selected.classList.remove('selected');
-            items[idx - 1].classList.add('selected');
-            // Do NOT call .focus() to keep input focused
-          }
+          selectedIndex = (selectedIndex - 1 + items.length) % items.length;
+          items.forEach((el, i) => el.classList.toggle('selected', i === selectedIndex));
         } else if (e.key === 'Enter') {
           e.preventDefault();
-          // Always open the currently selected result
-          const item = results.querySelector('.search-result-item.selected') as HTMLElement;
+          const item = items[selectedIndex];
           if (item) {
             const id = item.dataset.id;
             const path = item.dataset.path || undefined;
-            // Highlight selected
-            Array.from(results.querySelectorAll('.search-result-item.selected')).forEach(el => el.classList.remove('selected'));
+            items.forEach(el => el.classList.remove('selected'));
             item.classList.add('selected');
             if (id && this.onNoteSelect) {
               if (window.state && window.state.openTabs && window.state.openTabs.some((t: any) => t.id === id)) {
@@ -295,12 +293,19 @@ export class SidebarTree {
               } else {
                 this.onNoteSelect(id, path);
               }
-              // Keep focus in input for instant search
               const input = searchBody.querySelector('#global-search-input') as HTMLInputElement;
               if (input) setTimeout(() => input.focus(), 50);
             }
           }
         }
+      // Add hover effect for search results
+      const style = document.createElement('style');
+      style.textContent = `
+      .search-result-item:hover:not(.selected) {
+        background: rgba(80,120,200,0.08);
+        transition: background 0.12s;
+      }`;
+      document.head.appendChild(style);
       });
       // Add keyboard navigation for up/down arrow
       results?.addEventListener('keydown', (e) => {

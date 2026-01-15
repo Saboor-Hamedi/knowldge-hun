@@ -970,12 +970,14 @@ class App {
     if (!note) {
       // Try to refresh notes and check again before warning
       await this.refreshNotes();
-      const refreshed = state.notes.find(n => n.id === id);
+      // Check for both id and path match
+      const refreshed = state.notes.find(n => n.id === id || n.path === path);
       if (refreshed) {
         // Note is now found after refresh, open it
-        await this.openNote(id, path, focusTarget);
+        await this.openNote(refreshed.id, refreshed.path, focusTarget);
         return;
       }
+      // Only show notification if truly missing
       console.warn(`[App] Note ${id} not found at ${path}. Refreshing...`)
       notificationManager.show(`Note not found after rename or move. Please check your vault.`, 'warning', { title: 'Note Missing' })
       this.statusBar.setStatus('Note missing on disk')

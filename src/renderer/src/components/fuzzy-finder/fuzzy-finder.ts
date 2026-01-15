@@ -102,17 +102,21 @@ export class FuzzyFinder {
     }
 
     if (e.key === 'ArrowDown') {
-      e.preventDefault()
-      e.stopPropagation()
-      this.selectedIndex = Math.min(this.selectedIndex + 1, this.visibleItems.length - 1)
-      this.renderList()
-      this.scrollToSelected()
+      if (this.visibleItems.length > 0) {
+        e.preventDefault()
+        e.stopPropagation()
+        this.selectedIndex = (this.selectedIndex + 1) % this.visibleItems.length
+        this.renderList()
+        this.scrollToSelected()
+      }
     } else if (e.key === 'ArrowUp') {
-      e.preventDefault()
-      e.stopPropagation()
-      this.selectedIndex = Math.max(this.selectedIndex - 1, 0)
-      this.renderList()
-      this.scrollToSelected()
+      if (this.visibleItems.length > 0) {
+        e.preventDefault()
+        e.stopPropagation()
+        this.selectedIndex = (this.selectedIndex - 1 + this.visibleItems.length) % this.visibleItems.length
+        this.renderList()
+        this.scrollToSelected()
+      }
     } else if (e.key === 'Enter') {
       e.preventDefault()
       e.stopPropagation()
@@ -213,15 +217,21 @@ export class FuzzyFinder {
       `
     }).join('')
     
-    // Click selection
+    // Click and hover selection
     const items = this.list.querySelectorAll('.fuzzy-item')
     items.forEach(el => {
-        el.addEventListener('click', () => {
-             const idx = parseInt((el as HTMLElement).dataset.index!)
-             const item = this.visibleItems[idx]
-             this.onSelect?.(item.id, item.path, item.type, true)
-             this.close()
-        })
+      el.addEventListener('click', () => {
+        const idx = parseInt((el as HTMLElement).dataset.index!)
+        this.selectedIndex = idx
+        const item = this.visibleItems[idx]
+        this.onSelect?.(item.id, item.path, item.type, true)
+        this.close()
+      })
+      el.addEventListener('mouseover', () => {
+        const idx = parseInt((el as HTMLElement).dataset.index!)
+        this.selectedIndex = idx
+        this.renderList()
+      })
     })
   }
 }
