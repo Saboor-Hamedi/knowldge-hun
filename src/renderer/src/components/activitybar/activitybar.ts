@@ -4,7 +4,7 @@ import './activitybar.css'
 
 export class ActivityBar {
   private container: HTMLElement
-  private onViewChange?: (view: 'notes' | 'search' | 'settings' | 'theme' | 'graph') => void
+  private onViewChange?: (view: 'notes' | 'search' | 'settings' | 'theme' | 'graph' | null) => void
   
   constructor(containerId: string) {
     this.container = document.getElementById(containerId) as HTMLElement
@@ -12,7 +12,7 @@ export class ActivityBar {
     this.attachEvents()
   }
 
-  setViewChangeHandler(handler: (view: 'notes' | 'search' | 'settings' | 'theme' | 'graph') => void): void {
+  setViewChangeHandler(handler: (view: 'notes' | 'search' | 'settings' | 'theme' | 'graph' | null) => void): void {
     this.onViewChange = handler
   }
 
@@ -53,6 +53,15 @@ export class ActivityBar {
       // theme is a modal popup, don't change active view status
       if (view === 'theme') {
         this.onViewChange?.(view)
+        return
+      }
+
+      // Toggle behavior: if already active, deactivate and close sidebar
+      if (button.classList.contains('is-active')) {
+        button.classList.remove('is-active')
+        state.activeView = 'notes' // Default or fallback? Or we should probably not change state or set it to something else?
+        // Actually state.activeView type is limited. Let's just emit null.
+        this.onViewChange?.(null)
         return
       }
 

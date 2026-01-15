@@ -89,6 +89,8 @@ class App {
   }
 
   private setupMobileEvents(): void {
+    // Disabled mobile-specific behavior (floating sidebar, auto-close) as per user request to keep sidebar attached
+    /*
     const handleCheck = (): void => {
       const isSmall = window.matchMedia('(max-width: 800px)').matches
       const shell = document.querySelector('.vscode-shell')
@@ -125,6 +127,7 @@ class App {
         this.sidebar.hide()
       }
     })
+    */
   }
 
   private wireComponents(): void {
@@ -430,9 +433,18 @@ class App {
           } else {
               await this.renameNote(id, newTitle)
           }
-      } catch (err) {
-          const message = (err as Error).message
-          this.statusBar.setStatus(`Failed: ${message}`)
+      } catch (err: any) {
+          let message = (err as Error).message || ''
+          
+          if (message.includes('already exists') || message.includes('EEXIST')) {
+              message = `Name "${newTitle}" already taken`
+          } else if (message.includes('EPERM')) {
+              message = 'Permission denied (file in use?)'
+          }
+          
+          this.statusBar.setStatus(`⚠️ ${message}`)
+          
+          // Vital: Refresh to revert the UI change (the optimistic rename)
           await this.refreshNotes()
       }
     }) as unknown as EventListener)
@@ -441,39 +453,49 @@ class App {
   private async renameFolder(id: string, newName: string): Promise<void> {
       const oldPath = id
 
-      try {
-          const result = await window.api.renameFolder(oldPath, newName)
-          const actualNewPath = result.path
-          
-          // Update expandedFolders to prevent collapse
-          if (state.expandedFolders.has(oldPath)) {
-              state.expandedFolders.delete(oldPath)
-              state.expandedFolders.add(actualNewPath)
-          }
-
-          // Update any open tabs that might be inside this folder
-          state.openTabs = state.openTabs.map(tab => {
-              if (tab.path === oldPath || tab.path?.startsWith(oldPath + '/')) {
-                  const newTabPath = tab.path.replace(oldPath, actualNewPath)
-                  // Note IDs are path-based, so they also need updating
-                  const newId = tab.id.startsWith(oldPath) ? tab.id.replace(oldPath, actualNewPath) : tab.id
-                  
-                  if (state.activeId === tab.id) {
-                      state.activeId = newId
-                  }
-                  
-                  return { ...tab, id: newId, path: newTabPath }
-              }
-              return tab
-          })
-
-          this.statusBar.setStatus(`Renamed folder to ${newName}`)
-          await this.saveExpandedFolders()
-          await this.refreshNotes()
-      } catch (error) {
-          console.error('Failed to rename folder', error)
-          this.statusBar.setStatus('Folder rename failed')
+      const result = await window.api.renameFolder(oldPath, newName)
+      const actualNewPath = result.path
+      
+      // Update expandedFolders to prevent collapse
+      if (state.expandedFolders.has(oldPath)) {
+          state.expandedFolders.delete(oldPath)
+          state.expandedFolders.add(actualNewPath)
       }
+
+      // Update any open tabs that might be inside this folder
+      let activeChanged = false
+      state.openTabs = state.openTabs.map(tab => {
+          if (tab.path === oldPath || tab.path?.startsWith(oldPath + '/')) {
+              const newTabPath = tab.path.replace(oldPath, actualNewPath)
+              // Note IDs are path-based, so they also need updating
+              const newId = tab.id.startsWith(oldPath) ? tab.id.replace(oldPath, actualNewPath) : tab.id
+              
+              if (state.activeId === tab.id) {
+                  state.activeId = newId
+                  activeChanged = true
+              }
+              
+              if (state.pinnedTabs.has(tab.id)) {
+                  state.pinnedTabs.delete(tab.id)
+                  state.pinnedTabs.add(newId)
+              }
+              
+              return { ...tab, id: newId, path: newTabPath }
+          }
+          return tab
+      })
+
+      this.statusBar.setStatus(`Renamed folder to ${newName}`)
+      await this.saveExpandedFolders()
+      
+      // If active note was in the renamed folder, we might need to re-open or update editor state
+      if (activeChanged) {
+        // Force update editor? usually openNote handles it if we called it, 
+        // but here we just updated state. 
+        // We relies on refreshNotes to re-render tree, but editor content is fine (same file).
+      }
+      
+      await this.refreshNotes()
   }
 
   private async saveExpandedFolders(): Promise<void> {
@@ -1335,8 +1357,10 @@ class App {
         this.statusBar.setStatus(`Renamed to "${newTitle}"`)
         void this.persistWorkspace()
     } catch (error) {
-        console.error('Rename failed', error)
+        // We propagate the error so callers can handle specific UI reverts.
+        // We set a status here as a fallback for callers that don't handle it explicitly.
         this.statusBar.setStatus(`Rename failed: ${(error as Error).message}`)
+        throw error 
     }
   }
 

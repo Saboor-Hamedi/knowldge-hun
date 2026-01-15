@@ -95,14 +95,12 @@ body {
   overflow: hidden;
 }
 
-/* Responsive behavior */
-@media (max-width: 800px) {
+/* Responsive behavior removed as per user request to prevent sidebar flotation */
+/* @media (max-width: 800px) {
   .vscode-shell {
-    /* Main layout collapses sidebar space */
     grid-template-columns: var(--activity-width) 0px minmax(0, 1fr) 0px;
   }
   
-  /* When NOT hidden, sidebar floats over content */
   .vscode-shell:not(.sidebar-hidden) .sidebar {
     position: absolute;
     left: var(--activity-width);
@@ -116,7 +114,7 @@ body {
     opacity: 1;
     pointer-events: auto;
   }
-}
+} */
 
 
 .btn {
