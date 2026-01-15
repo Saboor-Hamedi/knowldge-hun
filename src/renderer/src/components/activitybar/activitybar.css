@@ -43,9 +43,22 @@
   box-shadow: 0 0 8px rgba(127, 167, 255, 0.2);
 }
 
-.activitybar__item svg {
-  pointer-events: none;
+
+.activitybar__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 20px;
   height: 20px;
-  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.2));
+  color: inherit;
+}
+.activitybar__icon svg {
+  width: 20px;
+  height: 20px;
+  display: block;
+  fill: currentColor;
+  stroke: currentColor;
+  color: inherit;
+  filter: none;
+  transition: color 120ms;
 }

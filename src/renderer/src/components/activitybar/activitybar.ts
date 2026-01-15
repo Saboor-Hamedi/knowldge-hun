@@ -20,21 +20,21 @@ export class ActivityBar {
     this.container.innerHTML = `
       <div class="activitybar__top">
         <button class="activitybar__item is-active" data-view="notes" title="Explorer">
-          ${codicons.files}
+          <span class="activitybar__icon">${codicons.files}</span>
         </button>
         <button class="activitybar__item" data-view="search" title="Search">
-          ${codicons.search}
+          <span class="activitybar__icon">${codicons.search}</span>
         </button>
         <button class="activitybar__item" data-view="graph" title="Graph View">
-          <svg width="24" height="24" viewBox="0 0 16 16" fill="currentColor"><circle cx="4" cy="4" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="4" r="2"/><path d="M4 4l8 8m0-8l-8 8" stroke="currentColor" stroke-width="1.5"/></svg>
+          <span class="activitybar__icon"><svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor"><circle cx="4" cy="4" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="4" r="2"/><path d="M4 4l8 8m0-8l-8 8" stroke="currentColor" stroke-width="1.5"/></svg></span>
         </button>
       </div>
       <div class="activitybar__bottom">
         <button class="activitybar__item" data-view="theme" title="Theme">
-          ${codicons.palette}
+          <span class="activitybar__icon">${codicons.palette}</span>
         </button>
         <button class="activitybar__item" data-view="settings" title="Settings">
-          ${codicons.settingsGear}
+          <span class="activitybar__icon">${codicons.settingsGear}</span>
         </button>
       </div>
     `
