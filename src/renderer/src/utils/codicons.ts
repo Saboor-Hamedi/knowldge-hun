@@ -54,6 +54,11 @@ export const codicons = {
 export function getFolderIcon(folderName: string): string {
   const name = folderName.toLowerCase()
 
+  // If this is the root folder, use the same emoji as the statusbar
+  if (name === 'root' || name === 'vault' || name === 'knowledgehub' || name === 'knowledge hub') {
+    return '📁'
+  }
+
   const folderIcons: Record<string, string> = {
     src: codicons.folderSrc,
     config: codicons.folderConfig,
@@ -66,8 +71,7 @@ export function getFolderIcon(folderName: string): string {
     libs: codicons.folderLib,
     utils: codicons.folderLib,
     components: codicons.folderSrc,
-    pages: codicons.folderPublic,
-    root: codicons.folderRoot
+    pages: codicons.folderPublic
   }
 
   return folderIcons[name] || codicons.folder

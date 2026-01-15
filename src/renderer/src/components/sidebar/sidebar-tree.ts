@@ -476,20 +476,20 @@ export class SidebarTree {
     const indent = document.createElement('span')
     indent.className = 'tree-item__indent'
     indent.style.width = `${depth * 16}px`
-    
+
     const arrow = document.createElement('span')
-    arrow.className = 'tree-item__expand'
+    arrow.className = 'tree-item__expand sidebar__icon'
     arrow.innerHTML = codicons.chevronRight
-    
+
     const icon = document.createElement('span')
-    icon.className = 'tree-item__icon'
+    icon.className = 'tree-item__icon sidebar__icon'
     icon.innerHTML = getFolderIcon(folder.title)
-    
+
     const label = document.createElement('span')
     label.className = 'tree-item__label'
     label.textContent = folder.title
     label.dataset.itemId = folder.id
-    
+
     el.appendChild(indent)
     el.appendChild(arrow)
     el.appendChild(icon)
@@ -519,10 +519,10 @@ export class SidebarTree {
     indent.style.width = `${depth * 16}px`
 
     const spacer = document.createElement('span')
-    spacer.className = 'tree-item__expand'
+    spacer.className = 'tree-item__expand sidebar__icon'
 
     const icon = document.createElement('span')
-    icon.className = 'tree-item__icon'
+    icon.className = 'tree-item__icon sidebar__icon'
     icon.innerHTML = getFileIcon(note.title)
 
     const label = document.createElement('span')

@@ -180,11 +180,12 @@
   transform: rotate(90deg);
 }
 
-.tree-item__icon {
+
+.sidebar__icon {
   width: 16px;
   height: 16px;
   flex-shrink: 0;
-  color: var(--text-soft);
+  color: var(--icon, var(--text-soft));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -192,9 +193,10 @@
   margin-right: 6px;
 }
 
-.tree-item__icon svg {
+.sidebar__icon svg {
   width: 16px;
   height: 16px;
+  fill: currentColor;
 }
 
 .tree-item__label {
