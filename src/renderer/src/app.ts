@@ -1,3 +1,16 @@
+// Rightbar toggle logic
+window.addEventListener('keydown', (e) => {
+  if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'i') {
+    const shell = document.querySelector('.vscode-shell') as HTMLElement;
+    const rightPanel = document.getElementById('rightPanel') as HTMLElement;
+    if (rightPanel && shell) {
+      const isVisible = rightPanel.style.display !== 'none';
+      rightPanel.style.display = isVisible ? 'none' : 'block';
+      shell.style.setProperty('--right-panel-width', isVisible ? '0px' : '270px');
+    }
+    e.preventDefault();
+  }
+});
 import { state } from './core/state'
 import type { NotePayload, NoteMeta, TreeItem, AppSettings } from './core/types'
 import { sortNotes, syncTabsWithNotes, ensureTab, sortTabs } from './utils/helpers'
@@ -9,6 +22,7 @@ import { SidebarTree } from './components/sidebar/sidebar-tree'
 import { TabBar } from './components/tabbar/tabbar'
 import { EditorComponent } from './components/editor/editor'
 import { StatusBar } from './components/statusbar/statusbar'
+import { RightBar } from './components/rightbar/rightbar'
 import { SettingsView } from './components/settings/settings-view'
 import { contextMenu } from './components/contextmenu/contextmenu'
 import { codicons } from './utils/codicons'
@@ -56,6 +70,7 @@ function buildTree(items: NoteMeta[]): TreeItem[] {
 }
 
 class App {
+  private rightBar: RightBar
   private activityBar: ActivityBar
   private sidebar: SidebarTree
   private tabBar: TabBar
@@ -73,6 +88,7 @@ class App {
     this.editor = new EditorComponent('editorContainer')
     this.statusBar = new StatusBar('statusBar')
     this.settingsView = new SettingsView('settingsHost')
+    this.rightBar = new RightBar('rightPanel')
     this.themeModal = new ThemeModal('app') // Mount to app container
     this.fuzzyFinder = new FuzzyFinder('app')
     this.graphView = new GraphView() // Mount to app container

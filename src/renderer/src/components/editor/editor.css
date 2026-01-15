@@ -4,6 +4,9 @@
   min-height: 0;
   background: var(--panel);
   position: relative;
+  flex: 1 1 auto;
+  height: 100%;
+  width: 100%;
 }
 
 .editor-container.drag-over {

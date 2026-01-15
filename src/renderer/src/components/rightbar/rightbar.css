@@ -1,0 +1,73 @@
+.rightbar {
+  width: 270px;
+  background: var(--panel);
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  box-shadow: -1px 0 0 rgba(0,0,0,0.03);
+}
+
+.rightbar__tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel-strong);
+}
+
+.rightbar__tab {
+  flex: 1;
+  padding: 10px 0;
+  background: none;
+  border: none;
+  color: var(--text-soft);
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+
+.rightbar__tab--active {
+  color: var(--primary-strong);
+  background: var(--panel);
+  border-bottom: 2px solid var(--primary-strong);
+}
+
+.rightbar__panels {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.rightbar__panel {
+  display: none;
+  flex: 1;
+  padding: 18px 18px 0 18px;
+  overflow-y: auto;
+}
+
+.rightbar__panel--active {
+  display: block;
+}
+
+.rightbar__details {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.rightbar__details-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: var(--text-soft);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 4px;
+}
+
+.rightbar__chat-placeholder {
+  color: var(--muted);
+  font-size: 14px;
+  text-align: center;
+  margin-top: 40px;
+}

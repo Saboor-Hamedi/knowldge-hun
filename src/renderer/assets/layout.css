@@ -3,7 +3,7 @@
 :root {
   --activity-width: 48px;
   --sidebar-width: 300px;
-  --right-panel-width: 0px;
+  --right-panel-width: 270px;
   --tab-height: 40px;
   --statusbar-height: 28px;
 }
@@ -14,12 +14,13 @@ body {
   overflow: hidden;
 }
 
+
 .vscode-shell {
   height: 100vh;
   width: 100vw;
   max-width: 100vw;
   display: grid;
-  grid-template-columns: var(--activity-width) auto minmax(0, 1fr) auto;
+  grid-template-columns: var(--activity-width) auto minmax(0, 1fr) var(--right-panel-width);
   grid-template-rows: 1fr var(--statusbar-height);
   gap: 0;
   background: var(--bg);
@@ -59,14 +60,15 @@ body {
 .main {
   grid-column: 3;
   grid-row: 1;
-  display: grid;
-  grid-template-rows: var(--tab-height) 1fr;
   background: var(--panel);
-  min-width: 0; /* Critical for grid shrinking */
-  width: 100%; /* Ensure it fills track */
+  min-width: 0;
+  width: 100%;
+  height: 100%;
   overflow: hidden;
   position: relative;
   z-index: 1;
+  display: flex;
+  flex-direction: column;
 }
 
 .right-panel {
@@ -74,7 +76,7 @@ body {
   grid-row: 1;
   background: var(--panel);
   border-left: 1px solid var(--border);
-  display: none;
+  display: block;
   min-height: 0;
   width: var(--right-panel-width);
 }
@@ -88,7 +90,7 @@ body {
 
 .statusbar {
   grid-column: 1 / -1;
-  grid-row: 2;
+  grid-row: 3;
   min-height: 0;
   z-index: 50;
   height: var(--statusbar-height);
@@ -206,6 +208,5 @@ body:not(.is-loading) #loadingOverlay {
   border-color: var(--border) !important;
 }
 
-.main > header {
-  background: var(--panel-strong) !important;
-}
+
+

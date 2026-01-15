@@ -8,17 +8,19 @@ export function sortTreeItems<T extends NoteMeta>(items: T[]): T[] {
     // 1. Folders first
     const aIsFolder = a.type === 'folder' || 'children' in a
     const bIsFolder = b.type === 'folder' || 'children' in b
-    
+
     if (aIsFolder && !bIsFolder) return -1
     if (!aIsFolder && bIsFolder) return 1
 
     // 2. Priority for newly created items (within type)
-    const aNew = newlyCreatedIds.has(a.id)
-    const bNew = newlyCreatedIds.has(b.id)
-    
-    if (aNew && !bNew) return 1
-    if (!aNew && bNew) return -1
-    
+    // NEW: Only apply to notes, not folders
+    if (!aIsFolder && !bIsFolder) {
+      const aNew = newlyCreatedIds.has(a.id)
+      const bNew = newlyCreatedIds.has(b.id)
+      if (aNew && !bNew) return 1
+      if (!aNew && bNew) return -1
+    }
+
     // 3. Then alphabetical
     return (a.title || '').localeCompare(b.title || '')
   })
