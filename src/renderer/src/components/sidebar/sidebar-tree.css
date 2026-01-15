@@ -5,6 +5,8 @@
   grid-template-rows: auto auto 1fr auto;
   gap: 0;
   overflow: hidden;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+  position: relative;
 }
 
 /* Header */
@@ -90,9 +92,19 @@
 .sidebar__body {
   overflow-y: auto;
   overflow-x: hidden;
-  min-height: 0;
   padding: 4px 0 300px 0; /* Huge bottom space for root selection */
   position: relative;
+  outline: none; /* Remove default browser focus ring */
+}
+
+.sidebar__body.is-root-selected::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 1px solid var(--primary);
+  opacity: 0.2;
+  pointer-events: none;
+  z-index: 100;
 }
 
 /* Tree Items */

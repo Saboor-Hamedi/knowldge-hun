@@ -445,7 +445,19 @@ export class VaultManager {
     const targetDir = join(this.rootPath, newRelPath)
     
     if (existsSync(targetDir)) throw new Error('Folder already exists')
-    await rename(sourceDir, targetDir)
+    
+    // Temporarily stop watcher to prevent EPERM locks on Windows
+    if (this.watcher) {
+        await this.watcher.close()
+        this.watcher = null
+    }
+
+    try {
+        await rename(sourceDir, targetDir)
+    } finally {
+        // Always restart watcher
+        await this.startWatcher()
+    }
     
     const finalRelPath = newRelPath.replace(/\\/g, '/')
     
@@ -456,19 +468,35 @@ export class VaultManager {
     // Update all notes inside from cache
     for (const [id, meta] of this.notes.entries()) {
         if (meta.path?.startsWith(normalizedPath)) {
-            const relativeToFolder = meta.id.substring(normalizedPath.length)
-            const newId = join(finalRelPath, relativeToFolder).replace(/\\/g, '/')
-            const newPath = dirname(newId) === '.' ? '' : dirname(newId)
-            
-            this.notes.delete(id)
-            this.notes.set(newId, {
-                ...meta,
-                id: newId,
-                path: newPath
-            })
+            // Care with substring logic - ensure boundary
+            const prefix = normalizedPath === '' ? '' : normalizedPath + '/'
+            if (id.startsWith(prefix) || meta.path === normalizedPath) { 
+                // Wait, if meta.path starts with it.
+                // Re-calculate new ID properly
+                const suffix = id.substring(normalizedPath.length)
+                // suffix starts with / usually
+                const newId = join(finalRelPath, suffix).replace(/\\/g, '/')
+                const newPath = dirname(newId) === '.' ? '' : dirname(newId)
+                
+                this.notes.delete(id)
+                this.notes.set(newId, {
+                    ...meta,
+                    id: newId,
+                    path: newPath
+                })
+            }
         }
     }
     
+    // Recursive folder cache update for subfolders
+    for (const folder of Array.from(this.folders)) {
+        if (folder !== finalRelPath && folder.startsWith(normalizedPath + '/')) {
+            this.folders.delete(folder)
+            const suffix = folder.substring(normalizedPath.length)
+            this.folders.add(finalRelPath + suffix)
+        }
+    }
+
     return { path: finalRelPath }
   }
 

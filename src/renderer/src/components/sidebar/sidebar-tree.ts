@@ -160,7 +160,7 @@ export class SidebarTree {
         <input id="searchInput" type="search" placeholder="Search..." aria-label="Search notes" />
       </div>
       
-      <div class="sidebar__body"></div>
+      <div class="sidebar__body" tabindex="-1"></div>
       
       <footer class="sidebar__footer"></footer>
     `
@@ -317,9 +317,9 @@ export class SidebarTree {
 
       const action = button.dataset.action
       if (action === 'new') {
-        this.onNoteCreate?.(this.selectedFolderPath || undefined)
+        this.onNoteCreate?.(this.getDefaultParentPath())
       } else if (action === 'new-folder') {
-        this.onFolderCreate?.(this.selectedFolderPath || undefined)
+        this.onFolderCreate?.(this.getDefaultParentPath())
       } else if (action === 'reveal') {
         void window.api.revealVault()
       } else if (action === 'graph') {
@@ -343,10 +343,8 @@ export class SidebarTree {
         this.selectedFolderPath = null
         state.selectedIds.clear()
         this.lastSelectedId = null
-        
-        this.bodyEl.querySelectorAll('.tree-item.is-active, .tree-item.is-selected').forEach(el => {
-          el.classList.remove('is-active', 'is-selected')
-        })
+        this.updateSelectionStates()
+        this.bodyEl.focus()
         return
       }
 
@@ -433,11 +431,11 @@ export class SidebarTree {
         contextMenu.show(event.clientX, event.clientY, [
           {
             label: 'New Note',
-            onClick: () => this.onNoteCreate?.()
+            onClick: () => this.onNoteCreate?.(this.getDefaultParentPath())
           },
           {
             label: 'New Folder',
-            onClick: () => this.onFolderCreate?.('')
+            onClick: () => this.onFolderCreate?.(this.getDefaultParentPath())
           }
         ])
         return
@@ -1035,6 +1033,9 @@ export class SidebarTree {
   }
 
   updateSelectionStates(): void {
+      const isRoot = !this.selectedId && state.selectedIds.size === 0
+      this.bodyEl.classList.toggle('is-root-selected', isRoot)
+
       this.bodyEl.querySelectorAll('.tree-item').forEach((el) => {
           const item = el as HTMLElement
           const id = item.dataset.id
@@ -1071,5 +1072,9 @@ export class SidebarTree {
 
   getSearchValue(): string {
     return this.searchEl.value
+  }
+
+  private getDefaultParentPath(): string | undefined {
+    return this.selectedFolderPath || undefined
   }
 }

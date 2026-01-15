@@ -360,33 +360,36 @@ button {
 
 @media (max-width: 900px) {
   .vscode-shell {
-    grid-template-columns: var(--activity-width) 0 1fr; /* Hide sidebar column by default in grid layout */
-    position: relative;
+    /* Keep grid layout, allow sidebar to push content (no overlay) */
+    grid-template-columns: var(--activity-width) auto 1fr;
+    
     /* Reset rows */
     grid-template-rows: 1fr var(--statusbar-height);
   }
 
   /* Override previous mobile styles which shifted rows around */
   .sidebar {
-    grid-column: 2; /* Still visually in col 2 but we manage it absolute */
+    grid-column: 2;
     grid-row: 1;
-    display: block !important; /* Force display for transform logic */
-
-    position: absolute;
-    left: var(--activity-width);
-    top: 0;
-    bottom: 26px; /* Respect status bar height */
-    width: 280px;
-    z-index: 100;
-    background: var(--panel); /* Ensure background is opaque */
-    transform: translateX(0);
-    transition: transform 200ms cubic-bezier(0.33, 1, 0.68, 1);
-    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.4);
+    display: grid !important; /* Restore grid display for sidebar internals */
+    
+    /* Reset absolute positioning */
+    position: relative;
+    left: auto;
+    top: auto;
+    bottom: auto;
+    width: 280px; /* Standardize width */
+    z-index: 5;
+    background: var(--panel);
     border-right: 1px solid var(--border);
+    border-left: none; /* No double border needed */
+    margin: 0;
+    transform: none;
+    box-shadow: none;
   }
 
   .main, .editor-container {
-    grid-column: 3; /* Content takes the rest */
+    grid-column: 3;
     grid-row: 1;
   }
 
@@ -395,24 +398,18 @@ button {
     grid-row: 2;
   }
 
-  /* When sidebar is hidden (app logic), slide it out */
+  /* When sidebar is hidden (app logic) */
+  .vscode-shell.sidebar-hidden {
+    grid-template-columns: var(--activity-width) 0 1fr;
+  }
+  
   .vscode-shell.sidebar-hidden .sidebar {
-    transform: translateX(-100%);
+    display: none !important;
   }
 
-  /* Overlay backdrop when sidebar is open on mobile */
+  /* Remove overlay backdrop since it is now pushing content */
   .vscode-shell:not(.sidebar-hidden)::after {
-    content: '';
-    position: fixed;
-    top: 0;
-    right: 0;
-    bottom: 26px; /* Above statusbar */
-    left: calc(var(--activity-width) + 280px);
-    background: rgba(0, 0, 0, 0.3);
-    z-index: 90;
-    pointer-events: auto;
-    animation: fadeIn 200ms ease;
-    backdrop-filter: blur(2px);
+    display: none;
   }
 }
 

@@ -113,8 +113,8 @@ class App {
       if (!window.matchMedia('(max-width: 800px)').matches) return
 
       const target = e.target as HTMLElement
-      // Do not close if clicking inside sidebar, activity bar, or modal
-      if (target.closest('.sidebar') || target.closest('.activitybar') || target.closest('.graph-modal')) return
+      // Do not close if clicking inside sidebar, activity bar, modal, or context menu
+      if (target.closest('.sidebar') || target.closest('.activitybar') || target.closest('.graph-modal') || target.closest('.context-menu')) return
       
       // Do not close if clicking the specific toggle button (usually in activity bar, but just in case)
       if (target.closest('[data-action="toggle-sidebar"]')) return
