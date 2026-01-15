@@ -1,5 +1,5 @@
 import { state } from './core/state'
-import type { NotePayload, NoteMeta, TreeItem } from './core/types'
+import type { NotePayload, NoteMeta, TreeItem, AppSettings } from './core/types'
 import { sortNotes, syncTabsWithNotes, ensureTab, sortTabs } from './utils/helpers'
 import { sortTreeRecursive } from './utils/tree-utils'
 import { keyboardManager } from './core/keyboardManager'
@@ -17,13 +17,14 @@ import { FuzzyFinder } from './components/fuzzy-finder/fuzzy-finder'
 import { GraphView } from './components/graph/graph'
 import { themeManager } from './core/themeManager'
 import { ErrorHandler } from './utils/error-handler'
+import { notificationManager } from './components/notification/notification'
 
 function buildTree(items: NoteMeta[]): TreeItem[] {
   const root: TreeItem[] = []
   const folderMap = new Map<string, TreeItem>()
 
   // 1. Create a map of all folders first
-  items.forEach(item => {
+  items.forEach((item) => {
     if (item.type === 'folder') {
       const folderItem: TreeItem = {
         ...item,
@@ -34,11 +35,9 @@ function buildTree(items: NoteMeta[]): TreeItem[] {
   })
 
   // 2. Process all items and attach to parents
-  items.forEach(item => {
+  items.forEach((item) => {
     const type = item.type || 'note'
-    const treeItem: TreeItem = type === 'folder' 
-      ? folderMap.get(item.id)! 
-      : { ...item, type, children: [] }
+    const treeItem: TreeItem = type === 'folder' ? folderMap.get(item.id)! : { ...item, type, children: [] }
 
     const parentPath = (item.path || '').replace(/\\/g, '/')
     
@@ -145,17 +144,25 @@ class App {
         this.graphView.open()
         return
       }
-      this.sidebar.setVisible(view === 'notes')
+      
+      const isSidebarView = view === 'notes' || view === 'search'
+      this.sidebar.setVisible(isSidebarView)
+      
+      if (view === 'search') {
+        this.sidebar.setMode('search')
+      } else if (view === 'notes') {
+        this.sidebar.setMode('explorer')
+      }
       
       // Trigger editor layout to follow the sidebar transition
       // We do this multiple times over the 200ms transition for smoothness
       const startTime = Date.now()
       const duration = 250 // slightly longer than 200ms transition
-      const layoutLoop = () => {
-          this.editor.layout()
-          if (Date.now() - startTime < duration) {
-              requestAnimationFrame(layoutLoop)
-          }
+      const layoutLoop = (): void => {
+        this.editor.layout()
+        if (Date.now() - startTime < duration) {
+          requestAnimationFrame(layoutLoop)
+        }
       }
       requestAnimationFrame(layoutLoop)
       
@@ -171,7 +178,7 @@ class App {
     this.sidebar.setFolderMoveHandler((source, target) => this.handleFolderMove(source, target))
     this.sidebar.setFolderCreateHandler((parentPath) => void this.createFolder(parentPath))
     this.sidebar.setVisibilityChangeHandler((visible) => {
-      void window.api.updateSettings({ sidebarVisible: visible } as any)
+      void window.api.updateSettings({ sidebarVisible: visible } as Partial<AppSettings>)
     })
     this.sidebar.setGraphClickHandler(() => this.graphView.open())
     
@@ -179,40 +186,40 @@ class App {
     
     // Graph Navigation
     window.addEventListener('knowledge-hub:open-note', ((e: CustomEvent) => {
-        const { id, path } = e.detail
-        this.openNote(id, path)
+      const { id, path } = e.detail
+      this.openNote(id, path)
     }) as EventListener)
 
     // Fuzzy Finder
     this.fuzzyFinder.setSelectHandler(async (id, path, type, isFinal) => {
-        if (type === 'folder') {
-            void this.revealPathInSidebar(path, true)
-            this.statusBar.setStatus(`Revealed folder: ${id}`)
-        } else {
-            // Only focus editor if it's the final selection (Enter or click)
-            await this.openNote(id, path, isFinal ? 'editor' : 'none')
-        }
+      if (type === 'folder') {
+        void this.revealPathInSidebar(path, true)
+        this.statusBar.setStatus(`Revealed folder: ${id}`)
+      } else {
+        // Only focus editor if it's the final selection (Enter or click)
+        await this.openNote(id, path, isFinal ? 'editor' : 'none')
+      }
     })
 
     // Tab handlers
     this.tabBar.setTabSelectHandler(async (id) => {
-        if (id === 'settings') {
-            await this.openSettings()
-        } else {
-            const tab = state.openTabs.find(t => t.id === id)
-            if (tab) await this.openNote(tab.id, tab.path)
-        }
+      if (id === 'settings') {
+        await this.openSettings()
+      } else {
+        const tab = state.openTabs.find((t) => t.id === id)
+        if (tab) await this.openNote(tab.id, tab.path)
+      }
     })
     this.tabBar.setTabCloseHandler((id) => void this.closeTab(id))
     this.tabBar.setTabContextMenuHandler((id, e) => this.handleTabContextMenu(id, e))
 
     this.settingsView.setSettingChangeHandler((newSettings) => {
-        if (state.settings) {
-            state.settings = { ...state.settings, ...newSettings }
-            this.editor.applySettings(state.settings)
-            void window.api.updateSettings(newSettings as any)
-            this.statusBar.setStatus('Settings auto-saved')
-        }
+      if (state.settings) {
+        state.settings = { ...state.settings, ...newSettings }
+        this.editor.applySettings(state.settings)
+        void window.api.updateSettings(newSettings as Partial<AppSettings>)
+        this.statusBar.setStatus('Settings auto-saved')
+      }
     })
 
     // Editor handlers
@@ -227,14 +234,14 @@ class App {
     this.editor.setHoverContentHandler((target) => this.getNotePreview(target))
     this.editor.setContextMenuHandler((e) => this.handleEditorContextMenu(e))
     this.editor.setTabCloseHandler(() => {
-        if (state.activeId) {
-             // Check if pinned before closing via shortcut
-             if (state.pinnedTabs.has(state.activeId)) {
-                 this.statusBar.setStatus('Pinned tab cannot be closed')
-                 return
-             }
-             void this.closeTab(state.activeId)
+      if (state.activeId) {
+        // Check if pinned before closing via shortcut
+        if (state.pinnedTabs.has(state.activeId)) {
+          this.statusBar.setStatus('Pinned tab cannot be closed')
+          return
         }
+        void this.closeTab(state.activeId)
+      }
     })
     this.editor.attachKeyboardShortcuts()
 
@@ -248,36 +255,35 @@ class App {
   // handleTabContextMenu
   private handleTabContextMenu(id: string, e: MouseEvent): void {
       const isPinned = state.pinnedTabs.has(id)
-      
       contextMenu.show(e.clientX, e.clientY, [
-          {
-              label: isPinned ? 'Unpin Tab' : 'Pin Tab',
-              icon: codicons.pin,
-              onClick: () => this.togglePinTab(id)
-          },
-          { separator: true },
-          {
-              label: 'Close',
-              icon: codicons.close,
-              onClick: () => this.closeTab(id, true) // Force close via menu? Or respect lock? Standard VSCode allows menu close.
-              // Letting menu close override pin seems standard. Shortcut is protected.
-          },
-          {
-              label: 'Close Others',
-              onClick: () => this.closeOtherTabs(id)
-          },
-          {
-              label: 'Close All',
-              onClick: () => this.closeAllTabs()
-          }
+        {
+          label: isPinned ? 'Unpin Tab' : 'Pin Tab',
+          icon: codicons.pin,
+          onClick: () => this.togglePinTab(id)
+        },
+        { separator: true },
+        {
+          label: 'Close',
+          icon: codicons.close,
+          onClick: () => this.closeTab(id, true) // Force close via menu? Or respect lock? Standard VSCode allows menu close.
+          // Letting menu close override pin seems standard. Shortcut is protected.
+        },
+        {
+          label: 'Close Others',
+          onClick: () => this.closeOtherTabs(id)
+        },
+        {
+          label: 'Close All',
+          onClick: () => this.closeAllTabs()
+        }
       ])
   }
 
   private togglePinTab(id: string): void {
       if (state.pinnedTabs.has(id)) {
-          state.pinnedTabs.delete(id)
+        state.pinnedTabs.delete(id)
       } else {
-          state.pinnedTabs.add(id)
+        state.pinnedTabs.add(id)
       }
       state.openTabs = sortTabs(state.openTabs, state.pinnedTabs)
       this.tabBar.render()
@@ -285,21 +291,20 @@ class App {
   }
 
   private async closeOtherTabs(id: string): Promise<void> {
-      // Close all tabs except the target one and PINNED tabs
-      // Usually "Close Others" preserves pinned tabs in VSCode
-      const toClose = state.openTabs.filter(t => t.id !== id && !state.pinnedTabs.has(t.id))
-      
-      for (const tab of toClose) {
-          await this.closeTab(tab.id, true)
-      }
+    // Close all tabs except the target one and PINNED tabs
+    // Usually "Close Others" preserves pinned tabs in VSCode
+    const toClose = state.openTabs.filter((t) => t.id !== id && !state.pinnedTabs.has(t.id));
+    for (const tab of toClose) {
+      await this.closeTab(tab.id, true);
+    }
   }
 
   private async closeAllTabs(): Promise<void> {
-       // Close all non-pinned tabs
-       const toClose = state.openTabs.filter(t => !state.pinnedTabs.has(t.id))
-       for (const tab of toClose) {
-           await this.closeTab(tab.id, true)
-       }
+    // Close all non-pinned tabs
+    const toClose = state.openTabs.filter((t) => !state.pinnedTabs.has(t.id));
+    for (const tab of toClose) {
+      await this.closeTab(tab.id, true);
+    }
   }
 
   // ... 
@@ -438,8 +443,12 @@ class App {
           
           if (message.includes('already exists') || message.includes('EEXIST')) {
               message = `Name "${newTitle}" already taken`
+              notificationManager.show(message, 'error', { title: 'Duplicate Name' })
           } else if (message.includes('EPERM')) {
               message = 'Permission denied (file in use?)'
+              notificationManager.show(message, 'error', { title: 'Rename Failed' })
+          } else {
+             notificationManager.show(message, 'error', { title: 'Error' })
           }
           
           this.statusBar.setStatus(`⚠️ ${message}`)
@@ -959,12 +968,20 @@ class App {
     
     const note = await window.api.loadNote(id, path)
     if (!note) {
+      // Try to refresh notes and check again before warning
+      await this.refreshNotes();
+      const refreshed = state.notes.find(n => n.id === id);
+      if (refreshed) {
+        // Note is now found after refresh, open it
+        await this.openNote(id, path, focusTarget);
+        return;
+      }
       console.warn(`[App] Note ${id} not found at ${path}. Refreshing...`)
+      notificationManager.show(`Note not found after rename or move. Please check your vault.`, 'warning', { title: 'Note Missing' })
       this.statusBar.setStatus('Note missing on disk')
       if (state.activeId === id || !state.activeId) {
           this.editor.showEmpty()
       }
-      await this.refreshNotes()
       return
     }
 

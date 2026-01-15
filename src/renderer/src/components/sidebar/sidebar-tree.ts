@@ -133,6 +133,230 @@ export class SidebarTree {
     else this.hide()
   }
 
+  setMode(mode: 'explorer' | 'search'): void {
+    // Basic implementation of mode switching
+    // Ideally we should have separate containers but for now we manipulate visibility
+    
+    // Update title
+    const titleEl = this.container.querySelector('.sidebar__title-text')
+    if (titleEl) {
+      titleEl.textContent = mode === 'search' ? 'SEARCH' : 'EXPLORER'
+    }
+
+    // Toggle actions visibility
+    const actionsEl = this.container.querySelector('.sidebar__actions') as HTMLElement
+    if (actionsEl) {
+      actionsEl.style.display = mode === 'search' ? 'none' : 'flex'
+    }
+
+    // Identify elements
+    // The tree container is .sidebar__body in render(), NOT .note-list
+    const treeBody = this.container.querySelector('.sidebar__body') as HTMLElement
+    
+    // The filter input container (for explorer)
+    // It's the .sidebar__search that contains #searchInput
+    const filterInput = this.container.querySelector('#searchInput')
+    const filterContainer = filterInput ? filterInput.closest('.sidebar__search') as HTMLElement : null
+
+    let searchBody = this.container.querySelector('.sidebar__search-container') as HTMLElement;
+    if (!searchBody && mode === 'search') {
+      const searchMarkup = `
+         <div class="sidebar__search-container" style="padding: 10px;">
+            <div class="sidebar__search">
+                <input type="text" placeholder="Search (Ctrl+Shift+F, tags: #tag)" id="global-search-input" autocomplete="off">
+            </div>
+            <div class="search-results" style="margin-top: 10px; color: var(--text-soft); font-size: 13px;"></div>
+         </div>
+      `;
+      this.container.querySelector('.sidebar__header')?.insertAdjacentHTML('afterend', searchMarkup);
+      searchBody = this.container.querySelector('.sidebar__search-container') as HTMLElement;
+      // Attach search logic
+      const input = searchBody.querySelector('#global-search-input') as HTMLInputElement;
+      const results = searchBody.querySelector('.search-results') as HTMLElement;
+      let lastQuery = '';
+      let lastResults: any[] = [];
+      input.addEventListener('input', async () => {
+        const query = input.value.trim();
+        lastQuery = query;
+        if (!query) {
+          results.innerHTML = '';
+          lastResults = [];
+          // Remove any selection highlight
+          Array.from(results.querySelectorAll('.search-result-item.selected')).forEach(el => el.classList.remove('selected'));
+          return;
+        }
+        results.innerHTML = '<div style="text-align:center;margin-top:20px;">Searching…</div>';
+        try {
+          // Use window.api.searchNotes for robust search (title, content, tags)
+          const notes = await (window.api as any).searchNotes(query);
+          // Filter for tags if #tag is present
+          let filtered = notes;
+          const tagMatch = query.match(/#(\w+)/g);
+          if (tagMatch) {
+            const tags = tagMatch.map(t => t.slice(1).toLowerCase());
+            filtered = notes.filter((n: any) => {
+              if (!n.content) return false;
+              return tags.every(tag => n.content.toLowerCase().includes(`#${tag}`));
+            });
+          }
+          lastResults = filtered;
+          if (filtered.length === 0) {
+            results.innerHTML = '<div style="text-align:center;margin-top:20px;">No results found</div>';
+          } else {
+            // Highlight matches in title/content/tags
+            const highlight = (text: string, q: string) => {
+              if (!q) return text;
+              try {
+                const safeQ = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                return text.replace(new RegExp(safeQ, 'gi'), (m) => `<mark style=\"background:#31405c;color:#fff;padding:0 2px;border-radius:2px;\">${m}</mark>`);
+              } catch { return text; }
+            };
+            const qNoTags = query.replace(/#\w+/g, '').trim();
+            results.innerHTML = filtered.map((n: any, idx: number) => {
+              const title = highlight(n.title || n.id, qNoTags);
+              let content = n.content || '';
+              if (qNoTags) content = highlight(content.slice(0, 120), qNoTags);
+              // Tag highlight
+              let tagHtml = '';
+              const tagMatch = query.match(/#(\w+)/g);
+              if (tagMatch && n.content) {
+                tagHtml = tagMatch.map(tag => n.content.toLowerCase().includes(tag.toLowerCase()) ? `<mark style=\"background:#cca700;color:#222;padding:0 2px;border-radius:2px;\">${tag}</mark>` : '').join(' ');
+              }
+              return `
+                <div class=\"search-result-item\" data-id=\"${n.id}\" data-path=\"${n.path || ''}\" tabindex=\"0\" style=\"padding:8px 6px;cursor:pointer;border-radius:4px;display:flex;flex-direction:column;gap:2px;outline:none;\">\n                  <span style=\"font-weight:600;color:var(--text-strong);\">${title}</span>\n                  <span style=\"font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;\">${n.path || ''}</span>\n                  <span style=\"font-size:12px;color:var(--text-soft);max-height:2.5em;overflow:hidden;text-overflow:ellipsis;\">${content} ${tagHtml}</span>\n                  <span style=\"font-size:11px;color:var(--muted);margin-top:2px;\">Press <b>Enter</b> to open</span>\n                </div>\n              `;
+            }).join('');
+            // Focus first result for keyboard nav and add selection highlight
+            setTimeout(() => {
+              const first = results.querySelector('.search-result-item') as HTMLElement;
+              if (first) {
+                first.classList.add('selected');
+                // Do NOT call first.focus();
+              }
+            }, 50);
+          }
+        } catch (e) {
+          results.innerHTML = '<div style="text-align:center;margin-top:20px;color:#f48771;">Search failed</div>';
+        }
+      });
+      // Open note on click/enter
+      results?.addEventListener('click', (e) => {
+        const item = (e.target as HTMLElement).closest('.search-result-item') as HTMLElement;
+        if (item) {
+          const id = item.dataset.id;
+          const path = item.dataset.path || undefined;
+          // Highlight selected
+          Array.from(results.querySelectorAll('.search-result-item.selected')).forEach(el => el.classList.remove('selected'));
+          item.classList.add('selected');
+          if (id && this.onNoteSelect) {
+            // Prevent duplicate tabs: check if already open
+            if (window.state && window.state.openTabs && window.state.openTabs.some((t: any) => t.id === id)) {
+              window.dispatchEvent(new CustomEvent('knowledge-hub:open-note', { detail: { id, path } }));
+            } else {
+              this.onNoteSelect(id, path);
+            }
+            // Keep focus in input for instant search
+            const input = searchBody.querySelector('#global-search-input') as HTMLInputElement;
+            if (input) setTimeout(() => input.focus(), 50);
+          }
+        }
+      });
+      results?.addEventListener('keydown', (e) => {
+        const items = Array.from(results.querySelectorAll('.search-result-item')) as HTMLElement[];
+        const selected = results.querySelector('.search-result-item.selected') as HTMLElement;
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          let idx = items.indexOf(selected);
+          if (idx < items.length - 1) {
+            if (selected) selected.classList.remove('selected');
+            items[idx + 1].classList.add('selected');
+            // Do NOT call .focus() to keep input focused
+          }
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          let idx = items.indexOf(selected);
+          if (idx > 0) {
+            if (selected) selected.classList.remove('selected');
+            items[idx - 1].classList.add('selected');
+            // Do NOT call .focus() to keep input focused
+          }
+        } else if (e.key === 'Enter') {
+          e.preventDefault();
+          // Always open the currently selected result
+          const item = results.querySelector('.search-result-item.selected') as HTMLElement;
+          if (item) {
+            const id = item.dataset.id;
+            const path = item.dataset.path || undefined;
+            // Highlight selected
+            Array.from(results.querySelectorAll('.search-result-item.selected')).forEach(el => el.classList.remove('selected'));
+            item.classList.add('selected');
+            if (id && this.onNoteSelect) {
+              if (window.state && window.state.openTabs && window.state.openTabs.some((t: any) => t.id === id)) {
+                window.dispatchEvent(new CustomEvent('knowledge-hub:open-note', { detail: { id, path } }));
+              } else {
+                this.onNoteSelect(id, path);
+              }
+              // Keep focus in input for instant search
+              const input = searchBody.querySelector('#global-search-input') as HTMLInputElement;
+              if (input) setTimeout(() => input.focus(), 50);
+            }
+          }
+        }
+      });
+      // Add keyboard navigation for up/down arrow
+      results?.addEventListener('keydown', (e) => {
+        const items = Array.from(results.querySelectorAll('.search-result-item')) as HTMLElement[];
+        const selected = results.querySelector('.search-result-item.selected') as HTMLElement;
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          let idx = items.indexOf(selected);
+          if (idx < items.length - 1) {
+            if (selected) selected.classList.remove('selected');
+            items[idx + 1].classList.add('selected');
+            // Do NOT call .focus() to keep input focused
+          }
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          let idx = items.indexOf(selected);
+          if (idx > 0) {
+            if (selected) selected.classList.remove('selected');
+            items[idx - 1].classList.add('selected');
+            // Do NOT call .focus() to keep input focused
+          }
+        }
+      });
+      // Add CSS for .selected background
+      const style = document.createElement('style');
+      style.textContent = `.search-result-item.selected { background: #22304a !important; }`;
+      document.head.appendChild(style);
+    }
+    if (mode === 'search') {
+       if (treeBody) treeBody.style.display = 'none';
+       if (filterContainer) filterContainer.style.display = 'none';
+       if (searchBody) searchBody.style.display = 'block';
+       // Focus input for instant search
+       const input = searchBody.querySelector('#global-search-input') as HTMLInputElement;
+       if (input) setTimeout(() => input.focus(), 100);
+    } else {
+       if (treeBody) treeBody.style.display = 'block';
+       if (filterContainer) filterContainer.style.display = 'block';
+       if (searchBody) searchBody.style.display = 'none';
+    }
+
+    if (mode === 'search') {
+       if (treeBody) treeBody.style.display = 'none'
+       // Hide the explorer filter input
+       if (filterContainer) filterContainer.style.display = 'none'
+       
+       if (searchBody) searchBody.style.display = 'block'
+    } else {
+       if (treeBody) treeBody.style.display = 'block'
+       // Show the explorer filter input
+       if (filterContainer) filterContainer.style.display = 'block'
+       
+       if (searchBody) searchBody.style.display = 'none'
+    }
+  }
+
   isEditing(): boolean {
     return this.editingId !== null
   }
