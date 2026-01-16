@@ -42,6 +42,7 @@ export class ThemeModal {
     this.container.appendChild(this.backdrop)
     
     this.backdrop.addEventListener('click', () => this.close())
+    document.addEventListener('keydown', this.handleKeyDown)
   }
 
   close(): void {
@@ -51,6 +52,13 @@ export class ThemeModal {
     if (this.backdrop) {
       this.backdrop.remove()
       this.backdrop = null
+    }
+    document.removeEventListener('keydown', this.handleKeyDown)
+  }
+
+  private handleKeyDown = (e: KeyboardEvent): void => {
+    if (e.key === 'Escape') {
+      this.close()
     }
   }
 

@@ -1,6 +1,6 @@
 import { state } from '../../core/state'
 import { codicons } from '../../utils/codicons'
-import { updateApp } from '../updateApp/updateApp'
+import { updateApp } from '../updateApp/updateRender'
 import './activitybar.css'
 
 export class ActivityBar {

@@ -2,10 +2,10 @@ import './rightbar.css';
 
 export class RightBar {
   private container: HTMLElement;
-  private tabDetails: HTMLElement;
-  private tabChat: HTMLElement;
-  private detailsPanel: HTMLElement;
-  private chatPanel: HTMLElement;
+  private tabDetails!: HTMLElement;
+  private tabChat!: HTMLElement;
+  private detailsPanel!: HTMLElement;
+  private chatPanel!: HTMLElement;
 
   constructor(containerId: string) {
     this.container = document.getElementById(containerId) as HTMLElement;

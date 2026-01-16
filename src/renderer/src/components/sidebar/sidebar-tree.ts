@@ -173,9 +173,7 @@ export class SidebarTree {
       // Attach search logic
       const input = searchBody.querySelector('#global-search-input') as HTMLInputElement;
       const results = searchBody.querySelector('.search-results') as HTMLElement;
-      let lastQuery = '';
-      let lastResults: any[] = [];
-        let selectedIndex = 0;
+      let selectedIndex = 0;
       input.addEventListener('input', async () => {
               // Forward arrow key and enter events from input to results for keyboard navigation
               input.addEventListener('keydown', (e) => {
@@ -187,10 +185,8 @@ export class SidebarTree {
                 }
               });
         const query = input.value.trim();
-        lastQuery = query;
         if (!query) {
           results.innerHTML = '';
-          lastResults = [];
           selectedIndex = 0;
           // Remove any selection highlight
           Array.from(results.querySelectorAll('.search-result-item.selected')).forEach(el => el.classList.remove('selected'));
@@ -210,7 +206,6 @@ export class SidebarTree {
               return tags.every(tag => n.content.toLowerCase().includes(`#${tag}`));
             });
           }
-          lastResults = filtered;
           if (filtered.length === 0) {
             results.innerHTML = '<div style="text-align:center;margin-top:20px;">No results found</div>';
           } else {
@@ -223,7 +218,7 @@ export class SidebarTree {
               } catch { return text; }
             };
             const qNoTags = query.replace(/#\w+/g, '').trim();
-            results.innerHTML = filtered.map((n: any, idx: number) => {
+            results.innerHTML = filtered.map((n: any) => {
               const title = highlight(n.title || n.id, qNoTags);
               let content = n.content || '';
               if (qNoTags) content = highlight(content.slice(0, 120), qNoTags);
@@ -257,7 +252,7 @@ export class SidebarTree {
           item.classList.add('selected');
           if (id && this.onNoteSelect) {
             // Prevent duplicate tabs: check if already open
-            if (window.state && window.state.openTabs && window.state.openTabs.some((t: any) => t.id === id)) {
+            if (state && state.openTabs && state.openTabs.some((t: any) => t.id === id)) {
               window.dispatchEvent(new CustomEvent('knowledge-hub:open-note', { detail: { id, path } }));
             } else {
               this.onNoteSelect(id, path);
@@ -288,7 +283,7 @@ export class SidebarTree {
             items.forEach(el => el.classList.remove('selected'));
             item.classList.add('selected');
             if (id && this.onNoteSelect) {
-              if (window.state && window.state.openTabs && window.state.openTabs.some((t: any) => t.id === id)) {
+              if (state && state.openTabs && state.openTabs.some((t: any) => t.id === id)) {
                 window.dispatchEvent(new CustomEvent('knowledge-hub:open-note', { detail: { id, path } }));
               } else {
                 this.onNoteSelect(id, path);
@@ -928,7 +923,7 @@ export class SidebarTree {
     })
   }
 
-  private handleDragEnd(event: DragEvent): void {
+  private handleDragEnd(_event: DragEvent): void {
     document.querySelectorAll('.drag-over').forEach((el) => el.classList.remove('drag-over'))
     this.bodyEl.classList.remove('drag-over-root')
     

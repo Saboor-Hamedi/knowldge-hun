@@ -88,13 +88,13 @@ class App {
         this.statusBar.setStatus(`Update error: ${errMsg}`)
       })
     }
-  private rightBar: RightBar
   private activityBar: ActivityBar
   private sidebar: SidebarTree
   private tabBar: TabBar
   private editor: EditorComponent
   private statusBar: StatusBar
   private settingsView: SettingsView
+  private rightBar: RightBar
   private themeModal: ThemeModal
   private fuzzyFinder: FuzzyFinder
   private graphView: GraphView

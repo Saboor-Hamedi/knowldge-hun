@@ -1,5 +1,5 @@
 // --- App Update Integration ---
-import { setupUpdateApp } from '../updateApp/updateApp'
+import { setupUpdateApp } from '../renderer/src/components/updateApp/updateApp'
 import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
 import { join, basename } from 'path'
 import { writeFile, mkdir } from 'fs/promises'
@@ -239,6 +239,7 @@ function createWindow(): void {
   })
 
   mainWindow.on('ready-to-show', () => {
+    mainWindow.maximize()
     mainWindow.show()
     vault.setMainWindow(mainWindow)
   })
