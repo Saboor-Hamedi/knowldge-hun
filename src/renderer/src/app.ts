@@ -186,7 +186,8 @@ class App {
     })
 
     // Sidebar handlers
-    this.sidebar.setNoteSelectHandler((id, path) => void this.openNote(id, path, 'sidebar'))
+    // this.sidebar.setNoteSelectHandler((id, path) => void this.openNote(id, path, 'sidebar'))
+    this.sidebar.setNoteSelectHandler((id, path) => void this.openNote(id, path, 'editor'))
     this.sidebar.setNoteCreateHandler((path) => void this.createNote(undefined, path))
     this.sidebar.setNoteDeleteHandler((id, path) => void this.deleteNote(id, path))
     this.sidebar.setItemsDeleteHandler((items) => void this.deleteItems(items))

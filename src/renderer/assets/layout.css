@@ -90,7 +90,7 @@ body {
 
 .statusbar {
   grid-column: 1 / -1;
-  grid-row: 3;
+  grid-row: 2;
   min-height: 0;
   z-index: 50;
   height: var(--statusbar-height);

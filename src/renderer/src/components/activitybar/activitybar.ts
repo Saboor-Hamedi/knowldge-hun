@@ -26,7 +26,14 @@ export class ActivityBar {
           <span class="activitybar__icon">${codicons.search}</span>
         </button>
         <button class="activitybar__item" data-view="graph" title="Graph View">
-          <span class="activitybar__icon"><svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor"><circle cx="4" cy="4" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="4" r="2"/><path d="M4 4l8 8m0-8l-8 8" stroke="currentColor" stroke-width="1.5"/></svg></span>
+          <span class="activitybar__icon">
+            <svg width="20" height="20" viewBox="0 0 16 16" fill="none">
+              <circle cx="4" cy="4" r="2" stroke="currentColor" stroke-width="1.5" fill="none"/>
+              <circle cx="12" cy="12" r="2" stroke="currentColor" stroke-width="1.5" fill="none"/>
+              <circle cx="12" cy="4" r="2" stroke="currentColor" stroke-width="1.5" fill="none"/>
+              <path d="M4 4l8 8m0-8l-8 8" stroke="currentColor" stroke-width="1.5" fill="none"/>
+            </svg>
+          </span>
         </button>
       </div>
       <div class="activitybar__bottom">
