@@ -1,11 +1,12 @@
+// --- App Update Integration ---
+import { setupUpdateApp } from '../updateApp/updateApp'
 import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
 import { join, basename } from 'path'
 import { writeFile, mkdir } from 'fs/promises'
 import { existsSync, readFileSync, writeFileSync, mkdirSync, cpSync, readdirSync } from 'fs'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
-
-import icon from '../../resources/icon.png?asset'
-
+import { version } from '../../package.json'
+import icon from '../../resources/icon.ico?asset'
 import { vault } from './vault'
 import type { NotePayload } from './vault'
 
@@ -104,7 +105,7 @@ function isValidVaultPath(path: string): boolean {
   }
 }
 
-function migrateVaultContent(oldPath: string, newPath: string) {
+function migrateVaultContent(oldPath: string, newPath: string): void {
     if (!existsSync(oldPath)) return
     if (!existsSync(newPath)) {
         try {
@@ -159,10 +160,10 @@ function resolveVaultPath(): string {
   return defaultPath
 }
 
-async function ensureVault() {
-    if (vault.getRootPath()) return
-    const path = resolveVaultPath()
-    await vault.setVaultPath(path)
+async function ensureVault(): Promise<void> {
+  if (vault.getRootPath()) return
+  const path = resolveVaultPath()
+  await vault.setVaultPath(path)
 }
 
 async function chooseVault(): Promise<{ path: string; name: string; changed: boolean }> {
@@ -193,7 +194,7 @@ async function chooseVault(): Promise<{ path: string; name: string; changed: boo
   }
 }
 
-function getVaultRoot() {
+function getVaultRoot(): string {
   const root = vault.getRootPath()
   if (!root) throw new Error('Vault not open')
   return root
@@ -211,8 +212,8 @@ function createWindow(): void {
     show: false,
     autoHideMenuBar: true,
     frame: false,
+    icon, // Set icon for all platforms
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'hidden',
-    ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false
@@ -381,6 +382,17 @@ app.whenReady().then(async () => {
     win?.close()
   })
 
+  // Expose app icon path to renderer
+  ipcMain.handle('app:getIcon', async () => {
+    return icon
+  })
+  // ipcMain.handle('app:getVersion', async () => {
+  //   return app.getVersion()
+  // })
+  ipcMain.handle('app:getVersion', () => {
+  return version
+})
+
   try {
      const savedPath = resolveVaultPath()
      await vault.setVaultPath(savedPath)
@@ -389,6 +401,10 @@ app.whenReady().then(async () => {
   }
 
   createWindow()
+
+  if (mainWindowRef) {
+    setupUpdateApp(mainWindowRef)
+  }
 
   app.on('activate', function () {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()

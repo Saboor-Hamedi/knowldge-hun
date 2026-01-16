@@ -43,6 +43,9 @@ type AppSettings = {
 }
 
 const api = {
+    requestUpdate: (): void => {
+      ipcRenderer.send('app:update');
+    },
   listNotes: (): Promise<TreeItem[]> => ipcRenderer.invoke('notes:list'),
   loadNote: (id: string, path?: string): Promise<NotePayload | null> =>
     ipcRenderer.invoke('notes:load', id, path),
@@ -89,6 +92,8 @@ const api = {
     isMaximized: (): Promise<boolean> => ipcRenderer.invoke('window:isMaximized'),
     close: (): Promise<void> => ipcRenderer.invoke('window:close')
   },
+  getAppIcon: (): Promise<string> => ipcRenderer.invoke('app:getIcon'),
+  getAppVersion: (): Promise<string> => ipcRenderer.invoke('app:getVersion'),
   onVaultChanged: (callback: (data: any) => void) => {
     const subscription = (_event: any, data: any) => callback(data)
     ipcRenderer.on('vault:changed', subscription)

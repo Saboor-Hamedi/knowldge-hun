@@ -1,16 +1,16 @@
 // Rightbar toggle logic
 window.addEventListener('keydown', (e) => {
   if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'i') {
-    const shell = document.querySelector('.vscode-shell') as HTMLElement;
-    const rightPanel = document.getElementById('rightPanel') as HTMLElement;
+    const shell = document.querySelector('.vscode-shell') as HTMLElement
+    const rightPanel = document.getElementById('rightPanel') as HTMLElement
     if (rightPanel && shell) {
-      const isVisible = rightPanel.style.display !== 'none';
-      rightPanel.style.display = isVisible ? 'none' : 'block';
-      shell.style.setProperty('--right-panel-width', isVisible ? '0px' : '270px');
+      const isVisible = rightPanel.style.display !== 'none'
+      rightPanel.style.display = isVisible ? 'none' : 'block'
+      shell.style.setProperty('--right-panel-width', isVisible ? '0px' : '270px')
     }
-    e.preventDefault();
+    e.preventDefault()
   }
-});
+})
 import { state } from './core/state'
 import type { NotePayload, NoteMeta, TreeItem, AppSettings } from './core/types'
 import { sortNotes, syncTabsWithNotes, ensureTab, sortTabs } from './utils/helpers'
@@ -70,6 +70,24 @@ function buildTree(items: NoteMeta[]): TreeItem[] {
 }
 
 class App {
+    private wireUpdateEvents(): void {
+      window.electron?.ipcRenderer?.on?.('update:available', () => {
+        this.statusBar.setStatus('Update available. Downloading...')
+      })
+      window.electron?.ipcRenderer?.on?.('update:not-available', () => {
+        this.statusBar.setStatus('No update available.')
+      })
+      window.electron?.ipcRenderer?.on?.('update:progress', (_event, progressObj) => {
+        const percent = progressObj.percent ? progressObj.percent.toFixed(1) : ''
+        this.statusBar.setStatus(`Downloading update... ${percent}%`)
+      })
+      window.electron?.ipcRenderer?.on?.('update:downloaded', () => {
+        this.statusBar.setStatus('Update downloaded. Restarting...')
+      })
+      window.electron?.ipcRenderer?.on?.('update:error', (_event, errMsg) => {
+        this.statusBar.setStatus(`Update error: ${errMsg}`)
+      })
+    }
   private rightBar: RightBar
   private activityBar: ActivityBar
   private sidebar: SidebarTree
@@ -96,7 +114,7 @@ class App {
     this.registerGlobalShortcuts()
     this.registerVaultChangeListener()
     this.setupMobileEvents()
-    
+    this.wireUpdateEvents()
     // Ensure editor resizes correctly when window size changes
     window.addEventListener('resize', () => {
       this.editor.layout()
@@ -271,29 +289,28 @@ class App {
 
   // handleTabContextMenu
   private handleTabContextMenu(id: string, e: MouseEvent): void {
-      const isPinned = state.pinnedTabs.has(id)
-      contextMenu.show(e.clientX, e.clientY, [
-        {
-          label: isPinned ? 'Unpin Tab' : 'Pin Tab',
-          icon: codicons.pin,
-          onClick: () => this.togglePinTab(id)
-        },
-        { separator: true },
-        {
-          label: 'Close',
-          icon: codicons.close,
-          onClick: () => this.closeTab(id, true) // Force close via menu? Or respect lock? Standard VSCode allows menu close.
-          // Letting menu close override pin seems standard. Shortcut is protected.
-        },
-        {
-          label: 'Close Others',
-          onClick: () => this.closeOtherTabs(id)
-        },
-        {
-          label: 'Close All',
-          onClick: () => this.closeAllTabs()
-        }
-      ])
+    const isPinned = state.pinnedTabs.has(id)
+    contextMenu.show(e.clientX, e.clientY, [
+      {
+        label: isPinned ? 'Unpin Tab' : 'Pin Tab',
+        icon: codicons.pin,
+        onClick: () => this.togglePinTab(id)
+      },
+      { separator: true },
+      {
+        label: 'Close',
+        icon: codicons.close,
+        onClick: () => this.closeTab(id, true)
+      },
+      {
+        label: 'Close Others',
+        onClick: () => this.closeOtherTabs(id)
+      },
+      {
+        label: 'Close All',
+        onClick: () => this.closeAllTabs()
+      }
+    ])
   }
 
   private togglePinTab(id: string): void {

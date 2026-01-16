@@ -4,7 +4,7 @@ import { existsSync } from 'fs'
 import { watch } from 'chokidar'
 import type { FSWatcher } from 'chokidar'
 import { BrowserWindow } from 'electron'
-
+// import { version } from './package.json'
 export type NoteMeta = {
   id: string
   title: string

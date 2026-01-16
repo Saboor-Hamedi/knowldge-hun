@@ -27,7 +27,9 @@
 	font-weight: 600;
 	color: var(--text);
 }
-
+.window-header__title:focus {
+	outline: none;
+}
 .window-header__controls {
 	display: flex;
 	align-items: center;
@@ -65,4 +67,19 @@
 .wh-close:hover {
 	background: rgba(255, 107, 107, 0.9);
 	color: white;
+}
+
+/* Ensure SVG icons are perfectly centered */
+.wh-btn svg {
+	display: block;
+	width: 12px;
+	height: 12px;
+}
+
+/* Header app icon */
+.window-header__icon {
+	display: inline-block;
+	width: 20px;
+	height: 20px;
+	object-fit: contain;
 }
