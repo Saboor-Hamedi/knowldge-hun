@@ -7,11 +7,11 @@ export const codicons = {
   // File types
   file: '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M13.85 2.15l-3-2A.5.5 0 0 0 10.5 0h-6a.5.5 0 0 0-.5.5v15a.5.5 0 0 0 .5.5h9a.5.5 0 0 0 .5-.5v-13a.5.5 0 0 0-.15-.35zM11 1.5l2.5 2.5H11V1.5zM13 15H5V1h5v3.5a.5.5 0 0 0 .5.5H13v10z"/></svg>',
   fileCode: '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M10.5 14l4-4-4-4-.71.71L13.09 10l-3.3 3.29.71.71z"/><path d="M5.5 14l-4-4 4-4 .71.71L2.91 10l3.3 3.29-.71.71z"/></svg>',
-  json: '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M6 2.984V2h-.09c-.313 0-.616.062-.909.185a2.33 2.33 0 0 0-.775.53 2.23 2.23 0 0 0-.493.753v.001a3.542 3.542 0 0 0-.198.83v.002a6.08 6.08 0 0 0-.024.863c.012.29.018.58.018.869 0 .203-.04.393-.117.572v.001a1.504 1.504 0 0 1-.765.787 1.376 1.376 0 0 1-.558.115H2v.984h.09c.195 0 .38.04.556.121l.001.001c.178.078.329.184.455.318.125.134.224.29.296.467.071.177.107.365.107.563 0 .285-.006.567-.018.845a6.01 6.01 0 0 0 .024.863v.001c.033.281.092.556.177.823v.001c.086.267.2.52.344.758.145.238.315.451.512.637.197.186.481.296.855.33l.001.001H6v-1h-.09a.95.95 0 0 1-.481-.119.99.99 0 0 1-.303-.297 1.28 1.28 0 0 1-.177-.378 1.82 1.82 0 0 1-.067-.41c-.004-.138-.01-.274-.01-.41v-.863a3.1 3.1 0 0 0-.024-.863v-.001a2.464 2.464 0 0 0-.184-.849 1.91 1.91 0 0 0-.398-.642A1.69 1.69 0 0 0 3.846 8a1.69 1.69 0 0 0 .42-.642 1.91 1.91 0 0 0 .398-.642c.088-.267.147-.547.184-.849v-.001c.033-.286.024-.576.024-.863V4.14c0-.137.006-.273.01-.41.004-.14.03-.274.067-.41a1.28 1.28 0 0 1 .177-.378.99.99 0 0 1 .303-.297.95.95 0 0 1 .481-.119H6V2.984z"/><path d="M10 2.984V2h.09c.313 0 .616.062.909.185.293.123.563.296.809.518.246.222.447.474.602.753v.001c.155.277.259.567.31.868v.002c.053.287.074.577.063.863-.012.29-.018.58-.018.869 0 .203.04.393.117.572v.001c.078.18.185.344.32.49.134.145.29.264.466.355.177.091.37.137.558.137H14v.984h-.09a1.376 1.376 0 0 1-.558.121 1.504 1.504 0 0 1-.765-.787v-.001a1.376 1.376 0 0 1-.117-.572c0-.285.006-.567.018-.845.011-.286.004-.576-.024-.863v-.001a3.022 3.022 0 0 0-.177-.823v-.001a2.493 2.493 0 0 0-.344-.758 2.23 2.23 0 0 0-.512-.637c-.197-.186-.481-.296-.855-.33l-.001-.001H10v1h.09c.196 0 .358.04.481.119.123.079.225.182.303.297.078.115.135.249.177.378.042.13.063.264.067.41.004.138.01.274.01.41v.863c0 .286.008.576.024.863v.001c.037.302.096.582.184.849.088.267.212.51.372.728.16.218.356.411.588.579a1.69 1.69 0 0 0-.588.579c-.16.218-.284.461-.372.728a2.464 2.464 0 0 0-.184.849v.001a6.08 6.08 0 0 0-.024.863v.863c0 .137-.006.273-.01.41a1.82 1.82 0 0 1-.067.41 1.28 1.28 0 0 1-.177.378.99.99 0 0 1-.303.297.95.95 0 0 1-.481.119H10v1h.09l.001-.001c.374-.034.658-.144.855-.33.197-.186.367-.399.512-.637.145-.238.258-.491.344-.758v-.001c.085-.267.144-.542.177-.823v-.001c.016-.287.024-.577.024-.863v-.863c0-.138.006-.274.01-.41.004-.14.025-.274.067-.41a1.28 1.28 0 0 1 .177-.378.99.99 0 0 1 .303-.297.95.95 0 0 1 .481-.119H14v-.984h-.09c-.188 0-.381-.046-.558-.137a1.629 1.629 0 0 1-.466-.355 1.732 1.732 0 0 1-.32-.49v-.001a1.376 1.376 0 0 1-.117-.572c0-.285.006-.567.018-.845.011-.286.016-.577-.063-.863v-.002a2.22 2.22 0 0 0-.31-.868v-.001a2.23 2.23 0 0 0-.602-.753 2.33 2.33 0 0 0-.809-.518A2.01 2.01 0 0 0 10.09 2H10v.984z"/></svg>',
+  json: '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M3.5 2.5c-.8 0-1.5.7-1.5 1.5v8c0 .8.7 1.5 1.5 1.5.3 0 .5-.2.5-.5s-.2-.5-.5-.5c-.3 0-.5-.2-.5-.5V4c0-.3.2-.5.5-.5.3 0 .5-.2.5-.5s-.2-.5-.5-.5z"/><path d="M12.5 2.5c.8 0 1.5.7 1.5 1.5v8c0 .8-.7 1.5-1.5 1.5-.3 0-.5-.2-.5-.5s.2-.5.5-.5c.3 0 .5-.2.5-.5V4c0-.3-.2-.5-.5-.5-.3 0-.5-.2-.5-.5s.2-.5.5-.5z"/><path d="M6 5.5h4v1H6v-1zm0 2.5h4v1H6V8zm0 2.5h4v1H6v-1z"/></svg>',
   markdown: '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M14.5 2h-13l-.5.5v11l.5.5h13l.5-.5v-11l-.5-.5zM14 13H2V3h12v10zM11 11l-1.5-1.5L8 11V5h3v6zM4 7h1v2h1V7h1v3H6V8H5v2H4V7z"/></svg>',
   html: '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M4.09 8l3.29-3.29-.71-.71L2.51 8l4.16 4 .71-.71L4.09 8z"/><path d="M11.91 8L8.62 11.29l.71.71L13.49 8l-4.16-4-.71.71L11.91 8z"/></svg>',
   css: '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M2.5 2l.5.5v11l-.5.5h11l.5-.5v-11L13.5 2h-11zM13 13H3V3h10v10z"/><path d="M5 5h6v1H5V5zm0 2h6v1H5V7zm0 2h6v1H5V9z"/></svg>',
-  
+
   // UI elements
   chevronRight: '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M6 4l4 4-4 4V4z"/></svg>',
   chevronDown: '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M4 6l4 4 4-4H4z"/></svg>',
@@ -26,12 +26,12 @@ export const codicons = {
   cloudDownload: '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M13 7l-4.5 4.5L4 7h3V2h3v5h3zm-8 6h10v1H5v-1z" fill-rule="evenodd" clip-rule="evenodd"/></svg>',
   calendar: '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M13 2H3l-1 1v11l1 1h10l1-1V3l-1-1zM3 3h10v2H3V3zm10 11H3V6h10v8zM4 7h2v2H4V7zm3 0h2v2H7V7zm3 0h2v2h-2V7zm-6 4h2v2H4v-2zm3 0h2v2H7v-2zm3 0h2v2h-2v-2z" fill-rule="evenodd" clip-rule="evenodd"/></svg>',
   pin: '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M11.5 2H4.5l-.5.5v3l-1.5 4L2 10v4l.5.5H6v2.5l2-1.5 2 1.5V14.5h3.5l.5-.5V10l-.5-.5-1.5-4V2.5l-.5-.5z"/></svg>',
-  
+
   // Folders
   folder: '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M14.5 3H7.71l-.85-.85L6.51 2h-5l-.5.5v11l.5.5h13l.5-.5v-10L14.5 3zm-.51 8h-12V6h12v5z"/></svg>',
   folderOpened: '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M1.5 14h11l.48-.37 2.63-7-.48-.63H14V4.5l-.5-.5H7.71l-.86-.85L6.49 3h-5l-.5.5v10l.5.5h.01zm6-9h5.5l-2.4 6.4L2 11V4h4.29l.86.85.35.15z"/></svg>',
   newFolder: '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M14.5 2H7.71l-.85-.85L6.51 1h-5l-.5.5v11l.5.5h13l.5-.5v-10L14.5 2zM13 12H2V2h4.29l.86.85.35.15H13v9z"/><path d="M11.5 6H9V3.5H8V6H5.5v1H8v2.5h1V7h2.5V6z"/></svg>',
-  
+
   // Folder types (semantic)
   folderRoot: '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M14.5 3H7.71l-.85-.85L6.51 2h-5l-.5.5v11l.5.5h13l.5-.5v-10L14.5 3zm-.51 8h-12V6h12v5z"/><circle cx="8" cy="9" r="0.5" fill="white"/></svg>',
   folderSrc: '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M14.5 3H7.71l-.85-.85L6.51 2h-5l-.5.5v11l.5.5h13l.5-.5v-10L14.5 3zm-.51 8h-12V6h12v5z"/></svg>',
@@ -40,7 +40,7 @@ export const codicons = {
   folderSettings: '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M14.5 3H7.71l-.85-.85L6.51 2h-5l-.5.5v11l.5.5h13l.5-.5v-10L14.5 3zm-.51 8h-12V6h12v5zM8.5 8.5a0.5 0.5 0 1 0 1 0 0.5 0.5 0 0 0-1 0z"/></svg>',
   folderPublic: '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M14.5 3H7.71l-.85-.85L6.51 2h-5l-.5.5v11l.5.5h13l.5-.5v-10L14.5 3zm-.51 8h-12V6h12v5zM8 7c1 0 1.5.5 1.5 1.5S9 10 8 10s-1.5-.5-1.5-1.5S7 7 8 7z"/></svg>',
   folderLib: '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M14.5 3H7.71l-.85-.85L6.51 2h-5l-.5.5v11l.5.5h13l.5-.5v-10L14.5 3zm-.51 8h-12V6h12v5zM7 8v3h2V8h-2z"/></svg>',
-  
+
   // Activity bar
   files: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M14.5 1H7l-.85.85-.65-.65L5 .7l-.5.5-.65.65L3.35 1H1.5l-.5.5v13l.5.5h13l.5-.5v-13l-.5-.5zm-.51 13H2V2h1.49l.5-.5.71.71L5.5 1.7l.71.71.71-.71.5.5H14v11z" stroke="currentColor" stroke-width="1" fill="none"/><path d="M12 6H4V5h8v1zm0 2H4V7h8v1zm-4 2H4V9h4v1z" stroke="currentColor" stroke-width="1" fill="none"/></svg>',
   search: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M11.5 7a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0zm-.82 4.74a6 6 0 1 1 1.06-1.06l3.04 3.04-.71.71-3.39-3.69z" stroke="currentColor" stroke-width="1" fill="none"/></svg>',
@@ -57,31 +57,74 @@ export const codicons = {
 export function getFolderIcon(folderName: string): string {
   const name = folderName.toLowerCase()
 
-  // If this is the root folder, use the same emoji as the statusbar
+  // Root folder - special icon
   if (name === 'root' || name === 'vault' || name === 'knowledgehub' || name === 'knowledge hub') {
-    return '📁'
+    return codicons.folderRoot
   }
 
+  // Dynamic folder recognition like VS Code
   const folderIcons: Record<string, string> = {
     src: codicons.folderSrc,
+    source: codicons.folderSrc,
+    sources: codicons.folderSrc,
     config: codicons.folderConfig,
     configs: codicons.folderConfig,
+    configuration: codicons.folderConfig,
     settings: codicons.folderSettings,
+    setting: codicons.folderSettings,
     test: codicons.folderTest,
     tests: codicons.folderTest,
+    testing: codicons.folderTest,
     public: codicons.folderPublic,
     lib: codicons.folderLib,
     libs: codicons.folderLib,
+    library: codicons.folderLib,
+    libraries: codicons.folderLib,
     utils: codicons.folderLib,
+    utilities: codicons.folderLib,
     components: codicons.folderSrc,
-    pages: codicons.folderPublic
+    pages: codicons.folderPublic,
+    assets: codicons.folderPublic,
+    resources: codicons.folderPublic
   }
 
   return folderIcons[name] || codicons.folder
 }
 
-export function getFileIcon(_: string): string {
-  // All note files are markdown
+export function getFileIcon(fileName: string): string {
+  const name = fileName.toLowerCase()
+
+  // Since this is a .md project, all notes are .md files by default
+  // The fileName here is the note title (without .md extension in the system)
+  // But we check for special patterns like "settings.json" which would be "settings.json.md"
+
+  // Check for special patterns in the title (these would be *.json.md, *.yaml.md, etc.)
+  if (name.includes('.json')) {
+    // e.g., "settings.json" -> "settings.json.md"
+    return codicons.json
+  }
+  if (name.includes('.yaml') || name.includes('.yml')) {
+    // e.g., "config.yaml" -> "config.yaml.md"
+    return codicons.fileCode
+  }
+  if (name.includes('.js') && (name.includes('.jsx') || name.endsWith('.js'))) {
+    // e.g., "component.jsx" -> "component.jsx.md"
+    return codicons.fileCode
+  }
+  if (name.includes('.ts') && (name.includes('.tsx') || name.endsWith('.ts'))) {
+    // e.g., "component.tsx" -> "component.tsx.md"
+    return codicons.fileCode
+  }
+  if (name.includes('.html')) {
+    // e.g., "template.html" -> "template.html.md"
+    return codicons.html
+  }
+  if (name.includes('.css') || name.includes('.scss') || name.includes('.sass') || name.includes('.less')) {
+    // e.g., "styles.css" -> "styles.css.md"
+    return codicons.css
+  }
+
+  // Default: all notes are markdown files, use markdown icon
   return codicons.markdown
 }
 

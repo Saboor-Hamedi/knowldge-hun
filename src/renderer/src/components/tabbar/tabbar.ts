@@ -38,13 +38,32 @@ export class TabBar {
     state.openTabs.forEach((tab) => {
       const isPinned = state.pinnedTabs.has(tab.id)
       const title = tab.title || ''
-      const ext = title.includes('.') ? title.split('.').pop()?.toLowerCase() || 'txt' : 'txt'
-      
+
+      // Detect file extension - since this is a .md project, default to 'md'
+      // But check for special patterns like "settings.json" which should be "json"
+      let ext = 'md' // Default to markdown
+      const name = title.toLowerCase()
+
+      if (name.includes('.json')) {
+        ext = 'json'
+      } else if (name.includes('.js') && (name.includes('.jsx') || name.endsWith('.js'))) {
+        ext = name.includes('.jsx') ? 'jsx' : 'js'
+      } else if (name.includes('.ts') && (name.includes('.tsx') || name.endsWith('.ts'))) {
+        ext = name.includes('.tsx') ? 'tsx' : 'ts'
+      } else if (name.includes('.html')) {
+        ext = 'html'
+      } else if (name.includes('.css') || name.includes('.scss') || name.includes('.sass')) {
+        ext = 'css'
+      } else if (title.includes('.')) {
+        // If title has extension, use it (for special cases)
+        ext = title.split('.').pop()?.toLowerCase() || 'md'
+      }
+
       const button = document.createElement('button')
       button.className = `tab${tab.id === state.activeId ? ' is-active' : ''}${isPinned ? ' is-pinned' : ''}`
       button.dataset.id = tab.id
       button.dataset.ext = ext
-      
+
       const dirtyPrefix = state.isDirty && tab.id === state.activeId ? '● ' : ''
       if (isPinned) button.title = `${tab.title} (Pinned)`
 
@@ -69,13 +88,13 @@ export class TabBar {
           close.className = 'tab__close'
           close.innerHTML = codicons.close // SVG
           close.title = 'Close (Ctrl+W)'
-          
+
           close.setAttribute('data-action', 'close')
           close.setAttribute('data-id', tab.id)
-          
+
           button.appendChild(close)
       }
-      
+
       this.container.appendChild(button)
     })
   }
@@ -105,7 +124,7 @@ export class TabBar {
   private handleContextMenu = (event: MouseEvent): void => {
     const target = event.target as HTMLElement
     const button = target.closest('.tab') as HTMLElement
-    
+
     if (button && button.dataset.id) {
         event.preventDefault()
         this.onTabContextMenu?.(button.dataset.id, event)

@@ -118,7 +118,7 @@
   transition: background 60ms ease;
   border: 1px solid transparent; /* Prevent layout shift */
   border-left: 2px solid transparent;
-  margin: 0; 
+  margin: 0;
   padding: 4px 12px;
   border-radius: 0;
 }
@@ -315,8 +315,7 @@
   padding-left: 8px;
 }
 
-/* Better folder styling */
-/* Better folder styling - Muted & Modern */
+/* Better folder styling - VS Code style with colorful icons */
 .tree-item--folder {
   font-weight: 500;
   color: var(--text-strong);
@@ -326,25 +325,115 @@
   color: var(--primary);
 }
 
+/* Default folder icon - colorful yellow/orange like VS Code */
 .tree-item--folder .tree-item__icon {
-  color: var(--muted);
-  opacity: 0.7;
+  color: #e3a341;
+  opacity: 1;
 }
 
 .tree-item--folder.is-expanded .tree-item__icon {
-  color: var(--text-soft);
-  opacity: 0.9;
-}
-
-/* File items coloring - Muted & Modern */
-.tree-item--note .tree-item__icon {
-  color: var(--muted);
-  opacity: 0.6;
-}
-
-.tree-item--note.is-active .tree-item__icon {
-  color: var(--primary);
   opacity: 1;
+}
+
+/* Root folder - special blue color */
+.tree-item--folder[data-folder-type="root"] .tree-item__icon,
+.tree-item--folder .tree-item__icon[data-folder-type="root"] {
+  color: #42a5f5;
+}
+
+/* Source folders - orange/yellow */
+.tree-item--folder[data-folder-type="src"] .tree-item__icon,
+.tree-item--folder .tree-item__icon[data-folder-type="src"] {
+  color: #e3a341;
+}
+
+/* Config folders - blue */
+.tree-item--folder[data-folder-type="config"] .tree-item__icon,
+.tree-item--folder .tree-item__icon[data-folder-type="config"] {
+  color: #42a5f5;
+}
+
+/* Settings folders - purple */
+.tree-item--folder[data-folder-type="settings"] .tree-item__icon,
+.tree-item--folder .tree-item__icon[data-folder-type="settings"] {
+  color: #ab47bc;
+}
+
+/* Test folders - green */
+.tree-item--folder[data-folder-type="test"] .tree-item__icon,
+.tree-item--folder .tree-item__icon[data-folder-type="test"] {
+  color: #66bb6a;
+}
+
+/* Public/Assets folders - light blue */
+.tree-item--folder[data-folder-type="public"] .tree-item__icon,
+.tree-item--folder .tree-item__icon[data-folder-type="public"] {
+  color: #29b6f6;
+}
+
+/* Library/Utils folders - red/pink */
+.tree-item--folder[data-folder-type="lib"] .tree-item__icon,
+.tree-item--folder .tree-item__icon[data-folder-type="lib"] {
+  color: #ef5350;
+}
+
+/* File items coloring - VS Code style with colorful icons */
+.tree-item--note .tree-item__icon {
+  opacity: 1;
+}
+
+/* Markdown files - blue */
+.tree-item--note[data-note-type="markdown"] .tree-item__icon,
+.tree-item--note .tree-item__icon[data-note-type="markdown"] {
+  color: #42a5f5;
+}
+
+/* JavaScript files - yellow */
+.tree-item--note[data-note-type="javascript"] .tree-item__icon,
+.tree-item--note .tree-item__icon[data-note-type="javascript"] {
+  color: #f7df1e;
+}
+
+/* TypeScript files - blue */
+.tree-item--note[data-note-type="typescript"] .tree-item__icon,
+.tree-item--note .tree-item__icon[data-note-type="typescript"] {
+  color: #3178c6;
+}
+
+/* JSON files - yellow (matching tabbar) */
+.tree-item--note[data-note-type="json"] .tree-item__icon,
+.tree-item--note .tree-item__icon[data-note-type="json"] {
+  color: #f1e05a;
+}
+
+/* HTML files - orange/red */
+.tree-item--note[data-note-type="html"] .tree-item__icon,
+.tree-item--note .tree-item__icon[data-note-type="html"] {
+  color: #e34c26;
+}
+
+/* CSS files - blue */
+.tree-item--note[data-note-type="css"] .tree-item__icon,
+.tree-item--note .tree-item__icon[data-note-type="css"] {
+  color: #264de4;
+}
+
+/* Text files - gray */
+.tree-item--note[data-note-type="text"] .tree-item__icon,
+.tree-item--note .tree-item__icon[data-note-type="text"] {
+  color: #9ca3af;
+}
+
+/* Default files - gray */
+.tree-item--note[data-note-type="file"] .tree-item__icon,
+.tree-item--note .tree-item__icon[data-note-type="file"] {
+  color: #9ca3af;
+}
+
+/* Active note icon - slightly brighter */
+.tree-item--note.is-active .tree-item__icon {
+  opacity: 1;
+  filter: brightness(1.2);
 }
 
 /* Selected folder highlight - REMOVED, now uses generic .is-active */

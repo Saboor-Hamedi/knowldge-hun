@@ -28,11 +28,11 @@ export class SidebarTree {
   constructor(containerId: string) {
     this.container = document.getElementById(containerId) as HTMLElement
     this.render()
-    
+
     this.headerEl = this.container.querySelector('.sidebar__header') as HTMLElement
     this.bodyEl = this.container.querySelector('.sidebar__body') as HTMLElement
     this.searchEl = this.container.querySelector('#searchInput') as HTMLInputElement
-    
+
     this.attachEvents()
     this.attachBackdropListener()
   }
@@ -66,15 +66,15 @@ export class SidebarTree {
     this.onNoteSelect = (id, path) => {
       // Capture if we currently have focus in the list
       const hadFocus = this.bodyEl.contains(document.activeElement)
-      
+
       this.selectedId = id
       this.updateSelection(id)
-      
+
       if (hadFocus) {
           // Restore focus immediately to maintain keyboard flow
           this.scrollToActive(true)
       }
-      
+
       handler(id, path)
     }
   }
@@ -136,7 +136,7 @@ export class SidebarTree {
   setMode(mode: 'explorer' | 'search'): void {
     // Basic implementation of mode switching
     // Ideally we should have separate containers but for now we manipulate visibility
-    
+
     // Update title
     const titleEl = this.container.querySelector('.sidebar__title-text')
     if (titleEl) {
@@ -152,7 +152,7 @@ export class SidebarTree {
     // Identify elements
     // The tree container is .sidebar__body in render(), NOT .note-list
     const treeBody = this.container.querySelector('.sidebar__body') as HTMLElement
-    
+
     // The filter input container (for explorer)
     // It's the .sidebar__search that contains #searchInput
     const filterInput = this.container.querySelector('#searchInput')
@@ -346,13 +346,13 @@ export class SidebarTree {
        if (treeBody) treeBody.style.display = 'none'
        // Hide the explorer filter input
        if (filterContainer) filterContainer.style.display = 'none'
-       
+
        if (searchBody) searchBody.style.display = 'block'
     } else {
        if (treeBody) treeBody.style.display = 'block'
        // Show the explorer filter input
        if (filterContainer) filterContainer.style.display = 'block'
-       
+
        if (searchBody) searchBody.style.display = 'none'
     }
   }
@@ -379,22 +379,22 @@ export class SidebarTree {
           </button>
         </div>
       </header>
-      
+
       <div class="sidebar__search">
         <input id="searchInput" type="search" placeholder="Search..." aria-label="Search notes" />
       </div>
-      
+
       <div class="sidebar__body" tabindex="-1"></div>
-      
+
       <footer class="sidebar__footer"></footer>
     `
   }
 
   renderTree(filter = ''): void {
     const term = filter.trim().toLowerCase()
-    
+
     this.bodyEl.innerHTML = ''
-    
+
     // Ensure state.tree is valid before processing
     if (!state.tree) return
 
@@ -417,7 +417,7 @@ export class SidebarTree {
 
   private filterTree(items: (FolderItem | NoteMeta)[], term: string): (FolderItem | NoteMeta)[] {
     const result: (FolderItem | NoteMeta)[] = []
-    
+
     for (const item of items) {
       if (item.type === 'folder') {
         // It's a folder
@@ -425,7 +425,7 @@ export class SidebarTree {
         const matchesSelf = (folder.title || '').toLowerCase().includes(term)
         const children = folder.children || []
         const filteredChildren = this.filterTree(children, term)
-        
+
         if (matchesSelf || filteredChildren.length > 0) {
           result.push({
             ...folder,
@@ -439,7 +439,7 @@ export class SidebarTree {
         }
       }
     }
-    
+
     return this.sortTree(result)
   }
 
@@ -458,7 +458,7 @@ export class SidebarTree {
     const isExpanded = isFiltered || state.expandedFolders.has(folder.id)
     const isActive = this.selectedId === folder.id
     const isSelected = state.selectedIds.has(folder.id)
-    
+
     const el = document.createElement('div')
     el.className = `tree-item tree-item--folder${isExpanded ? ' is-expanded' : ''}${isActive ? ' is-active' : ''}${isSelected ? ' is-selected' : ''}`
     el.dataset.id = folder.id
@@ -467,7 +467,7 @@ export class SidebarTree {
     el.dataset.depth = String(depth)
     el.draggable = true
     el.tabIndex = 0
-    
+
     const indent = document.createElement('span')
     indent.className = 'tree-item__indent'
     indent.style.width = `${depth * 16}px`
@@ -479,6 +479,12 @@ export class SidebarTree {
     const icon = document.createElement('span')
     icon.className = 'tree-item__icon sidebar__icon'
     icon.innerHTML = getFolderIcon(folder.title)
+    // Add folder type for CSS styling
+    const folderType = this.getFolderType(folder.title)
+    if (folderType) {
+      icon.dataset.folderType = folderType
+      el.dataset.folderType = folderType
+    }
 
     const label = document.createElement('span')
     label.className = 'tree-item__label'
@@ -490,7 +496,7 @@ export class SidebarTree {
     el.appendChild(icon)
     el.appendChild(label)
     container.appendChild(el)
-    
+
     if (isExpanded && folder.children) {
         this.renderItems(this.sortTree(folder.children), container, depth + 1)
     }
@@ -499,7 +505,7 @@ export class SidebarTree {
   private renderNote(note: NoteMeta, container: HTMLElement, depth: number): void {
     const isActive = this.selectedId === note.id
     const isSelected = state.selectedIds.has(note.id)
-    
+
     const el = document.createElement('div')
     el.className = `tree-item tree-item--note${isActive ? ' is-active' : ''}${isSelected ? ' is-selected' : ''}`
     el.dataset.id = note.id
@@ -519,6 +525,12 @@ export class SidebarTree {
     const icon = document.createElement('span')
     icon.className = 'tree-item__icon sidebar__icon'
     icon.innerHTML = getFileIcon(note.title)
+    // Add note type for CSS styling
+    const noteType = this.getNoteType(note.title)
+    if (noteType) {
+      icon.dataset.noteType = noteType
+      el.dataset.noteType = noteType
+    }
 
     const label = document.createElement('span')
     label.className = 'tree-item__label'
@@ -560,7 +572,7 @@ export class SidebarTree {
     this.bodyEl.addEventListener('click', (event) => {
       const target = event.target as HTMLElement
       const item = target.closest('.tree-item') as HTMLElement
-      
+
       if (!item) {
         // Background click - Select Root
         this.selectedId = null
@@ -599,11 +611,11 @@ export class SidebarTree {
         const items = Array.from(this.bodyEl.querySelectorAll('.tree-item')) as HTMLElement[]
         const startIdx = items.findIndex(el => el.dataset.id === this.lastSelectedId)
         const endIdx = items.findIndex(el => el.dataset.id === id)
-        
+
         if (startIdx !== -1 && endIdx !== -1) {
           const [minIdx, maxIdx] = [Math.min(startIdx, endIdx), Math.max(startIdx, endIdx)]
           if (!isMultiSelect) state.selectedIds.clear()
-          
+
           for (let i = minIdx; i <= maxIdx; i++) {
             const itemId = items[i].dataset.id
             if (itemId) state.selectedIds.add(itemId)
@@ -623,7 +635,7 @@ export class SidebarTree {
       }
 
       this.lastSelectedId = id
-      
+
       // Update visual selection regardless of modifiers
       if (item.dataset.type === 'note') {
         this.selectedId = id
@@ -644,12 +656,12 @@ export class SidebarTree {
         }
       }
     })
-    
+
     // Background Context Menu
     this.bodyEl.addEventListener('contextmenu', (event) => {
       const target = event.target as HTMLElement
       const item = target.closest('.tree-item') as HTMLElement
-      
+
       if (!item) {
         event.preventDefault()
         contextMenu.show(event.clientX, event.clientY, [
@@ -714,13 +726,13 @@ export class SidebarTree {
         event.preventDefault()
         const itemId = label.dataset.itemId || label.dataset.noteId
         if (itemId) state.newlyCreatedIds.delete(itemId) // Clear priority on cancel too
-        
+
         const original = label.dataset.originalTitle || ''
         label.textContent = original
         label.contentEditable = 'false'
         label.classList.remove('is-editing')
         this.editingId = null
-        
+
         window.dispatchEvent(new CustomEvent('vault-changed'))
         label.blur()
       }
@@ -734,7 +746,7 @@ export class SidebarTree {
       state.expandedFolders.add(id)
     }
     this.renderTree(this.searchEl.value)
-    
+
     // Restore focus to the toggled folder
     setTimeout(() => {
         const newItem = this.bodyEl.querySelector(`.tree-item[data-id="${id}"]`) as HTMLElement
@@ -748,7 +760,7 @@ export class SidebarTree {
     if (!item) return
 
     const id = item.dataset.id!
-    
+
     // If dragging an item not in selection, select it first
     if (!state.selectedIds.has(id)) {
       state.selectedIds.clear()
@@ -769,7 +781,7 @@ export class SidebarTree {
     if (itemsToDrag.length === 0) return
 
     this.draggedItem = itemsToDrag[0] as any // Keep for backward compatibility if needed, but we'll use dataTransfer for the list
-    
+
     // Store items in a global variable as backup since dataTransfer can be unreliable
     ;(window as any).dragItems = itemsToDrag
 
@@ -780,7 +792,7 @@ export class SidebarTree {
     event.dataTransfer!.effectAllowed = 'copyMove'
     event.dataTransfer!.setData('application/json', JSON.stringify(dragData))
     event.dataTransfer!.setData('from-sidebar', 'true')
-    
+
     // Set a specialized mime type for internal drag
     event.dataTransfer!.setData('knowledge-hub/items', JSON.stringify(itemsToDrag))
 
@@ -800,7 +812,7 @@ export class SidebarTree {
     event.preventDefault()
     const target = event.target as HTMLElement
     const item = target.closest('.tree-item') as HTMLElement
-    
+
     if (!this.draggedItem) return
 
     if (!item && (target.classList.contains('sidebar__body') || target === this.bodyEl)) {
@@ -818,7 +830,7 @@ export class SidebarTree {
   private handleDragLeave(event: DragEvent): void {
     const target = event.target as HTMLElement
     const item = target.closest('.tree-item') as HTMLElement
-    
+
     if (item) {
         item.classList.remove('drag-over')
     } else {
@@ -877,16 +889,16 @@ export class SidebarTree {
             targetPath = folder.dataset.path || ''
         }
     }
-    
+
     let hasChanges = false
 
     for (const item of itemsToMove) {
         if (item.id === targetPath) continue
-        
+
         // Normalize both for comparison
         const sourceParent = (item.path || '').replace(/\\/g, '/')
         const targetParent = targetPath.replace(/\\/g, '/')
-        
+
         if (sourceParent === targetParent) continue
 
         try {
@@ -904,12 +916,12 @@ export class SidebarTree {
           } else if (item.type === 'folder') {
             const sourcePath = item.id.replace(/\\/g, '/')
             const targetPathNorm = targetPath.replace(/\\/g, '/')
-            
+
             if (targetPathNorm.startsWith(sourcePath + '/') || targetPathNorm === sourcePath) {
               console.warn('[Drag] Blocked: Cannot move folder into itself:', sourcePath)
               continue
             }
-            
+
             if (this.onFolderMove) {
                await this.onFolderMove(sourcePath, targetPath)
             } else {
@@ -921,7 +933,7 @@ export class SidebarTree {
           console.error('Failed to move item:', item.id, error)
         }
     }
-    
+
     if (hasChanges) {
       // Auto-expand the target folder so the user sees the dropped item
       if (targetPath) {
@@ -944,7 +956,7 @@ export class SidebarTree {
   private handleDragEnd(_event: DragEvent): void {
     document.querySelectorAll('.drag-over').forEach((el) => el.classList.remove('drag-over'))
     this.bodyEl.classList.remove('drag-over-root')
-    
+
     this.clearDragState()
   }
 
@@ -980,9 +992,9 @@ export class SidebarTree {
     // Delete or Ctrl+D
     if (key === 'delete' || ((event.ctrlKey || event.metaKey) && key === 'd')) {
       event.preventDefault()
-      
+
       const idsToDelete = state.selectedIds.size > 0 ? Array.from(state.selectedIds) : (item.dataset.id ? [item.dataset.id] : [])
-      
+
       if (idsToDelete.length === 0) return
 
       const itemsToDelete = idsToDelete.map(id => {
@@ -1006,7 +1018,7 @@ export class SidebarTree {
           }
         }
       }
-      
+
       state.selectedIds.clear()
       this.selectedId = null
       this.updateSelectionStates()
@@ -1033,7 +1045,7 @@ export class SidebarTree {
             const prevIndentEl = prev.querySelector('.tree-item__indent') as HTMLElement
             const prevIndent = prevIndentEl?.style.width || '0'
             const prevDepth = parseInt(prevIndent) / 16
-            
+
             if (prevDepth < depth) {
                 // Found the parent folder item
                 const prevId = (prev as HTMLElement).dataset.id!
@@ -1064,7 +1076,7 @@ export class SidebarTree {
       event.preventDefault()
       const items = Array.from(this.bodyEl.querySelectorAll('.tree-item')) as HTMLElement[]
       const currentIndex = items.indexOf(item)
-      
+
       let nextIndex = currentIndex
       if (key === 'arrowdown') nextIndex = Math.min(currentIndex + 1, items.length - 1)
       if (key === 'arrowup') nextIndex = Math.max(currentIndex - 1, 0)
@@ -1072,14 +1084,14 @@ export class SidebarTree {
       const nextItem = items[nextIndex]
       if (nextItem && nextIndex !== currentIndex) {
           const nextId = nextItem.dataset.id!
-          
+
           if (event.shiftKey) {
             // Extend selection
             if (!this.lastSelectedId) this.lastSelectedId = item.dataset.id!
-            
+
             const startIdx = items.findIndex(el => el.dataset.id === this.lastSelectedId)
             const endIdx = nextIndex
-            
+
             const [minIdx, maxIdx] = [Math.min(startIdx, endIdx), Math.max(startIdx, endIdx)]
             state.selectedIds.clear()
             for (let i = minIdx; i <= maxIdx; i++) {
@@ -1118,7 +1130,7 @@ export class SidebarTree {
   private showContextMenu(event: MouseEvent, item: HTMLElement): void {
     const id = item.dataset.id!
     const isSelected = state.selectedIds.has(id)
-    
+
     // If we right click an item that is NOT selected, we should select it (clearing others)
     if (!isSelected) {
       state.selectedIds.clear()
@@ -1217,7 +1229,7 @@ export class SidebarTree {
             if (retries > 0) setTimeout(() => attemptRename(retries - 1), 50)
             return
         }
-        
+
         const label = item.querySelector('.tree-item__label') as HTMLElement
         if (!label) return
 
@@ -1225,7 +1237,7 @@ export class SidebarTree {
         label.dataset.originalTitle = label.textContent || ''
         label.contentEditable = 'true'
         label.classList.add('is-editing')
-        
+
         // Explicitly focus and select all text
         setTimeout(() => {
            if (label.isConnected) {
@@ -1235,7 +1247,7 @@ export class SidebarTree {
              const sel = window.getSelection()
              sel?.removeAllRanges()
              sel?.addRange(range)
-             
+
              // Ensure it's scrolled into view
              label.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
            }
@@ -1252,11 +1264,11 @@ export class SidebarTree {
 
     const newTitle = label.textContent?.trim() || 'Untitled'
     const originalTitle = label.dataset.originalTitle || 'Untitled'
-    
+
     label.contentEditable = 'false'
     label.classList.remove('is-editing')
     this.editingId = null
-    
+
     // Clear priority once renaming is attempted (even if same name)
     state.newlyCreatedIds.delete(itemId)
 
@@ -1268,6 +1280,55 @@ export class SidebarTree {
         // Refresh to move it from the top back to its alpha position
         window.dispatchEvent(new CustomEvent('vault-changed'))
     }
+  }
+
+  private getFolderType(folderName: string): string {
+    const name = folderName.toLowerCase()
+    if (name === 'root' || name === 'vault' || name === 'knowledgehub' || name === 'knowledge hub') return 'root'
+    if (name === 'src' || name === 'source' || name === 'sources' || name === 'components') return 'src'
+    if (name === 'config' || name === 'configs' || name === 'configuration') return 'config'
+    if (name === 'settings' || name === 'setting') return 'settings'
+    if (name === 'test' || name === 'tests' || name === 'testing') return 'test'
+    if (name === 'public' || name === 'pages' || name === 'assets' || name === 'resources') return 'public'
+    if (name === 'lib' || name === 'libs' || name === 'library' || name === 'libraries' || name === 'utils' || name === 'utilities') return 'lib'
+    return ''
+  }
+
+  private getNoteType(noteName: string): string {
+    const name = noteName.toLowerCase()
+
+    // Since this is a .md project, all notes are .md files by default
+    // The noteName here is the note title (without .md extension in the system)
+    // But we check for special patterns like "settings.json" which would be "settings.json.md"
+
+    // Check for special patterns in the title (these would be *.json.md, *.yaml.md, etc.)
+    if (name.includes('.json')) {
+      // e.g., "settings.json" -> "settings.json.md"
+      return 'json'
+    }
+    if (name.includes('.yaml') || name.includes('.yml')) {
+      // e.g., "config.yaml" -> "config.yaml.md"
+      return 'typescript'
+    }
+    if (name.includes('.js') && (name.includes('.jsx') || name.endsWith('.js'))) {
+      // e.g., "component.jsx" -> "component.jsx.md"
+      return 'javascript'
+    }
+    if (name.includes('.ts') && (name.includes('.tsx') || name.endsWith('.ts'))) {
+      // e.g., "component.tsx" -> "component.tsx.md"
+      return 'typescript'
+    }
+    if (name.includes('.html')) {
+      // e.g., "template.html" -> "template.html.md"
+      return 'html'
+    }
+    if (name.includes('.css') || name.includes('.scss') || name.includes('.sass') || name.includes('.less')) {
+      // e.g., "styles.css" -> "styles.css.md"
+      return 'css'
+    }
+
+    // Default: all notes are markdown files
+    return 'markdown'
   }
 
   private async deleteFolder(path: string): Promise<void> {
@@ -1288,14 +1349,14 @@ export class SidebarTree {
           const item = el as HTMLElement
           const id = item.dataset.id
           if (!id) return
-          
+
           const isActive = this.selectedId === id
           const isSelected = state.selectedIds.has(id)
-          
+
           item.classList.toggle('is-active', isActive)
           item.classList.toggle('is-selected', isSelected)
       })
-      
+
       if (this.selectedId) {
           this.scrollToActive(true)
       }
