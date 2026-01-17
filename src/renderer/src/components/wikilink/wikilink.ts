@@ -171,20 +171,28 @@ export function registerWikiLinkProviders(monaco: any, getNotePreview: (id: stri
           const match = /\[\[([^\]]*)$/.exec(textUntilPosition)
           if (match) {
               const partial = match[1].toLowerCase()
-              if (partial) {
+              // Only show suggestion if there's at least one character typed
+              if (partial && partial.length > 0) {
                   const bestMatch = state.notes.find(n => (n.title || n.id).toLowerCase().startsWith(partial))
                   if (bestMatch) {
                        const name = bestMatch.title || bestMatch.id
-                       const text = name + ']]'
+                       // Calculate where the [[ starts (match.index is the position of [[ in the string)
+                       const bracketStartCol = match.index! + 1 // +1 because Monaco columns are 1-based
+                       // The range should start right after [[ and end at current cursor
+                       // This positions the ghost text right after [[
                        return {
                            items: [{
-                               insertText: text,
+                               insertText: name + ']]',
                                range: new monaco.Range(
                                    position.lineNumber,
-                                   position.column - partial.length,
+                                   bracketStartCol + 2, // Start right after [[
                                    position.lineNumber,
-                                   position.column
-                               )
+                                   position.column // End at current cursor position
+                               ),
+                               command: {
+                                   id: 'editor.action.inlineSuggest.commit',
+                                   title: 'Accept'
+                               }
                            }]
                        }
                   }

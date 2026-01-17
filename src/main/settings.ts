@@ -23,6 +23,7 @@ export type Settings = {
   windowBounds?: { width: number; height: number; x?: number; y?: number }
   deepseekApiKey?: string
   rightPanelWidth?: number
+  rightPanelVisible?: boolean
 }
 
 export const DEFAULT_SETTINGS: Settings = {

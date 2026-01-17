@@ -31,14 +31,14 @@ export class VaultManager {
   private rootPath: string = ''
   private watcher: FSWatcher | null = null
   private mainWindow: BrowserWindow | null = null
-  
+
   // In-memory cache
   private notes = new Map<string, NoteMeta>()
   private folders = new Set<string>()
   private links = new Map<string, Set<string>>() // Source -> Targets
   private backlinks = new Map<string, Set<string>>() // Target -> Sources
-  
-  constructor() {}                                                                            
+
+  constructor() {}
 
   public setMainWindow(window: BrowserWindow) {
     this.mainWindow = window
@@ -57,7 +57,7 @@ export class VaultManager {
     this.folders.clear()
     this.links.clear()
     this.backlinks.clear()
-    
+
     await this.startWatcher()
     await this.initialScan()
   }
@@ -72,7 +72,7 @@ export class VaultManager {
     for (const entry of entries) {
       const fullPath = join(dir, entry.name)
       if (entry.name.startsWith('.')) continue // Skip hidden
-      
+
       if (entry.isDirectory()) {
         const relPath = relative(this.rootPath, fullPath)
         const normalizedPath = relPath.replace(/\\/g, '/')
@@ -96,17 +96,17 @@ export class VaultManager {
       const relPath = relative(this.rootPath, fullPath)
       const normalizedPath = relPath.replace(/\\/g, '/')
       const id = this.getIdFromPath(normalizedPath)
-      
+
       // Extract directory path (without filename)
       const dirPath = dirname(normalizedPath)
       const relativeDir = dirPath === '.' ? '' : dirPath
-      
+
       const existingMeta = this.notes.get(id)
       // Use the earliest reasonable timestamp as createdAt
       const birthtime = stats.birthtimeMs
       const mtime = stats.mtimeMs
       const existingCreatedAt = existingMeta?.createdAt
-      
+
       // Preserve existing createdAt if it exists and is reasonable
       let createdAt: number
       if (existingCreatedAt && existingCreatedAt > 0 && existingCreatedAt < Date.now() && existingCreatedAt < mtime + 1000) {
@@ -118,16 +118,17 @@ export class VaultManager {
         const oneYearAgo = now - (365 * 24 * 60 * 60 * 1000)
         createdAt = (birthtime > oneYearAgo && birthtime <= now && birthtime <= mtime) ? birthtime : mtime
       }
-      
+
+      const extractedTitle = this.extractTitle(content, id)
       const meta: NoteMeta = {
         id,
-        title: this.extractTitle(content, id),
+        title: extractedTitle || basename(id) || 'Untitled', // Ensure title is never empty
         updatedAt: mtime,
         createdAt: createdAt,
-        path: relativeDir, 
+        path: relativeDir,
         type: 'note'
       }
-      
+
       this.notes.set(id, meta)
       this.updateLinks(id, content)
     } catch (err) {
@@ -137,11 +138,11 @@ export class VaultManager {
 
   private async startWatcher() {
     if (this.watcher) await this.watcher.close()
-    
+
     this.watcher = watch(this.rootPath, {
       ignored: /(^|[\/\\])\../, // ignore hidden files
       persistent: true,
-      ignoreInitial: true 
+      ignoreInitial: true
     })
 
     this.watcher.on('add', (path) => this.handleFileChange('add', path))
@@ -149,13 +150,13 @@ export class VaultManager {
     this.watcher.on('unlink', (path) => this.handleFileChange('unlink', path))
     this.watcher.on('addDir', (path) => this.handleDirChange('add', path))
     this.watcher.on('unlinkDir', (path) => this.handleDirChange('unlink', path))
-    
+
     console.log('[Vault] Watcher started')
   }
 
   private async handleFileChange(event: 'add' | 'change' | 'unlink', fullPath: string) {
     if (!this.isNoteFile(fullPath)) return
-    
+
     console.log(`[Vault] File ${event}: ${fullPath}`)
     const relativePath = relative(this.rootPath, fullPath)
     const id = this.getIdFromPath(relativePath)
@@ -178,7 +179,7 @@ export class VaultManager {
   private async handleDirChange(event: 'add' | 'unlink', fullPath: string) {
       const relPath = relative(this.rootPath, fullPath)
       const normalizedPath = relPath.replace(/\\/g, '/')
-      
+
       if (event === 'add') {
           this.folders.add(normalizedPath)
       } else {
@@ -215,7 +216,7 @@ export class VaultManager {
       const [target] = match[1].split('|')
       links.add(target.trim())
     }
-    
+
     this.links.set(sourceId, links)
   }
 
@@ -244,24 +245,29 @@ export class VaultManager {
   public async getNote(id: string): Promise<NotePayload | null> {
     const meta = this.notes.get(id)
     if (!meta) return null
-    
+
+    // Ensure title is set (safety check)
+    if (!meta.title) {
+      meta.title = basename(id) || 'Untitled'
+    }
+
     // id is like "folder/sub/note"
     // meta.path is the directory "folder/sub"
     const filename = `${basename(id)}.md`
     const fullPath = join(this.rootPath, meta.path || '', filename)
-    
+
     try {
         let content = await readFile(fullPath, 'utf-8')
-        
+
         // MIGRATION: Auto-strip old <!-- Title --> comments if they exist
         if (content.startsWith('<!--')) {
             content = content.replace(/^<!--\s*(.+?)\s*-->\r?\n?/, '')
         }
 
-        return { 
-            id, 
-            content, 
-            title: meta.title, 
+        return {
+            id,
+            content,
+            title: meta.title || basename(id) || 'Untitled', // Double safety check
             path: meta.path,
             updatedAt: meta.updatedAt,
             createdAt: meta.createdAt
@@ -286,16 +292,16 @@ export class VaultManager {
         throw new Error('Note not found')
       }
     }
-    
+
     // We no longer prepend <!-- title --> comments
     const finalContent = content
-    
+
     const filename = `${basename(id)}.md`
     const fullPath = join(this.rootPath, meta.path || '', filename)
-    
+
     await writeFile(fullPath, finalContent, 'utf-8')
     await this.indexFile(fullPath)
-    
+
     return this.notes.get(id)!
   }
 
@@ -303,30 +309,30 @@ export class VaultManager {
     const safeTitle = title.trim() || 'Untitled'
     // Sanitize ID
     const baseId = safeTitle.replace(/[<>:"/\\|?*]/g, '-')
-    
+
     const targetDir = folderPath ? join(this.rootPath, folderPath) : this.rootPath
-    
+
     let finalId = baseId
     let filename = `${finalId}.md`
     let fullPath = join(targetDir, filename)
     let counter = 1
-    
+
     while (existsSync(fullPath)) {
         finalId = `${baseId} ${counter}`
         filename = `${finalId}.md`
         fullPath = join(targetDir, filename)
         counter++
     }
-    
+
     const content = `\n`
     await writeFile(fullPath, content, 'utf-8')
     await this.indexFile(fullPath)
-    
+
     const relPath = relative(this.rootPath, fullPath).replace(/\\/g, '/')
     const finalFullId = this.getIdFromPath(relPath)
     const dir = dirname(relPath)
     const finalParentPath = dir === '.' ? '' : dir
-    
+
     return this.notes.get(finalFullId) || {
         id: finalFullId,
         title: safeTitle,
@@ -339,14 +345,14 @@ export class VaultManager {
   public async deleteNote(id: string): Promise<void> {
     const meta = this.notes.get(id)
     if (!meta) return
-    
+
     const filename = `${basename(id)}.md`
     const fullPath = join(this.rootPath, meta.path || '', filename)
-    
+
     if (existsSync(fullPath)) {
         await rm(fullPath)
     }
-    
+
     this.notes.delete(id)
     this.removeLinks(id)
   }
@@ -354,66 +360,80 @@ export class VaultManager {
   public async renameNote(id: string, newId: string, path?: string): Promise<string> {
     const meta = this.notes.get(id)
     if (!meta) throw new Error('Note not found')
-    
+
     const oldFilename = `${basename(id)}.md`
     const newFilename = `${basename(newId)}.md`
-    
+
     const currentDir = join(this.rootPath, meta.path || '')
     const targetDir = path ? join(this.rootPath, path) : currentDir
-    
+
     const oldPath = join(currentDir, oldFilename)
     const newPath = join(targetDir, newFilename)
 
     if (existsSync(newPath)) throw new Error('Note already exists')
-    
+
     await mkdir(targetDir, { recursive: true })
     await rename(oldPath, newPath)
-    
+
     // Cleanup old and re-index new
     this.notes.delete(id)
     await this.indexFile(newPath)
-    
+
     // In our system, the ID is based on the new relative path
     const newRelPath = relative(this.rootPath, newPath).replace(/\\/g, '/')
     const actualNewId = this.getIdFromPath(newRelPath)
-    
+
     return actualNewId
   }
 
   public async moveNote(id: string, fromPath?: string, toPath?: string): Promise<NoteMeta> {
     const oldDir = fromPath ? join(this.rootPath, fromPath.replace(/\\/g, '/')) : this.rootPath
     const newDir = toPath ? join(this.rootPath, toPath.replace(/\\/g, '/')) : this.rootPath
-    
-    const filename = `${basename(id)}.md` 
+
+    const filename = `${basename(id)}.md`
     const oldFullPath = join(oldDir, filename)
     const newFullPath = join(newDir, filename)
 
     if (oldFullPath === newFullPath) {
-       return this.notes.get(id)!
+       const existing = this.notes.get(id)
+       if (!existing) throw new Error(`Note ${id} not found`)
+       return existing
     }
 
     await mkdir(newDir, { recursive: true })
     await rename(oldFullPath, newFullPath)
-    
+
     // Update cache
+    const oldMeta = this.notes.get(id)
     this.notes.delete(id)
     await this.indexFile(newFullPath)
-    
+
     const newRelPath = relative(this.rootPath, newFullPath).replace(/\\/g, '/')
     const newId = this.getIdFromPath(newRelPath)
-    return this.notes.get(newId)!
+    const newMeta = this.notes.get(newId)
+
+    if (!newMeta) {
+      throw new Error(`Failed to index moved note: ${newId}`)
+    }
+
+    // Ensure title is set (should be set by indexFile, but add safety check)
+    if (!newMeta.title) {
+      newMeta.title = basename(newId)
+    }
+
+    return newMeta
   }
 
   public async importNote(externalFilePath: string, folderPath?: string): Promise<NoteMeta> {
     const normalizedPath = normalize(externalFilePath)
     if (!existsSync(normalizedPath)) throw new Error(`File not found: ${normalizedPath}`)
-    
+
     const content = await readFile(normalizedPath, 'utf-8')
     const fileName = basename(externalFilePath)
     let nameWithoutExt = fileName.replace(/\.[^.]+$/, '')
     let idBase = nameWithoutExt
     const targetDir = folderPath ? join(this.rootPath, folderPath) : this.rootPath
-    
+
     let targetPath = join(targetDir, `${idBase}.md`)
     let counter = 1
     while (existsSync(targetPath)) {
@@ -421,11 +441,11 @@ export class VaultManager {
         targetPath = join(targetDir, `${idBase}.md`)
         counter++
     }
-    
+
     await mkdir(targetDir, { recursive: true })
     await writeFile(targetPath, content, 'utf-8')
     await this.indexFile(targetPath)
-    
+
     const newRelPath = relative(this.rootPath, targetPath).replace(/\\/g, '/')
     const newId = this.getIdFromPath(newRelPath)
     return this.notes.get(newId)!
@@ -435,19 +455,19 @@ export class VaultManager {
     const targetDir = parentPath ? join(this.rootPath, parentPath) : this.rootPath
     let safeName = name || 'New Folder'
     let folderPath = join(targetDir, safeName)
-    
+
     let counter = 1
     while (existsSync(folderPath)) {
         safeName = `${name || 'New Folder'} ${counter}`
         folderPath = join(targetDir, safeName)
         counter++
     }
-    
+
     await mkdir(folderPath, { recursive: true })
-    
+
     const relPath = relative(this.rootPath, folderPath).replace(/\\/g, '/')
     this.folders.add(relPath)
-    
+
     return { name: safeName, path: relPath }
   }
 
@@ -455,10 +475,10 @@ export class VaultManager {
     const fullPath = join(this.rootPath, relativePath)
     if (existsSync(fullPath)) {
       await rm(fullPath, { recursive: true, force: true })
-      
+
       const normalizedPath = relativePath.replace(/\\/g, '/')
       this.folders.delete(normalizedPath)
-      
+
       // Cleanup all notes inside this folder from cache
       for (const [id, meta] of this.notes.entries()) {
         if (meta.path?.startsWith(normalizedPath)) {
@@ -475,9 +495,9 @@ export class VaultManager {
     const parentDir = (parent === '.' || parent === '') ? '' : parent
     const newRelPath = parentDir === '' ? newName : `${parentDir}/${newName}`
     const targetDir = join(this.rootPath, newRelPath)
-    
+
     if (existsSync(targetDir)) throw new Error('Folder already exists')
-    
+
     // Temporarily stop watcher to prevent EPERM locks on Windows
     if (this.watcher) {
         await this.watcher.close()
@@ -490,26 +510,26 @@ export class VaultManager {
         // Always restart watcher
         await this.startWatcher()
     }
-    
+
     const finalRelPath = newRelPath.replace(/\\/g, '/')
-    
+
     // Update cache
     this.folders.delete(normalizedPath)
     this.folders.add(finalRelPath)
-    
+
     // Update all notes inside from cache
     for (const [id, meta] of this.notes.entries()) {
         if (meta.path?.startsWith(normalizedPath)) {
             // Care with substring logic - ensure boundary
             const prefix = normalizedPath === '' ? '' : normalizedPath + '/'
-            if (id.startsWith(prefix) || meta.path === normalizedPath) { 
+            if (id.startsWith(prefix) || meta.path === normalizedPath) {
                 // Wait, if meta.path starts with it.
                 // Re-calculate new ID properly
                 const suffix = id.substring(normalizedPath.length)
                 // suffix starts with / usually
                 const newId = join(finalRelPath, suffix).replace(/\\/g, '/')
                 const newPath = dirname(newId) === '.' ? '' : dirname(newId)
-                
+
                 this.notes.delete(id)
                 this.notes.set(newId, {
                     ...meta,
@@ -519,7 +539,7 @@ export class VaultManager {
             }
         }
     }
-    
+
     // Recursive folder cache update for subfolders
     for (const folder of Array.from(this.folders)) {
         if (folder !== finalRelPath && folder.startsWith(normalizedPath + '/')) {
@@ -535,11 +555,11 @@ export class VaultManager {
   public async moveFolder(sourcePath: string, targetPath: string): Promise<{ path: string }> {
     const sourceNorm = sourcePath.replace(/\\/g, '/')
     const targetNorm = targetPath.replace(/\\/g, '/')
-    
+
     const sourceFullPath = join(this.rootPath, sourceNorm)
     const targetFullPath = join(this.rootPath, targetNorm)
     const folderName = basename(sourceNorm)
-    
+
     if (targetNorm.startsWith(sourceNorm + '/') || targetNorm === sourceNorm) {
       console.error(`[Vault] Move blocked: Cannot move ${sourceNorm} into ${targetNorm}`);
       throw new Error('Cannot move a folder into itself or its descendants')
@@ -548,25 +568,25 @@ export class VaultManager {
     let newFolderPath = join(targetFullPath, folderName)
     let safeFolderName = folderName
     let counter = 1
-    
+
     while (existsSync(newFolderPath)) {
       safeFolderName = `${folderName} ${counter}`
       newFolderPath = join(targetFullPath, safeFolderName)
       counter++
     }
-    
+
     console.log(`[Vault] Moving ${sourceFullPath} to ${newFolderPath}`)
-    
+
     // Ensure target directory exists
     await mkdir(targetFullPath, { recursive: true })
-    
+
     try {
       // Try rename first (fastest for simple moves)
       await rename(sourceFullPath, newFolderPath)
       console.log(`[Vault] Move complete via rename. New path: ${newFolderPath}`)
     } catch (renameError) {
       console.warn(`[Vault] Rename failed, trying copy+delete:`, renameError)
-      
+
       // Fallback: copy the entire folder recursively, then delete source
       try {
         await this.copyFolderRecursive(sourceFullPath, newFolderPath)
@@ -577,14 +597,14 @@ export class VaultManager {
         throw new Error(`Failed to move folder: ${(copyError as Error).message}`)
       }
     }
-    
+
     const finalPath = join(targetNorm, safeFolderName).replace(/\\/g, '/')
     console.log(`[Vault] Move complete. New path: ${finalPath}`)
-    
+
     // Update cache
     this.folders.delete(sourceNorm)
     this.folders.add(finalPath)
-    
+
     // Update subfolders and notes
     // (Actually simpler to just trigger a rescan or update prefix)
     for (const folder of Array.from(this.folders)) {
@@ -593,7 +613,7 @@ export class VaultManager {
             this.folders.add(folder.replace(sourceNorm, finalPath))
         }
     }
-    
+
     for (const [id, meta] of this.notes.entries()) {
         if (id.startsWith(sourceNorm + '/')) {
             const newId = id.replace(sourceNorm, finalPath)
@@ -605,20 +625,20 @@ export class VaultManager {
             })
         }
     }
-    
+
     return { path: finalPath }
   }
 
   public async search(query: string): Promise<NoteMeta[]> {
     const lower = query.toLowerCase()
     const matches: NoteMeta[] = []
-    
+
     for (const meta of this.notes.values()) {
         if (meta.title.toLowerCase().includes(lower)) {
             matches.push(meta)
             continue
         }
-        
+
         try {
             if (!meta.path) continue
             const fullPath = join(this.rootPath, meta.path)
@@ -642,17 +662,17 @@ export class VaultManager {
       }
       return sources
   }
-  
+
   private async copyFolderRecursive(source: string, destination: string): Promise<void> {
     // Ensure destination directory exists
     await mkdir(destination, { recursive: true })
-    
+
     const entries = await readdir(source, { withFileTypes: true })
-    
+
     for (const entry of entries) {
       const sourcePath = join(source, entry.name)
       const destPath = join(destination, entry.name)
-      
+
       if (entry.isDirectory()) {
         await this.copyFolderRecursive(sourcePath, destPath)
       } else if (entry.isFile()) {

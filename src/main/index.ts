@@ -1,7 +1,7 @@
 // --- App Update Integration ---
 import { setupUpdateApp } from '../renderer/src/components/updateApp/updateApp'
 import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
-import { join, basename } from 'path'
+import { join, basename, dirname } from 'path'
 import { writeFile, mkdir } from 'fs/promises'
 import { existsSync, readFileSync, writeFileSync, mkdirSync, cpSync, readdirSync } from 'fs'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
@@ -266,6 +266,110 @@ app.whenReady().then(async () => {
       console.error('Vault set error:', error)
       throw error
     }
+  })
+
+  // Vault validation and location handlers
+  ipcMain.handle('vault:validate', async (_event, path: string) => {
+    const exists = isValidVaultPath(path)
+    const settings = loadSettings()
+    const recentVault = settings.recentVaults?.find(p => p === path)
+    return {
+      exists,
+      lastOpened: recentVault ? Date.now() : undefined // Could track actual last opened time
+    }
+  })
+
+  ipcMain.handle('vault:locate', async (_event, originalPath: string) => {
+    if (!originalPath) {
+      return { foundPath: null }
+    }
+
+    // If path exists, return it
+    if (existsSync(originalPath)) {
+      return { foundPath: originalPath }
+    }
+
+    // Phase 3: Smart Detection - Try to find vault by name in common locations
+    const vaultName = basename(originalPath)
+    if (!vaultName) {
+      return { foundPath: null }
+    }
+
+    const commonLocations = [
+      app.getPath('documents'),
+      app.getPath('home'),
+      join(app.getPath('home'), 'Documents'),
+      join(app.getPath('home'), 'Desktop'),
+      dirname(originalPath), // Check parent directory
+      join(dirname(originalPath), '..'), // Check grandparent
+    ]
+
+    // Also check recent vaults for similar structure
+    const settings = loadSettings()
+    const recentPaths = settings.recentVaults || []
+    for (const recentPath of recentPaths) {
+      if (recentPath !== originalPath && existsSync(recentPath)) {
+        const recentName = basename(recentPath)
+        if (recentName === vaultName) {
+          // Found a recent vault with the same name
+          try {
+            const files = readdirSync(recentPath, { recursive: true, withFileTypes: true })
+            const hasNotes = files.some(f => f.isFile() && (f.name.endsWith('.md') || f.name.endsWith('.txt')))
+            if (hasNotes) {
+              return { foundPath: recentPath }
+            }
+          } catch {
+            // Skip if can't read
+          }
+        }
+      }
+    }
+
+    // Search common locations
+    for (const basePath of commonLocations) {
+      try {
+        if (!existsSync(basePath)) continue
+
+        const potentialPath = join(basePath, vaultName)
+        if (existsSync(potentialPath)) {
+          // Quick validation: check if it looks like a vault (has .md files)
+          try {
+            const files = readdirSync(potentialPath, { recursive: true, withFileTypes: true })
+            const hasNotes = files.some(f => f.isFile() && (f.name.endsWith('.md') || f.name.endsWith('.txt')))
+            if (hasNotes) {
+              return { foundPath: potentialPath }
+            }
+          } catch {
+            // Skip if can't read directory
+          }
+        }
+
+        // Also check subdirectories (one level deep)
+        try {
+          const entries = readdirSync(basePath, { withFileTypes: true })
+          for (const entry of entries) {
+            if (entry.isDirectory() && entry.name === vaultName) {
+              const subPath = join(basePath, entry.name)
+              try {
+                const files = readdirSync(subPath, { recursive: true, withFileTypes: true })
+                const hasNotes = files.some(f => f.isFile() && (f.name.endsWith('.md') || f.name.endsWith('.txt')))
+                if (hasNotes) {
+                  return { foundPath: subPath }
+                }
+              } catch {
+                // Skip if can't read
+              }
+            }
+          }
+        } catch {
+          // Skip if can't read base path
+        }
+      } catch {
+        // Skip inaccessible paths
+      }
+    }
+
+    return { foundPath: null }
   })
 
   ipcMain.handle('notes:search', async (_event, query: string) => vault.search(query))

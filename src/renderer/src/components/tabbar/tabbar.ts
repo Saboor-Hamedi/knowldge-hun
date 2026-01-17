@@ -78,9 +78,9 @@ export class TabBar {
           stroke: 'currentColor',
           color: 'currentColor'
         })
-        icon.innerHTML = eyeIcon.outerHTML || getFileIcon(tab.title)
+        icon.innerHTML = eyeIcon.outerHTML || getFileIcon(title)
       } else {
-        icon.innerHTML = tab.id === 'settings' ? codicons.settingsGear : getFileIcon(tab.title)
+        icon.innerHTML = tab.id === 'settings' ? codicons.settingsGear : getFileIcon(title)
       }
 
       const label = document.createElement('span')

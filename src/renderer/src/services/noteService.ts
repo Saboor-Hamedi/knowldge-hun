@@ -84,13 +84,29 @@ export class NoteService {
     const oldPrefix = sourcePath + '/'
     const newPrefix = newFolderPath + '/'
 
-    // Update tabs
+    // Refresh notes to get updated metadata
+    const allNotes = await window.api.listNotes()
+
+    // Update tabs - preserve all properties and update from refreshed notes
     state.openTabs = state.openTabs.map(tab => {
       if (tab.id.startsWith(oldPrefix)) {
         const newId = tab.id.replace(oldPrefix, newPrefix)
         const lastSlash = newId.lastIndexOf('/')
         const newNotePath = lastSlash === -1 ? '' : newId.substring(0, lastSlash)
-        return { ...tab, id: newId, path: newNotePath }
+
+        // Find the updated note metadata from the refreshed list
+        const updatedNote = allNotes.find(n => n.id === newId)
+        if (updatedNote) {
+          return { ...updatedNote }
+        }
+
+        // Fallback: preserve existing properties but update id and path
+        return {
+          ...tab,
+          id: newId,
+          path: newNotePath,
+          title: tab.title || 'Untitled' // Ensure title is never undefined
+        }
       }
       return tab
     })
@@ -134,6 +150,14 @@ export class NoteService {
   async renameNote(id: string, newId: string, path?: string): Promise<NoteMeta> {
     const newMeta = await window.api.renameNote(id, newId, path)
 
+    // Ensure newMeta has all required properties
+    if (!newMeta.title) {
+      console.warn(`[NoteService] renameNote: newMeta missing title for ${newMeta.id}`)
+      // Extract title from id as fallback
+      const parts = newMeta.id.split('/')
+      newMeta.title = parts[parts.length - 1] || 'Untitled'
+    }
+
     // Update state
     const idx = state.notes.findIndex((n) => n.id === id)
     if (idx >= 0) {
@@ -142,12 +166,16 @@ export class NoteService {
       state.notes.unshift(newMeta)
     }
 
-    // Update tabs
+
+    // Update tabs - preserve title if newMeta doesn't have it
     let updatedTabs = false
     state.openTabs = state.openTabs.map(tab => {
       if (tab.id === id) {
         updatedTabs = true
-        return { ...newMeta }
+        return {
+          ...newMeta,
+          title: newMeta.title || tab.title || 'Untitled' // Preserve title
+        }
       }
       return tab
     })

@@ -42,6 +42,8 @@ if (container) {
       const w = (s as { rightPanelWidth?: number }).rightPanelWidth ?? 270
       rightPanel.style.display = 'block'
       shell.style.setProperty('--right-panel-width', `${Math.max(200, Math.min(800, w))}px`)
+      // Save visibility state when opening
+      void window.api.updateSettings({ rightPanelVisible: true })
       setTimeout(() => {
         const chatInput = rightPanel.querySelector('#rightbar-chat-input') as HTMLTextAreaElement
         chatInput?.focus()

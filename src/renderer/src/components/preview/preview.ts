@@ -5,6 +5,7 @@ import { state } from '../../core/state'
 import { createElement, Copy, Check } from 'lucide'
 import 'highlight.js/styles/github-dark.css'
 import './preview.css'
+import '../wikilink/wikilink.css'
 
 // Pre-register common languages at module load
 import javascript from 'highlight.js/lib/languages/javascript'

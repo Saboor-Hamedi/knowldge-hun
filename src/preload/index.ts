@@ -43,6 +43,7 @@ type AppSettings = {
   windowBounds?: { width: number; height: number; x?: number; y?: number }
   deepseekApiKey?: string
   rightPanelWidth?: number
+  rightPanelVisible?: boolean
 }
 
 const api = {
@@ -78,6 +79,10 @@ const api = {
   chooseVault: (): Promise<VaultInfo> => ipcRenderer.invoke('vault:choose'),
   setVault: (dir: string): Promise<VaultInfo> => ipcRenderer.invoke('vault:set', dir),
   revealVault: (): Promise<void> => ipcRenderer.invoke('vault:reveal'),
+  validateVaultPath: (path: string): Promise<{ exists: boolean; lastOpened?: number }> =>
+    ipcRenderer.invoke('vault:validate', path),
+  locateMovedVault: (originalPath: string): Promise<{ foundPath: string | null }> =>
+    ipcRenderer.invoke('vault:locate', originalPath),
 
 
   searchNotes: (query: string): Promise<NoteMeta[]> => ipcRenderer.invoke('notes:search', query),

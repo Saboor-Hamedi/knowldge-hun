@@ -55,4 +55,5 @@ export type AppSettings = {
   windowBounds?: { width: number; height: number; x?: number; y?: number }
   deepseekApiKey?: string
   rightPanelWidth?: number
+  rightPanelVisible?: boolean
 }

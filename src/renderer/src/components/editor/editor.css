@@ -87,8 +87,10 @@
     padding: 4px !important;
     max-width: 500px !important;
     min-width: 300px !important;
-    /* Let Monaco position it naturally near the cursor */
-    position: absolute !important;
+    position: fixed !important;
+    /* Move closer to cursor */
+    transform: translateY(2px) !important;
+    margin-left: 0px !important;
 }
 
 .suggest-widget .monaco-list {
@@ -130,8 +132,11 @@
 
 /* Fix suggest widget positioning - should appear near cursor, not on right sidebar */
 .monaco-editor .suggest-widget {
-    position: absolute !important;
+    position: fixed !important;
     z-index: 10000 !important;
+    /* Move closer to cursor */
+    transform: translateY(2px) !important;
+    margin-left: 0px !important;
 }
 
 /* Improved WikiLink hover preview */
@@ -163,6 +168,51 @@
     margin: 8px 0 !important;
     max-height: 250px !important;
     overflow: hidden !important;
+}
+
+/* Inline Completion (Ghost Text) Styling - Remove inner background/color layers */
+.monaco-editor .inline-suggest-decoration {
+    color: var(--muted) !important;
+    font-style: italic !important;
+    opacity: 0.6 !important;
+    background: transparent !important;
+}
+
+.monaco-editor .inline-suggest-decoration .suggest-preview-text {
+    color: var(--muted) !important;
+    opacity: 0.7 !important;
+    background: transparent !important;
+}
+
+/* Make inline suggestions more subtle and positioned correctly - remove all background layers */
+.monaco-editor .suggest-preview-text {
+    color: rgba(127, 167, 255, 0.5) !important;
+    font-style: italic !important;
+    background: transparent !important;
+}
+
+/* Remove any inner background from inline suggestion decorations */
+.monaco-editor .inline-suggest-decoration * {
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+/* Remove background from inline suggestion container and all related elements */
+.monaco-editor .inline-suggest-decoration-container {
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+.monaco-editor .inline-suggest-decoration .monaco-editor-background {
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+/* Remove any box/border styling that might create a "layer" appearance */
+.monaco-editor .inline-suggest-decoration {
+    border: none !important;
+    box-shadow: none !important;
+    outline: none !important;
 }
 
 .monaco-hover .hover-contents .monaco-editor .view-lines {
@@ -216,19 +266,7 @@
 
 /* Try to ensure they are not clipped */
 /* Monaco handles its own overflow for minimap and wrapping */
-
-.wiki-link {
-    color: #4daafc !important;
-    text-decoration: underline;
-    cursor: pointer;
-    font-weight: 500;
-    transition: opacity 0.2s ease;
-}
-
-.wiki-link:hover {
-    color: #88c9ff !important;
-    opacity: 0.8;
-}
+/* Wiki link styles moved to wikilink/wikilink.css */
 
 .editor-empty {
   display: flex;

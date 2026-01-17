@@ -19,6 +19,7 @@
   border-bottom: 1px solid var(--border);
   background: var(--panel);
   -webkit-app-region: no-drag; /* Ensure clickable */
+  flex-shrink: 0;
 }
 
 .sidebar__title {

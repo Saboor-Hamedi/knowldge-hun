@@ -11,6 +11,7 @@
   overflow-y: hidden;
   scrollbar-width: none;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .tabbar::-webkit-scrollbar {

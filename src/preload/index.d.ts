@@ -41,6 +41,7 @@ type AppSettings = {
   windowBounds?: { width: number; height: number; x?: number; y?: number }
   deepseekApiKey?: string
   rightPanelWidth?: number
+  rightPanelVisible?: boolean
 }
 
 type WindowApi = {
@@ -71,6 +72,8 @@ type NoteApi = {
   chooseVault: () => Promise<VaultInfo>
   setVault: (dir: string) => Promise<VaultInfo>
   revealVault: () => Promise<void>
+  validateVaultPath: (path: string) => Promise<{ exists: boolean; lastOpened?: number }>
+  locateMovedVault: (originalPath: string) => Promise<{ foundPath: string | null }>
   getSettings: () => Promise<AppSettings>
   updateSettings: (updates: Partial<AppSettings>) => Promise<AppSettings>
   resetSettings: () => Promise<AppSettings>

@@ -67,19 +67,7 @@
   text-decoration: underline;
 }
 
-/* Wiki Links */
-.preview-content .wiki-link {
-  color: #4daafc;
-  text-decoration: underline;
-  cursor: pointer;
-  font-weight: 500;
-  transition: opacity 0.2s ease;
-}
-
-.preview-content .wiki-link:hover {
-  color: #88c9ff;
-  opacity: 0.8;
-}
+/* Wiki link styles moved to wikilink/wikilink.css */
 
 /* Lists */
 .preview-content ul,

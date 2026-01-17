@@ -1,0 +1,126 @@
+import { state } from '../../core/state'
+import type { NoteMeta } from '../../core/types'
+
+export interface WikiLinkServiceCallbacks {
+  openNote: (id: string, path?: string) => Promise<void>
+  createNote: (title?: string, path?: string) => Promise<void>
+  getEditorValue?: () => string | null
+  setStatus?: (message: string) => void
+}
+
+export class WikiLinkService {
+  private callbacks: WikiLinkServiceCallbacks
+
+  constructor(callbacks: WikiLinkServiceCallbacks) {
+    this.callbacks = callbacks
+  }
+
+  /**
+   * Resolves a wiki link target to a NoteMeta object
+   */
+  resolveNote(target: string): NoteMeta | undefined {
+    const cleanTarget = target.toLowerCase()
+
+    // 1. Exact match (ID, Path, Title)
+    let note = state.notes.find(n =>
+      n.id.toLowerCase() === cleanTarget ||
+      (n.path && `${n.path}/${n.id}`.toLowerCase() === cleanTarget) ||
+      (n.title && n.title.toLowerCase() === cleanTarget)
+    )
+
+    // 2. Strip extension if present (e.g. "note.md" -> "note")
+    if (!note && cleanTarget.endsWith('.md')) {
+      const base = cleanTarget.slice(0, -3)
+      note = state.notes.find(n =>
+        n.id.toLowerCase() === base ||
+        (n.title && n.title.toLowerCase() === base)
+      )
+    }
+
+    return note
+  }
+
+  /**
+   * Generates a preview text for a wiki link target
+   */
+  async getNotePreview(target: string): Promise<string | null> {
+    const cleanTarget = target.trim().toLowerCase()
+    const note = this.resolveNote(cleanTarget)
+
+    console.log(`[WikiLinkService] getNotePreview for "${target}":`, note ? `Found (${note.id})` : 'NOT FOUND')
+
+    if (note) {
+      // Optimization: If the target note is the one currently open in the editor,
+      // return the live content instead of reading stale data from disk.
+      if (note.id === state.activeId && this.callbacks.getEditorValue) {
+        const content = this.callbacks.getEditorValue()
+        if (content) {
+          // Sanitize content for preview
+          const clean = this.sanitizeContent(content)
+          const snippet = clean.substring(0, 1000).trim()
+          return snippet + (content.length > 1000 ? '...' : '') || '(Empty unsaved note)'
+        }
+      }
+
+      try {
+        const loaded = await window.api.loadNote(note.id, note.path)
+        if (loaded && loaded.content && loaded.content.trim()) {
+          const clean = this.sanitizeContent(loaded.content)
+          const snippet = clean.substring(0, 1000).trim()
+          return snippet + (loaded.content.length > 1000 ? '...' : '')
+        }
+        return '(Note is empty)'
+      } catch (err) {
+        console.error(`[WikiLinkService] loadNote failed for preview:`, err)
+        return '(Failed to load note)'
+      }
+    }
+    return null
+  }
+
+  /**
+   * Opens a wiki link (opens existing note or creates new one)
+   */
+  async openWikiLink(target: string): Promise<void> {
+    const cleanTarget = target.trim()
+    const [linkTarget] = cleanTarget.split('|')
+    const note = this.resolveNote(linkTarget.trim())
+
+    if (note) {
+      await this.callbacks.openNote(note.id, note.path)
+      if (this.callbacks.setStatus) {
+        this.callbacks.setStatus(`Jumped to [[${target}]]`)
+      }
+    } else {
+      // Auto-create note on click if it doesn't exist (Wiki behavior)
+      console.log(`[WikiLinkService] Note "${linkTarget}" not found, creating...`)
+      try {
+        await this.callbacks.createNote(linkTarget.trim())
+        if (this.callbacks.setStatus) {
+          this.callbacks.setStatus(`Created new note: [[${linkTarget}]]`)
+        }
+      } catch (e) {
+        console.error('Failed to create note from link', e)
+        if (this.callbacks.setStatus) {
+          this.callbacks.setStatus(`Failed to create note: ${linkTarget}`)
+        }
+      }
+    }
+  }
+
+  /**
+   * Sanitizes markdown content for preview display
+   */
+  private sanitizeContent(content: string): string {
+    return content
+      .replace(/^---\n[\s\S]*?\n---\n/, '') // Frontmatter
+      .replace(/<!--[\s\S]*?-->/g, '') // Comments
+      .replace(/#+\s/g, '') // Headers
+      .replace(/\[\[([^\]|]+)\|?.*?\]\]/g, '$1') // WikiLinks
+      .replace(/\[([^\]]+)\]\(.*?\)/g, '$1') // Markdown Links
+      .replace(/(\*\*|__)(.*?)\1/g, '$2') // Bold
+      .replace(/(\*|_)(.*?)\1/g, '$2') // Italic
+      .replace(/`{3}[\s\S]*?`{3}/g, '[Code]') // Code blocks
+      .replace(/`/g, '') // Inline code
+  }
+}

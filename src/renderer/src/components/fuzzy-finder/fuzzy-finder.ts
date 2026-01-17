@@ -1,5 +1,5 @@
 import { state } from '../../core/state'
-import { codicons } from '../../utils/codicons'
+import { codicons, getFileIcon } from '../../utils/codicons'
 import './fuzzy-finder.css'
 
 export class FuzzyFinder {
@@ -16,7 +16,7 @@ export class FuzzyFinder {
   constructor(containerId: string) {
     this.container = document.getElementById(containerId) as HTMLElement
     this.render()
-    
+
     // Global Esc listener as safety
     window.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && this.isOpen) {
@@ -38,7 +38,7 @@ export class FuzzyFinder {
     if (this.isOpen || !this.modal) return
     this.isOpen = true
     this.modal.classList.add('is-open')
-    
+
     // Create backdrop
     this.backdrop = document.createElement('div')
     this.backdrop.style.position = 'fixed'
@@ -81,7 +81,7 @@ export class FuzzyFinder {
 
     // Bind input event only (for typing)
     this.input?.addEventListener('input', (e) => this.filter((e.target as HTMLInputElement).value))
-    
+
     // Global key listener handles navigation regardless of focus
     if (!this.globalKeyListenerAttached) {
         window.addEventListener('keydown', (e) => void this.handleGlobalKey(e))
@@ -132,7 +132,7 @@ export class FuzzyFinder {
         }
     }
   }
-  
+
   private scrollToSelected(): void {
       const selectedEl = this.list?.children[this.selectedIndex] as HTMLElement
       if (selectedEl) {
@@ -148,17 +148,17 @@ export class FuzzyFinder {
 
   private filter(query: string): void {
     const term = query.toLowerCase()
-    
+
     // 1. Collect only notes (files)
     const allItems: any[] = []
-    
+
     // Add notes
     state.notes.forEach(n => allItems.push({ ...n, type: 'note' }))
-    
+
     // FOLDERS REMOVED from search results as per request ("only allow files two show up")
 
     let matches: any[] = []
-    
+
     if (!term) {
         // Show recent 5 notes on empty query
         // Assuming state.notes is already sorted by some criteria, but let's sort by updatedAt if available
@@ -173,19 +173,19 @@ export class FuzzyFinder {
            const path = (n.path || '').toLowerCase()
            return title.includes(term) || path.includes(term)
         })
-        
+
         // 2. Sort by relevance
         matches.sort((a, b) => {
             const aTitle = (a.title || '').toLowerCase()
             const bTitle = (b.title || '').toLowerCase()
             const aStarts = aTitle.startsWith(term)
             const bStarts = bTitle.startsWith(term)
-            
+
             if (aStarts && !bStarts) return -1
             if (!aStarts && bStarts) return 1
             return 0
         })
-        
+
         matches = matches.slice(0, 50)
     }
 
@@ -199,24 +199,25 @@ export class FuzzyFinder {
 
   private renderList(): void {
     if (!this.list) return
-    
+
     this.list.innerHTML = this.visibleItems.map((item, index) => {
       const isSelected = index === this.selectedIndex ? 'is-selected' : ''
-      const icon = item.type === 'folder' ? codicons.folder : codicons.file
+      const icon = item.type === 'folder' ? codicons.folder : getFileIcon(item.title || '')
+      const noteType = item.type === 'note' ? this.getNoteType(item.title || '') : ''
       const title = this.highlight(item.title || '', this.query)
       const path = this.highlight(item.path ? item.path.replace(/\\/g, '/') : '', this.query)
-    
+
       return `
-        <div class="fuzzy-item ${isSelected}" data-index="${index}">
+        <div class="fuzzy-item ${isSelected}" data-index="${index}" ${noteType ? `data-note-type="${noteType}"` : ''}>
           <div class="fuzzy-item__main">
-            <div class="fuzzy-item__icon">${icon}</div>
+            <div class="fuzzy-item__icon" ${noteType ? `data-note-type="${noteType}"` : ''}>${icon}</div>
             <span class="fuzzy-item__title">${title}</span>
             <span class="fuzzy-item__path">${path}</span>
           </div>
         </div>
       `
     }).join('')
-    
+
     // Click and hover selection
     const items = this.list.querySelectorAll('.fuzzy-item')
     items.forEach(el => {
@@ -233,5 +234,42 @@ export class FuzzyFinder {
         this.renderList()
       })
     })
+  }
+
+  private getNoteType(noteName: string): string {
+    const name = noteName.toLowerCase()
+
+    // Since this is a .md project, all notes are .md files by default
+    // The noteName here is the note title (without .md extension in the system)
+    // But we check for special patterns like "settings.json" which would be "settings.json.md"
+
+    // Check for special patterns in the title (these would be *.json.md, *.yaml.md, etc.)
+    if (name.includes('.json')) {
+      // e.g., "settings.json" -> "settings.json.md"
+      return 'json'
+    }
+    if (name.includes('.yaml') || name.includes('.yml')) {
+      // e.g., "config.yaml" -> "config.yaml.md"
+      return 'typescript'
+    }
+    if (name.includes('.js') && (name.includes('.jsx') || name.endsWith('.js'))) {
+      // e.g., "component.jsx" -> "component.jsx.md"
+      return 'javascript'
+    }
+    if (name.includes('.ts') && (name.includes('.tsx') || name.endsWith('.ts'))) {
+      // e.g., "component.tsx" -> "component.tsx.md"
+      return 'typescript'
+    }
+    if (name.includes('.html')) {
+      // e.g., "template.html" -> "template.html.md"
+      return 'html'
+    }
+    if (name.includes('.css') || name.includes('.scss') || name.includes('.sass') || name.includes('.less')) {
+      // e.g., "styles.css" -> "styles.css.md"
+      return 'css'
+    }
+
+    // Default: all notes are markdown files
+    return 'markdown'
   }
 }

@@ -23,6 +23,11 @@ import { notificationManager } from './components/notification/notification'
 import { noteService } from './services/noteService'
 import { tabService } from './services/tabService'
 import { aiService } from './services/aiService'
+import { TabHandlersImpl } from './handlers/tabHandlers'
+import { WikiLinkService } from './components/wikilink/wikilinkService'
+import { PreviewHandlers } from './handlers/previewHandlers'
+import { vaultService } from './services/vaultService'
+import { VaultPicker } from './components/vault-picker/vault-picker'
 
 function buildTree(items: NoteMeta[]): TreeItem[] {
   const root: TreeItem[] = []
@@ -101,13 +106,29 @@ class App {
     }
   }
 
-  private toggleRightSidebar(): void {
+  private async toggleRightSidebar(): Promise<void> {
     const shell = document.querySelector('.vscode-shell') as HTMLElement
     const rightPanel = document.getElementById('rightPanel') as HTMLElement
-    if (rightPanel && shell) {
-      const isVisible = rightPanel.style.display !== 'none'
-      rightPanel.style.display = isVisible ? 'none' : 'block'
-      shell.style.setProperty('--right-panel-width', isVisible ? '0px' : '270px')
+    if (!rightPanel || !shell) return
+
+    const isVisible = rightPanel.style.display !== 'none'
+    if (isVisible) {
+      // Before closing, save the current width if it's > 0 and save visibility state
+      const currentWidth = parseInt(getComputedStyle(shell).getPropertyValue('--right-panel-width') || '270', 10)
+      if (currentWidth > 0) {
+        void window.api.updateSettings({ rightPanelWidth: currentWidth, rightPanelVisible: false })
+      } else {
+        void window.api.updateSettings({ rightPanelVisible: false })
+      }
+      rightPanel.style.display = 'none'
+      shell.style.setProperty('--right-panel-width', '0px')
+    } else {
+      // When opening, use saved width from settings and save visibility state
+      const s = await window.api.getSettings()
+      const w = (s as { rightPanelWidth?: number }).rightPanelWidth ?? 270
+      rightPanel.style.display = 'block'
+      shell.style.setProperty('--right-panel-width', `${Math.max(200, Math.min(800, w))}px`)
+      void window.api.updateSettings({ rightPanelVisible: true })
     }
   }
 
@@ -121,6 +142,10 @@ class App {
   private themeModal: ThemeModal
   private fuzzyFinder: FuzzyFinder
   private graphView: GraphView
+  private tabHandlers!: TabHandlersImpl
+  private wikiLinkService!: WikiLinkService
+  private previewHandlers!: PreviewHandlers
+  private vaultPicker!: VaultPicker
 
   constructor() {
     this.activityBar = new ActivityBar('activityBar')
@@ -133,6 +158,34 @@ class App {
     this.themeModal = new ThemeModal('app') // Mount to app container
     this.fuzzyFinder = new FuzzyFinder('app')
     this.graphView = new GraphView() // Mount to app container
+    this.tabHandlers = new TabHandlersImpl(
+      this.tabBar,
+      this.statusBar,
+      this.editor,
+      () => this.persistWorkspace(),
+      () => this.updateViewVisibility()
+    )
+    this.wikiLinkService = new WikiLinkService({
+      openNote: (id, path) => this.openNote(id, path),
+      createNote: (title, path) => this.createNote(title, path),
+      getEditorValue: () => this.editor.getValue(),
+      setStatus: (message) => this.statusBar.setStatus(message)
+    })
+    this.previewHandlers = new PreviewHandlers({
+      showPreview: (content) => this.editor.showPreview(content),
+      updateViewVisibility: () => this.updateViewVisibility(),
+      setStatus: (message) => this.statusBar.setStatus(message),
+      setMeta: (message) => this.statusBar.setMeta(message),
+      updateSidebarSelection: (noteId) => this.sidebar.updateSelection(noteId),
+      renderTabBar: () => this.tabBar.render(),
+      persistWorkspace: () => this.persistWorkspace()
+    })
+    this.vaultPicker = new VaultPicker('app')
+    this.vaultPicker.setCallbacks({
+      onVaultSelected: (path) => this.handleVaultSelected(path),
+      onVaultLocated: (originalPath, newPath) => this.handleVaultLocated(originalPath, newPath),
+      onChooseNew: () => this.chooseVault()
+    })
     this.wireComponents()
     this.registerGlobalShortcuts()
     this.registerVaultChangeListener()
@@ -257,6 +310,8 @@ class App {
       this.openNote(id, path)
     }) as EventListener)
 
+    window.addEventListener('knowledge-hub:toggle-right-sidebar', () => { void this.toggleRightSidebar() })
+
     // Fuzzy Finder
     this.fuzzyFinder.setSelectHandler(async (id, path, type, isFinal) => {
       if (type === 'folder') {
@@ -271,29 +326,54 @@ class App {
     // Tab handlers
     this.tabBar.setTabSelectHandler(async (id) => {
       // Close any preview tabs when switching to a different tab
-      this.closePreviewTabs(id)
+      this.previewHandlers.closePreviewTabs(id)
 
       if (id === 'settings') {
         await this.openSettings()
-      } else if (id.startsWith('preview-')) {
+      } else if (this.previewHandlers.isPreviewTab(id)) {
         // Handle preview tab
-        const noteId = id.replace('preview-', '')
-        const tab = state.openTabs.find((t) => t.id === noteId)
+        const noteId = this.previewHandlers.getNoteIdFromPreviewTab(id)
+        const tab = state.openTabs.find((t) => t.id === id)
         if (tab) {
-          await this.showPreviewTab(noteId, tab.path)
+          await this.previewHandlers.showPreviewTab(noteId, tab.path)
         }
       } else {
         const tab = state.openTabs.find((t) => t.id === id)
         if (tab) await this.openNote(tab.id, tab.path)
       }
     })
-    this.tabBar.setTabCloseHandler((id) => void this.closeTab(id))
-    this.tabBar.setTabContextMenuHandler((id, e) => this.handleTabContextMenu(id, e))
+    this.tabBar.setTabCloseHandler((id) => void this.tabHandlers.closeTab(
+      id,
+      false,
+      async (id, path) => { await window.api.deleteNote(id, path) },
+      () => this.refreshNotes(),
+      (id, path) => this.openNote(id, path),
+      () => this.editor.showEmpty()
+    ))
+    this.tabBar.setTabContextMenuHandler((id, e) => {
+      this.tabHandlers.handleTabContextMenu(
+        id,
+        e,
+        (id, force) => this.closeTab(id, force),
+        (id) => this.closeOtherTabs(id),
+        () => this.closeAllTabs()
+      )
+    })
 
+    this.settingsView.setVaultCallbacks({
+      onVaultChange: () => this.chooseVault(),
+      onVaultReveal: async () => {
+        await window.api.revealVault()
+      },
+      onVaultSelected: (path) => this.handleVaultSelected(path),
+      onVaultLocated: (originalPath, newPath) => this.handleVaultLocated(originalPath, newPath)
+    })
     this.settingsView.setSettingChangeHandler(async (newSettings) => {
       if (state.settings) {
         state.settings = { ...state.settings, ...newSettings }
+        if (state.settings) {
         this.editor.applySettings(state.settings)
+      }
         void window.api.updateSettings(newSettings as Partial<AppSettings>)
         this.statusBar.setStatus('Settings auto-saved')
 
@@ -313,12 +393,11 @@ class App {
 
     this.editor.setSaveHandler((payload) => void this.saveNote(payload))
     this.editor.setDropHandler((path, isFile) => this.handleDrop(path, isFile))
-    this.editor.setLinkClickHandler((target) => void this.openWikiLink(target))
-    this.editor.setHoverContentHandler((target) => this.getNotePreview(target))
+    this.editor.setLinkClickHandler((target) => void this.wikiLinkService.openWikiLink(target))
+    this.editor.setHoverContentHandler((target) => this.wikiLinkService.getNotePreview(target))
     this.editor.setContextMenuHandler((e) => this.handleEditorContextMenu(e))
     this.editor.setTabCloseHandler(() => {
       if (state.activeId) {
-        // Check if pinned before closing via shortcut
         if (state.pinnedTabs.has(state.activeId)) {
           this.statusBar.setStatus('Pinned tab cannot be closed')
           return
@@ -349,57 +428,17 @@ class App {
 
   // ... registerGlobalShortcuts, registerVaultChangeListener ...
 
-  // handleTabContextMenu
-  private handleTabContextMenu(id: string, e: MouseEvent): void {
-    const isPinned = state.pinnedTabs.has(id)
-    contextMenu.show(e.clientX, e.clientY, [
-      {
-        label: isPinned ? 'Unpin Tab' : 'Pin Tab',
-        onClick: () => this.togglePinTab(id)
-      },
-      { separator: true },
-      {
-        label: 'Close',
-        keybinding: 'Ctrl+W',
-        onClick: () => this.closeTab(id, true)
-      },
-      {
-        label: 'Close Others',
-        onClick: () => this.closeOtherTabs(id)
-      },
-      {
-        label: 'Close All',
-        onClick: () => this.closeAllTabs()
-      }
-    ])
-  }
-
+  // Tab handlers delegated to TabHandlersImpl
   private togglePinTab(id: string): void {
-      if (state.pinnedTabs.has(id)) {
-        state.pinnedTabs.delete(id)
-      } else {
-        state.pinnedTabs.add(id)
-      }
-      tabService.syncTabs()
-      this.tabBar.render()
-      void this.persistWorkspace()
+    this.tabHandlers.togglePinTab(id)
   }
 
   private async closeOtherTabs(id: string): Promise<void> {
-    // Close all tabs except the target one and PINNED tabs
-    // Usually "Close Others" preserves pinned tabs in VSCode
-    const toClose = state.openTabs.filter((t) => t.id !== id && !state.pinnedTabs.has(t.id));
-    for (const tab of toClose) {
-      await this.closeTab(tab.id, true);
-    }
+    await this.tabHandlers.closeOtherTabs(id, (id, force) => this.closeTab(id, force))
   }
 
   private async closeAllTabs(): Promise<void> {
-    // Close all non-pinned tabs
-    const toClose = state.openTabs.filter((t) => !state.pinnedTabs.has(t.id));
-    for (const tab of toClose) {
-      await this.closeTab(tab.id, true);
-    }
+    await this.tabHandlers.closeAllTabs((id, force) => this.closeTab(id, force))
   }
 
   // ...
@@ -434,25 +473,48 @@ class App {
         themeManager.setTheme(state.settings.theme)
       }
 
-      if (typeof state.settings.sidebarVisible !== 'undefined') {
-        this.sidebar.setVisible(state.settings.sidebarVisible)
-      }
-
-      // Restore active view after UI is ready
-      if (state.settings.activeView && ['notes', 'search', 'settings'].includes(state.settings.activeView)) {
+      // Restore active view first
+      if (state.settings?.activeView && ['notes', 'search', 'settings'].includes(state.settings.activeView)) {
         setTimeout(() => {
-          this.activityBar.setActiveView(state.settings.activeView as 'notes' | 'search' | 'settings')
+          this.activityBar.setActiveView(state.settings!.activeView as 'notes' | 'search' | 'settings')
+          // Restore sidebar visibility AFTER active view is set (with additional delay to ensure view change handler completes)
+          setTimeout(() => {
+            const settings = state.settings
+            if (settings && typeof settings.sidebarVisible !== 'undefined') {
+              this.sidebar.setVisible(settings.sidebarVisible)
+            }
+          }, 50)
         }, 200)
+      } else {
+        // If no active view to restore, just restore sidebar visibility
+        if (typeof state.settings.sidebarVisible !== 'undefined') {
+          this.sidebar.setVisible(state.settings.sidebarVisible)
+        }
       }
 
-      this.editor.applySettings(state.settings)
+      if (state.settings) {
+        this.editor.applySettings(state.settings)
+      }
 
-      const rpw = state.settings?.rightPanelWidth
-      if (typeof rpw === 'number' && rpw > 0) {
+      // Restore right panel visibility and width
+      if (state.settings) {
+        const rightPanel = document.getElementById('rightPanel') as HTMLElement
         const shell = document.querySelector('.vscode-shell') as HTMLElement
-        if (shell) {
-          const w = Math.max(200, Math.min(800, rpw))
-          shell.style.setProperty('--right-panel-width', `${w}px`)
+
+        if (rightPanel && shell) {
+          const rpw = state.settings.rightPanelWidth
+          const isVisible = state.settings.rightPanelVisible !== false // Default to true if not set (for backward compatibility)
+
+          if (isVisible) {
+            // Restore width and show panel
+            const w = typeof rpw === 'number' && rpw > 0 ? Math.max(200, Math.min(800, rpw)) : 270
+            rightPanel.style.display = 'block'
+            shell.style.setProperty('--right-panel-width', `${w}px`)
+          } else {
+            // Hide panel
+            rightPanel.style.display = 'none'
+            shell.style.setProperty('--right-panel-width', '0px')
+          }
         }
       }
     } catch (error) {
@@ -462,69 +524,16 @@ class App {
 
   // ...
 
-  // Updated closeTab
+  // closeTab delegated to tabHandlers
   private async closeTab(id: string, force = false): Promise<void> {
-    // If pinned and not forced, do not close
-    if (!force && state.pinnedTabs.has(id)) {
-        this.statusBar.setStatus('Pinned tab cannot be closed')
-        return
-    }
-
-    // If closing a preview tab, reset editor to normal mode
-    if (id.startsWith('preview-') && state.activeId === id) {
-      this.editor.isPreviewMode = false
-      const editorHost = this.editor['editorHost'] as HTMLElement
-      const previewHost = this.editor['previewHost'] as HTMLElement
-      if (editorHost) editorHost.style.display = 'block'
-      if (previewHost) previewHost.style.display = 'none'
-    }
-
-    // Attempting to close tab...
-    const wasActive = state.activeId === id;
-    const tabIndex = state.openTabs.findIndex(t => t.id === id);
-
-    // Check for changes logic is implicitly handled via "isDirty" but we usually prompt save.
-    // Assuming simple close for now or existing logic handles dirty check before this is called?
-    // User request focused on menus/pins. Dirty check logic is complex for "Close Others".
-    // For now we assume closing unpins it implicitly? VSCode does NOT unpin if you close it, it stays pinned next time?
-    // Actually if you close a pinned tab, it's gone from open tabs. Pinning just keeps it "open" and strictly ordered.
-    // If I close it, it should probably be unpinned from state to avoid ghost pins?
-    // VSCode: If you close a pinned tab (via menu), it is removed.
-    if (state.pinnedTabs.has(id)) {
-        state.pinnedTabs.delete(id)
-    }
-
-    const tab = state.openTabs.find(t => t.id === id);
-    if (tab && (state.newlyCreatedIds.has(id) || state.newlyCreatedIds.has(tab.id))) {
-        console.log(`[App] Cleaning up unused new note: ${id}`)
-        try {
-            await window.api.deleteNote(id, tab.path)
-            state.newlyCreatedIds.delete(id)
-            await this.refreshNotes()
-        } catch (e) {
-            console.error('[App] Failed to cleanup new note', e)
-        }
-    }
-
-    tabService.closeTab(id)
-
-    if (wasActive) {
-      const remainingTabs = state.openTabs
-      if (remainingTabs.length > 0) {
-        const nextIndex = Math.min(tabIndex, remainingTabs.length - 1);
-        const fallback = remainingTabs[nextIndex >= 0 ? nextIndex : 0];
-        await this.openNote(fallback.id, fallback.path)
-      } else {
-        state.activeId = ''
-        this.editor.showEmpty()
-        this.statusBar.setStatus('No open editors')
-        this.statusBar.setMeta('')
-      }
-    }
-
-    this.tabBar.render()
-    this.updateViewVisibility() // Added
-    void this.persistWorkspace()
+    await this.tabHandlers.closeTab(
+      id,
+      force,
+      async (id, path) => { await window.api.deleteNote(id, path) },
+      () => this.refreshNotes(),
+      (id, path) => this.openNote(id, path),
+      () => this.editor.showEmpty()
+    )
   }
   private registerVaultChangeListener(): void {
     window.addEventListener('vault-changed', () => {
@@ -580,7 +589,7 @@ class App {
     }) as unknown as EventListener)
   }
 
-  private async renameFolder(id: string, newName: string): Promise<void> {
+    private async renameFolder(id: string, newName: string): Promise<void> {
       const oldPath = id
 
       const result = await window.api.renameFolder(oldPath, newName)
@@ -704,7 +713,7 @@ class App {
                 label: 'Open Preview',
                 keybinding: 'Ctrl+\\',
                 onClick: () => {
-                    this.openPreviewTab()
+                    void this.previewHandlers.openPreviewTab()
                 }
           },
           {
@@ -723,101 +732,6 @@ class App {
       ])
   }
 
-  private async getNotePreview(target: string): Promise<string | null> {
-      const cleanTarget = target.trim().toLowerCase()
-      const note = this.resolveNote(cleanTarget)
-
-      console.log(`[App] getNotePreview for "${target}":`, note ? `Found (${note.id})` : 'NOT FOUND')
-
-      if (note) {
-          // Optimization: If the target note is the one currently open in the editor,
-          // return the live content instead of reading stale data from disk.
-          if (note.id === state.activeId && this.editor) {
-              const content = this.editor.getValue()
-              // Sanitize content for preview
-              const clean = content
-                  .replace(/^---\n[\s\S]*?\n---\n/, '') // Frontmatter
-                  .replace(/<!--[\s\S]*?-->/g, '') // Comments
-                  .replace(/#+\s/g, '') // Headers
-                  .replace(/\[\[([^\]|]+)\|?.*?\]\]/g, '$1') // WikiLinks
-                  .replace(/\[([^\]]+)\]\(.*?\)/g, '$1') // Markdown Links
-                  .replace(/(\*\*|__)(.*?)\1/g, '$2') // Bold
-                  .replace(/(\*|_)(.*?)\1/g, '$2') // Italic
-                  .replace(/`{3}[\s\S]*?`{3}/g, '[Code]') // Code blocks
-                  .replace(/`/g, '') // Inline code
-
-              const snippet = clean.substring(0, 1000).trim()
-              return snippet + (content.length > 1000 ? '...' : '') || '(Empty unsaved note)'
-          }
-
-          try {
-              const loaded = await window.api.loadNote(note.id, note.path)
-              if (loaded && loaded.content && loaded.content.trim()) {
-                  const clean = loaded.content
-                  .replace(/^---\n[\s\S]*?\n---\n/, '')
-                  .replace(/<!--[\s\S]*?-->/g, '')
-                  .replace(/#+\s/g, '')
-                  .replace(/\[\[([^\]|]+)\|?.*?\]\]/g, '$1')
-                  .replace(/\[([^\]]+)\]\(.*?\)/g, '$1')
-                  .replace(/(\*\*|__)(.*?)\1/g, '$2')
-                  .replace(/(\*|_)(.*?)\1/g, '$2')
-                  .replace(/`{3}[\s\S]*?`{3}/g, '[Code]')
-                  .replace(/`/g, '')
-
-                  const snippet = clean.substring(0, 1000).trim()
-                  return snippet + (loaded.content.length > 1000 ? '...' : '')
-              }
-              return '(Note is empty)'
-          } catch (err) {
-              console.error(`[App] loadNote failed for preview:`, err)
-              return '(Failed to load note)'
-          }
-      }
-      return null
-  }
-
-  private resolveNote(target: string): NoteMeta | undefined {
-      const cleanTarget = target.toLowerCase()
-
-      // 1. Exact match (ID, Path, Title)
-      let note = state.notes.find(n =>
-          n.id.toLowerCase() === cleanTarget ||
-          (n.path && `${n.path}/${n.id}`.toLowerCase() === cleanTarget) ||
-          (n.title && n.title.toLowerCase() === cleanTarget)
-      )
-
-      // 2. Strip extension if present (e.g. "note.md" -> "note")
-      if (!note && cleanTarget.endsWith('.md')) {
-          const base = cleanTarget.slice(0, -3)
-          note = state.notes.find(n =>
-              n.id.toLowerCase() === base ||
-              (n.title && n.title.toLowerCase() === base)
-          )
-      }
-
-      return note
-  }
-
-  private async openWikiLink(target: string): Promise<void> {
-    const cleanTarget = target.trim()
-    const [linkTarget] = cleanTarget.split('|')
-    const note = this.resolveNote(linkTarget.trim())
-
-    if (note) {
-        await this.openNote(note.id, note.path)
-        this.statusBar.setStatus(`Jumped to [[${target}]]`)
-    } else {
-        // Auto-create note on click if it doesn't exist (Wiki behavior)
-        console.log(`[App] Note "${linkTarget}" not found, creating...`)
-        try {
-             await this.createNote(linkTarget.trim())
-             this.statusBar.setStatus(`Created new note: [[${linkTarget}]]`)
-        } catch (e) {
-             console.error('Failed to create note from link', e)
-             this.statusBar.setStatus(`Failed to create note: ${linkTarget}`)
-        }
-    }
-  }
 
   private registerGlobalShortcuts(): void {
     keyboardManager.register({
@@ -987,51 +901,117 @@ class App {
 
   private async initVault(): Promise<void> {
     try {
-      const info = await window.api.getVault()
-      state.vaultPath = info.path
-      state.projectName = info.name || 'Vault'
-      this.statusBar.setMeta(`📁 ${info.path}`)
+      const settings = await window.api.getSettings()
+      const savedVaultPath = (settings as { vaultPath?: string }).vaultPath
+
+      // Phase 1: Validate vault path
+      if (savedVaultPath) {
+        const validation = await vaultService.validateVaultPath(savedVaultPath)
+
+        if (validation.isValid) {
+          // Vault exists, proceed normally
+          const info = await window.api.getVault()
+          state.vaultPath = info.path
+          state.projectName = info.name || 'Vault'
+          this.statusBar.setMeta(`📁 ${info.path}`)
+          return
+        } else {
+          // Phase 3: Try to locate moved vault
+          const foundPath = await vaultService.locateMovedVault(savedVaultPath)
+          if (foundPath) {
+            // Found it! Update and continue
+            console.log(`[App] Found moved vault: ${savedVaultPath} -> ${foundPath}`)
+            await vaultService.openVault(foundPath)
+            const info = await window.api.getVault()
+            state.vaultPath = info.path
+            state.projectName = info.name || 'Vault'
+            this.statusBar.setStatus('Vault location updated')
+            this.statusBar.setMeta(`📁 ${info.path}`)
+            return
+          }
+
+          // Phase 2: Show vault picker with error
+          console.warn(`[App] Vault not found: ${savedVaultPath}`)
+          await this.vaultPicker.show({
+            path: savedVaultPath,
+            error: validation.error || 'Vault path does not exist',
+            suggestion: validation.suggestion
+          })
+          return
+        }
+      }
+
+      // No saved vault, show picker
+      await this.vaultPicker.show()
     } catch (error) {
       console.error('Failed to load vault info', error)
       this.statusBar.setStatus('⚠️ Vault unavailable')
       this.statusBar.setMeta('Press Ctrl+Shift+V to select a vault')
+      await this.vaultPicker.show()
     }
   }
 
   private async chooseVault(): Promise<void> {
     try {
       this.statusBar.setStatus('Selecting vault folder...')
-      const info = await window.api.chooseVault()
+      const info = await vaultService.chooseVault()
 
       if (!info.changed) {
         this.statusBar.setStatus('Ready')
+        this.vaultPicker.hide()
         return
       }
 
-      state.vaultPath = info.path
-      state.projectName = info.name || 'Vault'
-
-      this.statusBar.setStatus('Loading vault...')
-      await this.refreshNotes()
-
-      if (state.notes.length > 0) {
-        await this.openNote(state.notes[0].id)
-        this.statusBar.setStatus(`Loaded ${state.notes.length} note${state.notes.length === 1 ? '' : 's'}`)
-      } else {
-        state.activeId = ''
-        this.editor.showEmpty()
-        this.statusBar.setStatus('Empty vault')
-        this.statusBar.setMeta('Create a note to begin')
-      }
-      this.updateViewVisibility() // Added
-
-      this.statusBar.setMeta(`📁 ${info.path}`)
+      await this.handleVaultSelected(info.path)
+      this.vaultPicker.hide()
     } catch (error) {
       const message = (error as Error).message || 'Unknown error'
       console.error('Vault selection failed', error)
       this.statusBar.setStatus(`⚠️ ${message}`)
       this.statusBar.setMeta('Press Ctrl+Shift+V to try again')
     }
+  }
+
+  private async handleVaultSelected(path: string): Promise<void> {
+    const result = await vaultService.openVault(path)
+    if (!result.success) {
+      this.statusBar.setStatus(`⚠️ ${result.error || 'Failed to open vault'}`)
+      return
+    }
+
+    state.vaultPath = path
+    state.projectName = vaultService.getVaultName(path) || 'Vault'
+
+    // Clear all tabs from the previous vault - they won't exist in the new vault
+    state.openTabs = []
+    state.activeId = ''
+    state.pinnedTabs.clear()
+    state.newlyCreatedIds.clear()
+    this.tabBar.render()
+
+    this.statusBar.setStatus('Loading vault...')
+    await this.refreshNotes()
+
+    if (state.notes.length > 0) {
+      await this.openNote(state.notes[0].id)
+      this.statusBar.setStatus(`Loaded ${state.notes.length} note${state.notes.length === 1 ? '' : 's'}`)
+    } else {
+      state.activeId = ''
+      this.editor.showEmpty()
+      this.statusBar.setStatus('Empty vault')
+      this.statusBar.setMeta('Create a note to begin')
+    }
+    this.updateViewVisibility()
+    this.statusBar.setMeta(`📁 ${path}`)
+
+    // Update settings view if it's open
+    this.settingsView.updateVaultPath()
+  }
+
+  private async handleVaultLocated(originalPath: string, newPath: string): Promise<void> {
+    console.log(`[App] Vault located: ${originalPath} -> ${newPath}`)
+    await this.handleVaultSelected(newPath)
+    this.statusBar.setStatus('Vault location updated')
   }
 
   private async openSettings(): Promise<void> {
@@ -1200,73 +1180,6 @@ class App {
     void this.persistWorkspace()
   }
 
-  private async openPreviewTab(): Promise<void> {
-    const currentNoteId = state.activeId
-    if (!currentNoteId || currentNoteId === 'settings') {
-      // No note open or settings is open, can't show preview
-      return
-    }
-
-    const previewTabId = `preview-${currentNoteId}`
-
-    // Check if preview tab already exists
-    const existingPreviewTab = state.openTabs.find(t => t.id === previewTabId)
-    if (existingPreviewTab) {
-      // Preview tab exists, just switch to it
-      state.activeId = previewTabId
-      this.tabBar.render()
-      await this.showPreviewTab(currentNoteId, existingPreviewTab.path)
-      return
-    }
-
-    // Get current note to create preview tab
-    const currentNote = state.notes.find(n => n.id === currentNoteId)
-    if (!currentNote) return
-
-    // Create preview tab
-    const previewTab: NoteMeta = {
-      id: previewTabId,
-      title: `Preview: ${currentNote.title || currentNote.id}`,
-      updatedAt: currentNote.updatedAt,
-      path: currentNote.path
-    }
-
-    tabService.ensureTab(previewTab)
-    state.activeId = previewTabId
-
-    this.tabBar.render()
-    await this.showPreviewTab(currentNoteId, currentNote.path)
-    void this.persistWorkspace()
-  }
-
-  private async showPreviewTab(noteId: string, path?: string): Promise<void> {
-    // Load the note content and show preview
-    const note = await window.api.loadNote(noteId, path)
-    if (!note) return
-
-    // Show preview in editor
-    await this.editor.showPreview(note.content)
-    this.updateViewVisibility()
-    this.statusBar.setStatus('Preview mode')
-    this.statusBar.setMeta(`📁 ${state.vaultPath || ''}`)
-
-    // Update sidebar selection to the original note
-    this.sidebar.updateSelection(noteId)
-  }
-
-  private closePreviewTabs(activeTabId?: string): void {
-    // Close all preview tabs except the one being activated
-    const previewTabs = state.openTabs.filter(t => t.id.startsWith('preview-') && t.id !== activeTabId)
-    previewTabs.forEach(tab => {
-      const index = state.openTabs.findIndex(t => t.id === tab.id)
-      if (index !== -1) {
-        state.openTabs.splice(index, 1)
-      }
-    })
-    if (previewTabs.length > 0) {
-      this.tabBar.render()
-    }
-  }
 
   private revealPathInSidebar(path?: string, isFolder = false): boolean {
     if (!path) return false
@@ -1538,7 +1451,20 @@ class App {
         // 6. Re-open to ensure editor is synced with new ID
         if (isActive) {
              state.isDirty = false
-             await this.openNote(actualNewId, newMeta.path)
+             // Verify note exists before opening
+             const refreshedNote = state.notes.find(n => n.id === actualNewId)
+             if (refreshedNote) {
+               await this.openNote(actualNewId, refreshedNote.path)
+             } else {
+               // If still not found, try loading directly
+               const loadedNote = await window.api.loadNote(actualNewId, newMeta.path)
+               if (loadedNote) {
+                 await this.openNote(actualNewId, loadedNote.path)
+               } else {
+                 console.error(`[App] Failed to open renamed note: ${actualNewId}`)
+                 this.statusBar.setStatus('Note renamed but could not be reopened')
+               }
+             }
         } else {
              this.tabBar.render()
         }

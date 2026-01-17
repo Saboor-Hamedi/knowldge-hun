@@ -98,7 +98,10 @@ export function getFolderIcon(folderName: string): string {
   return folderIcons[name] || codicons.folder
 }
 
-export function getFileIcon(fileName: string): string {
+export function getFileIcon(fileName: string | undefined | null): string {
+  if (!fileName || typeof fileName !== 'string') {
+    return codicons.file
+  }
   const name = fileName.toLowerCase()
 
   // Since this is a .md project, all notes are .md files by default

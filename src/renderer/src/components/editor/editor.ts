@@ -10,6 +10,7 @@ import type { NotePayload, AppSettings } from '../../core/types'
 import { registerWikiLinkProviders } from '../wikilink/wikilink'
 import { PreviewComponent } from '../preview/preview'
 import './editor.css'
+import '../wikilink/wikilink.css'
 
 type Monaco = any // Use any to bypass stubborn type resolution in dynamic imports
 
@@ -431,7 +432,7 @@ export class EditorComponent {
                     strings: true
                 },
                 inlineSuggest: {
-                    enabled: false // Disable the grey ghost text layer that sits behind typing
+                    enabled: true // Enable inline suggestions for wiki links
                 },
                 stickyScroll: { enabled: false },
                 suggest: {

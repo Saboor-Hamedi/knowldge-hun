@@ -1,0 +1,266 @@
+.vault-picker-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  z-index: 3000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 200ms ease;
+}
+
+.vault-picker-modal.is-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.vault-picker-content {
+  background: var(--panel-strong);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+  width: 600px;
+  max-width: 90vw;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.vault-picker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.vault-picker-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-strong);
+}
+
+.vault-picker-close {
+  background: transparent;
+  border: none;
+  color: var(--text-main);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: background 150ms ease;
+}
+
+.vault-picker-close:hover {
+  background: var(--hover-bg);
+}
+
+.vault-picker-body {
+  padding: 20px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+.vault-picker-error {
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  background: rgba(255, 193, 7, 0.1);
+  border: 1px solid rgba(255, 193, 7, 0.3);
+  border-radius: 6px;
+  margin-bottom: 16px;
+}
+
+.vault-picker-error-icon {
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.vault-picker-error-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.vault-picker-error-title {
+  font-weight: 600;
+  color: var(--text-strong);
+  margin-bottom: 4px;
+}
+
+.vault-picker-error-message {
+  color: var(--text-main);
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+
+.vault-picker-error-suggestion {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.vault-picker-list {
+  margin-bottom: 16px;
+}
+
+.vault-picker-item {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: all 150ms ease;
+  background: var(--panel);
+}
+
+.vault-picker-item:hover {
+  background: var(--hover-bg);
+  border-color: var(--primary);
+}
+
+.vault-picker-item--missing {
+  opacity: 0.7;
+  border-color: rgba(255, 193, 7, 0.3);
+}
+
+.vault-picker-item-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.vault-picker-item-icon {
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.vault-picker-item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.vault-picker-item-name {
+  font-weight: 500;
+  color: var(--text-strong);
+  margin-bottom: 4px;
+  word-break: break-word;
+}
+
+.vault-picker-item-path {
+  font-size: 12px;
+  color: var(--muted);
+  word-break: break-all;
+  margin-bottom: 2px;
+}
+
+.vault-picker-item-meta {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+.vault-picker-item-status {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.vault-picker-item-status-icon {
+  font-size: 16px;
+}
+
+.vault-picker-item-status-text {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.vault-picker-item-actions {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 8px;
+}
+
+.vault-picker-item-action {
+  background: var(--primary);
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: opacity 150ms ease;
+}
+
+.vault-picker-item-action:hover {
+  opacity: 0.9;
+}
+
+.vault-picker-empty {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--muted);
+}
+
+.vault-picker-empty-icon {
+  font-size: 48px;
+  margin-bottom: 12px;
+}
+
+.vault-picker-empty-text {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--text-main);
+  margin-bottom: 4px;
+}
+
+.vault-picker-empty-hint {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.vault-picker-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.vault-picker-button {
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 150ms ease;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text-strong);
+}
+
+.vault-picker-button:hover {
+  background: var(--hover-bg);
+}
+
+.vault-picker-button--primary {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+}
+
+.vault-picker-button--primary:hover {
+  opacity: 0.9;
+}
