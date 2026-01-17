@@ -2,6 +2,10 @@ appId: com.electron.app
 productName: knowledgehub
 directories:
   buildResources: build
+publish:
+  provider: github
+  owner: Saboor-Hamedi
+  repo: knowledge-hub
 files:
   - '!**/.vscode/*'
   - '!src/*'

@@ -1,6 +1,6 @@
 {
   "name": "knowledgehub",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "A minimal Electron application with TypeScript",
   "main": "./out/main/index.js",
   "author": "example.com",
@@ -19,8 +19,8 @@
     "build:win": "npm run build && electron-builder --win",
     "build:mac": "npm run build && electron-builder --mac",
     "build:linux": "npm run build && electron-builder --linux",
-    "dist:publish": "npm run build && electron-builder --publish=onTag",
-    "icon:win": "npx electron-icon-maker --input=resources/icon.png --output=build"
+    "dist:publish": "npm run build && npx electron-builder --win --publish=never && npx dotenv-cli node scripts/publish.js",
+    "icon:win": "npx electron-icon-maker --input=resources/icon.png --output=build && cp build/icons/win/icon.ico build/icon.ico && cp build/icons/mac/icon.icns build/icon.icns"
   },
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",
@@ -31,13 +31,25 @@
     "electron-updater": "^6.7.3",
     "monaco-editor": "^0.52.2"
   },
+ "nsis": {
+  "oneClick": false,
+  "perMachine": true,
+  "allowToChangeInstallationDirectory": true,
+  "allowElevation": true,
+  "installerIcon": "build/icon.ico",
+  "installerHeaderIcon": "build/icon.ico",
+  "createDesktopShortcut": true,
+  "createStartMenuShortcut": true,
+  "shortcutName": "KnowledgeHub"
+},
   "build": {
     "appId": "com.example.knowledgehub",
+
     "publish": [
       {
         "provider": "github",
         "owner": "Saboor-Hamedi",
-        "repo": "knowldge-hun"
+        "repo": "knowledge-hub"
       }
     ]
   },
@@ -46,6 +58,9 @@
     "@electron-toolkit/eslint-config-ts": "^3.1.0",
     "@electron-toolkit/tsconfig": "^2.0.0",
     "@types/node": "^22.19.1",
+    "archiver": "^7.0.1",
+    "cross-env": "^10.1.0",
+    "dotenv-cli": "^11.0.0",
     "electron": "^39.2.6",
     "electron-builder": "^26.0.12",
     "electron-icon-maker": "^0.0.5",
