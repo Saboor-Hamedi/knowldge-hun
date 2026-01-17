@@ -770,6 +770,9 @@ export class SidebarTree {
 
     this.draggedItem = itemsToDrag[0] as any // Keep for backward compatibility if needed, but we'll use dataTransfer for the list
     
+    // Store items in a global variable as backup since dataTransfer can be unreliable
+    ;(window as any).dragItems = itemsToDrag
+
     const dragData = {
       items: itemsToDrag
     }
@@ -830,15 +833,29 @@ export class SidebarTree {
     document.querySelectorAll('.drag-over').forEach((el) => el.classList.remove('drag-over'))
     this.bodyEl.classList.remove('drag-over-root')
 
+    let itemsToMove: { type: 'note' | 'folder'; id: string; path?: string }[] = []
+
+    // Try to get items from dataTransfer first
     const itemsJson = event.dataTransfer!.getData('knowledge-hub/items')
-    if (!itemsJson) {
-        // Fallback or external drop?
-        if (!this.draggedItem) return
+    if (itemsJson) {
+      try {
+        itemsToMove = JSON.parse(itemsJson)
+      } catch (e) {
+        console.warn('Failed to parse drag data from dataTransfer')
+      }
     }
 
-    const itemsToMove: { type: 'note' | 'folder'; id: string; path?: string }[] = itemsJson 
-        ? JSON.parse(itemsJson) 
-        : [this.draggedItem!]
+    // Fallback to global variable if dataTransfer failed
+    if (itemsToMove.length === 0 && (window as any).dragItems) {
+      itemsToMove = (window as any).dragItems
+    }
+
+    // Final fallback to draggedItem for backward compatibility
+    if (itemsToMove.length === 0 && this.draggedItem) {
+      itemsToMove = [this.draggedItem]
+    }
+
+    if (itemsToMove.length === 0) return
 
     const target = event.target as HTMLElement
     const folder = target.closest('.tree-item') as HTMLElement | null
@@ -918,6 +935,7 @@ export class SidebarTree {
 
   private clearDragState(): void {
     this.draggedItem = null
+    delete (window as any).dragItems
     this.bodyEl.querySelectorAll('.tree-item').forEach(el => {
        (el as HTMLElement).style.opacity = ''
     })

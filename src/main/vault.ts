@@ -1,5 +1,5 @@
 import { join, basename, relative, dirname, normalize } from 'path'
-import { readFile, writeFile, rm, rename, stat, readdir, mkdir } from 'fs/promises'
+import { readFile, writeFile, rm, rename, stat, readdir, mkdir, copyFile } from 'fs/promises'
 import { existsSync } from 'fs'
 import { watch } from 'chokidar'
 import type { FSWatcher } from 'chokidar'
@@ -537,10 +537,28 @@ export class VaultManager {
       counter++
     }
     
-    
     console.log(`[Vault] Moving ${sourceFullPath} to ${newFolderPath}`)
+    
+    // Ensure target directory exists
     await mkdir(targetFullPath, { recursive: true })
-    await rename(sourceFullPath, newFolderPath)
+    
+    try {
+      // Try rename first (fastest for simple moves)
+      await rename(sourceFullPath, newFolderPath)
+      console.log(`[Vault] Move complete via rename. New path: ${newFolderPath}`)
+    } catch (renameError) {
+      console.warn(`[Vault] Rename failed, trying copy+delete:`, renameError)
+      
+      // Fallback: copy the entire folder recursively, then delete source
+      try {
+        await this.copyFolderRecursive(sourceFullPath, newFolderPath)
+        await rm(sourceFullPath, { recursive: true, force: true })
+        console.log(`[Vault] Move complete via copy+delete. New path: ${newFolderPath}`)
+      } catch (copyError) {
+        console.error(`[Vault] Copy+delete also failed:`, copyError)
+        throw new Error(`Failed to move folder: ${(copyError as Error).message}`)
+      }
+    }
     
     const finalPath = join(targetNorm, safeFolderName).replace(/\\/g, '/')
     console.log(`[Vault] Move complete. New path: ${finalPath}`)
@@ -607,6 +625,25 @@ export class VaultManager {
       return sources
   }
   
+  private async copyFolderRecursive(source: string, destination: string): Promise<void> {
+    // Ensure destination directory exists
+    await mkdir(destination, { recursive: true })
+    
+    const entries = await readdir(source, { withFileTypes: true })
+    
+    for (const entry of entries) {
+      const sourcePath = join(source, entry.name)
+      const destPath = join(destination, entry.name)
+      
+      if (entry.isDirectory()) {
+        await this.copyFolderRecursive(sourcePath, destPath)
+      } else if (entry.isFile()) {
+        await copyFile(sourcePath, destPath)
+      }
+      // Skip other types (symlinks, etc.) for safety
+    }
+  }
+
   public getAllLinks(): { source: string; target: string }[] {
       const links: { source: string; target: string }[] = []
       for (const [source, targets] of this.links.entries()) {
