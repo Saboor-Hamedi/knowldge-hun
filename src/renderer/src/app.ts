@@ -13,7 +13,7 @@ window.addEventListener('keydown', (e) => {
 })
 import { state } from './core/state'
 import type { NotePayload, NoteMeta, TreeItem, AppSettings } from './core/types'
-import { sortNotes, syncTabsWithNotes, ensureTab, sortTabs } from './utils/helpers'
+import { sortNotes, syncTabsWithNotes, ensureTab, sortTabs, timeAgo } from './utils/helpers'
 import { sortTreeRecursive } from './utils/tree-utils'
 import { keyboardManager } from './core/keyboardManager'
 import { modalManager } from './components/modal/modal'
@@ -88,6 +88,25 @@ class App {
         this.statusBar.setStatus(`Update error: ${errMsg}`)
       })
     }
+
+  private updateRightBarDetails(): void {
+    const content = this.editor.getValue()
+    const words = content.trim() ? content.trim().split(/\s+/).filter((w: string) => w).length : 0
+    const chars = content.length
+    const lines = content.split('\n').length
+    const currentNoteId = state.activeId
+    if (currentNoteId) {
+      const note = state.notes.find(n => n.id === currentNoteId)
+      if (note) {
+        const created = (note.createdAt && note.createdAt > 0) ? timeAgo(note.createdAt) : '-'
+        const modified = timeAgo(note.updatedAt)
+        this.rightBar.updateDetails({ words, chars, lines, created, modified })
+      }
+    } else {
+      this.rightBar.updateDetails({ words: 0, chars: 0, lines: 0, created: '-', modified: '-' })
+    }
+  }
+
   private activityBar: ActivityBar
   private sidebar: SidebarTree
   private tabBar: TabBar
@@ -115,9 +134,19 @@ class App {
     this.registerVaultChangeListener()
     this.setupMobileEvents()
     this.wireUpdateEvents()
+    this.updateRightBarDetails()
     // Ensure editor resizes correctly when window size changes
     window.addEventListener('resize', () => {
       this.editor.layout()
+    })
+
+    // Listen for delete active note event from editor
+    window.addEventListener('delete-active-note', () => {
+      const activeId = state.activeId
+      if (!activeId) return
+      const note = state.notes.find((n) => n.id === activeId)
+      if (!note) return
+      void this.deleteItems([{ id: activeId, type: 'note', path: note.path }])
     })
   }
 
@@ -261,6 +290,7 @@ class App {
     this.editor.setContentChangeHandler(() => {
       this.statusBar.setStatus('Unsaved changes')
       this.tabBar.render()
+      this.updateRightBarDetails()
     })
 
     this.editor.setSaveHandler((payload) => void this.saveNote(payload))
@@ -601,7 +631,7 @@ class App {
                 label: 'Delete',
                 onClick: () => {
                     this.editor.focus()
-                    this.editor.insertAtCursor('') // This effectively deletes the selection
+                    this.editor.triggerAction('editor.action.deleteLines')
                 }
           },
           {
@@ -802,7 +832,11 @@ class App {
       scope: 'global',
       description: 'Delete active note',
       handler: () => {
-        void this.promptDeleteActiveNote()
+        const activeId = state.activeId
+        if (!activeId) return
+        const note = state.notes.find((n) => n.id === activeId)
+        if (!note) return
+        void this.deleteItems([{ id: activeId, type: 'note', path: note.path }])
       }
     })
 
@@ -1039,6 +1073,9 @@ class App {
     this.statusBar.setStatus('Ready')
     this.statusBar.setMeta(`📁 ${state.vaultPath || ''}`)
     
+    // Update rightbar details when note is loaded
+    this.updateRightBarDetails()
+    
     // Always update sidebar selection to match active note
     this.sidebar.updateSelection(id)
     
@@ -1108,65 +1145,63 @@ class App {
     this.statusBar.setStatus('Autosaved')
     this.statusBar.setMeta(`📁 ${state.vaultPath || ''}`)
   }
-  private async deleteItems(items: { id: string, type: 'note' | 'folder', path?: string }[]): Promise<void> {
+  private showDeleteConfirmationModal(items: { id: string, type: 'note' | 'folder', path?: string }[], onConfirm: () => Promise<void>): void {
     if (items.length === 0) return
 
     const count = items.length
     const label = count === 1 ? (items[0].type === 'note' ? 'note' : 'folder') : 'items'
-    
-    // Check if any of the items is protected (e.g. settings.json if it exists)
-    // The user had a previous goal to protect settings.json, but it's not clear here.
-    // I'll just follow standard procedure.
-
-    const header = this.createModalHeader(`Delete ${count > 1 ? count + ' ' : ''}${label}`)
-    const content = document.createElement('div')
-    content.innerHTML = `<p style="margin: 0; color: var(--text);">Are you sure you want to delete ${count === 1 ? 'this ' + label : 'these ' + count + ' items'}? This action cannot be undone.</p>`
 
     modalManager.open({
-      customHeader: header,
-      customContent: content,
-      size: 'sm',
+      title: `Delete ${count > 1 ? count + ' ' : ''}${label}`,
+      content: `Are you sure you want to delete ${count === 1 ? 'this ' + label : 'these ' + count + ' items'}? This action cannot be undone.`,
+      size: 'md',
       buttons: [
-        { label: 'Cancel', variant: 'ghost', onClick: (m) => m.close() },
         {
           label: 'Delete',
           variant: 'danger',
           onClick: async (m) => {
             m.close()
-            this.statusBar.setStatus(`Deleting ${count} items...`)
-            
-            try {
-                for (const item of items) {
-                    if (item.type === 'note') {
-                        await window.api.deleteNote(item.id, item.path)
-                        state.openTabs = state.openTabs.filter((t) => t.id !== item.id)
-                        state.pinnedTabs.delete(item.id)
-                    } else {
-                        await window.api.deleteFolder(item.id)
-                    }
-                }
-                
-                this.statusBar.setStatus(`${count} items deleted`)
-                window.dispatchEvent(new CustomEvent('vault-changed'))
-                
-                // If the active note was deleted, switch
-                const ancoraActive = state.openTabs.find(t => t.id === state.activeId)
-                if (!ancoraActive) {
-                    if (state.openTabs.length > 0) {
-                        await this.openNote(state.openTabs[0].id, state.openTabs[0].path)
-                    } else {
-                        state.activeId = ''
-                        this.editor.showEmpty()
-                    }
-                }
-            } catch (error) {
-                console.error('Bulk delete failed', error)
-                this.statusBar.setStatus('Some items could not be deleted')
-                await this.refreshNotes()
-            }
+            await onConfirm()
           }
-        }
+        },
+        { label: 'Cancel', variant: 'ghost', onClick: (m) => m.close() }
       ]
+    })
+  }
+
+  private async deleteItems(items: { id: string, type: 'note' | 'folder', path?: string }[]): Promise<void> {
+    this.showDeleteConfirmationModal(items, async () => {
+      this.statusBar.setStatus(`Deleting ${items.length} items...`)
+      
+      try {
+          for (const item of items) {
+              if (item.type === 'note') {
+                  await window.api.deleteNote(item.id, item.path)
+                  state.openTabs = state.openTabs.filter((t) => t.id !== item.id)
+                  state.pinnedTabs.delete(item.id)
+              } else {
+                  await window.api.deleteFolder(item.id)
+              }
+          }
+          
+          this.statusBar.setStatus(`${items.length} items deleted`)
+          window.dispatchEvent(new CustomEvent('vault-changed'))
+          
+          // If the active note was deleted, switch
+          const ancoraActive = state.openTabs.find(t => t.id === state.activeId)
+          if (!ancoraActive) {
+              if (state.openTabs.length > 0) {
+                  await this.openNote(state.openTabs[0].id, state.openTabs[0].path)
+              } else {
+                  state.activeId = ''
+                  this.editor.showEmpty()
+              }
+          }
+      } catch (error) {
+          console.error('Bulk delete failed', error)
+          this.statusBar.setStatus('Some items could not be deleted')
+          await this.refreshNotes()
+      }
     })
   }
 
@@ -1319,35 +1354,6 @@ class App {
     })
   }
 
-  private async promptDeleteActiveNote(): Promise<void> {
-    const activeId = state.activeId
-    if (!activeId) return
-
-    const note = state.notes.find((n) => n.id === activeId)
-    if (!note) return
-
-    const header = this.createModalHeader('Delete Note')
-    const content = document.createElement('div')
-    content.innerHTML = `<p style="margin: 0; color: var(--text);">Are you sure you want to delete <strong>${this.escapeHtml(note.title)}</strong>? This action cannot be undone.</p>`
-
-    modalManager.open({
-      customHeader: header,
-      customContent: content,
-      size: 'sm',
-      buttons: [
-        { label: 'Cancel', variant: 'ghost', onClick: (m) => m.close() },
-        {
-          label: 'Delete',
-          variant: 'danger',
-          onClick: async (m) => {
-            await this.deleteNote(activeId, note.path)
-            m.close()
-          }
-        }
-      ]
-    })
-  }
-
   private createModalHeader(title: string): HTMLElement {
     const header = document.createElement('div')
     header.style.cssText = 'display: flex; align-items: center; gap: 8px; flex: 1;'
@@ -1356,12 +1362,6 @@ class App {
     titleEl.textContent = title
     header.appendChild(titleEl)
     return header
-  }
-
-  private escapeHtml(text: string): string {
-    const div = document.createElement('div')
-    div.textContent = text
-    return div.innerHTML
   }
 
   private async renameNote(noteId: string, newTitle: string): Promise<void> {

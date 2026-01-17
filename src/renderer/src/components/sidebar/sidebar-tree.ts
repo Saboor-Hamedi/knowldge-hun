@@ -1166,7 +1166,13 @@ export class SidebarTree {
         {
           label: 'Delete',
           keybinding: 'Del',
-          onClick: () => void this.deleteFolder(item.dataset.id!)
+          onClick: () => {
+            if (this.onItemsDelete) {
+              this.onItemsDelete([{ id: item.dataset.id!, type: 'folder' }])
+            } else {
+              void this.deleteFolder(item.dataset.id!)
+            }
+          }
         }
       ])
     } else {

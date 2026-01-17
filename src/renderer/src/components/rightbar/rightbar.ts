@@ -27,7 +27,7 @@ export class RightBar {
               <div class="rightbar__details-row"><span>Characters:</span> <span id="rightbar-chars">0</span></div>
               <div class="rightbar__details-row"><span>Lines:</span> <span id="rightbar-lines">0</span></div>
               <div class="rightbar__details-row"><span>Created:</span> <span id="rightbar-created">-</span></div>
-              <div class="rightbar__details-row"><span>Modified:</span> <span id="rightbar-modified">-</span></div>
+              <div class="rightbar__details-row"><span>Edit:</span> <span id="rightbar-modified">-</span></div>
             </div>
           </div>
           <div class="rightbar__panel" data-panel="chat">

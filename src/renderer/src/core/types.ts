@@ -2,6 +2,7 @@ export type NoteMeta = {
   id: string
   title: string
   updatedAt: number
+  createdAt?: number
   path?: string
   type?: 'note' | 'folder'
   children?: NoteMeta[]

@@ -48,6 +48,8 @@ export class EditorComponent {
   private editor: Monaco['editor']['IStandaloneCodeEditor'] | null = null
   private pendingSave?: number
   private onContentChange?: () => void
+  private listenerAttached: boolean = false
+  private shortcutsAttached: boolean = false
   private onSave?: (payload: NotePayload) => void
   private onLinkClick?: (target: string) => void
   private onGetHoverContent?: (target: string) => Promise<string | null>
@@ -230,6 +232,9 @@ export class EditorComponent {
     console.log(`[Editor] Vitals Check: LOADING NOTE`, { id: payload.id })
     state.applyingRemote = true
     await this.ensureEditor()
+    
+    // Ensure keyboard shortcuts are attached after editor is ready
+    this.attachKeyboardShortcuts()
     
     if (!this.editor) {
         state.applyingRemote = false
@@ -533,18 +538,31 @@ export class EditorComponent {
   }
 
   attachKeyboardShortcuts(): void {
-    window.addEventListener('keydown', (event) => {
-      const isMod = event.ctrlKey || event.metaKey
-      const key = event.key.toLowerCase()
+    if (!this.listenerAttached) {
+      window.addEventListener('keydown', this.handleKeyDown.bind(this))
+      this.listenerAttached = true
+    }
 
-      if (isMod && key === 's') {
-        event.preventDefault()
-        this.manualSave()
-      } else if (isMod && key === 'w') {
-        event.preventDefault()
-        this.onTabClose?.()
-      }
-    })
+    // Override Ctrl+D to delete active note instead of Monaco's default
+    if (this.editor && !this.shortcutsAttached) {
+      this.editor.addCommand(this.monacoInstance.KeyMod.CtrlCmd | this.monacoInstance.KeyCode.KeyD, () => {
+        window.dispatchEvent(new CustomEvent('delete-active-note'))
+      })
+      this.shortcutsAttached = true
+    }
+  }
+
+  private handleKeyDown(event: KeyboardEvent): void {
+    const isMod = event.ctrlKey || event.metaKey
+    const key = event.key.toLowerCase()
+
+    if (isMod && key === 's') {
+      event.preventDefault()
+      this.manualSave()
+    } else if (isMod && key === 'w') {
+      event.preventDefault()
+      this.onTabClose?.()
+    }
   }
 
   applySettings(settings: AppSettings): void {

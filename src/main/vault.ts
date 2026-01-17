@@ -9,6 +9,7 @@ export type NoteMeta = {
   id: string
   title: string
   updatedAt: number
+  createdAt?: number
   path?: string // relative path from vault root
   type?: 'note' | 'folder'
   children?: NoteMeta[]
@@ -104,6 +105,7 @@ export class VaultManager {
         id,
         title: this.extractTitle(content, id),
         updatedAt: stats.mtimeMs,
+        createdAt: stats.birthtimeMs,
         path: relativeDir, 
         type: 'note'
       }
@@ -243,7 +245,8 @@ export class VaultManager {
             content, 
             title: meta.title, 
             path: meta.path,
-            updatedAt: meta.updatedAt 
+            updatedAt: meta.updatedAt,
+            createdAt: meta.createdAt
         }
     } catch (e) {
         console.error(`[Vault] Failed to load note ${id} at ${fullPath}`, e)
@@ -252,8 +255,19 @@ export class VaultManager {
   }
 
   public async saveNote(id: string, content: string, _title?: string): Promise<NoteMeta> {
-    const meta = this.notes.get(id)
-    if (!meta) throw new Error('Note not found')
+    let meta = this.notes.get(id)
+    if (!meta) {
+      // Try to find the file if not indexed
+      const filename = `${basename(id)}.md`
+      const fullPath = join(this.rootPath, '', filename) // assume root for now
+      if (existsSync(fullPath)) {
+        await this.indexFile(fullPath)
+        meta = this.notes.get(id)
+      }
+      if (!meta) {
+        throw new Error('Note not found')
+      }
+    }
     
     // We no longer prepend <!-- title --> comments
     const finalContent = content
