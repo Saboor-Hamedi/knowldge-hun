@@ -7,7 +7,6 @@ export class StatusBar {
   private statusText: HTMLElement
   private metaText: HTMLElement
   private version: string | null = null
-  private statusTimeout: NodeJS.Timeout | null = null
 
   constructor(containerId: string) {
     this.container = document.getElementById(containerId) as HTMLElement
@@ -22,10 +21,7 @@ export class StatusBar {
     VersionFetcher.fetchVersion()
       .then((v) => {
         this.version = v
-        // Only update if no temporary status is showing
-        if (!this.statusTimeout && this.statusText) {
-          this.statusText.textContent = `v${v}`
-        }
+        this.updateStatusText()
       })
       .catch((error) => {
         console.warn('StatusBar: Failed to fetch app version', error)
@@ -50,7 +46,7 @@ export class StatusBar {
     const downloadIcon = this.createLucideIcon(CloudDownload, 14)
 
     this.container.innerHTML = `
-      <span class="statusbar__left"></span>
+      <span class="statusbar__left">Ready</span>
       <span class="statusbar__right">
         <div class="statusbar__sync">
           <button class="statusbar__sync-button" title="Sync">
@@ -118,60 +114,18 @@ export class StatusBar {
   }
 
   private updateStatusText(): void {
-    if (this.statusText && !this.statusTimeout) {
-      this.statusText.textContent = this.version ? `v${this.version}` : ''
+    if (this.statusText) {
+      this.statusText.textContent = this.version ? `v${this.version}` : 'Ready'
     }
   }
 
   setStatus(text: string): void {
-    // Ignore "Ready" and "Autosaved" messages
-    if (text === 'Ready' || text === 'Autosaved' || text === 'Settings auto-saved') {
-      return
-    }
-
     if (this.statusText) {
-      // Clear any existing timeout
-      if (this.statusTimeout) {
-        clearTimeout(this.statusTimeout)
-      }
-
-      // Show temporary status message
       this.statusText.textContent = text
-
-      // Restore version after 3 seconds (or immediately if version not loaded yet)
-      this.statusTimeout = setTimeout(() => {
-        this.statusTimeout = null
-        if (this.version) {
-          this.statusText.textContent = `v${this.version}`
-        } else {
-          // Version not loaded yet, try to fetch it again
-          VersionFetcher.fetchVersion()
-            .then((v) => {
-              this.version = v
-              if (!this.statusTimeout) {
-                this.statusText.textContent = `v${v}`
-              }
-            })
-            .catch(() => {
-              // Version fetch failed, leave empty
-              if (!this.statusTimeout) {
-                this.statusText.textContent = ''
-              }
-            })
-        }
-      }, 3000)
     }
   }
 
   setMeta(text: string): void {
-    // Ignore path-related messages
-    if (text && text.startsWith('📁')) {
-      if (this.metaText) {
-        this.metaText.textContent = ''
-      }
-      return
-    }
-
     if (this.metaText) {
       this.metaText.textContent = text
     }

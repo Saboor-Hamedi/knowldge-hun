@@ -1,117 +1,344 @@
-/* Graph View Modal Styles */
-.graph-modal {
+.nexus-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(4px);
-  z-index: 9999;
+  inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  opacity: 0;
-  visibility: hidden; /* CRITICAL: Hides drag regions when closed */
-  pointer-events: none;
-  transition: opacity 0.2s ease, visibility 0.2s ease;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  z-index: 9999;
+  animation: nexusFadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.graph-modal.is-visible {
-  opacity: 1;
-  visibility: visible;
-  pointer-events: auto;
+@keyframes nexusFadeIn {
+  from { opacity: 0; backdrop-filter: blur(0px); }
+  to { opacity: 1; backdrop-filter: blur(8px); }
 }
 
-.graph-modal__content {
-  width: 90vw;
-  height: 90vh;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+/* Nexus Container */
+.nexus-container {
+  width: 95vw;
+  height: 92vh;
+  background: color-mix(in srgb, var(--bg-panel), transparent 10%);
+  backdrop-filter: blur(40px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 5px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  position: relative;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.2),
+    0 24px 48px -12px rgba(0, 0, 0, 0.6),
+    0 0 30px rgba(var(--text-accent-rgb, 64, 186, 250), 0.05);
+  animation: nexusScaleUp 0.5s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.graph-modal__header {
-  height: var(--header-height);
-  border-bottom: 1px solid var(--border);
+@keyframes nexusScaleUp {
+  from { transform: scale(0.96) translateY(10px); opacity: 0; }
+  to { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+.nexus-header {
+  height: 60px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 16px;
-  background: var(--panel-strong);
+  padding: 0 24px;
+  background: rgba(255, 255, 255, 0.02);
+  border-bottom: 1px solid var(--border-subtle);
 }
 
-.graph-modal__title {
+.nexus-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-main);
+  letter-spacing: 0.02em;
+}
+
+.nexus-icon {
+  color: var(--text-accent);
+}
+/* tab for the modal*/
+.nexus-tabs {
+  display: flex;
+  background: rgba(0, 0, 0, 0.2);
+  padding: 3px;
+  border-radius: 6px;
+  gap: 2px;
+}
+
+.nexus-tab {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-faint);
+  font-size: 10px;
   font-weight: 600;
-  color: var(--text-strong);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
 }
 
-.graph-modal__close {
+.nexus-tab:hover {
+  color: var(--text-muted);
+  background: var(--bg-active);
+}
+
+.nexus-tab.active {
+  background: var(--text-accent);
+  color: white;
+}
+
+/* Icon-only tabs for cleaner header */
+.nexus-tabs-icon-only {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent !important;
+  padding: 4px;
+}
+
+.nexus-tab-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-faint);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.nexus-tab-icon:hover {
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.nexus-tab-icon.active {
+  color: var(--text-accent);
+  background: rgba(var(--text-accent-rgb, 64, 186, 250), 0.1);
+}
+
+.nexus-tab-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.nexus-close {
   background: transparent;
   border: none;
-  color: var(--text-soft);
+  color: var(--text-faint);
   cursor: pointer;
-  padding: 4px;
-  border-radius: 4px;
+  padding: 8px;
+  border-radius: 50%;
+  transition: all 0.2s;
 }
 
-.graph-modal__close:hover {
-  background: var(--hover);
-  color: var(--text-strong);
+.nexus-close:hover {
+  background: var(--bg-active);
+  color: var(--text-main);
 }
 
-.graph-modal__canvas {
+.nexus-body {
   flex: 1;
-  background: var(--bg);
   position: relative;
+  overflow: hidden;
+  background: radial-gradient(circle at center, rgba(var(--text-accent-rgb), 0.05) 0%, transparent 70%);
+}
+
+.nexus-footer {
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  font-size: 11px;
+  color: var(--text-faint);
+  border-top: 1px solid var(--border-subtle);
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.nexus-focus-info strong {
+  color: var(--text-main);
+}
+
+/* ORB MODE STYLES */
+.orb-mode {
+  background: radial-gradient(circle at center, #000 0%, #111 100%) !important;
+}
+
+.orb-lens {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 500px;
+  height: 500px;
+  border-radius: 50%;
+  border: 1px solid rgba(var(--text-accent-rgb, 64, 186, 250), 0.2);
+  box-shadow: inset 0 0 50px rgba(var(--text-accent-rgb, 64, 186, 250), 0.1), 0 0 50px rgba(var(--text-accent-rgb, 64, 186, 250), 0.1);
+  pointer-events: none;
+  background: radial-gradient(circle at center, transparent 30%, rgba(0,0,0,0.8) 100%);
+}
+
+/* INSIGHT TOOLTIP CARD */
+.nexus-insight-card {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  width: 320px;
+  background: var(--bg-panel);
+  background: color-mix(in srgb, var(--bg-panel), transparent 15%);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  padding: 16px;
+  z-index: 1000;
+  pointer-events: none; /* Don't block graph clicks */
+  animation: cardSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes cardSlideIn {
+  from { opacity: 0; transform: translateX(-20px) scale(0.95); }
+  to { opacity: 1; transform: translateX(0) scale(1); }
+}
+
+.card-header {
+  margin-bottom: 12px;
+}
+
+.card-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-main);
+  margin-bottom: 4px;
+}
+
+.card-meta {
+  font-size: 11px;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.card-summary {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-muted);
+  margin-bottom: 16px;
+  display: -webkit-box;
+  line-clamp: 4;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
   overflow: hidden;
 }
 
-.graph-modal__controls {
-  position: absolute;
-  bottom: 20px;
-  left: 20px;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  padding: 8px;
-  border-radius: 6px;
+.card-tags {
   display: flex;
-  gap: 8px;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
 }
 
-/* D3 Graph Styles */
-.node circle {
-  stroke: #fff;
-  stroke-width: 1.5px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.node text {
-  font-family: sans-serif;
+.card-tag {
   font-size: 10px;
-  pointer-events: none;
-  fill: var(--text-soft);
-  text-shadow: 0 1px 0 var(--bg);
+  font-weight: 600;
+  background: rgba(var(--text-accent-rgb, 64, 186, 250), 0.1);
+  color: var(--text-accent);
+  padding: 2px 8px;
+  border-radius: 4px;
 }
 
-.link {
-  stroke: var(--border-subtle);
-  stroke-opacity: 0.6;
+.card-footer {
+  font-size: 10px;
+  color: var(--text-faint);
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 10px;
 }
 
-.node:hover circle {
-  fill: var(--primary) !important;
-  r: 8 !important;
+/* Transitions */
+.nexus-body canvas {
+  transition: opacity 0.3s;
 }
 
-.node:hover text {
-  fill: var(--text-strong);
-  font-size: 12px;
-  font-weight: bold;
+/* Graph Controls */
+.graph-control-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.2s;
+  padding: 0;
+}
+
+.graph-control-btn:hover {
+  background: rgba(0, 0, 0, 0.9);
+  border-color: rgba(255, 255, 255, 0.4);
+  transform: scale(1.05);
+}
+
+.graph-control-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* Graph Search */
+.graph-search input {
+  color: white !important;
+}
+
+.graph-search input::placeholder {
+  color: rgba(255, 255, 255, 0.5) !important;
+}
+
+/* Graph Stats Panel */
+.graph-stats-panel {
+  font-family: Inter, sans-serif;
+  color: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.graph-stats-panel strong {
+  color: var(--text-accent, #64bafa);
+}
+
+/* Graph Filters Panel */
+.graph-filters-panel {
+  font-family: Inter, sans-serif;
+  color: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.graph-filters-panel label {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.graph-filters-panel input,
+.graph-filters-panel select {
+  color: white !important;
+}
+
+.graph-filters-panel input::placeholder {
+  color: rgba(255, 255, 255, 0.5) !important;
+}
+
+.graph-filters-panel option {
+  background: rgba(0, 0, 0, 0.9);
+  color: white;
 }

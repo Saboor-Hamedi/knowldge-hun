@@ -16,7 +16,7 @@ import { contextMenu } from './components/contextmenu/contextmenu'
 
 import { ThemeModal } from './components/theme-modal/theme-modal'
 import { FuzzyFinder } from './components/fuzzy-finder/fuzzy-finder'
-import { GraphView } from './components/graph/graph'
+import { GraphView } from './components/graph/graphs'
 import { themeManager } from './core/themeManager'
 import { ErrorHandler } from './utils/error-handler'
 import { notificationManager } from './components/notification/notification'
@@ -1796,7 +1796,7 @@ class App {
     await this.refreshNotes()
     // Force sidebar to re-render with all notes
     this.sidebar.renderTree(this.sidebar.getSearchValue())
-    
+
     // Refresh editor state to prevent freezing
     if (state.activeId) {
       const activeNote = state.notes.find(n => n.id === state.activeId)
@@ -1807,7 +1807,7 @@ class App {
         }
       }
     }
-    
+
     // Ensure editor is enabled and responsive
     setTimeout(() => {
       if (this.editor) {
