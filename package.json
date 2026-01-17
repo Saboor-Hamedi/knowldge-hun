@@ -19,6 +19,7 @@
     "build:win": "npm run build && electron-builder --win",
     "build:mac": "npm run build && electron-builder --mac",
     "build:linux": "npm run build && electron-builder --linux",
+    "dist:publish": "npm run build && electron-builder --publish=onTag",
     "icon:win": "npx electron-icon-maker --input=resources/icon.png --output=build"
   },
   "dependencies": {
@@ -36,7 +37,7 @@
       {
         "provider": "github",
         "owner": "Saboor-Hamedi",
-        "repo": "knowledge-hun"
+        "repo": "knowldge-hun"
       }
     ]
   },
