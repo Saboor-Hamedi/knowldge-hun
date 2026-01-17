@@ -340,6 +340,20 @@ class App {
     this.themeModal.setThemeChangeHandler((themeId) => {
       this.editor.applySettings({ ...state.settings, theme: themeId })
     })
+
+    // Set editor context for AI chat
+    this.rightBar.setEditorContext(
+      () => this.editor.getValue(),
+      () => {
+        if (state.activeId && state.activeId !== 'settings') {
+          const note = state.notes.find(n => n.id === state.activeId)
+          if (note) {
+            return { title: note.title, id: note.id }
+          }
+        }
+        return null
+      }
+    )
   }
 
   // ... registerGlobalShortcuts, registerVaultChangeListener ...

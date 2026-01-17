@@ -85,31 +85,48 @@
 }
 
 .rightbar__chat-input-wrapper {
-  padding: 12px;
+  padding: 0;
   border-top: 1px solid var(--border);
   background: var(--panel-strong);
+}
+
+.rightbar__chat-input-container {
+  position: relative;
   display: flex;
-  gap: 8px;
-  align-items: flex-end;
+  flex-direction: column;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  margin: 12px;
+  overflow: hidden;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.rightbar__chat-input-container:focus-within {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(127, 167, 255, 0.15), 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .rightbar__chat-input {
-  flex: 1;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 8px 12px;
+  width: 100%;
+  background: transparent;
+  border: none;
+  padding: 12px 48px 12px 12px;
   color: var(--text-strong);
   font-size: 13px;
   font-family: inherit;
+  line-height: 1.5;
   resize: none;
-  min-height: 40px;
-  max-height: 120px;
+  min-height: 44px;
+  max-height: 200px;
+  overflow-y: auto;
+  outline: none;
+  box-sizing: border-box;
 }
 
-.rightbar__chat-input:focus {
-  outline: none;
-  border-color: var(--primary);
+.rightbar__chat-input::placeholder {
+  color: var(--text-soft);
 }
 
 .rightbar__chat-input:disabled {
@@ -117,9 +134,19 @@
   cursor: not-allowed;
 }
 
+.rightbar__chat-footer {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  pointer-events: none;
+}
+
 .rightbar__chat-send {
-  width: 36px;
-  height: 36px;
+  width: 28px;
+  height: 28px;
   background: var(--primary);
   border: none;
   border-radius: 6px;
@@ -128,15 +155,29 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: opacity 120ms ease;
+  transition: all 120ms ease;
   flex-shrink: 0;
+  pointer-events: auto;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
 .rightbar__chat-send:hover:not(:disabled) {
-  opacity: 0.9;
+  background: var(--primary-strong);
+  transform: scale(1.05);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.rightbar__chat-send:active:not(:disabled) {
+  transform: scale(0.95);
 }
 
 .rightbar__chat-send:disabled {
-  opacity: 0.5;
+  opacity: 0.4;
   cursor: not-allowed;
+  transform: none;
+}
+
+.rightbar__chat-send svg {
+  width: 14px;
+  height: 14px;
 }
