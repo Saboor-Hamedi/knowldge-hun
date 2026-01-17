@@ -174,16 +174,17 @@ export class SidebarTree {
       const input = searchBody.querySelector('#global-search-input') as HTMLInputElement;
       const results = searchBody.querySelector('.search-results') as HTMLElement;
       let selectedIndex = 0;
+      // Forward arrow key and enter events from input to results for keyboard navigation
+      input.addEventListener('keydown', (e) => {
+        const resultsList = searchBody.querySelector('.search-results') as HTMLElement;
+        if (!resultsList) return;
+        if (["ArrowDown", "ArrowUp", "Enter"].includes(e.key)) {
+          resultsList.dispatchEvent(new KeyboardEvent('keydown', e));
+          e.preventDefault();
+        }
+      });
+
       input.addEventListener('input', async () => {
-              // Forward arrow key and enter events from input to results for keyboard navigation
-              input.addEventListener('keydown', (e) => {
-                const resultsList = searchBody.querySelector('.search-results') as HTMLElement;
-                if (!resultsList) return;
-                if (["ArrowDown", "ArrowUp", "Enter"].includes(e.key)) {
-                  resultsList.dispatchEvent(new KeyboardEvent('keydown', e));
-                  e.preventDefault();
-                }
-              });
         const query = input.value.trim();
         if (!query) {
           results.innerHTML = '';
@@ -192,7 +193,8 @@ export class SidebarTree {
           Array.from(results.querySelectorAll('.search-result-item.selected')).forEach(el => el.classList.remove('selected'));
           return;
         }
-        results.innerHTML = '<div style="text-align:center;margin-top:20px;">Searching…</div>';
+        // Don't show "Searching..." text - just show empty results
+        results.innerHTML = '';
         try {
           // Use window.api.searchNotes for robust search (title, content, tags)
           const notes = await (window.api as any).searchNotes(query);
@@ -207,7 +209,7 @@ export class SidebarTree {
             });
           }
           if (filtered.length === 0) {
-            results.innerHTML = '<div style="text-align:center;margin-top:20px;">No results found</div>';
+            results.innerHTML = '<div style="text-align:center;margin-top:20px;color:var(--text-soft);">No results found</div>';
           } else {
             // Highlight matches in title/content/tags
             const highlight = (text: string, q: string) => {
@@ -369,13 +371,13 @@ export class SidebarTree {
         </div>
         <div class="sidebar__actions">
           <button class="sidebar__action" title="New Folder" data-action="new-folder">
-            ${codicons.newFolder}
+            ${codicons.newFolderOutline || codicons.newFolder}
           </button>
           <button class="sidebar__action" title="New Note (Ctrl+N)" data-action="new">
             ${codicons.add}
           </button>
           <button class="sidebar__action" title="Reveal in Explorer" data-action="reveal">
-            ${codicons.folderOpened}
+            ${codicons.folderOpenedOutline || codicons.folderOpened}
           </button>
         </div>
       </header>
@@ -746,6 +748,11 @@ export class SidebarTree {
       state.expandedFolders.add(id)
     }
     this.renderTree(this.searchEl.value)
+
+    // Save expanded folders state
+    void window.api.updateSettings({
+      expandedFolders: Array.from(state.expandedFolders)
+    })
 
     // Restore focus to the toggled folder
     setTimeout(() => {

@@ -49,14 +49,14 @@ export class SettingsView {
             <div class="settings-view__section-header">
                 <h2 class="settings-view__section-title">Editor</h2>
             </div>
-            
+
             <div class="settings-field">
               <label class="settings-field__label">Font Size</label>
               <p class="settings-field__hint">Controls the font size in pixels.</p>
               <div class="settings-field__control">
-                <input 
-                  type="number" 
-                  class="settings-input" 
+                <input
+                  type="number"
+                  class="settings-input"
                   data-setting="fontSize"
                   min="10"
                   max="40"
@@ -69,8 +69,8 @@ export class SettingsView {
               <label class="settings-field__label">Line Numbers</label>
               <p class="settings-field__hint">Show or hide line numbers in the editor gutter.</p>
               <label class="settings-toggle">
-                <input 
-                  type="checkbox" 
+                <input
+                  type="checkbox"
                   data-setting="lineNumbers"
                   ${state.settings?.lineNumbers ? 'checked' : ''}
                 />
@@ -83,8 +83,8 @@ export class SettingsView {
               <label class="settings-field__label">Word Wrap</label>
               <p class="settings-field__hint">Wrap long lines to fit the editor width.</p>
               <label class="settings-toggle">
-                <input 
-                  type="checkbox" 
+                <input
+                  type="checkbox"
                   data-setting="wordWrap"
                   ${state.settings?.wordWrap ? 'checked' : ''}
                 />
@@ -97,8 +97,8 @@ export class SettingsView {
               <label class="settings-field__label">Minimap</label>
               <p class="settings-field__hint">Controls whether the minimap is shown.</p>
               <label class="settings-toggle">
-                <input 
-                  type="checkbox" 
+                <input
+                  type="checkbox"
                   data-setting="minimap"
                   ${state.settings?.minimap ? 'checked' : ''}
                 />
@@ -113,7 +113,7 @@ export class SettingsView {
                <div class="settings-view__section-header">
                 <h2 class="settings-view__section-title">Appearance</h2>
             </div>
-            
+
             <div class="settings-field">
               <label class="settings-field__label">Color Theme</label>
               <p class="settings-field__hint">Select your preferred color scheme for the entire application.</p>
@@ -132,13 +132,13 @@ export class SettingsView {
             <div class="settings-view__section-header">
                 <h2 class="settings-view__section-title">Behavior</h2>
             </div>
-            
+
             <div class="settings-field">
               <label class="settings-field__label">Auto Save</label>
               <p class="settings-field__hint">Automatically save your notes as you type.</p>
               <label class="settings-toggle">
-                <input 
-                  type="checkbox" 
+                <input
+                  type="checkbox"
                   data-setting="autoSave"
                   ${state.settings?.autoSave ? 'checked' : ''}
                 />
@@ -151,14 +151,28 @@ export class SettingsView {
               <label class="settings-field__label">Auto Save Delay</label>
               <p class="settings-field__hint">Millisecond delay after your last keystroke before saving.</p>
               <div class="settings-field__control">
-                <input 
-                  type="number" 
-                  class="settings-input" 
+                <input
+                  type="number"
+                  class="settings-input"
                   data-setting="autoSaveDelay"
                   min="300"
                   max="10000"
                   step="100"
                   value="${state.settings?.autoSaveDelay || 800}"
+                />
+              </div>
+            </div>
+
+            <div class="settings-field">
+              <label class="settings-field__label">DeepSeek API Key</label>
+              <p class="settings-field__hint">Your DeepSeek API key for AI chat functionality. Get one at <a href="https://platform.deepseek.com" target="_blank" style="color: var(--primary);">platform.deepseek.com</a></p>
+              <div class="settings-field__control">
+                <input
+                  type="password"
+                  class="settings-input"
+                  data-setting="deepseekApiKey"
+                  placeholder="sk-..."
+                  value="${(state.settings as any)?.deepseekApiKey || ''}"
                 />
               </div>
             </div>

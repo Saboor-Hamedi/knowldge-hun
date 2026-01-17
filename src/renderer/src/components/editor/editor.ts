@@ -8,6 +8,7 @@ import { state } from '../../core/state'
 import { themes } from '../../core/themes'
 import type { NotePayload, AppSettings } from '../../core/types'
 import { registerWikiLinkProviders } from '../wikilink/wikilink'
+import { PreviewComponent } from '../preview/preview'
 import './editor.css'
 
 type Monaco = any // Use any to bypass stubborn type resolution in dynamic imports
@@ -59,12 +60,29 @@ export class EditorComponent {
   private initPromise: Promise<void> | null = null
   private onTabClose?: () => void
   private hashtagDecorations: string[] = []
+  private preview?: PreviewComponent
+  private previewHost?: HTMLElement
+  public isPreviewMode: boolean = false
 
   constructor(containerId: string) {
     this.container = document.getElementById(containerId) as HTMLElement
     this.render()
     this.emptyState = this.container.querySelector('.editor-empty') as HTMLElement
     this.editorHost = this.container.querySelector('.editor-host') as HTMLElement
+    this.previewHost = this.container.querySelector('.preview-host') as HTMLElement
+
+    // Initialize preview after DOM is ready
+    setTimeout(() => {
+      const previewContainer = document.getElementById('preview-container')
+      if (previewContainer) {
+        this.preview = new PreviewComponent('preview-container')
+        this.preview.setWikiLinkHandler((target) => {
+          if (this.onLinkClick) {
+            this.onLinkClick(target)
+          }
+        })
+      }
+    }, 0)
   }
 
   setContentChangeHandler(handler: () => void): void {
@@ -154,12 +172,12 @@ export class EditorComponent {
           console.log('Detected file path:', filePath)
           const ext = filePath.split('.').pop()?.toLowerCase() || ''
           const isImage = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp'].includes(ext)
-          
+
           if (isImage) {
               // Handle image drop directly
               const files = e.dataTransfer?.files
               let file: File | null = null
-              
+
               if (files && files.length > 0) {
                   file = files[0]
               } else {
@@ -178,11 +196,11 @@ export class EditorComponent {
                       const buffer = await file.arrayBuffer()
                       const name = file.name // or `image-${Date.now()}.${ext}`
                       const savedPath = await window.api.saveAsset(buffer, name)
-                      
+
                       // Calculate drop position
                       // Monaco doesn't use standard caretRange easily.
                       // We can use editor.getTargetAtClientPoint
-                      
+
                       const target = this.editor?.getTargetAtClientPoint({ x: e.clientX, y: e.clientY })
                       if (target && target.position) {
                           this.editor!.executeEdits('', [{
@@ -207,7 +225,7 @@ export class EditorComponent {
                   return
               }
           }
-          
+
           const isFile = /\.[^.]+$/.test(filePath)
           handler(filePath, isFile)
         } else {
@@ -226,17 +244,33 @@ export class EditorComponent {
     this.container.innerHTML = `
       <div class="editor-empty">Select or create a note to start writing</div>
       <div class="editor-host" aria-label="Note editor"></div>
+      <div class="preview-host" style="display: none;">
+        <div id="preview-container"></div>
+      </div>
     `
+
+    // Initialize preview after DOM is ready
+    setTimeout(() => {
+      const previewContainer = document.getElementById('preview-container')
+      if (previewContainer) {
+        this.preview = new PreviewComponent('preview-container')
+        this.preview.setWikiLinkHandler((target) => {
+          if (this.onLinkClick) {
+            this.onLinkClick(target)
+          }
+        })
+      }
+    }, 0)
   }
 
   public async loadNote(payload: NotePayload): Promise<void> {
     console.log(`[Editor] Vitals Check: LOADING NOTE`, { id: payload.id })
     state.applyingRemote = true
     await this.ensureEditor()
-    
+
     // Ensure keyboard shortcuts are attached after editor is ready
     this.attachKeyboardShortcuts()
-    
+
     if (!this.editor) {
         state.applyingRemote = false
         return
@@ -255,7 +289,7 @@ export class EditorComponent {
     if (currentContent !== payload.content) {
         this.editor.setValue(payload.content)
     }
-    
+
     const prevLang = model.getLanguageId()
     try {
         this.monacoInstance!.editor.setModelLanguage(model, 'markdown')
@@ -267,20 +301,27 @@ export class EditorComponent {
     state.applyingRemote = false
     state.isDirty = false
     state.lastSavedAt = payload.updatedAt || Date.now()
-    
+
     this.emptyState.style.display = 'none'
     this.editorHost.style.display = 'block'
+    this.updatePreview()
     this.updateDecorations()
     this.updateHashtagDecorations()
   }
 
+  private updatePreview(): void {
+    if (!this.preview || !this.editor) return
+    const content = this.editor.getValue()
+    this.preview.update(content)
+  }
+
   private reRegisterProviders(): void {
     if (!this.monacoInstance || !this.onGetHoverContent) return
-    
+
     console.log('[Editor] Refreshing WikiLink providers for fresh note load...')
     this.providers.forEach(p => p.dispose())
     this.providers = []
-    
+
     try {
         const wikilinkProviders = registerWikiLinkProviders(this.monacoInstance, this.onGetHoverContent)
         this.providers.push(...wikilinkProviders)
@@ -289,9 +330,25 @@ export class EditorComponent {
     }
   }
 
+  public async showPreview(content: string): Promise<void> {
+    if (!this.previewHost || !this.editorHost || !this.preview) return
+
+    // Hide editor, show preview
+    this.editorHost.style.display = 'none'
+    this.previewHost.style.display = 'block'
+    this.emptyState.style.display = 'none'
+
+    // Update preview content
+    this.preview.update(content)
+    this.isPreviewMode = true
+  }
+
   showEmpty(): void {
     this.emptyState.style.display = 'flex'
     this.editorHost.style.display = 'none'
+    if (this.previewHost) {
+      this.previewHost.style.display = 'none'
+    }
     if (this.editor) {
       state.applyingRemote = true
       this.editor.setValue('')
@@ -339,7 +396,7 @@ export class EditorComponent {
 
   private async ensureEditor(): Promise<void> {
     if (this.editor) return
-    
+
     // Prevent race conditions if multiple calls happen before init completes
     if (this.initPromise) {
         return this.initPromise
@@ -398,13 +455,13 @@ export class EditorComponent {
                 if (state.applyingRemote) return
                 this.markDirty()
             })
-            
+
             // Register WikiLink Providers
-            console.log('[Editor] Attempting to register WikiLink providers...', { 
-                hasMonaco: !!this.monacoInstance, 
-                hasHoverHandler: !!this.onGetHoverContent 
+            console.log('[Editor] Attempting to register WikiLink providers...', {
+                hasMonaco: !!this.monacoInstance,
+                hasHoverHandler: !!this.onGetHoverContent
             })
-            
+
             try {
                 if (this.onGetHoverContent && this.monacoInstance) {
                      const wikilinkProviders = registerWikiLinkProviders(this.monacoInstance, this.onGetHoverContent)
@@ -424,7 +481,7 @@ export class EditorComponent {
             } catch (err) {
                 console.error('[Editor] Failed to register hashtag highlighting:', err)
             }
-            
+
             this.editorHost.addEventListener('contextmenu', (e) => {
                 if (this.onContextMenu) {
                     e.preventDefault()
@@ -432,23 +489,23 @@ export class EditorComponent {
                     this.onContextMenu(e)
                 }
             })
-            
+
             this.editor.onMouseDown((e) => {
                 // ... same as before
                 if (!e.target || !e.target.position) return
-                
+
                 if (e.event.ctrlKey || e.event.metaKey) {
                     const model = this.editor!.getModel()
                     if (!model) return
-                    
+
                     const lineContent = model.getLineContent(e.target.position.lineNumber)
                     const regex = /\[\[(.*?)\]\]/g
                     let match
-                    
+
                     while ((match = regex.exec(lineContent)) !== null) {
                         const startCol = match.index + 1
                         const endCol = match.index + match[0].length + 1
-                        
+
                         if (e.target.position.column >= startCol && e.target.position.column < endCol) {
                             const linkContent = match[1]
                             const [target] = linkContent.split('|')
@@ -479,18 +536,18 @@ export class EditorComponent {
     const text = model.getValue()
     const regex = /\[\[(.*?)\]\]/g
     const newDecorations: Monaco['editor']['IModelDeltaDecoration'][] = []
-    
+
     let match: RegExpExecArray | null
     while ((match = regex.exec(text)) !== null) {
         const startPos = model.getPositionAt(match.index)
         const endPos = model.getPositionAt(match.index + match[0].length)
-        
+
         newDecorations.push({
             range: new this.monacoInstance.Range(startPos.lineNumber, startPos.column, endPos.lineNumber, endPos.column),
-            options: { inlineClassName: 'wiki-link' } 
+            options: { inlineClassName: 'wiki-link' }
         })
     }
-    
+
     this.decorations = this.editor.deltaDecorations(this.decorations, newDecorations)
   }
 
@@ -515,7 +572,7 @@ export class EditorComponent {
         console.warn('[Editor] Save aborted: Missing requirements')
         return
     }
-    
+
     const content = this.editor.getValue()
     const note = state.notes.find((n) => n.id === state.activeId)
     const title = note?.title || state.projectName
@@ -559,7 +616,31 @@ export class EditorComponent {
       this.editor.addCommand(this.monacoInstance.KeyMod.CtrlCmd | this.monacoInstance.KeyCode.KeyD, () => {
         window.dispatchEvent(new CustomEvent('delete-active-note'))
       })
+
+      // Add Ctrl+\ (or Cmd+\ on Mac) to toggle preview
+      this.editor.addCommand(this.monacoInstance.KeyMod.CtrlCmd | this.monacoInstance.KeyCode.Backslash, () => {
+        this.togglePreview()
+      })
+
       this.shortcutsAttached = true
+    }
+  }
+
+  togglePreview(): void {
+    if (!this.previewHost || !this.editorHost) return
+
+    this.isPreviewMode = !this.isPreviewMode
+
+    if (this.isPreviewMode) {
+      // Show preview, hide editor
+      this.editorHost.style.display = 'none'
+      this.previewHost.style.display = 'block'
+      // Update preview with current content
+      this.updatePreview()
+    } else {
+      // Show editor, hide preview
+      this.editorHost.style.display = 'block'
+      this.previewHost.style.display = 'none'
     }
   }
 
@@ -573,30 +654,40 @@ export class EditorComponent {
     } else if (isMod && key === 'w') {
       event.preventDefault()
       this.onTabClose?.()
+    } else if (isMod && key === '\\') {
+      event.preventDefault()
+      this.togglePreview()
     }
   }
 
   applySettings(settings: AppSettings): void {
     if (!this.editor) return
 
+    // Save focus state and cursor position before applying theme
+    const hadFocus = this.editorHost && this.editorHost.contains(document.activeElement)
+    const position = this.editor.getPosition()
+    const selection = this.editor.getSelection()
+    const scrollTop = this.editor.getScrollTop()
+    const scrollLeft = this.editor.getScrollLeft()
+
     const options: any = {}
-    
+
     if (settings.fontSize) {
       options.fontSize = settings.fontSize
     }
-    
+
     if (settings.lineNumbers !== undefined) {
       options.lineNumbers = settings.lineNumbers ? 'on' : 'off'
     }
-    
+
     if (settings.wordWrap !== undefined) {
       options.wordWrap = settings.wordWrap ? 'on' : 'off'
     }
-    
+
     if (settings.minimap !== undefined) {
       options.minimap = { enabled: settings.minimap }
     }
-    
+
     // Apply Theme
     if (settings.theme) {
         console.log('Applying theme:', settings.theme)
@@ -604,7 +695,7 @@ export class EditorComponent {
         if (theme) {
              const isLight = settings.theme === 'light' || settings.theme === 'github-light'
              const base = isLight ? 'vs' : 'vs-dark'
-             
+
              // Use a unique name for the theme to ensure Monaco registers it as a switch
              // If we reuse the name, Monaco might optimizations skip the update if it thinks current theme is the same
              const monacoThemeId = `app-theme-${settings.theme}`
@@ -613,20 +704,28 @@ export class EditorComponent {
                  base: base,
                  inherit: true,
                  rules: [],
-                 colors: {
-                     'editor.background': theme.colors['--bg'],
-                     'editor.foreground': theme.colors['--text'],
-                     'editor.lineHighlightBackground': theme.colors['--hover'],
-                     'editor.selectionBackground': theme.colors['--selection'],
-                     'editorCursor.foreground': theme.colors['--primary'],
-                     'editorLineNumber.foreground': theme.colors['--muted'],
-                     'editorIndentGuide.background': theme.colors['--border-subtle'],
-                     'editorIndentGuide.activeBackground': theme.colors['--border'],
-                     'editorWidget.background': theme.colors['--panel-strong'],
-                     'editorWidget.border': theme.colors['--border'],
-                     'list.activeSelectionBackground': theme.colors['--selection'],
-                     'list.hoverBackground': theme.colors['--hover']
-                 }
+                colors: {
+                    'editor.background': theme.colors['--bg'],
+                    'editor.foreground': theme.colors['--text'],
+                    'editor.lineHighlightBackground': theme.colors['--hover'],
+                    'editor.selectionBackground': theme.colors['--selection'],
+                    'editorCursor.foreground': theme.colors['--primary'],
+                    'editorCursor.background': 'transparent',
+                    'editorCursor.backgroundUnfocused': 'transparent',
+                    'editorLineNumber.foreground': theme.colors['--muted'],
+                    'editorIndentGuide.background': theme.colors['--border-subtle'],
+                    'editorIndentGuide.activeBackground': theme.colors['--border'],
+                    'editorWidget.background': theme.colors['--panel-strong'],
+                    'editorWidget.border': theme.colors['--border'],
+                    'list.activeSelectionBackground': theme.colors['--selection'],
+                    'list.activeSelectionForeground': theme.colors['--text-strong'],
+                    'list.hoverBackground': theme.colors['--hover'],
+                    'list.hoverForeground': theme.colors['--text-strong'],
+                    'list.focusBackground': theme.colors['--selection'],
+                    'list.focusForeground': theme.colors['--text-strong'],
+                    'list.inactiveSelectionBackground': theme.colors['--selection'],
+                    'list.inactiveSelectionForeground': theme.colors['--text-strong']
+                }
              })
              this.monacoInstance?.editor.setTheme(monacoThemeId)
         } else {
@@ -647,6 +746,55 @@ export class EditorComponent {
     }
 
     this.editor.updateOptions(options)
+
+    // Restore focus and cursor position after theme change
+    if (hadFocus && position) {
+      // Use multiple timeouts to ensure Monaco has fully rendered
+      setTimeout(() => {
+        if (this.editor && position) {
+          try {
+            // Restore scroll position first
+            this.editor.setScrollTop(scrollTop)
+            this.editor.setScrollLeft(scrollLeft)
+
+            // Restore cursor position
+            this.editor.setPosition(position)
+
+            // Restore selection if it existed
+            if (selection) {
+              this.editor.setSelection(selection)
+            }
+
+            // Ensure cursor is visible
+            this.editor.revealPosition(position, 0) // 0 = center
+          } catch (e) {
+            console.warn('Failed to restore editor state after theme change:', e)
+          }
+        }
+      }, 10)
+
+      // Restore focus in a separate timeout to ensure it happens after DOM updates
+      setTimeout(() => {
+        if (this.editor && hadFocus) {
+          try {
+            // Force focus back to editor
+            if (this.editorHost) {
+              // Focus the textarea inside Monaco's editor
+              const textarea = this.editorHost.querySelector('textarea') as HTMLTextAreaElement
+              if (textarea) {
+                textarea.focus()
+                textarea.setSelectionRange(textarea.selectionStart, textarea.selectionEnd)
+              } else {
+                this.editorHost.focus()
+              }
+            }
+            this.editor.focus()
+          } catch (e) {
+            console.warn('Failed to restore editor focus after theme change:', e)
+          }
+        }
+      }, 100) // Longer delay to ensure focus restoration
+    }
   }
 
   private registerHashtagHighlighting(): void {

@@ -9,84 +9,9 @@ import { version } from '../../package.json'
 import icon from '../../resources/icon.ico?asset'
 import { vault } from './vault'
 import type { NotePayload } from './vault'
+import { loadSettings, saveSettings, updateSettings, DEFAULT_SETTINGS, type Settings } from './settings'
 
 let mainWindowRef: BrowserWindow | null = null
-const settingsFile = join(app.getPath('userData'), 'settings.json')
-
-type Settings = {
-  vaultPath?: string
-  theme?: string
-  sidebarVisible?: boolean
-  autoSave?: boolean
-  autoSaveDelay?: number
-  fontSize?: number
-  lineNumbers?: boolean
-  wordWrap?: boolean
-  minimap?: boolean
-  recentVaults?: string[]
-  lastOpenedNote?: string
-  expandedFolders?: string[]
-  openTabs?: { id: string; path?: string }[]
-  activeId?: string
-  windowBounds?: { width: number; height: number; x?: number; y?: number }
-}
-
-const DEFAULT_SETTINGS: Settings = {
-  theme: 'dark',
-  autoSave: true,
-  autoSaveDelay: 800,
-  fontSize: 14,
-  lineNumbers: true,
-  wordWrap: true,
-  minimap: false,
-  recentVaults: [],
-  expandedFolders: []
-}
-
-function loadSettings(): Settings {
-  try {
-    if (!existsSync(settingsFile)) {
-      saveSettings(DEFAULT_SETTINGS)
-      return { ...DEFAULT_SETTINGS }
-    }
-    
-    const raw = readFileSync(settingsFile, 'utf-8')
-    const loaded = JSON.parse(raw) as Partial<Settings>
-    const merged: Settings = { ...DEFAULT_SETTINGS, ...loaded }
-    
-    if (merged.autoSaveDelay && (merged.autoSaveDelay < 100 || merged.autoSaveDelay > 5000)) {
-      merged.autoSaveDelay = DEFAULT_SETTINGS.autoSaveDelay
-    }
-    
-    if (merged.fontSize && (merged.fontSize < 8 || merged.fontSize > 32)) {
-      merged.fontSize = DEFAULT_SETTINGS.fontSize
-    }
-    
-    if (!merged.recentVaults) merged.recentVaults = []
-    if (!merged.expandedFolders) merged.expandedFolders = []
-    
-    return merged
-  } catch (error) {
-    console.warn('Failed to read settings, using defaults', error)
-    saveSettings(DEFAULT_SETTINGS)
-    return { ...DEFAULT_SETTINGS }
-  }
-}
-
-function saveSettings(settings: Settings): void {
-  try {
-    writeFileSync(settingsFile, JSON.stringify(settings, null, 2), 'utf-8')
-  } catch (error) {
-    console.error('Failed to save settings', error)
-  }
-}
-
-function updateSettings(updates: Partial<Settings>): Settings {
-  const current = loadSettings()
-  const updated = { ...current, ...updates }
-  saveSettings(updated)
-  return updated
-}
 
 function addRecentVault(path: string): void {
   const settings = loadSettings()
@@ -115,7 +40,7 @@ function migrateVaultContent(oldPath: string, newPath: string): void {
              return
         }
     }
-    
+
     try {
         const files = readdirSync(newPath)
         if (files.length > 0) {
@@ -133,17 +58,17 @@ function resolveVaultPath(): string {
   const settings = loadSettings()
   const defaultPath = join(app.getPath('documents'), 'KnowledgeHub')
   const oldDefault = join(app.getPath('userData'), 'notes')
-  
+
   if (settings.vaultPath === oldDefault) {
       migrateVaultContent(oldDefault, defaultPath)
       settings.vaultPath = undefined
       saveSettings(settings)
   }
-  
+
   if (settings.vaultPath && isValidVaultPath(settings.vaultPath)) {
     return settings.vaultPath
   }
-  
+
   if (!existsSync(defaultPath)) {
       try {
           mkdirSync(defaultPath, { recursive: true })
@@ -156,7 +81,7 @@ function resolveVaultPath(): string {
     settings.vaultPath = undefined
     saveSettings(settings)
   }
-  
+
   return defaultPath
 }
 
@@ -183,7 +108,7 @@ async function chooseVault(): Promise<{ path: string; name: string; changed: boo
   if (selected === currentPath) {
     return { path: selected, name: basename(selected), changed: false }
   }
-  
+
   try {
     await vault.setVaultPath(selected)
     updateSettings({ vaultPath: selected })
@@ -203,7 +128,7 @@ function getVaultRoot(): string {
 function createWindow(): void {
   const settings = loadSettings()
   const bounds = settings.windowBounds || { width: 1200, height: 800 }
-  
+
   const mainWindow = new BrowserWindow({
     width: bounds.width,
     height: bounds.height,
@@ -216,11 +141,12 @@ function createWindow(): void {
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'hidden',
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
-      sandbox: false
+      sandbox: false,
+      webSecurity: true
     }
   })
   mainWindowRef = mainWindow
-  
+
   let boundsTimeout: NodeJS.Timeout
   mainWindow.on('resize', () => {
     clearTimeout(boundsTimeout)
@@ -229,7 +155,7 @@ function createWindow(): void {
       updateSettings({ windowBounds: bounds })
     }, 500)
   })
-  
+
   mainWindow.on('move', () => {
     clearTimeout(boundsTimeout)
     boundsTimeout = setTimeout(() => {
@@ -280,7 +206,7 @@ app.whenReady().then(async () => {
   })
   ipcMain.handle('notes:move', async (_event, id: string, fromPath?: string, toPath?: string) => {
     await ensureVault()
-    return vault.moveNote(id, fromPath, toPath) 
+    return vault.moveNote(id, fromPath, toPath)
   })
   ipcMain.handle('notes:rename', async (_event, id: string, newId: string, path?: string) => {
     await ensureVault()
@@ -314,13 +240,13 @@ app.whenReady().then(async () => {
     const path = vault.getRootPath() || resolveVaultPath()
     return { path, name: basename(path) }
   })
-  
+
   ipcMain.handle('vault:reveal', async () => {
       let root = vault.getRootPath()
       if (!root) root = resolveVaultPath()
       if (root && existsSync(root)) await shell.openPath(root)
   })
-  
+
   ipcMain.handle('vault:choose', async () => {
     try {
       return await chooseVault()
@@ -329,7 +255,7 @@ app.whenReady().then(async () => {
       throw error
     }
   })
-  
+
   ipcMain.handle('vault:set', async (_event, dir: string) => {
     try {
       await vault.setVaultPath(dir)
@@ -341,11 +267,11 @@ app.whenReady().then(async () => {
       throw error
     }
   })
-  
+
   ipcMain.handle('notes:search', async (_event, query: string) => vault.search(query))
   ipcMain.handle('notes:getBacklinks', async (_event, id: string) => vault.getBacklinks(id))
   ipcMain.handle('graph:get', async () => { return { links: vault.getAllLinks() } })
-  
+
   ipcMain.handle('assets:save', async (_event, buffer: ArrayBuffer, name: string) => {
       const root = getVaultRoot()
       const assetsDir = join(root, 'assets')

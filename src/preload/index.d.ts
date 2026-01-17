@@ -34,7 +34,12 @@ type AppSettings = {
   recentVaults?: string[]
   lastOpenedNote?: string
   expandedFolders?: string[]
+  openTabs?: { id: string; path?: string }[]
+  pinnedTabs?: string[]
+  activeId?: string
+  activeView?: 'notes' | 'search' | 'settings'
   windowBounds?: { width: number; height: number; x?: number; y?: number }
+  deepseekApiKey?: string
 }
 
 type WindowApi = {
@@ -55,7 +60,7 @@ type NoteApi = {
   importNote: (filePath: string, folderPath?: string) => Promise<NoteMeta>
   saveAsset: (buffer: ArrayBuffer, name: string) => Promise<string>
   createFolder: (name: string, parentPath?: string) => Promise<{ name: string; path: string }>
-  renameFolder: (path: string, newName: string) => Promise<{ path: string }> 
+  renameFolder: (path: string, newName: string) => Promise<{ path: string }>
   deleteFolder: (path: string) => Promise<{ path: string }>
   moveFolder: (sourcePath: string, targetPath: string) => Promise<{ path: string }>
   searchNotes: (query: string) => Promise<NoteMeta[]>

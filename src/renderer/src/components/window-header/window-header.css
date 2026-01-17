@@ -21,6 +21,14 @@
 	color: var(--text-muted);
 	font-size: 12px;
 	letter-spacing: 0.2px;
+	flex: 1;
+}
+
+.window-header__actions {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	-webkit-app-region: no-drag;
 }
 
 .window-header__title {

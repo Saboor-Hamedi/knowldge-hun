@@ -16,8 +16,8 @@ export const codicons = {
   chevronRight: '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M6 4l4 4-4 4V4z"/></svg>',
   chevronDown: '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M4 6l4 4 4-4H4z"/></svg>',
   close: '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 8.707l3.646 3.647.708-.707L8.707 8l3.647-3.646-.707-.708L8 7.293 4.354 3.646l-.707.708L7.293 8l-3.646 3.646.707.708L8 8.707z"/></svg>',
-  add: '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.5"/></svg>',
-  refresh: '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M7.5 1v3.5L4 1v3.5c0 1.93 1.57 3.5 3.5 3.5h1c1.93 0 3.5-1.57 3.5-3.5V1L8.5 4.5V1h-1zm0 14v-3.5L11 15v-3.5c0-1.93-1.57-3.5-3.5-3.5h-1C4.57 8 3 9.57 3 11.5V15l3.5-3.5V15h1z"/></svg>',
+  add: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v12M2 8h12"/></svg>',
+  refresh: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 8A6.5 6.5 0 0 1 8 1.5c2.5 0 4.6 1.5 5.5 3.5M14.5 8A6.5 6.5 0 0 1 8 14.5c-2.5 0-4.6-1.5-5.5-3.5M1.5 8h3m6.5 0h3"/></svg>',
   ellipsis: '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><circle cx="3.5" cy="8" r="1.5"/><circle cx="8" cy="8" r="1.5"/><circle cx="12.5" cy="8" r="1.5"/></svg>',
   edit: '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M13.23 1h-1.46L3.52 9.25l-.16.22L1 13.59 2.41 15l4.12-2.36.22-.16L15 4.23V2.77L13.23 1zM2.41 13.59l1.51-3 1.45 1.45-2.96 1.55zm3.83-2.06L4.47 9.76l8-8 1.77 1.77-8 8z"/></svg>',
   trash: '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M10 3h3v1h-1v9l-1 1H4l-1-1V4H2V3h3V2a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v1zM9 2H6v1h3V2zM4 13h7V4H4v9zm2-8H5v7h1V5zm1 0h1v7H7V5zm2 0h1v7H9V5z"/></svg>',
@@ -27,10 +27,13 @@ export const codicons = {
   calendar: '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M13 2H3l-1 1v11l1 1h10l1-1V3l-1-1zM3 3h10v2H3V3zm10 11H3V6h10v8zM4 7h2v2H4V7zm3 0h2v2H7V7zm3 0h2v2h-2V7zm-6 4h2v2H4v-2zm3 0h2v2H7v-2zm3 0h2v2h-2v-2z" fill-rule="evenodd" clip-rule="evenodd"/></svg>',
   pin: '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M11.5 2H4.5l-.5.5v3l-1.5 4L2 10v4l.5.5H6v2.5l2-1.5 2 1.5V14.5h3.5l.5-.5V10l-.5-.5-1.5-4V2.5l-.5-.5z"/></svg>',
 
-  // Folders
-  folder: '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M14.5 3H7.71l-.85-.85L6.51 2h-5l-.5.5v11l.5.5h13l.5-.5v-10L14.5 3zm-.51 8h-12V6h12v5z"/></svg>',
-  folderOpened: '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M1.5 14h11l.48-.37 2.63-7-.48-.63H14V4.5l-.5-.5H7.71l-.86-.85L6.49 3h-5l-.5.5v10l.5.5h.01zm6-9h5.5l-2.4 6.4L2 11V4h4.29l.86.85.35.15z"/></svg>',
-  newFolder: '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M14.5 2H7.71l-.85-.85L6.51 1h-5l-.5.5v11l.5.5h13l.5-.5v-10L14.5 2zM13 12H2V2h4.29l.86.85.35.15H13v9z"/><path d="M11.5 6H9V3.5H8V6H5.5v1H8v2.5h1V7h2.5V6z"/></svg>',
+  // Folders - Clean filled icons
+  folder: '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M14.5 3H7.71l-.85-.85L6.51 2h-5l-.5.5v11l.5.5h13l.5-.5v-10L14.5 3zm-.5 9h-12V6h12v6z"/></svg>',
+  folderOpened: '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M1.5 14h11l.5-.4 2.5-7-.5-.6H14V4.5l-.5-.5H7.71l-.86-.85L6.49 3h-5l-.5.5v10l.5.5zm6-9h5.5l-2.3 6.5L2 11V4h4.29l.86.85.35.15z"/></svg>',
+  newFolder: '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M14.5 2H7.71l-.85-.85L6.51 1h-5l-.5.5v11l.5.5h13l.5-.5v-10L14.5 2zM13 12H2V2h4.29l.86.85.35.15H13v9z"/><path d="M11 6H9V4H8v2H6v1h2v2h1V7h2V6z"/></svg>',
+  // Outline versions for action buttons
+  folderOpenedOutline: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 14h11l.5-.4 2.5-7-.5-.6H14V4.5l-.5-.5H7.71l-.86-.85L6.49 3h-5l-.5.5v10l.5.5z"/><path d="M7.5 4h5.5l-2.3 6.5L2 11V4h4.29l.86.85.35.15z"/></svg>',
+  newFolderOutline: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H7.71l-.85-.85L6.51 1h-5l-.5.5v11l.5.5h13l.5-.5v-10L14.5 2z"/><path d="M13 12H2V2h4.29l.86.85.35.15H13v9z"/><path d="M11 6H9V4H8v2H6v1h2v2h1V7h2V6z"/></svg>',
 
   // Folder types (semantic)
   folderRoot: '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M14.5 3H7.71l-.85-.85L6.51 2h-5l-.5.5v11l.5.5h13l.5-.5v-10L14.5 3zm-.51 8h-12V6h12v5z"/><circle cx="8" cy="9" r="0.5" fill="white"/></svg>',
@@ -41,11 +44,15 @@ export const codicons = {
   folderPublic: '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M14.5 3H7.71l-.85-.85L6.51 2h-5l-.5.5v11l.5.5h13l.5-.5v-10L14.5 3zm-.51 8h-12V6h12v5zM8 7c1 0 1.5.5 1.5 1.5S9 10 8 10s-1.5-.5-1.5-1.5S7 7 8 7z"/></svg>',
   folderLib: '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M14.5 3H7.71l-.85-.85L6.51 2h-5l-.5.5v11l.5.5h13l.5-.5v-10L14.5 3zm-.51 8h-12V6h12v5zM7 8v3h2V8h-2z"/></svg>',
 
-  // Activity bar
-  files: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M14.5 1H7l-.85.85-.65-.65L5 .7l-.5.5-.65.65L3.35 1H1.5l-.5.5v13l.5.5h13l.5-.5v-13l-.5-.5zm-.51 13H2V2h1.49l.5-.5.71.71L5.5 1.7l.71.71.71-.71.5.5H14v11z" stroke="currentColor" stroke-width="1" fill="none"/><path d="M12 6H4V5h8v1zm0 2H4V7h8v1zm-4 2H4V9h4v1z" stroke="currentColor" stroke-width="1" fill="none"/></svg>',
-  search: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M11.5 7a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0zm-.82 4.74a6 6 0 1 1 1.06-1.06l3.04 3.04-.71.71-3.39-3.69z" stroke="currentColor" stroke-width="1" fill="none"/></svg>',
-  settingsGear: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M9.1 4.4L8.6 2H7.4l-.5 2.4-.7.3-2-1.3-.9.8 1.3 2-.2.7-2.4.5v1.2l2.4.5.3.8-1.3 2 .8.8 2-1.3.8.3.5 2.3h1.2l.5-2.4.8-.3 2 1.3.8-.8-1.3-2 .3-.8 2.3-.5V7.4l-2.4-.5-.3-.8 1.3-2-.8-.8-2 1.3-.7-.2zM9.4 1l.5 2.4L12 2.1l2 2-1.4 2.1 2.4.4v2.8l-2.4.5L14 12l-2 2-2.1-1.4-.5 2.4H6.6l-.5-2.4L4 13.9l-2-2 1.4-2.1L1 9.4V6.6l2.4-.5L2.1 4l2-2 2.1 1.4.4-2.4h2.8zm.6 7c0 1.1-.9 2-2 2s-2-.9-2-2 .9-2 2-2 2 .9 2 2zM8 9c.6 0 1-.4 1-1s-.4-1-1-1-1 .4-1 1 .4 1 1 1z" stroke="currentColor" stroke-width="1" fill="none"/></svg>',
-  palette: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M15.46 3.03l-3-2.6A1.85 1.85 0 0 0 10 .93h-.06l-3.37 1a3.07 3.07 0 0 0-1.61 1.25l-2.6 4.31a.52.52 0 0 0 .15.68l4.47 3a.52.52 0 0 0 .62-.11l2.84-3.34A2.94 2.94 0 0 0 11 5.92l.89-3.23.09.07 1.83 1.58.55-.26A1.5 1.5 0 0 0 16 2.68a1.53 1.53 0 0 0-.54.35zM4 14.5a3 3 0 1 1 4.24-4.24L4 14.5zM3.29 13.8L6.82 10.27 3.29 13.8zM8.33 6.64l-2.9 3.41-3.6-2.41 2.6-4.32a2.12 2.12 0 0 1 1-.84l2.9-.84z" stroke="currentColor" stroke-width="1" fill="none"/></svg>',
+  // Activity bar - Simple, clean outline icons
+  // Files/Explorer - clean file icon
+  files: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 1H7l-.85.85L5.5 1.5H1.5l-.5.5v13l.5.5h13l.5-.5v-13l-.5-.5z"/><path d="M14 14H2V2h3.5l.5.5.71.71L7.5 3.5l.71.71.71-.71.5-.5H14v11z"/><path d="M12 6H4M12 8H4M8 10H4"/></svg>',
+  // Search - clean search icon
+  search: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="3.5"/><path d="m10.5 10.5 3 3"/></svg>',
+  // Settings gear - simple gear icon
+  settingsGear: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="3"/><path d="M8 1v2M8 13v2M3 8H1m14 0h-2M12.66 3.34l-1.41 1.41M4.75 11.25l-1.41 1.41M12.66 12.66l-1.41-1.41M4.75 4.75l-1.41-1.41"/></svg>',
+  // Palette - simple palette icon
+  palette: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 1a7 7 0 0 0-7 7c0 1.5.5 2.9 1.3 4L1 15l3-1c1.1.8 2.5 1.3 4 1.3a7 7 0 0 0 7-7 7 7 0 0 0-7-7z"/><circle cx="5" cy="6" r="1" fill="currentColor"/><circle cx="8" cy="5" r="1" fill="currentColor"/><circle cx="11" cy="6" r="1" fill="currentColor"/><circle cx="9" cy="8" r="1" fill="currentColor"/></svg>',
   check: '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M13.86 3.66a.75.75 0 0 0-1.06-.02L6.5 9.8 3.2 6.5a.75.75 0 0 0-1.06 1.06l3.83 3.83a.75.75 0 0 0 1.06 0l6.83-6.83a.75.75 0 0 0 0-1.06z"/></svg>',
   paintbrush: '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M14.54 1.46l-.07-.07-.07-.07-.58-.22h-.08l-.27.07-.43.21-.19.14-8.02 8.02-.14.19-.21.43-.07.28v.07l.22.58.07.07.07.07.58.22h.08l.27-.07.43-.21.19-.14 8.02-8.02.14-.19.21-.43.07-.28v-.07l-.22-.58zM3.5 10.5l8-8 1 1-8 8-1-1zm9.29-9.29l.71.71-.71.71-.71-.71.71-.71zM2 13h1v2H1v-2h1zm10-2h1v4h-2v-4h1z"/></svg>',
   error: '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path fill-rule="evenodd" clip-rule="evenodd" d="M8 1a7 7 0 100 14A7 7 0 008 1zM4 8a.5.5 0 01.5-.5h7a.5.5 0 010 1h-7A.5.5 0 014 8z"/></svg>',

@@ -29,22 +29,22 @@
     "d3": "^7.9.0",
     "d3-force": "^3.0.0",
     "electron-updater": "^6.7.3",
+    "lucide": "^0.562.0",
     "monaco-editor": "^0.52.2"
   },
- "nsis": {
-  "oneClick": false,
-  "perMachine": true,
-  "allowToChangeInstallationDirectory": true,
-  "allowElevation": true,
-  "installerIcon": "build/icon.ico",
-  "installerHeaderIcon": "build/icon.ico",
-  "createDesktopShortcut": true,
-  "createStartMenuShortcut": true,
-  "shortcutName": "KnowledgeHub"
-},
+  "nsis": {
+    "oneClick": false,
+    "perMachine": true,
+    "allowToChangeInstallationDirectory": true,
+    "allowElevation": true,
+    "installerIcon": "build/icon.ico",
+    "installerHeaderIcon": "build/icon.ico",
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "KnowledgeHub"
+  },
   "build": {
     "appId": "com.example.knowledgehub",
-
     "publish": [
       {
         "provider": "github",

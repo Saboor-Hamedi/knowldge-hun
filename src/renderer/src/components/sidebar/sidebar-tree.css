@@ -60,6 +60,26 @@
 .sidebar__action svg {
   width: 16px;
   height: 16px;
+  stroke: var(--text-soft);
+  fill: none;
+  filter: none !important;
+  display: block;
+  opacity: 1 !important;
+  color: var(--text-soft) !important;
+  transition: stroke 120ms;
+}
+.sidebar__action:hover svg {
+  stroke: var(--text-strong);
+  color: var(--text-strong) !important;
+}
+/* For filled elements */
+.sidebar__action svg circle[fill="currentColor"],
+.sidebar__action svg path[fill="currentColor"] {
+  fill: var(--text-soft);
+}
+.sidebar__action:hover svg circle[fill="currentColor"],
+.sidebar__action:hover svg path[fill="currentColor"] {
+  fill: var(--text-strong);
 }
 
 /* Search */
@@ -166,7 +186,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--text-soft);
+  color: var(--text-soft) !important;
   flex-shrink: 0;
   transition: transform 120ms ease;
 }
@@ -174,6 +194,8 @@
 .tree-item__expand svg {
   width: 14px;
   height: 14px;
+  color: var(--text-soft) !important;
+  fill: currentColor;
 }
 
 .tree-item.is-expanded .tree-item__expand {
@@ -196,6 +218,8 @@
 .sidebar__icon svg {
   width: 16px;
   height: 16px;
+  fill: currentColor;
+  color: currentColor;
   fill: currentColor;
 }
 

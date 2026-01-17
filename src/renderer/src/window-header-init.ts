@@ -11,12 +11,43 @@ if (container) {
     <div class="window-header__brand">
       <span class="window-header__title">Knowledge Hub</span>
     </div>
+    <div class="window-header__actions">
+      <button class="wh-btn wh-chat" id="window-header-chat" title="Open AI Chat" aria-label="Open AI Chat">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H2a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3l3 3 3-3h5a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1z"/>
+          <path d="M5 7h6M5 10h4"/>
+        </svg>
+      </button>
+    </div>
     <div class="window-header__controls">
       <button class="wh-btn wh-min" title="Minimize" aria-label="Minimize">–</button>
       <button class="wh-btn wh-max" title="Maximize" aria-label="Maximize">□</button>
       <button class="wh-btn wh-close" title="Close" aria-label="Close">×</button>
     </div>
   `
+
+  // Add chat button click handler
+  const chatBtn = header.querySelector('#window-header-chat') as HTMLButtonElement
+  chatBtn?.addEventListener('click', () => {
+    const shell = document.querySelector('.vscode-shell') as HTMLElement
+    const rightPanel = document.getElementById('rightPanel') as HTMLElement
+    if (rightPanel && shell) {
+      const isVisible = rightPanel.style.display !== 'none'
+      if (isVisible) {
+        // Already visible, just focus the input
+        const chatInput = rightPanel.querySelector('#rightbar-chat-input') as HTMLTextAreaElement
+        chatInput?.focus()
+      } else {
+        // Show and focus
+        rightPanel.style.display = 'block'
+        shell.style.setProperty('--right-panel-width', '270px')
+        setTimeout(() => {
+          const chatInput = rightPanel.querySelector('#rightbar-chat-input') as HTMLTextAreaElement
+          chatInput?.focus()
+        }, 100)
+      }
+    }
+  })
   container.insertAdjacentElement('afterbegin', header)
 
   const minBtn = header.querySelector('.wh-min') as HTMLButtonElement | null

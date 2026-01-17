@@ -1,5 +1,6 @@
 import { state } from '../../core/state'
 import { getFileIcon, codicons } from '../../utils/codicons'
+import { createElement, Eye, Pin } from 'lucide'
 import './tabbar.css'
 
 export class TabBar {
@@ -69,7 +70,18 @@ export class TabBar {
 
       const icon = document.createElement('span')
       icon.className = 'tab__icon'
-      icon.innerHTML = tab.id === 'settings' ? codicons.settingsGear : getFileIcon(tab.title)
+      // Preview tabs get a special eye icon
+      if (tab.id.startsWith('preview-')) {
+        const eyeIcon = createElement(Eye, {
+          size: 16,
+          'stroke-width': 1.5,
+          stroke: 'currentColor',
+          color: 'currentColor'
+        })
+        icon.innerHTML = eyeIcon.outerHTML || getFileIcon(tab.title)
+      } else {
+        icon.innerHTML = tab.id === 'settings' ? codicons.settingsGear : getFileIcon(tab.title)
+      }
 
       const label = document.createElement('span')
       label.className = 'tab__label'
@@ -81,7 +93,13 @@ export class TabBar {
       if (isPinned) {
           const pinIcon = document.createElement('span')
           pinIcon.className = 'tab__pin-icon'
-          pinIcon.innerHTML = codicons.pin
+          const lucidePin = createElement(Pin, {
+            size: 14,
+            'stroke-width': 1.5,
+            stroke: 'currentColor',
+            color: 'currentColor'
+          })
+          pinIcon.innerHTML = lucidePin.outerHTML || codicons.pin
           button.appendChild(pinIcon)
       } else {
           const close = document.createElement('span')

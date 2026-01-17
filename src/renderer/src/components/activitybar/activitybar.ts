@@ -1,6 +1,7 @@
 import { state } from '../../core/state'
 import { codicons } from '../../utils/codicons'
 import { updateApp } from '../updateApp/updateRender'
+import { createElement, File, Search, Settings, Palette } from 'lucide'
 import './activitybar.css'
 
 export class ActivityBar {
@@ -8,7 +9,7 @@ export class ActivityBar {
   private onViewChange?: (view: 'notes' | 'search' | 'settings' | 'theme' | 'graph' | null) => void
   private updateState: 'idle' | 'checking' | 'progress' | 'restart' = 'idle'
   private updateProgress: number = 0
-  
+
   constructor(containerId: string) {
     this.container = document.getElementById(containerId) as HTMLElement
     this.render()
@@ -26,13 +27,34 @@ export class ActivityBar {
     this.onViewChange = handler
   }
 
+  setActiveView(view: 'notes' | 'search' | 'settings'): void {
+    // Update UI
+    this.container.querySelectorAll('.activitybar__item').forEach((item) => {
+      item.classList.remove('is-active')
+    })
+    const button = this.container.querySelector(`[data-view="${view}"]`) as HTMLElement
+    if (button) {
+      button.classList.add('is-active')
+    }
+
+    // Update state
+    state.activeView = view
+
+    // Save to settings
+    if (state.settings) {
+      state.settings.activeView = view
+      void window.api.updateSettings({ activeView: view })
+    }
+
+    // Trigger handler to update UI
+    this.onViewChange?.(view)
+  }
+
   private render(): void {
     let updateIcon = ''
     if (this.updateState === 'idle') {
-      // Use a circular refresh icon for update (more like VS Code)
+      // Use a circular refresh icon for update (outline version)
       updateIcon = codicons.refresh
-        ? codicons.refresh
-        : `<svg width="20" height="20" viewBox="0 0 16 16" fill="none"><path d="M7.5 1v3.5L4 1v3.5c0 1.93 1.57 3.5 3.5 3.5h1c1.93 0 3.5-1.57 3.5-3.5V1L8.5 4.5V1h-1zm0 14v-3.5L11 15v-3.5c0-1.93-1.57-3.5-3.5-3.5h-1C4.57 8 3 9.57 3 11.5V15l3.5-3.5V15h1z" stroke="currentColor" stroke-width="1.5" fill="none"/></svg>`
     } else if (this.updateState === 'checking') {
       // Use a circular target/spinner icon for checking
       updateIcon = `<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="#0078d4" stroke-width="2" fill="none" opacity="0.2"/><circle cx="10" cy="10" r="8" stroke="#0078d4" stroke-width="2" fill="none" stroke-dasharray="50.24" stroke-dashoffset="10" style="transform-origin:center;animation:activitybar-spin 1s linear infinite;"/><circle cx="10" cy="10" r="4" stroke="#0078d4" stroke-width="1.5" fill="none"/></svg>`
@@ -64,13 +86,19 @@ export class ActivityBar {
         <circle cx="10" cy="10" r="8" stroke="#0078d4" stroke-width="1.5" fill="none"/>
       </svg>`
     }
+    // Create Lucide icon elements
+    const fileIcon = this.createLucideIcon(File)
+    const searchIcon = this.createLucideIcon(Search)
+    const settingsIcon = this.createLucideIcon(Settings)
+    const paletteIcon = this.createLucideIcon(Palette)
+
     this.container.innerHTML = `
       <div class="activitybar__top">
         <button class="activitybar__item is-active" data-view="notes" title="Explorer">
-          <span class="activitybar__icon">${codicons.files}</span>
+          <span class="activitybar__icon">${fileIcon}</span>
         </button>
         <button class="activitybar__item" data-view="search" title="Search">
-          <span class="activitybar__icon">${codicons.search}</span>
+          <span class="activitybar__icon">${searchIcon}</span>
         </button>
         <button class="activitybar__item" data-view="graph" title="Graph View">
           <span class="activitybar__icon">
@@ -88,13 +116,29 @@ export class ActivityBar {
       </div>
       <div class="activitybar__bottom">
         <button class="activitybar__item" data-view="theme" title="Theme">
-          <span class="activitybar__icon">${codicons.palette}</span>
+          <span class="activitybar__icon">${paletteIcon}</span>
         </button>
         <button class="activitybar__item" data-view="settings" title="Settings">
-          <span class="activitybar__icon">${codicons.settingsGear}</span>
+          <span class="activitybar__icon">${settingsIcon}</span>
         </button>
       </div>
     `
+  }
+
+  private createLucideIcon(IconComponent: any): string {
+    // Use Lucide's createElement to create SVG element
+    const svgElement = createElement(IconComponent, {
+      size: 20,
+      'stroke-width': 1.5,
+      stroke: 'currentColor',
+      color: 'currentColor'
+    })
+    // Convert SVGElement to string
+    if (svgElement && svgElement.outerHTML) {
+      return svgElement.outerHTML
+    }
+    // Fallback if icon doesn't render properly
+    return ''
   }
 
   private attachEvents(): void {
@@ -133,6 +177,11 @@ export class ActivityBar {
       if (button.classList.contains('is-active')) {
         button.classList.remove('is-active')
         state.activeView = 'notes'
+        // Save active view to settings
+        if (state.settings) {
+          state.settings.activeView = 'notes'
+          void window.api.updateSettings({ activeView: 'notes' })
+        }
         this.onViewChange?.(null)
         return
       }
@@ -144,6 +193,13 @@ export class ActivityBar {
       button.classList.add('is-active')
 
       state.activeView = view as typeof state.activeView
+
+      // Save active view to settings (only for notes, search, settings)
+      if (state.settings && (view === 'notes' || view === 'search' || view === 'settings')) {
+        state.settings.activeView = view
+        void window.api.updateSettings({ activeView: view })
+      }
+
       this.onViewChange?.(view)
     })
   }

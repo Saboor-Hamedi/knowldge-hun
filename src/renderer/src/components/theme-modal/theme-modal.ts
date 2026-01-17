@@ -33,14 +33,14 @@ export class ThemeModal {
     this.isOpen = true
     this.modal.classList.add('is-open')
     this.renderList()
-    
+
     // Create invisible backdrop to close on click outside
     this.backdrop = document.createElement('div')
     this.backdrop.style.position = 'fixed'
     this.backdrop.style.inset = '0'
     this.backdrop.style.zIndex = '1999'
     this.container.appendChild(this.backdrop)
-    
+
     this.backdrop.addEventListener('click', () => this.close())
     document.addEventListener('keydown', this.handleKeyDown)
   }
@@ -105,7 +105,9 @@ export class ThemeModal {
 
     // Attach click handlers
     list.querySelectorAll('.theme-item').forEach(item => {
-      item.addEventListener('click', () => {
+      item.addEventListener('click', (e) => {
+        e.preventDefault()
+        e.stopPropagation()
         const id = (item as HTMLElement).dataset.id
         if (id) {
           this.applyTheme(id)
@@ -118,7 +120,7 @@ export class ThemeModal {
     // 1. Apply theme immediately
     themeManager.setTheme(id)
     this.onThemeChange?.(id)
-    
+
     // 2. Update toggle state
     if (state.settings) {
       state.settings.theme = id

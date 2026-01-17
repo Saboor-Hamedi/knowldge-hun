@@ -32,40 +32,73 @@
   border: 1px solid transparent;
   background: transparent;
   color: var(--text-soft);
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
   cursor: pointer;
-  transition: background 120ms, color 120ms, border-color 120ms, box-shadow 120ms, border-left-width 120ms;
+  transition: background 120ms, color 120ms;
+  position: relative;
+  padding-left: 0;
 }
 
 .activitybar__item:hover {
   background: rgba(127, 167, 255, 0.12);
-  color: var(--primary-strong);
+  color: var(--text-strong);
 }
 
 .activitybar__item.is-active {
   background: rgba(127, 167, 255, 0.1);
-  color: var(--primary-strong);
-  border-color: var(--primary);
-  border-left: 4px solid var(--primary);
-  border-top-left-radius: 8px;
-  border-bottom-left-radius: 8px;
+  color: var(--text-strong);
+  border: none;
+  position: relative;
+}
+
+.activitybar__item.is-active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--primary);
+  z-index: 1;
 }
 
 
 .activitybar__icon {
   display: flex;
   align-items: center;
-  justify-content: center;
-  width: 20px;
+  justify-content: flex-start;
+  width: 40px;
   height: 20px;
-  color: var(--primary-strong);
+  color: var(--text-soft);
+  margin-left: 10px;
 }
 .activitybar__icon svg {
   width: 20px;
   height: 20px;
   display: block;
-  stroke: currentColor;
-  filter: none;
-  transition: color 120ms;
+  stroke: var(--text-soft);
+  fill: none;
+  filter: none !important;
+  transition: stroke 120ms;
+  opacity: 1 !important;
+  pointer-events: none;
+  color: var(--text-soft) !important;
+}
+.activitybar__item:hover .activitybar__icon svg {
+  stroke: var(--text-strong);
+  color: var(--text-strong) !important;
+}
+.activitybar__item.is-active .activitybar__icon svg {
+  stroke: var(--text-strong);
+  color: var(--text-strong) !important;
+}
+/* For palette dots - filled circles */
+.activitybar__icon svg circle[fill="currentColor"] {
+  fill: var(--text-soft);
+}
+.activitybar__item:hover .activitybar__icon svg circle[fill="currentColor"],
+.activitybar__item.is-active .activitybar__icon svg circle[fill="currentColor"] {
+  fill: var(--text-strong);
 }

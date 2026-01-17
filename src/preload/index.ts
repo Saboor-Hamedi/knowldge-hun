@@ -39,6 +39,7 @@ type AppSettings = {
   expandedFolders?: string[]
   openTabs?: { id: string; path?: string }[]
   activeId?: string
+  activeView?: 'notes' | 'search' | 'settings'
   windowBounds?: { width: number; height: number; x?: number; y?: number }
 }
 
@@ -76,7 +77,7 @@ const api = {
   setVault: (dir: string): Promise<VaultInfo> => ipcRenderer.invoke('vault:set', dir),
   revealVault: (): Promise<void> => ipcRenderer.invoke('vault:reveal'),
 
-  
+
   searchNotes: (query: string): Promise<NoteMeta[]> => ipcRenderer.invoke('notes:search', query),
   getBacklinks: (id: string): Promise<string[]> => ipcRenderer.invoke('notes:getBacklinks', id),
   getGraph: (): Promise<{ links: { source: string; target: string }[] }> => ipcRenderer.invoke('graph:get'),

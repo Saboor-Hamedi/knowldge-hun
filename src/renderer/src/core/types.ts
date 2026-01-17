@@ -51,5 +51,7 @@ export type AppSettings = {
   openTabs?: { id: string; path?: string }[]
   pinnedTabs?: string[]
   activeId?: string
+  activeView?: 'notes' | 'search' | 'settings'
   windowBounds?: { width: number; height: number; x?: number; y?: number }
+  deepseekApiKey?: string
 }

@@ -23,9 +23,10 @@ import { TabBar } from './components/tabbar/tabbar'
 import { EditorComponent } from './components/editor/editor'
 import { StatusBar } from './components/statusbar/statusbar'
 import { RightBar } from './components/rightbar/rightbar'
+import { detailsModal } from './components/details-modal/details-modal'
 import { SettingsView } from './components/settings/settings-view'
 import { contextMenu } from './components/contextmenu/contextmenu'
-import { codicons } from './utils/codicons'
+
 import { ThemeModal } from './components/theme-modal/theme-modal'
 import { FuzzyFinder } from './components/fuzzy-finder/fuzzy-finder'
 import { GraphView } from './components/graph/graph'
@@ -54,7 +55,7 @@ function buildTree(items: NoteMeta[]): TreeItem[] {
     const treeItem: TreeItem = type === 'folder' ? folderMap.get(item.id)! : { ...item, type, children: [] }
 
     const parentPath = (item.path || '').replace(/\\/g, '/')
-    
+
     if (parentPath === '') {
       root.push(treeItem)
     } else if (folderMap.has(parentPath)) {
@@ -89,7 +90,7 @@ class App {
       })
     }
 
-  private updateRightBarDetails(): void {
+  public showDetailsModal(): void {
     const content = this.editor.getValue()
     const words = content.trim() ? content.trim().split(/\s+/).filter((w: string) => w).length : 0
     const chars = content.length
@@ -103,10 +104,20 @@ class App {
       if (note) {
         const created = (note.createdAt && note.createdAt > 0) ? timeAgo(note.createdAt) : '-'
         const modified = timeAgo(note.updatedAt)
-        this.rightBar.updateDetails({ words, chars, lines, readTime: `${readTime} min`, wikiLinks, tags, created, modified })
+        detailsModal.show({ words, chars, lines, readTime: `${readTime} min`, wikiLinks, tags, created, modified })
       }
     } else {
-      this.rightBar.updateDetails({ words: 0, chars: 0, lines: 0, readTime: '-', wikiLinks: 0, tags: 0, created: '-', modified: '-' })
+      detailsModal.show({ words: 0, chars: 0, lines: 0, readTime: '-', wikiLinks: 0, tags: 0, created: '-', modified: '-' })
+    }
+  }
+
+  private toggleRightSidebar(): void {
+    const shell = document.querySelector('.vscode-shell') as HTMLElement
+    const rightPanel = document.getElementById('rightPanel') as HTMLElement
+    if (rightPanel && shell) {
+      const isVisible = rightPanel.style.display !== 'none'
+      rightPanel.style.display = isVisible ? 'none' : 'block'
+      shell.style.setProperty('--right-panel-width', isVisible ? '0px' : '270px')
     }
   }
 
@@ -137,7 +148,6 @@ class App {
     this.registerVaultChangeListener()
     this.setupMobileEvents()
     this.wireUpdateEvents()
-    this.updateRightBarDetails()
     // Ensure editor resizes correctly when window size changes
     window.addEventListener('resize', () => {
       this.editor.layout()
@@ -159,7 +169,7 @@ class App {
     const handleCheck = (): void => {
       const isSmall = window.matchMedia('(max-width: 800px)').matches
       const shell = document.querySelector('.vscode-shell')
-      
+
       if (!shell) return
 
       if (isSmall) {
@@ -182,7 +192,7 @@ class App {
       const target = e.target as HTMLElement
       // Do not close if clicking inside sidebar, activity bar, modal, or context menu
       if (target.closest('.sidebar') || target.closest('.activitybar') || target.closest('.graph-modal') || target.closest('.context-menu')) return
-      
+
       // Do not close if clicking the specific toggle button (usually in activity bar, but just in case)
       if (target.closest('[data-action="toggle-sidebar"]')) return
 
@@ -210,16 +220,16 @@ class App {
         this.graphView.open()
         return
       }
-      
+
       const isSidebarView = view === 'notes' || view === 'search'
       this.sidebar.setVisible(isSidebarView)
-      
+
       if (view === 'search') {
         this.sidebar.setMode('search')
       } else if (view === 'notes') {
         this.sidebar.setMode('explorer')
       }
-      
+
       // Trigger editor layout to follow the sidebar transition
       // We do this multiple times over the 200ms transition for smoothness
       const startTime = Date.now()
@@ -231,7 +241,7 @@ class App {
         }
       }
       requestAnimationFrame(layoutLoop)
-      
+
       // TODO: Handle search view if different pane
     })
 
@@ -248,9 +258,9 @@ class App {
       void window.api.updateSettings({ sidebarVisible: visible } as Partial<AppSettings>)
     })
     this.sidebar.setGraphClickHandler(() => this.graphView.open())
-    
+
     // Note: Handler is registered below at line 201 via handleEditorContextMenu
-    
+
     // Graph Navigation
     window.addEventListener('knowledge-hub:open-note', ((e: CustomEvent) => {
       const { id, path } = e.detail
@@ -270,8 +280,18 @@ class App {
 
     // Tab handlers
     this.tabBar.setTabSelectHandler(async (id) => {
+      // Close any preview tabs when switching to a different tab
+      this.closePreviewTabs(id)
+
       if (id === 'settings') {
         await this.openSettings()
+      } else if (id.startsWith('preview-')) {
+        // Handle preview tab
+        const noteId = id.replace('preview-', '')
+        const tab = state.openTabs.find((t) => t.id === noteId)
+        if (tab) {
+          await this.showPreviewTab(noteId, tab.path)
+        }
       } else {
         const tab = state.openTabs.find((t) => t.id === id)
         if (tab) await this.openNote(tab.id, tab.path)
@@ -280,12 +300,17 @@ class App {
     this.tabBar.setTabCloseHandler((id) => void this.closeTab(id))
     this.tabBar.setTabContextMenuHandler((id, e) => this.handleTabContextMenu(id, e))
 
-    this.settingsView.setSettingChangeHandler((newSettings) => {
+    this.settingsView.setSettingChangeHandler(async (newSettings) => {
       if (state.settings) {
         state.settings = { ...state.settings, ...newSettings }
         this.editor.applySettings(state.settings)
         void window.api.updateSettings(newSettings as Partial<AppSettings>)
         this.statusBar.setStatus('Settings auto-saved')
+
+        // Refresh API key in rightbar if it was updated
+        if (newSettings.deepseekApiKey !== undefined) {
+          await this.rightBar.refreshApiKey()
+        }
       }
     })
 
@@ -293,7 +318,6 @@ class App {
     this.editor.setContentChangeHandler(() => {
       this.statusBar.setStatus('Unsaved changes')
       this.tabBar.render()
-      this.updateRightBarDetails()
     })
 
     this.editor.setSaveHandler((payload) => void this.saveNote(payload))
@@ -317,7 +341,7 @@ class App {
       this.editor.applySettings({ ...state.settings, theme: themeId })
     })
   }
- 
+
   // ... registerGlobalShortcuts, registerVaultChangeListener ...
 
   // handleTabContextMenu
@@ -326,13 +350,12 @@ class App {
     contextMenu.show(e.clientX, e.clientY, [
       {
         label: isPinned ? 'Unpin Tab' : 'Pin Tab',
-        icon: codicons.pin,
         onClick: () => this.togglePinTab(id)
       },
       { separator: true },
       {
         label: 'Close',
-        icon: codicons.close,
+        keybinding: 'Ctrl+W',
         onClick: () => this.closeTab(id, true)
       },
       {
@@ -374,7 +397,7 @@ class App {
     }
   }
 
-  // ... 
+  // ...
 
   // Updated persistWorkspace
   private async persistWorkspace(): Promise<void> {
@@ -393,21 +416,28 @@ class App {
   private async initSettings(): Promise<void> {
     try {
       state.settings = await window.api.getSettings()
-      
+
       if (state.settings.expandedFolders) {
         state.expandedFolders = new Set(state.settings.expandedFolders)
       }
-      
+
       if (state.settings.pinnedTabs) {
           state.pinnedTabs = new Set(state.settings.pinnedTabs)
       }
-      
+
       if (state.settings.theme) {
         themeManager.setTheme(state.settings.theme)
       }
 
       if (typeof state.settings.sidebarVisible !== 'undefined') {
         this.sidebar.setVisible(state.settings.sidebarVisible)
+      }
+
+      // Restore active view after UI is ready
+      if (state.settings.activeView && ['notes', 'search', 'settings'].includes(state.settings.activeView)) {
+        setTimeout(() => {
+          this.activityBar.setActiveView(state.settings.activeView as 'notes' | 'search' | 'settings')
+        }, 200)
       }
 
       this.editor.applySettings(state.settings)
@@ -426,10 +456,19 @@ class App {
         return
     }
 
+    // If closing a preview tab, reset editor to normal mode
+    if (id.startsWith('preview-') && state.activeId === id) {
+      this.editor.isPreviewMode = false
+      const editorHost = this.editor['editorHost'] as HTMLElement
+      const previewHost = this.editor['previewHost'] as HTMLElement
+      if (editorHost) editorHost.style.display = 'block'
+      if (previewHost) previewHost.style.display = 'none'
+    }
+
     // Attempting to close tab...
     const wasActive = state.activeId === id;
     const tabIndex = state.openTabs.findIndex(t => t.id === id);
-    
+
     // Check for changes logic is implicitly handled via "isDirty" but we usually prompt save.
     // Assuming simple close for now or existing logic handles dirty check before this is called?
     // User request focused on menus/pins. Dirty check logic is complex for "Close Others".
@@ -440,7 +479,7 @@ class App {
     if (state.pinnedTabs.has(id)) {
         state.pinnedTabs.delete(id)
     }
-    
+
     const tab = state.openTabs.find(t => t.id === id);
     if (tab && (state.newlyCreatedIds.has(id) || state.newlyCreatedIds.has(tab.id))) {
         console.log(`[App] Cleaning up unused new note: ${id}`)
@@ -488,7 +527,7 @@ class App {
 
     window.addEventListener('item-rename', (async (event: CustomEvent) => {
       const { id, type, newTitle } = event.detail
-      
+
       // Remove from newly created list once user interacts
       state.newlyCreatedIds.delete(id)
 
@@ -497,7 +536,7 @@ class App {
           await this.refreshNotes()
           return
       }
-      
+
       try {
           // If the folder/note with same name already exists, show error clearly
           if (type === 'folder') {
@@ -507,7 +546,7 @@ class App {
           }
       } catch (err: any) {
           let message = (err as Error).message || ''
-          
+
           if (message.includes('already exists') || message.includes('EEXIST')) {
               message = `Name "${newTitle}" already taken`
               notificationManager.show(message, 'error', { title: 'Duplicate Name' })
@@ -517,9 +556,9 @@ class App {
           } else {
              notificationManager.show(message, 'error', { title: 'Error' })
           }
-          
+
           this.statusBar.setStatus(`⚠️ ${message}`)
-          
+
           // Vital: Refresh to revert the UI change (the optimistic rename)
           await this.refreshNotes()
       }
@@ -531,7 +570,7 @@ class App {
 
       const result = await window.api.renameFolder(oldPath, newName)
       const actualNewPath = result.path
-      
+
       // Update expandedFolders to prevent collapse
       if (state.expandedFolders.has(oldPath)) {
           state.expandedFolders.delete(oldPath)
@@ -545,17 +584,17 @@ class App {
               const newTabPath = tab.path.replace(oldPath, actualNewPath)
               // Note IDs are path-based, so they also need updating
               const newId = tab.id.startsWith(oldPath) ? tab.id.replace(oldPath, actualNewPath) : tab.id
-              
+
               if (state.activeId === tab.id) {
                   state.activeId = newId
                   activeChanged = true
               }
-              
+
               if (state.pinnedTabs.has(tab.id)) {
                   state.pinnedTabs.delete(tab.id)
                   state.pinnedTabs.add(newId)
               }
-              
+
               return { ...tab, id: newId, path: newTabPath }
           }
           return tab
@@ -563,14 +602,14 @@ class App {
 
       this.statusBar.setStatus(`Renamed folder to ${newName}`)
       await this.saveExpandedFolders()
-      
+
       // If active note was in the renamed folder, we might need to re-open or update editor state
       if (activeChanged) {
-        // Force update editor? usually openNote handles it if we called it, 
-        // but here we just updated state. 
+        // Force update editor? usually openNote handles it if we called it,
+        // but here we just updated state.
         // We relies on refreshNotes to re-render tree, but editor content is fine (same file).
       }
-      
+
       await this.refreshNotes()
   }
 
@@ -586,7 +625,7 @@ class App {
 
   private handleEditorContextMenu(e: MouseEvent): void {
       e.preventDefault()
-      
+
       contextMenu.show(e.clientX, e.clientY, [
           {
                 label: 'Cut',
@@ -614,11 +653,11 @@ class App {
           },
           { separator: true },
           {
-                label: 'Smart Paste', 
+                label: 'Smart Paste',
                 onClick: () => {
                     this.editor.focus()
                     // Logic for smart paste: this is a placeholder for future AI/Sanitize features
-                    this.editor.triggerAction('editor.action.clipboardPasteAction') 
+                    this.editor.triggerAction('editor.action.clipboardPasteAction')
                 }
           },
           {
@@ -647,6 +686,21 @@ class App {
           },
           { separator: true },
           {
+                label: 'Open Preview',
+                keybinding: 'Ctrl+\\',
+                onClick: () => {
+                    this.openPreviewTab()
+                }
+          },
+          {
+                label: 'Details',
+                keybinding: 'Ctrl+Shift+I',
+                onClick: () => {
+                    this.showDetailsModal()
+                }
+          },
+          { separator: true },
+          {
                 label: 'Knowledge Graph',
                 keybinding: 'Alt+G',
                 onClick: () => this.graphView.open()
@@ -657,9 +711,9 @@ class App {
   private async getNotePreview(target: string): Promise<string | null> {
       const cleanTarget = target.trim().toLowerCase()
       const note = this.resolveNote(cleanTarget)
-      
+
       console.log(`[App] getNotePreview for "${target}":`, note ? `Found (${note.id})` : 'NOT FOUND')
-      
+
       if (note) {
           // Optimization: If the target note is the one currently open in the editor,
           // return the live content instead of reading stale data from disk.
@@ -676,7 +730,7 @@ class App {
                   .replace(/(\*|_)(.*?)\1/g, '$2') // Italic
                   .replace(/`{3}[\s\S]*?`{3}/g, '[Code]') // Code blocks
                   .replace(/`/g, '') // Inline code
-              
+
               const snippet = clean.substring(0, 1000).trim()
               return snippet + (content.length > 1000 ? '...' : '') || '(Empty unsaved note)'
           }
@@ -709,23 +763,23 @@ class App {
 
   private resolveNote(target: string): NoteMeta | undefined {
       const cleanTarget = target.toLowerCase()
-      
+
       // 1. Exact match (ID, Path, Title)
-      let note = state.notes.find(n => 
-          n.id.toLowerCase() === cleanTarget || 
+      let note = state.notes.find(n =>
+          n.id.toLowerCase() === cleanTarget ||
           (n.path && `${n.path}/${n.id}`.toLowerCase() === cleanTarget) ||
           (n.title && n.title.toLowerCase() === cleanTarget)
       )
-      
+
       // 2. Strip extension if present (e.g. "note.md" -> "note")
       if (!note && cleanTarget.endsWith('.md')) {
           const base = cleanTarget.slice(0, -3)
-          note = state.notes.find(n => 
-              n.id.toLowerCase() === base || 
+          note = state.notes.find(n =>
+              n.id.toLowerCase() === base ||
               (n.title && n.title.toLowerCase() === base)
           )
       }
-      
+
       return note
   }
 
@@ -770,6 +824,15 @@ class App {
     })
 
     keyboardManager.register({
+       key: 'Control+Shift+i',
+       scope: 'global',
+       description: 'Toggle Right Sidebar',
+       handler: () => {
+           this.toggleRightSidebar()
+       }
+    })
+
+    keyboardManager.register({
       key: 'Control+Shift+r',
       scope: 'global',
       description: 'Rename project',
@@ -803,7 +866,7 @@ class App {
       description: 'Save current note',
       handler: () => {
         this.editor.manualSave()
-        
+
         // If the note is new/untitled, prompt for rename after saving content
         const note = state.notes.find(n => n.id === state.activeId)
         if (note && note.title === 'Untitled note') {
@@ -870,9 +933,9 @@ class App {
       this.statusBar.setStatus('Restoring workspace...')
       const toOpen = state.settings?.activeId || state.openTabs[0].id
       console.log(`[App] Restoring tab: ${toOpen}`)
-      const noteToOpen = state.notes.find(n => n.id === toOpen) || 
+      const noteToOpen = state.notes.find(n => n.id === toOpen) ||
                          state.notes.find(n => n.id === state.openTabs[0].id)
-      
+
       if (noteToOpen) {
           await this.openNote(noteToOpen.id, noteToOpen.path)
       } else if (toOpen === 'settings') { // Handle settings tab restore
@@ -892,7 +955,7 @@ class App {
       this.statusBar.setStatus('No notes yet')
       this.statusBar.setMeta('Create a note to begin')
     }
-    
+
     this.tabBar.render()
     this.updateViewVisibility() // Added
     console.log('[App] Init complete')
@@ -926,15 +989,15 @@ class App {
     try {
       this.statusBar.setStatus('Selecting vault folder...')
       const info = await window.api.chooseVault()
-      
+
       if (!info.changed) {
         this.statusBar.setStatus('Ready')
         return
       }
-      
+
       state.vaultPath = info.path
       state.projectName = info.name || 'Vault'
-      
+
       this.statusBar.setStatus('Loading vault...')
       await this.refreshNotes()
 
@@ -960,7 +1023,7 @@ class App {
 
   private async openSettings(): Promise<void> {
     state.activeId = 'settings'
-    
+
     // Ensure "Settings" tab exists
     state.openTabs = ensureTab(state.openTabs, {
         id: 'settings',
@@ -968,7 +1031,7 @@ class App {
         updatedAt: 0
     })
     state.openTabs = sortTabs(state.openTabs, state.pinnedTabs)
-    
+
     this.tabBar.render()
     this.updateViewVisibility()
     this.settingsView.update()
@@ -978,7 +1041,7 @@ class App {
   private updateViewVisibility(): void {
       const editorCont = document.getElementById('editorContainer')
       const settingsHost = document.getElementById('settingsHost')
-      
+
       if (state.activeId === 'settings') {
           if (editorCont) editorCont.style.display = 'none'
           if (settingsHost) settingsHost.style.display = 'flex'
@@ -994,9 +1057,36 @@ class App {
     state.tree = buildTree(rawNotes)
     // Keep state.notes as flat list of notes (excluding folders) for search/fuzz
     state.notes = rawNotes.filter(n => n.type !== 'folder')
-    
+
     sortNotes(state.notes)
-    
+
+    // Clean up expandedFolders - remove folders that no longer exist
+    const allFolderIds = new Set<string>()
+    const collectFolderIds = (items: TreeItem[]): void => {
+      items.forEach(item => {
+        if (item.type === 'folder') {
+          allFolderIds.add(item.id)
+          if (item.children) {
+            collectFolderIds(item.children)
+          }
+        }
+      })
+    }
+    collectFolderIds(state.tree)
+
+    // Remove deleted folders from expandedFolders
+    const beforeSize = state.expandedFolders.size
+    state.expandedFolders.forEach(id => {
+      if (!allFolderIds.has(id)) {
+        state.expandedFolders.delete(id)
+      }
+    })
+
+    // Save if we removed any
+    if (state.expandedFolders.size !== beforeSize) {
+      await this.saveExpandedFolders()
+    }
+
     // Ensure active note metadata is fresh
     if (state.activeId && state.activeId !== 'settings') {
         const found = state.notes.find(n => n.id === state.activeId)
@@ -1004,7 +1094,7 @@ class App {
              // Note might have been deleted or moved outside?
         }
     }
-    
+
     // Sync tabs
     state.openTabs = syncTabsWithNotes(state.openTabs, state.notes)
     state.openTabs = sortTabs(state.openTabs, state.pinnedTabs)
@@ -1016,14 +1106,14 @@ class App {
   private async createNote(title?: string, path?: string): Promise<void> {
     const meta = await window.api.createNote(title || '', path)
     state.newlyCreatedIds.add(meta.id)
-    
+
     // Ensure parent folder is expanded
     if (path) {
         state.expandedFolders.add(path)
     }
 
     await this.refreshNotes()
-    
+
     this.statusBar.setStatus(`Created note "${meta.title}"`)
     void this.persistWorkspace()
 
@@ -1036,7 +1126,7 @@ class App {
   private async openNote(id: string, path?: string, focusTarget: 'editor' | 'sidebar' | 'none' = 'editor'): Promise<void> {
     // We no longer automatically hide the sidebar on mobile here.
     // The user can explicitly close it or we can close it when they focus the editor.
-    
+
     const note = await window.api.loadNote(id, path)
     if (!note) {
       // Try to refresh notes and check again before warning
@@ -1060,7 +1150,7 @@ class App {
 
     state.activeId = id
     state.lastSavedAt = note.updatedAt
-    
+
     if (focusTarget !== 'none') {
         state.openTabs = ensureTab(state.openTabs, {
           id: note.id,
@@ -1071,17 +1161,25 @@ class App {
         state.openTabs = sortTabs(state.openTabs, state.pinnedTabs)
     }
 
+    // If switching from preview tab, make sure editor is visible
+    if (this.editor.isPreviewMode) {
+      this.editor.isPreviewMode = false
+      const editorHost = this.editor['editorHost'] as HTMLElement
+      const previewHost = this.editor['previewHost'] as HTMLElement
+      if (editorHost) editorHost.style.display = 'block'
+      if (previewHost) previewHost.style.display = 'none'
+    }
+
     await this.editor.loadNote(note)
     this.updateViewVisibility()
     this.statusBar.setStatus('Ready')
     this.statusBar.setMeta(`📁 ${state.vaultPath || ''}`)
-    
-    // Update rightbar details when note is loaded
-    this.updateRightBarDetails()
-    
+
+    // Details modal can be opened via keyboard shortcut
+
     // Always update sidebar selection to match active note
     this.sidebar.updateSelection(id)
-    
+
     if (focusTarget === 'sidebar') {
       this.sidebar.scrollToActive(true)
     } else {
@@ -1095,17 +1193,86 @@ class App {
     void this.persistWorkspace()
   }
 
+  private async openPreviewTab(): Promise<void> {
+    const currentNoteId = state.activeId
+    if (!currentNoteId || currentNoteId === 'settings') {
+      // No note open or settings is open, can't show preview
+      return
+    }
+
+    const previewTabId = `preview-${currentNoteId}`
+
+    // Check if preview tab already exists
+    const existingPreviewTab = state.openTabs.find(t => t.id === previewTabId)
+    if (existingPreviewTab) {
+      // Preview tab exists, just switch to it
+      state.activeId = previewTabId
+      this.tabBar.render()
+      await this.showPreviewTab(currentNoteId, existingPreviewTab.path)
+      return
+    }
+
+    // Get current note to create preview tab
+    const currentNote = state.notes.find(n => n.id === currentNoteId)
+    if (!currentNote) return
+
+    // Create preview tab
+    const previewTab: NoteMeta = {
+      id: previewTabId,
+      title: `Preview: ${currentNote.title || currentNote.id}`,
+      updatedAt: currentNote.updatedAt,
+      path: currentNote.path
+    }
+
+    state.openTabs = ensureTab(state.openTabs, previewTab)
+    state.openTabs = sortTabs(state.openTabs, state.pinnedTabs)
+    state.activeId = previewTabId
+
+    this.tabBar.render()
+    await this.showPreviewTab(currentNoteId, currentNote.path)
+    void this.persistWorkspace()
+  }
+
+  private async showPreviewTab(noteId: string, path?: string): Promise<void> {
+    // Load the note content and show preview
+    const note = await window.api.loadNote(noteId, path)
+    if (!note) return
+
+    // Show preview in editor
+    await this.editor.showPreview(note.content)
+    this.updateViewVisibility()
+    this.statusBar.setStatus('Preview mode')
+    this.statusBar.setMeta(`📁 ${state.vaultPath || ''}`)
+
+    // Update sidebar selection to the original note
+    this.sidebar.updateSelection(noteId)
+  }
+
+  private closePreviewTabs(activeTabId?: string): void {
+    // Close all preview tabs except the one being activated
+    const previewTabs = state.openTabs.filter(t => t.id.startsWith('preview-') && t.id !== activeTabId)
+    previewTabs.forEach(tab => {
+      const index = state.openTabs.findIndex(t => t.id === tab.id)
+      if (index !== -1) {
+        state.openTabs.splice(index, 1)
+      }
+    })
+    if (previewTabs.length > 0) {
+      this.tabBar.render()
+    }
+  }
+
   private revealPathInSidebar(path?: string, isFolder = false): boolean {
     if (!path) return false
 
     const parts = path.split(/[\\/]/)
     let currentPath = ''
     let changed = false
-    
+
     parts.forEach((part, index) => {
         if (!part) return
         currentPath = currentPath ? `${currentPath}-${part}` : part
-        
+
         if (index < parts.length - 1 || isFolder) {
             const folderId = currentPath
             if (!state.expandedFolders.has(folderId)) {
@@ -1114,13 +1281,13 @@ class App {
             }
         }
     })
-    
+
     if (changed) {
         void this.saveExpandedFolders()
         this.sidebar.renderTree(this.sidebar.getSearchValue())
         return true
     }
-    
+
     return false
   }
   private async saveNote(payload: NotePayload): Promise<void> {
@@ -1175,7 +1342,7 @@ class App {
   private async deleteItems(items: { id: string, type: 'note' | 'folder', path?: string }[]): Promise<void> {
     this.showDeleteConfirmationModal(items, async () => {
       this.statusBar.setStatus(`Deleting ${items.length} items...`)
-      
+
       try {
           for (const item of items) {
               if (item.type === 'note') {
@@ -1186,10 +1353,10 @@ class App {
                   await window.api.deleteFolder(item.id)
               }
           }
-          
+
           this.statusBar.setStatus(`${items.length} items deleted`)
           window.dispatchEvent(new CustomEvent('vault-changed'))
-          
+
           // If the active note was deleted, switch
           const ancoraActive = state.openTabs.find(t => t.id === state.activeId)
           if (!ancoraActive) {
@@ -1215,7 +1382,7 @@ class App {
   private async handleNoteMove(id: string, fromPath?: string, toPath?: string): Promise<void> {
     try {
         const newMeta = await window.api.moveNote(id, fromPath, toPath)
-        
+
         // Update tabs and active state
         let updatedTabs = false
         state.openTabs = state.openTabs.map(tab => {
@@ -1225,7 +1392,7 @@ class App {
             }
             return tab
         })
-        
+
         if (state.activeId === id) {
             state.activeId = newMeta.id
         }
@@ -1234,11 +1401,11 @@ class App {
             state.pinnedTabs.delete(id)
             state.pinnedTabs.add(newMeta.id)
         }
-        
+
         if (updatedTabs) {
             this.tabBar.render()
         }
-        
+
         await this.refreshNotes()
     } catch (error) {
         console.error('Note move failed:', error)
@@ -1250,10 +1417,10 @@ class App {
     try {
         const result = await window.api.moveFolder(sourcePath, targetPath)
         const newFolderPath = result.path
-        
+
         const oldPrefix = sourcePath + '/'
         const newPrefix = newFolderPath + '/'
-        
+
         let updatedTabs = false
         state.openTabs = state.openTabs.map(tab => {
             if (tab.id.startsWith(oldPrefix)) {
@@ -1265,7 +1432,7 @@ class App {
             }
             return tab
         })
-        
+
         if (state.activeId.startsWith(oldPrefix)) {
             state.activeId = state.activeId.replace(oldPrefix, newPrefix)
         }
@@ -1276,18 +1443,18 @@ class App {
                 state.pinnedTabs.add(id.replace(oldPrefix, newPrefix))
             }
         }
-        
+
         for (const path of Array.from(state.expandedFolders)) {
             if (path === sourcePath || path.startsWith(oldPrefix)) {
                 state.expandedFolders.delete(path)
                 state.expandedFolders.add(path === sourcePath ? newFolderPath : path.replace(oldPrefix, newPrefix))
             }
         }
-        
+
         if (updatedTabs) {
             this.tabBar.render()
         }
-        
+
         await this.refreshNotes()
     } catch (error) {
         console.error('Folder move failed:', error)
@@ -1299,7 +1466,7 @@ class App {
     try {
         const result = await window.api.createFolder('New Folder', parentPath)
         state.newlyCreatedIds.add(result.path)
-        
+
         if (parentPath) {
             state.expandedFolders.add(parentPath)
         }
@@ -1401,22 +1568,22 @@ class App {
 
         // 5. Refresh from disk
         await this.refreshNotes()
-        
+
         // 6. Re-open to ensure editor is synced with new ID
         if (isActive) {
-             state.isDirty = false 
+             state.isDirty = false
              await this.openNote(actualNewId, newMeta.path)
         } else {
              this.tabBar.render()
         }
-        
+
         this.statusBar.setStatus(`Renamed to "${newTitle}"`)
         void this.persistWorkspace()
     } catch (error) {
         // We propagate the error so callers can handle specific UI reverts.
         // We set a status here as a fallback for callers that don't handle it explicitly.
         this.statusBar.setStatus(`Rename failed: ${(error as Error).message}`)
-        throw error 
+        throw error
     }
   }
 
@@ -1479,21 +1646,21 @@ class App {
   private async openDroppedFile(filePath: string): Promise<void> {
     // Check if file is already inside the vault
     const isInternal = state.vaultPath && filePath.toLowerCase().startsWith(state.vaultPath.toLowerCase())
-    
+
     // If it's an internal .md file, just open it
     if (isInternal && filePath.toLowerCase().endsWith('.md')) {
          const name = filePath.split(/[/\\]/).pop() || ''
          const id = name.replace(/\.[^.]+$/, '') // Remove extension
-         
+
          // Try to find exact note
          let note = state.notes.find(n => n.id === id)
-         
+
          // If not found, force refresh in case it was just added externally
          if (!note) {
              await this.refreshNotes()
              note = state.notes.find(n => n.id === id)
          }
-         
+
          if (note) {
              void this.openNote(note.id, note.path)
              return
@@ -1502,19 +1669,19 @@ class App {
 
     // If it's internal but NOT .md (e.g. .txt), we allow it to proceed to importNote
     // which will convert it to a new .md note.
-    
-    // However, if we blindly import an internal file, 
-    // we must ensure we don't get read errors if the file is locked 
+
+    // However, if we blindly import an internal file,
+    // we must ensure we don't get read errors if the file is locked
     // or weird permission issues (which caused ENOENT before?).
     // Usually reading your own vault file is fine.
 
     try {
       this.statusBar.setStatus('Importing file...')
-      
+
       const imported = await window.api.importNote(filePath)
-      
+
       this.statusBar.setStatus(`✓ Imported "${imported.title}"`)
-      
+
       // Refresh tree and open the note
       await this.refreshNotes()
       await this.openNote(imported.id, imported.path)

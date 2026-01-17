@@ -2,7 +2,7 @@ import { state } from '../../core/state'
 
 export function registerWikiLinkProviders(monaco: any, getNotePreview: (id: string) => Promise<string | null>): { dispose: () => void }[] {
   const disposables: { dispose: () => void }[] = []
-  
+
   // 1. Hover Provider
   const hoverProvider = {
     provideHover: async (model: any, position: any) => {
@@ -15,28 +15,61 @@ export function registerWikiLinkProviders(monaco: any, getNotePreview: (id: stri
         while ((match = regex.exec(lineContent)) !== null) {
           const startCol = match.index + 1
           const endCol = match.index + match[0].length + 1
-          
+
           if (position.column >= startCol && position.column <= endCol) {
              const content = match[1]
              const [target] = content.split('|')
              const cleanTarget = target.trim()
-             
+
              console.log(`[WikiLink] Hover match: "${cleanTarget}"`)
 
-             const note = state.notes.find(n => 
-                n.id.toLowerCase() === cleanTarget.toLowerCase() || 
+             const note = state.notes.find(n =>
+                n.id.toLowerCase() === cleanTarget.toLowerCase() ||
                 (n.title && n.title.toLowerCase() === cleanTarget.toLowerCase()) ||
                 (n.path && `${n.path}/${n.id}`.toLowerCase() === cleanTarget.toLowerCase())
              )
-             
+
              const preview = await getNotePreview(cleanTarget)
-             
+
+             // Format preview with better styling
+             const noteTitle = note ? (note.title || note.id) : cleanTarget
+             const previewText = preview || (note ? 'Note is empty' : 'Note not found')
+
+             // Clean and format preview text
+             let formattedPreview = previewText
+               .replace(/\n{3,}/g, '\n\n') // Remove excessive line breaks
+               .replace(/^#+\s+/gm, '') // Remove markdown headers
+               .replace(/\*\*(.*?)\*\*/g, '$1') // Remove bold
+               .replace(/\*(.*?)\*/g, '$1') // Remove italic
+               .replace(/`(.*?)`/g, '$1') // Remove inline code
+               .replace(/\[\[(.*?)\]\]/g, '$1') // Remove wiki links
+               .trim()
+
+             // Limit length and add ellipsis
+             const maxLength = 250
+             if (formattedPreview.length > maxLength) {
+               formattedPreview = formattedPreview.substring(0, maxLength).trim() + '...'
+             }
+
+             // Split into lines and limit to 8 lines
+             const lines = formattedPreview.split('\n')
+             const previewLines = lines.slice(0, 8).join('\n')
+
              return {
                range: new monaco.Range(position.lineNumber, startCol, position.lineNumber, endCol),
                contents: [
-                 { value: `**${note ? (note.title || note.id) : cleanTarget}**`, isTrusted: true },
-                 { value: preview || (note ? '*Note is empty*' : '*Note not found*'), isTrusted: true },
-                 { value: '`Ctrl+Click` to open', isTrusted: true }
+                 {
+                   value: `**${noteTitle}**`,
+                   isTrusted: true
+                 },
+                 {
+                   value: `\`\`\`\n${previewLines}\n\`\`\``,
+                   isTrusted: true
+                 },
+                 {
+                   value: `*Ctrl+Click to open*`,
+                   isTrusted: true
+                 }
                ]
              }
           }
@@ -51,7 +84,7 @@ export function registerWikiLinkProviders(monaco: any, getNotePreview: (id: stri
 
   // 2. Completion Provider (Autocomplete)
   const completionProvider = {
-    triggerCharacters: ['['], 
+    triggerCharacters: ['['],
     provideCompletionItems: (model: any, position: any) => {
       const textUntilPosition = model.getValueInRange({
         startLineNumber: position.lineNumber,
@@ -64,7 +97,7 @@ export function registerWikiLinkProviders(monaco: any, getNotePreview: (id: stri
       if (!match) return { suggestions: [] }
 
       const search = match[1].toLowerCase()
-      
+
       const textAfterPosition = model.getValueInRange({
         startLineNumber: position.lineNumber,
         startColumn: position.column,
@@ -72,8 +105,8 @@ export function registerWikiLinkProviders(monaco: any, getNotePreview: (id: stri
         endColumn: position.column + 2
       })
       const hasClosing = textAfterPosition.startsWith(']]')
-      
-      const startCol = match.index + 3 
+
+      const startCol = match.index + 3
       const endCol = position.column
       const range = new monaco.Range(position.lineNumber, startCol, position.lineNumber, endCol)
 
@@ -147,9 +180,9 @@ export function registerWikiLinkProviders(monaco: any, getNotePreview: (id: stri
                            items: [{
                                insertText: text,
                                range: new monaco.Range(
-                                   position.lineNumber, 
-                                   position.column - partial.length, 
-                                   position.lineNumber, 
+                                   position.lineNumber,
+                                   position.column - partial.length,
+                                   position.lineNumber,
                                    position.column
                                )
                            }]

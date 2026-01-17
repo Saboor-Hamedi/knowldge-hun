@@ -1,0 +1,30 @@
+.details-modal-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 8px 0;
+}
+
+.details-modal__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.details-modal__row:last-child {
+  border-bottom: none;
+}
+
+.details-modal__label {
+  font-size: 13px;
+  color: var(--text-soft);
+  font-weight: 500;
+}
+
+.details-modal__value {
+  font-size: 13px;
+  color: var(--text-strong);
+  font-weight: 600;
+}

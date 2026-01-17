@@ -37,6 +37,19 @@
   min-height: 400px;
 }
 
+.preview-host {
+  position: relative;
+  flex: 1;
+  min-height: 400px;
+  overflow-y: auto;
+  background: var(--panel);
+  display: none;
+}
+
+.preview-host.active {
+  display: block;
+}
+
 /* Ensure all monaco widgets are on top */
 /* Ensure all monaco widgets are on top and visible */
 .monaco-editor-hover,
@@ -51,7 +64,7 @@
 }
 
 /* Force hover contrast and visibility */
-.monaco-hover, 
+.monaco-hover,
 .monaco-editor-hover {
     background: var(--panel-strong) !important;
     color: var(--text-strong) !important;
@@ -64,20 +77,141 @@
     overflow-y: auto !important;
 }
 
-/* Clean up suggest widget */
+/* Modern suggest widget - positioned correctly, modern styling */
 .suggest-widget {
     background: var(--panel-strong) !important;
     border: 1px solid var(--border) !important;
-    box-shadow: var(--shadow) !important;
+    border-radius: 8px !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3), 0 2px 8px rgba(0, 0, 0, 0.2) !important;
+    backdrop-filter: blur(12px) !important;
+    padding: 4px !important;
+    max-width: 500px !important;
+    min-width: 300px !important;
+    /* Let Monaco position it naturally near the cursor */
+    position: absolute !important;
+}
+
+.suggest-widget .monaco-list {
+    background: transparent !important;
+}
+
+.suggest-widget .monaco-list .monaco-list-row {
+    border-radius: 4px !important;
+    margin: 2px 0 !important;
+    padding: 0 8px !important;
+    color: var(--text-strong) !important;
+}
+
+.suggest-widget .monaco-list .monaco-list-row.selected {
+    background: var(--selection) !important;
+    color: var(--text-strong) !important;
+}
+
+.suggest-widget .monaco-list .monaco-list-row:hover:not(.selected) {
+    background: var(--hover) !important;
+}
+
+.suggest-widget .monaco-list .monaco-list-row .monaco-icon-label {
+    color: var(--text-strong) !important;
+}
+
+.suggest-widget .monaco-list .monaco-list-row .monaco-icon-label .monaco-icon-label-description-container {
+    color: var(--text-soft) !important;
 }
 
 .suggest-details {
-    display: none !important; /* Hide that extra ugly layer on the side */
+    display: none !important;
 }
 
 .monaco-hover-content,
 .suggest-widget-content {
     background: transparent !important;
+}
+
+/* Fix suggest widget positioning - should appear near cursor, not on right sidebar */
+.monaco-editor .suggest-widget {
+    position: absolute !important;
+    z-index: 10000 !important;
+}
+
+/* Improved WikiLink hover preview */
+.monaco-hover .hover-contents {
+    max-width: 500px !important;
+    max-height: 400px !important;
+    overflow-y: auto !important;
+    padding: 12px !important;
+}
+
+.monaco-hover .hover-contents .markdown-hover {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif !important;
+    line-height: 1.6 !important;
+}
+
+.monaco-hover .hover-contents .markdown-hover h3,
+.monaco-hover .hover-contents .markdown-hover strong {
+    margin: 0 0 8px 0 !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    color: var(--text-strong) !important;
+    display: block !important;
+}
+
+.monaco-hover .hover-contents .monaco-editor {
+    background: var(--panel-strong) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 4px !important;
+    margin: 8px 0 !important;
+    max-height: 250px !important;
+    overflow: hidden !important;
+}
+
+.monaco-hover .hover-contents .monaco-editor .view-lines {
+    padding: 8px !important;
+}
+
+.monaco-hover .hover-contents .monaco-editor .margin {
+    display: none !important;
+}
+
+.monaco-hover .hover-contents .monaco-editor .monaco-scrollable-element {
+    overflow: hidden !important;
+}
+
+.monaco-hover .hover-contents code {
+    background: var(--panel-strong) !important;
+    padding: 2px 6px !important;
+    border-radius: 3px !important;
+    font-size: 12px !important;
+    font-family: 'Fira Code', 'Consolas', monospace !important;
+}
+
+.monaco-hover .hover-contents pre {
+    background: var(--panel-strong) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 4px !important;
+    padding: 12px !important;
+    margin: 8px 0 !important;
+    overflow-x: auto !important;
+    max-height: 250px !important;
+    overflow-y: auto !important;
+}
+
+.monaco-hover .hover-contents pre code {
+    background: transparent !important;
+    padding: 0 !important;
+    font-size: 12px !important;
+    line-height: 1.5 !important;
+    color: var(--text-soft) !important;
+    white-space: pre-wrap !important;
+    word-wrap: break-word !important;
+}
+
+.monaco-hover .hover-contents em {
+    font-size: 11px !important;
+    color: var(--text-soft) !important;
+    font-style: italic !important;
+    margin-top: 8px !important;
+    display: block !important;
 }
 
 /* Try to ensure they are not clipped */
@@ -132,7 +266,7 @@
 /* Faded Syntax for Premium Document Feel */
 /* Targets markdown tokens like #, **, [[ ]] to make them subtle */
 .monaco-editor .mtk9, /* Often used for markdown headers/symbols */
-.monaco-editor .mtk15, 
+.monaco-editor .mtk15,
 .monaco-editor .mtk20 {
     opacity: 0.35;
     transition: opacity 0.2s ease;
@@ -149,9 +283,43 @@
 .monaco-editor .current-line ~ .view-line .mtk9 {
     opacity: 0.35;
 }
-/* Monaco doesn't have a simple way to target 'not current line' in pure CSS without complex selectors, 
+/* Monaco doesn't have a simple way to target 'not current line' in pure CSS without complex selectors,
    but we can at least fade them globally for that 'clean' look. */
-   
+
+/* Modern cursor styling - visible and clean */
+.monaco-editor .current-line {
+    background: transparent !important;
+}
+
+.monaco-editor .view-line {
+    background: transparent !important;
+}
+
+/* Make cursor highly visible with primary color */
+.monaco-editor .cursors-layer .cursor {
+    background: var(--primary) !important;
+    width: 2px !important;
+    box-shadow: none !important;
+    border: none !important;
+    opacity: 1 !important;
+}
+
+.monaco-editor .cursors-layer .cursor::before,
+.monaco-editor .cursors-layer .cursor::after {
+    display: none !important;
+}
+
+/* Ensure all cursor variants are visible */
+.monaco-editor .cursors-layer .cursor-solid,
+.monaco-editor .cursors-layer .cursor-block,
+.monaco-editor .cursors-layer .cursor-line-thin,
+.monaco-editor .cursors-layer .cursor-line-thick {
+    background: var(--primary) !important;
+    opacity: 1 !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
 .editor-empty {
     opacity: 0.6;
 }
