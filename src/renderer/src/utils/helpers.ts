@@ -83,3 +83,51 @@ export function applyTitleToContent(content: string, title: string): string {
 
   return lines.join(newline)
 }
+
+export function extractWikiLinks(content: string): string[] {
+  const wikiLinkRegex = /\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g
+  const links: string[] = []
+  let match
+
+  while ((match = wikiLinkRegex.exec(content)) !== null) {
+    links.push(match[1].trim()) // Use the link target, not the display text
+  }
+
+  return [...new Set(links)] // Remove duplicates
+}
+
+export function extractTags(content: string): string[] {
+  const tagRegex = /#([a-zA-Z0-9_-]+)/g
+  const tags: string[] = []
+  let match
+
+  while ((match = tagRegex.exec(content)) !== null) {
+    tags.push(match[1].toLowerCase()) // Normalize to lowercase
+  }
+
+  return [...new Set(tags)] // Remove duplicates
+}
+
+export function estimateReadTime(content: string, wordsPerMinute: number = 200): number {
+  // Remove markdown formatting for more accurate word count
+  const cleanContent = content
+    .replace(/^---\n[\s\S]*?\n---\n/, '') // Remove frontmatter
+    .replace(/<!--[\s\S]*?-->/g, '') // Remove comments
+    .replace(/```[\s\S]*?```/g, '') // Remove code blocks
+    .replace(/`[^`]*`/g, '') // Remove inline code
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // Replace links with just text
+    .replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g, (_match, p1, p2) => p2 || p1) // Replace wikilinks with display text
+    .replace(/^#+\s/gm, '') // Remove headings
+    .replace(/^\s*[-*+]\s/gm, '') // Remove list markers
+    .replace(/^\s*\d+\.\s/gm, '') // Remove numbered list markers
+    .replace(/\*\*([^*]+)\*\*/g, '$1') // Remove bold
+    .replace(/\*([^*]+)\*/g, '$1') // Remove italic
+    .replace(/_{2}([^_]+)_{2}/g, '$1') // Remove underline
+    .replace(/_([^_]+)_/g, '$1') // Remove underline
+    .replace(/~~([^~]+)~~/g, '$1') // Remove strikethrough
+    .trim()
+
+  const words = cleanContent.split(/\s+/).filter(word => word.length > 0)
+  const minutes = Math.ceil(words.length / wordsPerMinute)
+  return Math.max(1, minutes) // At least 1 minute
+}

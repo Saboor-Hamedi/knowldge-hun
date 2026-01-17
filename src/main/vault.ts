@@ -101,11 +101,29 @@ export class VaultManager {
       const dirPath = dirname(normalizedPath)
       const relativeDir = dirPath === '.' ? '' : dirPath
       
+      const existingMeta = this.notes.get(id)
+      // Use the earliest reasonable timestamp as createdAt
+      const birthtime = stats.birthtimeMs
+      const mtime = stats.mtimeMs
+      const existingCreatedAt = existingMeta?.createdAt
+      
+      // Preserve existing createdAt if it exists and is reasonable
+      let createdAt: number
+      if (existingCreatedAt && existingCreatedAt > 0 && existingCreatedAt < Date.now() && existingCreatedAt < mtime + 1000) {
+        // Existing createdAt is valid and not newer than mtime (with 1s tolerance)
+        createdAt = existingCreatedAt
+      } else {
+        // Use birthtime if it's reasonable, otherwise use mtime
+        const now = Date.now()
+        const oneYearAgo = now - (365 * 24 * 60 * 60 * 1000)
+        createdAt = (birthtime > oneYearAgo && birthtime <= now && birthtime <= mtime) ? birthtime : mtime
+      }
+      
       const meta: NoteMeta = {
         id,
         title: this.extractTitle(content, id),
-        updatedAt: stats.mtimeMs,
-        createdAt: stats.birthtimeMs,
+        updatedAt: mtime,
+        createdAt: createdAt,
         path: relativeDir, 
         type: 'note'
       }

@@ -13,7 +13,7 @@ window.addEventListener('keydown', (e) => {
 })
 import { state } from './core/state'
 import type { NotePayload, NoteMeta, TreeItem, AppSettings } from './core/types'
-import { sortNotes, syncTabsWithNotes, ensureTab, sortTabs, timeAgo } from './utils/helpers'
+import { sortNotes, syncTabsWithNotes, ensureTab, sortTabs, timeAgo, extractWikiLinks, extractTags, estimateReadTime } from './utils/helpers'
 import { sortTreeRecursive } from './utils/tree-utils'
 import { keyboardManager } from './core/keyboardManager'
 import { modalManager } from './components/modal/modal'
@@ -94,16 +94,19 @@ class App {
     const words = content.trim() ? content.trim().split(/\s+/).filter((w: string) => w).length : 0
     const chars = content.length
     const lines = content.split('\n').length
+    const readTime = estimateReadTime(content)
+    const wikiLinks = extractWikiLinks(content).length
+    const tags = extractTags(content).length
     const currentNoteId = state.activeId
     if (currentNoteId) {
       const note = state.notes.find(n => n.id === currentNoteId)
       if (note) {
         const created = (note.createdAt && note.createdAt > 0) ? timeAgo(note.createdAt) : '-'
         const modified = timeAgo(note.updatedAt)
-        this.rightBar.updateDetails({ words, chars, lines, created, modified })
+        this.rightBar.updateDetails({ words, chars, lines, readTime: `${readTime} min`, wikiLinks, tags, created, modified })
       }
     } else {
-      this.rightBar.updateDetails({ words: 0, chars: 0, lines: 0, created: '-', modified: '-' })
+      this.rightBar.updateDetails({ words: 0, chars: 0, lines: 0, readTime: '-', wikiLinks: 0, tags: 0, created: '-', modified: '-' })
     }
   }
 

@@ -58,6 +58,7 @@ export class EditorComponent {
   private providers: { dispose: () => void }[] = []
   private initPromise: Promise<void> | null = null
   private onTabClose?: () => void
+  private hashtagDecorations: string[] = []
 
   constructor(containerId: string) {
     this.container = document.getElementById(containerId) as HTMLElement
@@ -270,6 +271,7 @@ export class EditorComponent {
     this.emptyState.style.display = 'none'
     this.editorHost.style.display = 'block'
     this.updateDecorations()
+    this.updateHashtagDecorations()
   }
 
   private reRegisterProviders(): void {
@@ -392,6 +394,7 @@ export class EditorComponent {
 
             this.editor.onDidChangeModelContent(() => {
                 this.updateDecorations()
+                this.updateHashtagDecorations()
                 if (state.applyingRemote) return
                 this.markDirty()
             })
@@ -412,6 +415,14 @@ export class EditorComponent {
                 }
             } catch (err) {
                 console.error('[Editor] Failed to register WikiLink providers:', err)
+            }
+
+            // Register custom hashtag syntax highlighting
+            try {
+                this.registerHashtagHighlighting()
+                console.log('[Editor] Hashtag highlighting registered successfully.')
+            } catch (err) {
+                console.error('[Editor] Failed to register hashtag highlighting:', err)
             }
             
             this.editorHost.addEventListener('contextmenu', (e) => {
@@ -636,6 +647,46 @@ export class EditorComponent {
     }
 
     this.editor.updateOptions(options)
+  }
+
+  private registerHashtagHighlighting(): void {
+    if (!this.monacoInstance) return
+
+    // Use a decoration-based approach for hashtag highlighting
+    // This will be more reliable than trying to extend the tokenizer
+    this.updateHashtagDecorations()
+  }
+
+  private updateHashtagDecorations(): void {
+    if (!this.editor || !this.monacoInstance) return
+
+    const model = this.editor.getModel()
+    if (!model) return
+
+    const content = model.getValue()
+    const lines = content.split('\n')
+    const decorations: any[] = []
+
+    lines.forEach((line, lineIndex) => {
+      // Find all hashtags in the line
+      const hashtagRegex = /#\w+/g
+      let match
+      while ((match = hashtagRegex.exec(line)) !== null) {
+        const startColumn = match.index + 1 // Monaco is 1-based
+        const endColumn = match.index + match[0].length + 1
+
+        decorations.push({
+          range: new this.monacoInstance!.Range(lineIndex + 1, startColumn, lineIndex + 1, endColumn),
+          options: {
+            inlineClassName: 'hashtag-highlight',
+            stickiness: this.monacoInstance!.editor.TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges
+          }
+        })
+      }
+    })
+
+    // Apply decorations
+    this.hashtagDecorations = this.editor.deltaDecorations(this.hashtagDecorations || [], decorations)
   }
 }
 

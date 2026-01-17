@@ -26,8 +26,11 @@ export class RightBar {
               <div class="rightbar__details-row"><span>Words:</span> <span id="rightbar-words">0</span></div>
               <div class="rightbar__details-row"><span>Characters:</span> <span id="rightbar-chars">0</span></div>
               <div class="rightbar__details-row"><span>Lines:</span> <span id="rightbar-lines">0</span></div>
+              <div class="rightbar__details-row"><span>Read Time:</span> <span id="rightbar-readtime">-</span></div>
+              <div class="rightbar__details-row"><span>Wiki Links:</span> <span id="rightbar-wikilinks">0</span></div>
+              <div class="rightbar__details-row"><span>Tags:</span> <span id="rightbar-tags">0</span></div>
               <div class="rightbar__details-row"><span>Created:</span> <span id="rightbar-created">-</span></div>
-              <div class="rightbar__details-row"><span>Edit:</span> <span id="rightbar-modified">-</span></div>
+              <div class="rightbar__details-row"><span>Modified:</span> <span id="rightbar-modified">-</span></div>
             </div>
           </div>
           <div class="rightbar__panel" data-panel="chat">
@@ -54,10 +57,13 @@ export class RightBar {
     this.chatPanel.classList.toggle('rightbar__panel--active', tab === 'chat');
   }
 
-  updateDetails({ words, chars, lines, created, modified }: { words: number, chars: number, lines: number, created: string, modified: string }) {
+  updateDetails({ words, chars, lines, readTime, wikiLinks, tags, created, modified }: { words: number, chars: number, lines: number, readTime: string, wikiLinks: number, tags: number, created: string, modified: string }) {
     (this.container.querySelector('#rightbar-words') as HTMLElement).textContent = String(words);
     (this.container.querySelector('#rightbar-chars') as HTMLElement).textContent = String(chars);
     (this.container.querySelector('#rightbar-lines') as HTMLElement).textContent = String(lines);
+    (this.container.querySelector('#rightbar-readtime') as HTMLElement).textContent = readTime;
+    (this.container.querySelector('#rightbar-wikilinks') as HTMLElement).textContent = String(wikiLinks);
+    (this.container.querySelector('#rightbar-tags') as HTMLElement).textContent = String(tags);
     (this.container.querySelector('#rightbar-created') as HTMLElement).textContent = created;
     (this.container.querySelector('#rightbar-modified') as HTMLElement).textContent = modified;
   }
