@@ -28,24 +28,24 @@ if (container) {
 
   // Add chat button click handler
   const chatBtn = header.querySelector('#window-header-chat') as HTMLButtonElement
-  chatBtn?.addEventListener('click', () => {
+  chatBtn?.addEventListener('click', async () => {
     const shell = document.querySelector('.vscode-shell') as HTMLElement
     const rightPanel = document.getElementById('rightPanel') as HTMLElement
-    if (rightPanel && shell) {
-      const isVisible = rightPanel.style.display !== 'none'
-      if (isVisible) {
-        // Already visible, just focus the input
+    if (!rightPanel || !shell) return
+
+    const isVisible = rightPanel.style.display !== 'none'
+    if (isVisible) {
+      const chatInput = rightPanel.querySelector('#rightbar-chat-input') as HTMLTextAreaElement
+      chatInput?.focus()
+    } else {
+      const s = await window.api.getSettings()
+      const w = (s as { rightPanelWidth?: number }).rightPanelWidth ?? 270
+      rightPanel.style.display = 'block'
+      shell.style.setProperty('--right-panel-width', `${Math.max(200, Math.min(800, w))}px`)
+      setTimeout(() => {
         const chatInput = rightPanel.querySelector('#rightbar-chat-input') as HTMLTextAreaElement
         chatInput?.focus()
-      } else {
-        // Show and focus
-        rightPanel.style.display = 'block'
-        shell.style.setProperty('--right-panel-width', '270px')
-        setTimeout(() => {
-          const chatInput = rightPanel.querySelector('#rightbar-chat-input') as HTMLTextAreaElement
-          chatInput?.focus()
-        }, 100)
-      }
+      }, 100)
     }
   })
   container.insertAdjacentElement('afterbegin', header)

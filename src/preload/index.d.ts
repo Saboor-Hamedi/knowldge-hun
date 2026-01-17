@@ -40,6 +40,7 @@ type AppSettings = {
   activeView?: 'notes' | 'search' | 'settings'
   windowBounds?: { width: number; height: number; x?: number; y?: number }
   deepseekApiKey?: string
+  rightPanelWidth?: number
 }
 
 type WindowApi = {

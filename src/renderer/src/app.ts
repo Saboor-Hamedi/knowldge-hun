@@ -1,16 +1,3 @@
-// Rightbar toggle logic
-window.addEventListener('keydown', (e) => {
-  if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'i') {
-    const shell = document.querySelector('.vscode-shell') as HTMLElement
-    const rightPanel = document.getElementById('rightPanel') as HTMLElement
-    if (rightPanel && shell) {
-      const isVisible = rightPanel.style.display !== 'none'
-      rightPanel.style.display = isVisible ? 'none' : 'block'
-      shell.style.setProperty('--right-panel-width', isVisible ? '0px' : '270px')
-    }
-    e.preventDefault()
-  }
-})
 import { state } from './core/state'
 import type { NotePayload, NoteMeta, TreeItem, AppSettings } from './core/types'
 import { sortNotes, syncTabsWithNotes, ensureTab, sortTabs, timeAgo, extractWikiLinks, extractTags, estimateReadTime } from './utils/helpers'
@@ -33,6 +20,9 @@ import { GraphView } from './components/graph/graph'
 import { themeManager } from './core/themeManager'
 import { ErrorHandler } from './utils/error-handler'
 import { notificationManager } from './components/notification/notification'
+import { noteService } from './services/noteService'
+import { tabService } from './services/tabService'
+import { aiService } from './services/aiService'
 
 function buildTree(items: NoteMeta[]): TreeItem[] {
   const root: TreeItem[] = []
@@ -309,6 +299,7 @@ class App {
 
         // Refresh API key in rightbar if it was updated
         if (newSettings.deepseekApiKey !== undefined) {
+          await aiService.loadApiKey()
           await this.rightBar.refreshApiKey()
         }
       }
@@ -389,7 +380,7 @@ class App {
       } else {
         state.pinnedTabs.add(id)
       }
-      state.openTabs = sortTabs(state.openTabs, state.pinnedTabs)
+      tabService.syncTabs()
       this.tabBar.render()
       void this.persistWorkspace()
   }
@@ -455,6 +446,15 @@ class App {
       }
 
       this.editor.applySettings(state.settings)
+
+      const rpw = state.settings?.rightPanelWidth
+      if (typeof rpw === 'number' && rpw > 0) {
+        const shell = document.querySelector('.vscode-shell') as HTMLElement
+        if (shell) {
+          const w = Math.max(200, Math.min(800, rpw))
+          shell.style.setProperty('--right-panel-width', `${w}px`)
+        }
+      }
     } catch (error) {
       console.error('Failed to load settings', error)
     }
@@ -506,12 +506,13 @@ class App {
         }
     }
 
-    state.openTabs = state.openTabs.filter((tab) => tab.id !== id)
+    tabService.closeTab(id)
 
     if (wasActive) {
-      if (state.openTabs.length > 0) {
-        const nextIndex = Math.min(tabIndex, state.openTabs.length - 1);
-        const fallback = state.openTabs[nextIndex >= 0 ? nextIndex : 0];
+      const remainingTabs = state.openTabs
+      if (remainingTabs.length > 0) {
+        const nextIndex = Math.min(tabIndex, remainingTabs.length - 1);
+        const fallback = remainingTabs[nextIndex >= 0 ? nextIndex : 0];
         await this.openNote(fallback.id, fallback.path)
       } else {
         state.activeId = ''
@@ -841,9 +842,7 @@ class App {
        key: 'Control+Shift+i',
        scope: 'global',
        description: 'Toggle Right Sidebar',
-       handler: () => {
-           this.toggleRightSidebar()
-       }
+       handler: () => { void this.toggleRightSidebar() }
     })
 
     keyboardManager.register({
@@ -1039,12 +1038,13 @@ class App {
     state.activeId = 'settings'
 
     // Ensure "Settings" tab exists
-    state.openTabs = ensureTab(state.openTabs, {
+    tabService.ensureTab({
         id: 'settings',
         title: 'Settings',
-        updatedAt: 0
+        updatedAt: 0,
+        path: undefined,
+        type: undefined
     })
-    state.openTabs = sortTabs(state.openTabs, state.pinnedTabs)
 
     this.tabBar.render()
     this.updateViewVisibility()
@@ -1110,8 +1110,7 @@ class App {
     }
 
     // Sync tabs
-    state.openTabs = syncTabsWithNotes(state.openTabs, state.notes)
-    state.openTabs = sortTabs(state.openTabs, state.pinnedTabs)
+    tabService.syncTabs()
 
     this.sidebar.renderTree(this.sidebar.getSearchValue())
     this.tabBar.render()
@@ -1166,13 +1165,7 @@ class App {
     state.lastSavedAt = note.updatedAt
 
     if (focusTarget !== 'none') {
-        state.openTabs = ensureTab(state.openTabs, {
-          id: note.id,
-          title: note.title,
-          updatedAt: note.updatedAt,
-          path: note.path
-        })
-        state.openTabs = sortTabs(state.openTabs, state.pinnedTabs)
+        tabService.ensureTab(note)
     }
 
     // If switching from preview tab, make sure editor is visible
@@ -1238,8 +1231,7 @@ class App {
       path: currentNote.path
     }
 
-    state.openTabs = ensureTab(state.openTabs, previewTab)
-    state.openTabs = sortTabs(state.openTabs, state.pinnedTabs)
+    tabService.ensureTab(previewTab)
     state.activeId = previewTabId
 
     this.tabBar.render()
@@ -1320,9 +1312,13 @@ class App {
     }
 
     sortNotes(state.notes)
-    state.openTabs = ensureTab(state.openTabs, meta)
-    state.openTabs = state.openTabs.map((tab) => (tab.id === meta.id ? meta : tab))
-    state.openTabs = sortTabs(state.openTabs, state.pinnedTabs)
+    tabService.ensureTab(meta)
+    // Update existing tab if it exists
+    const tabIndex = state.openTabs.findIndex(t => t.id === meta.id)
+    if (tabIndex >= 0) {
+      state.openTabs[tabIndex] = meta
+    }
+    tabService.syncTabs()
 
     this.sidebar.renderTree(this.sidebar.getSearchValue())
     this.tabBar.render()
@@ -1358,29 +1354,31 @@ class App {
       this.statusBar.setStatus(`Deleting ${items.length} items...`)
 
       try {
-          for (const item of items) {
-              if (item.type === 'note') {
-                  await window.api.deleteNote(item.id, item.path)
-                  state.openTabs = state.openTabs.filter((t) => t.id !== item.id)
-                  state.pinnedTabs.delete(item.id)
-              } else {
-                  await window.api.deleteFolder(item.id)
-              }
-          }
+          const result = await noteService.deleteItems(items)
 
-          this.statusBar.setStatus(`${items.length} items deleted`)
-          window.dispatchEvent(new CustomEvent('vault-changed'))
+          if (result.success) {
+            this.statusBar.setStatus(`${items.length} items deleted`)
+            window.dispatchEvent(new CustomEvent('vault-changed'))
 
-          // If the active note was deleted, switch
-          const ancoraActive = state.openTabs.find(t => t.id === state.activeId)
-          if (!ancoraActive) {
-              if (state.openTabs.length > 0) {
-                  await this.openNote(state.openTabs[0].id, state.openTabs[0].path)
-              } else {
+            // If the active note was deleted, switch
+            const ancoraActive = state.openTabs.find(t => t.id === state.activeId)
+            if (!ancoraActive) {
+                const nextTab = tabService.findNextTabToOpen()
+                if (nextTab) {
+                  await this.openNote(nextTab.id, nextTab.path)
+                } else {
                   state.activeId = ''
                   this.editor.showEmpty()
-              }
+                }
+            }
+          } else {
+            this.statusBar.setStatus('Some items could not be deleted')
+            if (result.errors.length > 0) {
+              console.error('Delete errors:', result.errors)
+            }
           }
+
+          await this.refreshNotes()
       } catch (error) {
           console.error('Bulk delete failed', error)
           this.statusBar.setStatus('Some items could not be deleted')
@@ -1429,46 +1427,8 @@ class App {
 
   private async handleFolderMove(sourcePath: string, targetPath: string): Promise<void> {
     try {
-        const result = await window.api.moveFolder(sourcePath, targetPath)
-        const newFolderPath = result.path
-
-        const oldPrefix = sourcePath + '/'
-        const newPrefix = newFolderPath + '/'
-
-        let updatedTabs = false
-        state.openTabs = state.openTabs.map(tab => {
-            if (tab.id.startsWith(oldPrefix)) {
-                updatedTabs = true
-                const newId = tab.id.replace(oldPrefix, newPrefix)
-                const lastSlash = newId.lastIndexOf('/')
-                const newNotePath = lastSlash === -1 ? '' : newId.substring(0, lastSlash)
-                return { ...tab, id: newId, path: newNotePath }
-            }
-            return tab
-        })
-
-        if (state.activeId.startsWith(oldPrefix)) {
-            state.activeId = state.activeId.replace(oldPrefix, newPrefix)
-        }
-
-        for (const id of Array.from(state.pinnedTabs)) {
-            if (id.startsWith(oldPrefix)) {
-                state.pinnedTabs.delete(id)
-                state.pinnedTabs.add(id.replace(oldPrefix, newPrefix))
-            }
-        }
-
-        for (const path of Array.from(state.expandedFolders)) {
-            if (path === sourcePath || path.startsWith(oldPrefix)) {
-                state.expandedFolders.delete(path)
-                state.expandedFolders.add(path === sourcePath ? newFolderPath : path.replace(oldPrefix, newPrefix))
-            }
-        }
-
-        if (updatedTabs) {
-            this.tabBar.render()
-        }
-
+        await noteService.moveFolder(sourcePath, targetPath)
+        this.tabBar.render()
         await this.refreshNotes()
     } catch (error) {
         console.error('Folder move failed:', error)
@@ -1563,21 +1523,13 @@ class App {
     state.newlyCreatedIds.delete(noteId) // Rename counts as interacting
 
     try {
-        // 1. Rename on disk (changes ID)
-        const newMeta = await (window.api as any).renameNote(noteId, newId, notePath)
+        // 1. Rename on disk (changes ID) - noteService handles tab/state updates
+        const newMeta = await noteService.renameNote(noteId, newId, notePath)
         const actualNewId = newMeta.id
 
-        // 3. Update state.openTabs (manually update the ID so sync doesn't filter it)
-        state.openTabs = state.openTabs.map(tab => {
-            if (tab.id === noteId) {
-                return { ...tab, id: actualNewId, title: newTitle, path: newMeta.path }
-            }
-            return tab
-        })
-
-        // 4. Update activeId if needed
+        // 4. Update activeId if needed (noteService already updated tabs)
         if (isActive) {
-            state.activeId = actualNewId
+            tabService.setActiveTab(actualNewId)
         }
 
         // 5. Refresh from disk

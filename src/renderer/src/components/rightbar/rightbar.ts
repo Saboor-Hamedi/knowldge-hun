@@ -1,11 +1,6 @@
 import { state } from '../../core/state'
+import { aiService, type ChatMessage, type EditorContext } from '../../services/aiService'
 import './rightbar.css'
-
-interface ChatMessage {
-  role: 'user' | 'assistant'
-  content: string
-  timestamp: number
-}
 
 export class RightBar {
   private container: HTMLElement
@@ -13,35 +8,27 @@ export class RightBar {
   private chatInput!: HTMLTextAreaElement
   private sendButton!: HTMLElement
   private inputWrapper!: HTMLElement
+  private resizeHandle!: HTMLElement
   private messages: ChatMessage[] = []
-  private apiKey: string | null = null
-  private getEditorContent?: () => string | null
-  private getActiveNoteInfo?: () => { title: string; id: string } | null
+  private isResizing = false
+  private startX = 0
+  private startWidth = 0
 
   constructor(containerId: string) {
     this.container = document.getElementById(containerId) as HTMLElement
-    this.loadApiKey()
+    void aiService.loadApiKey()
     this.render()
     this.attachEvents()
   }
 
   setEditorContext(getEditorContent: () => string | null, getActiveNoteInfo: () => { title: string; id: string } | null): void {
-    this.getEditorContent = getEditorContent
-    this.getActiveNoteInfo = getActiveNoteInfo
-  }
-
-  private async loadApiKey(): Promise<void> {
-    try {
-      const settings = await window.api.getSettings()
-      this.apiKey = (settings as any)?.deepseekApiKey || null
-    } catch (err) {
-      console.error('[RightBar] Failed to load API key:', err)
-    }
+    aiService.setEditorContext({ getEditorContent, getActiveNoteInfo })
   }
 
   private render() {
     this.container.innerHTML = `
       <div class="rightbar">
+        <div class="rightbar__resize-handle" id="rightbar-resize-handle"></div>
         <div class="rightbar__header">
           <h3 class="rightbar__title">AI Chat</h3>
         </div>
@@ -71,6 +58,7 @@ export class RightBar {
     this.chatInput = this.container.querySelector('#rightbar-chat-input') as HTMLTextAreaElement
     this.sendButton = this.container.querySelector('#rightbar-chat-send') as HTMLElement
     this.inputWrapper = this.container.querySelector('#rightbar-chat-input-wrapper') as HTMLElement
+    this.resizeHandle = this.container.querySelector('#rightbar-resize-handle') as HTMLElement
   }
 
   private attachEvents() {
@@ -95,6 +83,55 @@ export class RightBar {
         this.chatInput.focus()
       }
     })
+
+    // Resize handle events
+    if (this.resizeHandle) {
+      this.resizeHandle.addEventListener('mousedown', (e) => this.handleResizeStart(e))
+    }
+  }
+
+  private handleResizeStart(e: MouseEvent): void {
+    e.preventDefault()
+    this.isResizing = true
+    this.startX = e.clientX
+    const shell = document.querySelector('.vscode-shell') as HTMLElement
+    if (shell) {
+      const currentWidth = parseInt(getComputedStyle(shell).getPropertyValue('--right-panel-width') || '270', 10)
+      this.startWidth = currentWidth
+    }
+
+    document.addEventListener('mousemove', this.handleResizeMove)
+    document.addEventListener('mouseup', this.handleResizeEnd)
+    document.body.style.cursor = 'ew-resize'
+    document.body.style.userSelect = 'none'
+  }
+
+  private handleResizeMove = (e: MouseEvent): void => {
+    if (!this.isResizing) return
+
+    const deltaX = this.startX - e.clientX // Inverted because we're resizing from the left
+    const newWidth = Math.max(200, Math.min(800, this.startWidth + deltaX)) // Min 200px, max 800px
+
+    const shell = document.querySelector('.vscode-shell') as HTMLElement
+    if (shell) {
+      shell.style.setProperty('--right-panel-width', `${newWidth}px`)
+    }
+  }
+
+  private handleResizeEnd = (): void => {
+    if (!this.isResizing) return
+
+    this.isResizing = false
+    document.removeEventListener('mousemove', this.handleResizeMove)
+    document.removeEventListener('mouseup', this.handleResizeEnd)
+    document.body.style.cursor = ''
+    document.body.style.userSelect = ''
+
+    const shell = document.querySelector('.vscode-shell') as HTMLElement
+    if (shell) {
+      const w = parseInt(getComputedStyle(shell).getPropertyValue('--right-panel-width') || '270', 10)
+      if (w > 0) void window.api.updateSettings({ rightPanelWidth: w })
+    }
   }
 
   private autoResizeTextarea(): void {
@@ -113,7 +150,8 @@ export class RightBar {
     this.sendButton.disabled = true
 
     // Check if API key exists
-    if (!this.apiKey) {
+    const apiKey = aiService.getApiKey()
+    if (!apiKey) {
       this.addMessage('assistant', '🔑 **API Key Required**\n\nTo use AI chat, please add your DeepSeek API key in **Settings → Behavior → DeepSeek API Key**.\n\nGet your API key at [platform.deepseek.com](https://platform.deepseek.com)')
       this.sendButton.disabled = false
       this.chatInput.focus()
@@ -125,8 +163,8 @@ export class RightBar {
 
     try {
       // Build context-aware message
-      const contextMessage = this.buildContextMessage(message)
-      const response = await this.callDeepSeekAPI(contextMessage)
+      const contextMessage = aiService.buildContextMessage(message)
+      const response = await aiService.callDeepSeekAPI(this.messages, contextMessage)
       // Remove loading message and add actual response
       this.messages.pop()
       this.addMessage('assistant', response)
@@ -139,67 +177,6 @@ export class RightBar {
     } finally {
       this.sendButton.disabled = false
       this.chatInput.focus()
-    }
-  }
-
-  private buildContextMessage(userMessage: string): string {
-    const noteInfo = this.getActiveNoteInfo?.()
-    const editorContent = this.getEditorContent?.()
-    
-    if (!noteInfo && !editorContent) {
-      return userMessage
-    }
-    
-    let context = 'Context: You are helping with a note-taking application. '
-    
-    if (noteInfo) {
-      context += `The user is currently working on a note titled "${noteInfo.title}" (ID: ${noteInfo.id}). `
-    }
-    
-    if (editorContent && editorContent.trim()) {
-      const contentPreview = editorContent.length > 2000 
-        ? editorContent.substring(0, 2000) + '...' 
-        : editorContent
-      context += `\n\nCurrent note content:\n${contentPreview}\n\n`
-    }
-    
-    context += `\nUser's question: ${userMessage}`
-    
-    return context
-  }
-
-  private async callDeepSeekAPI(contextMessage: string): Promise<string> {
-    try {
-      // Build messages array - exclude the last user message we just added, use the context-aware one
-      const messagesForAPI = this.messages.slice(0, -1).map(m => ({ role: m.role, content: m.content }))
-      messagesForAPI.push({ role: 'user', content: contextMessage })
-
-      const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.apiKey}`
-        },
-        body: JSON.stringify({
-          model: 'deepseek-chat',
-          messages: messagesForAPI,
-          temperature: 0.7,
-          max_tokens: 2000
-        })
-      })
-
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({}))
-        throw new Error(error.error?.message || `API error: ${response.status}`)
-      }
-
-      const data = await response.json()
-      return data.choices[0]?.message?.content || 'No response'
-    } catch (err: any) {
-      if (err.name === 'TypeError' && err.message.includes('fetch')) {
-        throw new Error('Network error: Unable to connect to DeepSeek API. Please check your internet connection.')
-      }
-      throw err
     }
   }
 
@@ -235,17 +212,13 @@ export class RightBar {
   }
 
   async refreshApiKey(): Promise<void> {
-    await this.loadApiKey()
+    await aiService.loadApiKey()
     const wasEmpty = this.messages.length === 0
     this.render()
     this.attachEvents()
     // If messages were cleared, show welcome message again if no key
-    if (wasEmpty && !this.apiKey) {
+    if (wasEmpty && !aiService.getApiKey()) {
       this.addMessage('assistant', '👋 **Welcome to AI Chat!**\n\nTo get started, add your DeepSeek API key in **Settings → Behavior → DeepSeek API Key**.\n\nGet your API key at [platform.deepseek.com](https://platform.deepseek.com)')
-    }
-    // Re-attach editor context after re-render
-    if (this.getEditorContent && this.getActiveNoteInfo) {
-      this.setEditorContext(this.getEditorContent, this.getActiveNoteInfo)
     }
   }
 }
