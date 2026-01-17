@@ -2,17 +2,6 @@ import { modalManager } from '../modal/modal'
 import './details-modal.css'
 
 export class DetailsModal {
-  private details: {
-    words: number
-    chars: number
-    lines: number
-    readTime: string
-    wikiLinks: number
-    tags: number
-    created: string
-    modified: string
-  } | null = null
-
   show(details: {
     words: number
     chars: number
@@ -23,7 +12,6 @@ export class DetailsModal {
     created: string
     modified: string
   }): void {
-    this.details = details
     const content = document.createElement('div')
     content.className = 'details-modal-content'
     content.innerHTML = `

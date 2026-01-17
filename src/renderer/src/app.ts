@@ -1,6 +1,6 @@
 import { state } from './core/state'
 import type { NotePayload, NoteMeta, TreeItem, AppSettings } from './core/types'
-import { sortNotes, syncTabsWithNotes, ensureTab, sortTabs, timeAgo, extractWikiLinks, extractTags, estimateReadTime } from './utils/helpers'
+import { sortNotes, timeAgo, extractWikiLinks, extractTags, estimateReadTime } from './utils/helpers'
 import { sortTreeRecursive } from './utils/tree-utils'
 import { keyboardManager } from './core/keyboardManager'
 import { modalManager } from './components/modal/modal'
@@ -153,6 +153,7 @@ class App {
     this.tabBar = new TabBar('tabBar')
     this.editor = new EditorComponent('editorContainer')
     this.statusBar = new StatusBar('statusBar')
+    this.attachSyncEvents()
     this.settingsView = new SettingsView('settingsHost')
     this.rightBar = new RightBar('rightPanel')
     this.themeModal = new ThemeModal('app') // Mount to app container
@@ -323,6 +324,61 @@ class App {
       }
     })
 
+    // Register commands in fuzzy finder
+    this.fuzzyFinder.registerCommands([
+      {
+        id: 'reload-vault',
+        label: 'Reload Vault',
+        description: 'Reload the vault from disk',
+        handler: () => this.reloadVault()
+      },
+      {
+        id: 'reload-window',
+        label: 'Reload Window',
+        description: 'Reload the application window',
+        handler: () => window.location.reload()
+      },
+      {
+        id: 'backup-gist',
+        label: 'Backup to Gist',
+        description: 'Backup vault to GitHub Gist',
+        handler: async () => {
+          const settings = await window.api.getSettings()
+          const token = (settings as any)?.gistToken
+          if (!token) {
+            notificationManager.show('Please configure GitHub token in Settings > Sync', 'warning')
+            return
+          }
+          const statusBarEl = document.getElementById('statusBar')
+          if (statusBarEl) {
+            statusBarEl.dispatchEvent(new CustomEvent('sync-action', { detail: { action: 'backup' }, bubbles: true }))
+          }
+        }
+      },
+      {
+        id: 'restore-gist',
+        label: 'Restore from Gist',
+        description: 'Restore vault from GitHub Gist',
+        handler: async () => {
+          const settings = await window.api.getSettings()
+          const token = (settings as any)?.gistToken
+          const gistId = (settings as any)?.gistId
+          if (!token) {
+            notificationManager.show('Please configure GitHub token in Settings > Sync', 'warning')
+            return
+          }
+          if (!gistId) {
+            notificationManager.show('No Gist ID configured. Please backup first.', 'warning')
+            return
+          }
+          const statusBarEl = document.getElementById('statusBar')
+          if (statusBarEl) {
+            statusBarEl.dispatchEvent(new CustomEvent('sync-action', { detail: { action: 'restore' }, bubbles: true }))
+          }
+        }
+      }
+    ])
+
     // Tab handlers
     this.tabBar.setTabSelectHandler(async (id) => {
       // Close any preview tabs when switching to a different tab
@@ -428,10 +484,6 @@ class App {
 
   // ... registerGlobalShortcuts, registerVaultChangeListener ...
 
-  // Tab handlers delegated to TabHandlersImpl
-  private togglePinTab(id: string): void {
-    this.tabHandlers.togglePinTab(id)
-  }
 
   private async closeOtherTabs(id: string): Promise<void> {
     await this.tabHandlers.closeOtherTabs(id, (id, force) => this.closeTab(id, force))
@@ -748,7 +800,16 @@ class App {
        scope: 'global',
        description: 'Quick Open',
        handler: () => {
-           this.fuzzyFinder.toggle()
+           this.fuzzyFinder.toggle('notes')
+       }
+    })
+
+    keyboardManager.register({
+       key: 'Control+Shift+p',
+       scope: 'global',
+       description: 'Command Palette',
+       handler: () => {
+           this.fuzzyFinder.toggle('commands')
        }
     })
 
@@ -762,10 +823,9 @@ class App {
     keyboardManager.register({
       key: 'Control+Shift+r',
       scope: 'global',
-      description: 'Rename project',
+      description: 'Reload vault',
       handler: () => {
-        const brandEl = document.querySelector('.sidebar__brand') as HTMLElement
-        if (brandEl) brandEl.click()
+        void this.reloadVault()
       }
     })
 
@@ -1581,6 +1641,196 @@ class App {
       const message = (error as Error).message || 'Failed to import file'
       console.error('File import failed', error)
       this.statusBar.setStatus(`⚠️ ${message}`)
+    }
+  }
+
+  private attachSyncEvents(): void {
+    const statusBarEl = document.getElementById('statusBar')
+    if (!statusBarEl) return
+
+    // Listen for restore from settings
+    window.addEventListener('restore-vault', async (e: Event) => {
+      const customEvent = e as CustomEvent<{ backupData: any }>
+      const { backupData } = customEvent.detail
+      try {
+        await this.restoreVaultFromBackup(backupData)
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Restore failed'
+        notificationManager.show(`Restore failed: ${errorMessage}`, 'error')
+      }
+    })
+
+    statusBarEl.addEventListener('sync-action', async (e: Event) => {
+      const customEvent = e as CustomEvent<{ action: string }>
+      const { action } = customEvent.detail
+
+      const settings = await window.api.getSettings()
+      const token = (settings as any)?.gistToken
+      const gistId = (settings as any)?.gistId
+
+      if (!token) {
+        notificationManager.show('Please configure GitHub token in Settings > Sync', 'warning')
+        return
+      }
+
+      if (action === 'backup') {
+        try {
+          notificationManager.show('Backing up vault...', 'info')
+          const vaultData = await window.api.listNotes()
+          const notes = await Promise.all(
+            vaultData.filter(n => n.type !== 'folder').map(n => window.api.loadNote(n.id))
+          )
+          const allNotes = notes.filter(n => n !== null)
+          const result = await window.api.syncBackup(token, gistId, allNotes)
+          if (result.success) {
+            notificationManager.show(result.message, 'success')
+            if (result.gistId) {
+              await window.api.updateSettings({ gistId: result.gistId } as Partial<AppSettings>)
+            }
+          } else {
+            notificationManager.show(result.message, 'error')
+          }
+        } catch (error) {
+          notificationManager.show('Backup failed', 'error')
+        }
+      } else if (action === 'restore') {
+        if (!gistId) {
+          notificationManager.show('No Gist ID configured. Please backup first.', 'warning')
+          return
+        }
+        if (!confirm('Restore will replace your current vault. Continue?')) {
+          return
+        }
+        try {
+          notificationManager.show('Restoring vault...', 'info')
+          const result = await window.api.syncRestore(token, gistId)
+          if (result.success && result.data) {
+            await this.restoreVaultFromBackup(result.data)
+            notificationManager.show('Vault restored successfully', 'success')
+          } else {
+            notificationManager.show(result.message, 'error')
+          }
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Restore failed'
+          notificationManager.show(`Restore failed: ${errorMessage}`, 'error')
+        }
+      }
+    })
+  }
+
+  private async restoreVaultFromBackup(backupData: any): Promise<void> {
+    if (!backupData || !backupData.notes || !Array.isArray(backupData.notes)) {
+      throw new Error('Invalid backup data format')
+    }
+
+    // Refresh notes first to get current state
+    await this.refreshNotes()
+
+    const notes = backupData.notes as NotePayload[]
+    const createdFolders = new Set<string>()
+
+    // Process each note from backup
+    for (const backupNote of notes) {
+      try {
+        const folderPath = backupNote.path ? backupNote.path.split('/').slice(0, -1).join('/') : undefined
+        const noteTitle = backupNote.title || backupNote.id
+
+        // Check if note already exists by ID
+        const existingNote = state.notes.find(n => n.id === backupNote.id)
+
+        if (existingNote) {
+          // Note exists - always update from backup to restore content
+          await window.api.saveNote({
+            id: backupNote.id,
+            title: noteTitle,
+            content: backupNote.content || '',
+            path: folderPath,
+            updatedAt: backupNote.updatedAt || Date.now(),
+            createdAt: backupNote.createdAt || existingNote.createdAt || Date.now()
+          })
+        } else {
+          // Note doesn't exist - create it
+          // First ensure folder exists if needed
+          if (folderPath && !createdFolders.has(folderPath)) {
+            const folderParts = folderPath.split('/')
+            let currentPath = ''
+            for (const folderName of folderParts) {
+              const nextPath = currentPath ? `${currentPath}/${folderName}` : folderName
+              if (!createdFolders.has(nextPath)) {
+                try {
+                  // Check if folder already exists in state
+                  const folderExists = state.notes.some(n => n.type === 'folder' && n.path === nextPath)
+                  if (!folderExists) {
+                    await window.api.createFolder(folderName, currentPath || undefined)
+                  }
+                  createdFolders.add(nextPath)
+                } catch (error) {
+                  // Folder might already exist, continue
+                  console.warn(`Folder creation skipped: ${nextPath}`, error)
+                  createdFolders.add(nextPath)
+                }
+              }
+              currentPath = nextPath
+            }
+          }
+
+          // Create the new note
+          const created = await window.api.createNote(noteTitle, folderPath)
+          // Set the content
+          await window.api.saveNote({
+            id: created.id,
+            title: noteTitle,
+            content: backupNote.content || '',
+            path: folderPath,
+            updatedAt: backupNote.updatedAt || Date.now(),
+            createdAt: backupNote.createdAt || Date.now()
+          })
+        }
+      } catch (error) {
+        console.error(`Failed to restore note ${backupNote.id}:`, error)
+        // Continue with other notes
+      }
+    }
+
+    // Refresh the UI to show changes - but preserve existing items
+    await this.refreshNotes()
+    // Force sidebar to re-render with all notes
+    this.sidebar.renderTree(this.sidebar.getSearchValue())
+    
+    // Refresh editor state to prevent freezing
+    if (state.activeId) {
+      const activeNote = state.notes.find(n => n.id === state.activeId)
+      if (activeNote) {
+        const noteData = await window.api.loadNote(activeNote.id)
+        if (noteData) {
+          await this.editor.loadNote(noteData)
+        }
+      }
+    }
+    
+    // Ensure editor is enabled and responsive
+    setTimeout(() => {
+      if (this.editor) {
+        const editorElement = (this.editor as any).editor
+        if (editorElement) {
+          editorElement.updateOptions({ readOnly: false })
+          editorElement.focus()
+        }
+      }
+    }, 100)
+  }
+
+  private async reloadVault(): Promise<void> {
+    try {
+      this.statusBar.setStatus('Reloading vault...')
+      await this.refreshNotes()
+      this.sidebar.renderTree(this.sidebar.getSearchValue())
+      this.statusBar.setStatus('Vault reloaded')
+      notificationManager.show('Vault reloaded successfully', 'success')
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to reload vault'
+      this.statusBar.setStatus(`⚠️ ${errorMessage}`)
+      notificationManager.show('Failed to reload vault', 'error')
     }
   }
 }

@@ -278,6 +278,27 @@ export class VaultManager {
     }
   }
 
+  /**
+   * Export all notes with their content for backup
+   */
+  public async exportAllNotes(): Promise<NotePayload[]> {
+    const notes = Array.from(this.notes.values())
+    const exported: NotePayload[] = []
+
+    for (const meta of notes) {
+      try {
+        const note = await this.getNote(meta.id)
+        if (note) {
+          exported.push(note)
+        }
+      } catch (e) {
+        console.error(`[Vault] Failed to export note ${meta.id}`, e)
+      }
+    }
+
+    return exported
+  }
+
   public async saveNote(id: string, content: string, _title?: string): Promise<NoteMeta> {
     let meta = this.notes.get(id)
     if (!meta) {
@@ -404,7 +425,6 @@ export class VaultManager {
     await rename(oldFullPath, newFullPath)
 
     // Update cache
-    const oldMeta = this.notes.get(id)
     this.notes.delete(id)
     await this.indexFile(newFullPath)
 

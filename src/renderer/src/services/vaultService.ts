@@ -122,7 +122,8 @@ export class VaultService {
    */
   async chooseVault(): Promise<{ path: string; name: string; changed: boolean }> {
     try {
-      return await window.api.chooseVault()
+      const result = await window.api.chooseVault()
+      return { path: result.path, name: result.name, changed: result.changed ?? false }
     } catch (error) {
       throw new Error(error instanceof Error ? error.message : 'Failed to choose vault')
     }

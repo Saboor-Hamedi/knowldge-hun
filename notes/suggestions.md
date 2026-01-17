@@ -2,7 +2,7 @@
 
 ## Core Features
 
-1. **Multi-vault support**: Allow users to open and switch between multiple vaults/workspaces seamlessly.
+1. **Multi-vault support**: Allow users to open and switch between multiple vaults/workspaces seamlessly. ✅ *Partial: Vault switching, recent vaults tracking, vault location detection, vault picker UI, and vault settings with delete functionality implemented*
 2. **Custom themes**: Add a theme editor and marketplace for user-created color themes and icon packs. ✅ *Basic theme system implemented with multiple themes*
 3. **Plugin system**: Support third-party plugins/extensions for advanced workflows and integrations.
 4. **Bi-directional links graph**: Visualize and navigate all note connections with a robust, interactive graph view. ✅ *Graph view implemented with D3.js force layout*

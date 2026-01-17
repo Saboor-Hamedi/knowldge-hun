@@ -4,6 +4,8 @@ import { codicons } from '../../utils/codicons'
 import { themes } from '../../core/themes'
 import { vaultService } from '../../services/vaultService'
 import type { VaultInfo } from '../../services/vaultService'
+import { notificationManager } from '../notification/notification'
+import { createElement, CloudUpload, CloudDownload } from 'lucide'
 import './settings-view.css'
 
 export interface VaultSettingsCallbacks {
@@ -37,6 +39,19 @@ export class SettingsView {
     this.render()
   }
 
+  private createLucideIcon(IconComponent: any, size: number = 16): string {
+    const svgElement = createElement(IconComponent, {
+      size: size,
+      'stroke-width': 1.5,
+      stroke: 'currentColor',
+      color: 'currentColor'
+    })
+    if (svgElement && svgElement.outerHTML) {
+      return svgElement.outerHTML
+    }
+    return ''
+  }
+
   private render(): void {
     this.container.innerHTML = `
       <div class="settings-view">
@@ -53,6 +68,9 @@ export class SettingsView {
           </button>
           <button class="settings-view__sidebar-item ${this.activeSection === 'vault' ? 'is-active' : ''}" data-section-tab="vault">
             ${codicons.folderRoot} Vault
+          </button>
+          <button class="settings-view__sidebar-item ${this.activeSection === 'sync' ? 'is-active' : ''}" data-section-tab="sync">
+            ${this.createLucideIcon(CloudUpload, 16)} Sync
           </button>
         </aside>
 
@@ -238,6 +256,60 @@ export class SettingsView {
             </div>
           </div>
 
+          <!-- Sync Section -->
+          <div class="settings-view__section ${this.activeSection === 'sync' ? 'is-active' : ''}" data-section="sync">
+            <div class="settings-view__section-header">
+              <h2 class="settings-view__section-title">GitHub Gist Sync</h2>
+            </div>
+
+            <div class="settings-field">
+              <label class="settings-field__label">GitHub Personal Access Token</label>
+              <p class="settings-field__hint">Your GitHub token for Gist access. Create one at <a href="https://github.com/settings/tokens" target="_blank">github.com/settings/tokens</a></p>
+              <div class="settings-field__control">
+                <input
+                  type="password"
+                  class="settings-input"
+                  data-setting="gistToken"
+                  placeholder="ghp_..."
+                  value="${(state.settings as any)?.gistToken || ''}"
+                />
+                <button class="settings-button settings-button--secondary" id="settings-sync-test-token" style="margin-top: 8px;">
+                  Test Token
+                </button>
+              </div>
+            </div>
+
+            <div class="settings-field">
+              <label class="settings-field__label">Gist ID</label>
+              <p class="settings-field__hint">The Gist ID where your backup is stored (auto-filled after first backup).</p>
+              <div class="settings-field__control">
+                <input
+                  type="text"
+                  class="settings-input"
+                  data-setting="gistId"
+                  placeholder="Auto-filled after backup"
+                  value="${(state.settings as any)?.gistId || ''}"
+                  readonly
+                />
+              </div>
+            </div>
+
+            <div class="settings-field">
+              <label class="settings-field__label">Sync Actions</label>
+              <p class="settings-field__hint">Backup your entire vault to GitHub Gist or restore from a previous backup.</p>
+              <div class="settings-field__control">
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                  <button class="settings-button settings-button--primary" id="settings-sync-backup">
+                    ${this.createLucideIcon(CloudUpload, 16)} Backup to Gist
+                  </button>
+                  <button class="settings-button settings-button--secondary" id="settings-sync-restore">
+                    ${this.createLucideIcon(CloudDownload, 16)} Restore from Gist
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
         </div>
       </div>
     `
@@ -294,6 +366,99 @@ export class SettingsView {
     revealBtn?.addEventListener('click', () => {
       if (this.vaultCallbacks) {
         void this.vaultCallbacks.onVaultReveal()
+      }
+    })
+
+    // Sync actions
+    const testTokenBtn = this.container.querySelector('#settings-sync-test-token')
+    testTokenBtn?.addEventListener('click', async () => {
+      const tokenInput = this.container.querySelector('[data-setting="gistToken"]') as HTMLInputElement
+      const token = tokenInput?.value || ''
+      if (!token) {
+        notificationManager.show('Please enter a GitHub token first', 'warning')
+        return
+      }
+      testTokenBtn.textContent = 'Testing...'
+      testTokenBtn.setAttribute('disabled', 'true')
+      try {
+        const result = await window.api.syncTestToken(token)
+        if (result.valid) {
+          notificationManager.show(result.message, 'success')
+        } else {
+          notificationManager.show(result.message, 'error')
+        }
+      } catch (error) {
+        notificationManager.show('Failed to test token', 'error')
+      } finally {
+        testTokenBtn.textContent = 'Test Token'
+        testTokenBtn.removeAttribute('disabled')
+      }
+    })
+
+    const backupBtn = this.container.querySelector('#settings-sync-backup')
+    backupBtn?.addEventListener('click', async () => {
+      const tokenInput = this.container.querySelector('[data-setting="gistToken"]') as HTMLInputElement
+      const token = tokenInput?.value || ''
+      if (!token) {
+        notificationManager.show('Please enter a GitHub token first', 'warning')
+        return
+      }
+      backupBtn.textContent = 'Backing up...'
+      backupBtn.setAttribute('disabled', 'true')
+      try {
+        const vaultData = await window.api.listNotes()
+        const notes = await Promise.all(vaultData.filter(n => n.type !== 'folder').map(n => window.api.loadNote(n.id)))
+        const allNotes = notes.filter(n => n !== null)
+        const gistId = (state.settings as any)?.gistId
+        const result = await window.api.syncBackup(token, gistId, allNotes)
+        if (result.success) {
+          notificationManager.show(result.message, 'success')
+          if (result.gistId) {
+            this.onSettingChange?.({ gistId: result.gistId } as Partial<AppSettings>)
+          }
+        } else {
+          notificationManager.show(result.message, 'error')
+        }
+      } catch (error) {
+        notificationManager.show('Backup failed', 'error')
+      } finally {
+        backupBtn.innerHTML = `${this.createLucideIcon(CloudUpload, 16)} Backup to Gist`
+        backupBtn.removeAttribute('disabled')
+      }
+    })
+
+    const restoreBtn = this.container.querySelector('#settings-sync-restore')
+    restoreBtn?.addEventListener('click', async () => {
+      const tokenInput = this.container.querySelector('[data-setting="gistToken"]') as HTMLInputElement
+      const token = tokenInput?.value || ''
+      const gistId = (state.settings as any)?.gistId
+      if (!token) {
+        notificationManager.show('Please enter a GitHub token first', 'warning')
+        return
+      }
+      if (!gistId) {
+        notificationManager.show('No Gist ID configured. Please backup first.', 'warning')
+        return
+      }
+      if (!confirm('Restore will replace your current vault. Continue?')) {
+        return
+      }
+      restoreBtn.textContent = 'Restoring...'
+      restoreBtn.setAttribute('disabled', 'true')
+      try {
+        const result = await window.api.syncRestore(token, gistId)
+        if (result.success && result.data) {
+          // Trigger restore via custom event that app.ts listens to
+          window.dispatchEvent(new CustomEvent('restore-vault', { detail: { backupData: result.data } }))
+          notificationManager.show('Vault restored successfully', 'success')
+        } else {
+          notificationManager.show(result.message, 'error')
+        }
+      } catch (error) {
+        notificationManager.show('Restore failed', 'error')
+      } finally {
+        restoreBtn.innerHTML = `${this.createLucideIcon(CloudDownload, 16)} Restore from Gist`
+        restoreBtn.removeAttribute('disabled')
       }
     })
   }

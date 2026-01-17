@@ -2,6 +2,14 @@ import { state } from '../../core/state'
 import { codicons, getFileIcon } from '../../utils/codicons'
 import './fuzzy-finder.css'
 
+export interface Command {
+  id: string
+  label: string
+  description?: string
+  handler: () => void | Promise<void>
+  icon?: string
+}
+
 export class FuzzyFinder {
   private container: HTMLElement
   private modal: HTMLElement | null = null
@@ -12,6 +20,8 @@ export class FuzzyFinder {
   private selectedIndex = 0
   private visibleItems: any[] = []
   private onSelect?: (id: string, path?: string, type?: string, isFinal?: boolean) => Promise<void> | void
+  private mode: 'notes' | 'commands' = 'notes'
+  private commands: Command[] = []
 
   constructor(containerId: string) {
     this.container = document.getElementById(containerId) as HTMLElement
@@ -25,34 +35,58 @@ export class FuzzyFinder {
     })
   }
 
+  registerCommand(command: Command): void {
+    this.commands.push(command)
+  }
+
+  registerCommands(commands: Command[]): void {
+    this.commands.push(...commands)
+  }
+
   setSelectHandler(handler: (id: string, path?: string, type?: string, isFinal?: boolean) => Promise<void> | void): void {
     this.onSelect = handler
   }
 
-  toggle(): void {
+  toggle(mode: 'notes' | 'commands' = 'notes'): void {
     if (this.isOpen) this.close()
-    else this.open()
+    else this.open(mode)
   }
 
-  open(): void {
+  open(mode: 'notes' | 'commands' = 'notes'): void {
     if (this.isOpen || !this.modal) return
+    this.mode = mode
     this.isOpen = true
     this.modal.classList.add('is-open')
 
     // Create backdrop
     this.backdrop = document.createElement('div')
-    this.backdrop.style.position = 'fixed'
-    this.backdrop.style.inset = '0'
-    this.backdrop.style.zIndex = '1999'
+    this.backdrop.className = 'fuzzy-backdrop'
     this.container.appendChild(this.backdrop)
     this.backdrop.addEventListener('click', () => this.close())
 
+    // Update placeholder and icon based on mode
+    this.updateModeUI()
+
     // Reset
+    this.filter('')
+  }
+
+  private switchToCommandMode(): void {
+    if (this.mode === 'commands') return
+    this.mode = 'commands'
+    this.updateModeUI()
+  }
+
+  private updateModeUI(): void {
     if (this.input) {
-      this.input.value = ''
+      this.input.placeholder = this.mode === 'commands' ? 'Type a command name...' : 'Type filename to search...'
       this.input.focus()
     }
-    this.filter('')
+    const iconEl = this.modal?.querySelector('.fuzzy-icon')
+    if (iconEl) {
+      iconEl.textContent = this.mode === 'commands' ? '>' : '🔍'
+      iconEl.className = this.mode === 'commands' ? 'fuzzy-icon fuzzy-icon--command' : 'fuzzy-icon'
+    }
   }
 
   close(): void {
@@ -69,8 +103,9 @@ export class FuzzyFinder {
     this.modal = document.createElement('div')
     this.modal.className = 'fuzzy-modal'
     this.modal.innerHTML = `
-      <div class="fuzzy-input-wrapper">
-        <input class="fuzzy-input" placeholder="Type filename to search..." />
+      <div class="fuzzy-header">
+        <span class="fuzzy-icon">🔍</span>
+        <input class="fuzzy-input" placeholder="Type filename to search..." autocomplete="off" />
       </div>
       <div class="fuzzy-list"></div>
     `
@@ -79,8 +114,36 @@ export class FuzzyFinder {
     this.input = this.modal.querySelector('.fuzzy-input')
     this.list = this.modal.querySelector('.fuzzy-list')
 
-    // Bind input event only (for typing)
-    this.input?.addEventListener('input', (e) => this.filter((e.target as HTMLInputElement).value))
+    // Bind input event with ">" detection for mode switching
+    this.input?.addEventListener('input', (e) => {
+      const value = (e.target as HTMLInputElement).value
+      // Detect ">" at the start to switch to command mode
+      if (this.mode === 'notes' && value.startsWith('>')) {
+        this.switchToCommandMode()
+        // Remove the ">" and set the remaining value
+        const remaining = value.substring(1)
+        if (this.input) {
+          this.input.value = remaining
+        }
+        this.filter(remaining)
+      } else {
+        this.filter(value)
+      }
+    })
+
+    // Also handle keydown for immediate ">" detection
+    this.input?.addEventListener('keydown', (e) => {
+      // If user types ">" and we're in notes mode, switch immediately
+      if (this.mode === 'notes' && e.key === '>' && !e.shiftKey) {
+        e.preventDefault()
+        this.switchToCommandMode()
+        if (this.input) {
+          this.input.value = ''
+        }
+        this.filter('')
+        return
+      }
+    })
 
     // Global key listener handles navigation regardless of focus
     if (!this.globalKeyListenerAttached) {
@@ -122,8 +185,17 @@ export class FuzzyFinder {
       e.stopPropagation()
       const item = this.visibleItems[this.selectedIndex]
       if (item) {
-        await this.onSelect?.(item.id, item.path, item.type, true)
-        this.close()
+        if (this.mode === 'commands') {
+          const command = item as Command
+          await command.handler()
+          this.close()
+        } else {
+          // Only call onSelect for notes, not commands
+          if (item.id && item.type !== 'command') {
+            await this.onSelect?.(item.id, item.path, item.type, true)
+            this.close()
+          }
+        }
       }
     } else {
         // For other keys, ensure input is focused so user can type
@@ -147,6 +219,11 @@ export class FuzzyFinder {
   }
 
   private filter(query: string): void {
+    if (this.mode === 'commands') {
+      this.filterCommands(query)
+      return
+    }
+
     const term = query.toLowerCase()
 
     // 1. Collect only notes (files)
@@ -161,11 +238,6 @@ export class FuzzyFinder {
 
     if (!term) {
         // Show recent 5 notes on empty query
-        // Assuming state.notes is already sorted by some criteria, but let's sort by updatedAt if available
-        // or just take top 5 if they are sorted by recent.
-        // In app.ts, we call sortNotes(state.notes), which likely sorts by A-Z or Update?
-        // Let's assume user wants recent. state.notes might be A-Z.
-        // We can sort a copy by updatedAt just for this view.
         matches = [...allItems].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).slice(0, 5)
     } else {
         matches = allItems.filter(n => {
@@ -195,45 +267,107 @@ export class FuzzyFinder {
     this.renderList()
   }
 
+  private filterCommands(query: string): void {
+    const term = query.toLowerCase()
+    let matches: Command[] = []
+
+    if (!term) {
+      matches = [...this.commands]
+    } else {
+      matches = this.commands.filter(cmd =>
+        cmd.label.toLowerCase().includes(term) ||
+        cmd.description?.toLowerCase().includes(term) ||
+        cmd.id.toLowerCase().includes(term)
+      )
+    }
+
+    this.visibleItems = matches
+    this.selectedIndex = 0
+    this.query = term
+    this.renderList()
+  }
+
   private query = ''
 
   private renderList(): void {
     if (!this.list) return
 
-    this.list.innerHTML = this.visibleItems.map((item, index) => {
-      const isSelected = index === this.selectedIndex ? 'is-selected' : ''
-      const icon = item.type === 'folder' ? codicons.folder : getFileIcon(item.title || '')
-      const noteType = item.type === 'note' ? this.getNoteType(item.title || '') : ''
-      const title = this.highlight(item.title || '', this.query)
-      const path = this.highlight(item.path ? item.path.replace(/\\/g, '/') : '', this.query)
+    if (this.visibleItems.length === 0) {
+      this.list.innerHTML = '<div class="fuzzy-empty">No items found</div>'
+      return
+    }
 
-      return `
-        <div class="fuzzy-item ${isSelected}" data-index="${index}" ${noteType ? `data-note-type="${noteType}"` : ''}>
-          <div class="fuzzy-item__main">
-            <div class="fuzzy-item__icon" ${noteType ? `data-note-type="${noteType}"` : ''}>${icon}</div>
-            <span class="fuzzy-item__title">${title}</span>
-            <span class="fuzzy-item__path">${path}</span>
+    if (this.mode === 'commands') {
+      this.list.innerHTML = this.visibleItems.map((item, index) => {
+        const isSelected = index === this.selectedIndex ? 'is-selected' : ''
+        const command = item as Command
+        const label = this.highlightMatch(command.label, this.query)
+        return `
+          <div class="fuzzy-item ${isSelected}" data-index="${index}">
+            <div class="fuzzy-item__content">
+              <div class="fuzzy-item__label">${label}</div>
+              ${command.description ? `<div class="fuzzy-item__description">${command.description}</div>` : ''}
+            </div>
+            ${command.icon ? `<div class="fuzzy-item__icon">${command.icon}</div>` : ''}
           </div>
-        </div>
-      `
-    }).join('')
+        `
+      }).join('')
+    } else {
+      this.list.innerHTML = this.visibleItems.map((item, index) => {
+        const isSelected = index === this.selectedIndex ? 'is-selected' : ''
+        const icon = item.type === 'folder' ? codicons.folder : getFileIcon(item.title || '')
+        const noteType = item.type === 'note' ? this.getNoteType(item.title || '') : ''
+        const title = this.highlight(item.title || '', this.query)
+        const path = this.highlight(item.path ? item.path.replace(/\\/g, '/') : '', this.query)
+
+        return `
+          <div class="fuzzy-item ${isSelected}" data-index="${index}" ${noteType ? `data-note-type="${noteType}"` : ''}>
+            <div class="fuzzy-item__main">
+              <div class="fuzzy-item__icon" ${noteType ? `data-note-type="${noteType}"` : ''}>${icon}</div>
+              <span class="fuzzy-item__title">${title}</span>
+              <span class="fuzzy-item__path">${path}</span>
+            </div>
+          </div>
+        `
+      }).join('')
+    }
 
     // Click and hover selection
     const items = this.list.querySelectorAll('.fuzzy-item')
-    items.forEach(el => {
+    items.forEach((el, index) => {
       el.addEventListener('click', () => {
-        const idx = parseInt((el as HTMLElement).dataset.index!)
+        const idx = parseInt((el as HTMLElement).dataset.index || String(index))
         this.selectedIndex = idx
         const item = this.visibleItems[idx]
-        this.onSelect?.(item.id, item.path, item.type, true)
-        this.close()
+        if (!item) return
+        
+        if (this.mode === 'commands') {
+          const command = item as Command
+          void command.handler()
+          this.close()
+        } else {
+          // Only call onSelect for notes, not commands
+          if (item.id && item.type !== 'command') {
+            this.onSelect?.(item.id, item.path, item.type, true)
+            this.close()
+          }
+        }
       })
       el.addEventListener('mouseover', () => {
-        const idx = parseInt((el as HTMLElement).dataset.index!)
+        const idx = parseInt((el as HTMLElement).dataset.index || String(index))
         this.selectedIndex = idx
         this.renderList()
       })
     })
+  }
+
+  private highlightMatch(text: string, query: string): string {
+    if (!query) return text
+    const lowerText = text.toLowerCase()
+    const lowerQuery = query.toLowerCase()
+    const index = lowerText.indexOf(lowerQuery)
+    if (index === -1) return text
+    return `${text.substring(0, index)}<mark>${text.substring(index, index + query.length)}</mark>${text.substring(index + query.length)}`
   }
 
   private getNoteType(noteName: string): string {

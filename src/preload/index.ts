@@ -42,6 +42,8 @@ type AppSettings = {
   activeView?: 'notes' | 'search' | 'settings'
   windowBounds?: { width: number; height: number; x?: number; y?: number }
   deepseekApiKey?: string
+  gistToken?: string
+  gistId?: string
   rightPanelWidth?: number
   rightPanelVisible?: boolean
 }
@@ -102,6 +104,12 @@ const api = {
   },
   getAppIcon: (): Promise<string> => ipcRenderer.invoke('app:getIcon'),
   getAppVersion: (): Promise<string> => ipcRenderer.invoke('app:getVersion'),
+  syncBackup: (token: string, gistId: string | undefined, vaultData: any): Promise<{ success: boolean; message: string; gistId?: string }> =>
+    ipcRenderer.invoke('sync:backup', token, gistId, vaultData),
+  syncRestore: (token: string, gistId: string): Promise<{ success: boolean; message: string; data?: any }> =>
+    ipcRenderer.invoke('sync:restore', token, gistId),
+  syncTestToken: (token: string): Promise<{ valid: boolean; message: string }> =>
+    ipcRenderer.invoke('sync:testToken', token),
   onVaultChanged: (callback: (data: any) => void) => {
     const subscription = (_event: any, data: any) => callback(data)
     ipcRenderer.on('vault:changed', subscription)

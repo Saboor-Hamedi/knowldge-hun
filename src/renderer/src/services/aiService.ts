@@ -1,4 +1,4 @@
-import { state } from '../core/state'
+// import { state } from '../core/state'
 
 export interface ChatMessage {
   role: 'user' | 'assistant'

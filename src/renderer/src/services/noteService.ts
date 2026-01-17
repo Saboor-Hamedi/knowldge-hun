@@ -56,10 +56,8 @@ export class NoteService {
     const newMeta = await window.api.moveNote(id, fromPath, toPath)
 
     // Update tabs and active state
-    let updatedTabs = false
     state.openTabs = state.openTabs.map(tab => {
       if (tab.id === id) {
-        updatedTabs = true
         return { ...newMeta }
       }
       return tab
@@ -168,10 +166,8 @@ export class NoteService {
 
 
     // Update tabs - preserve title if newMeta doesn't have it
-    let updatedTabs = false
     state.openTabs = state.openTabs.map(tab => {
       if (tab.id === id) {
-        updatedTabs = true
         return {
           ...newMeta,
           title: newMeta.title || tab.title || 'Untitled' // Preserve title

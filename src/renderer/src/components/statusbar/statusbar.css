@@ -16,3 +16,88 @@
   align-items: center;
   gap: 8px;
 }
+
+.statusbar__meta {
+  display: flex;
+  align-items: center;
+}
+
+.statusbar__sync {
+  position: relative;
+}
+
+.statusbar__sync-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 8px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: var(--text-soft);
+  cursor: pointer;
+  transition: all 150ms ease;
+  font-size: 12px;
+}
+
+.statusbar__sync-button:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--border);
+  color: var(--text-strong);
+}
+
+.statusbar__sync-button svg {
+  width: 14px;
+  height: 14px;
+}
+
+.statusbar__sync-menu {
+  position: absolute;
+  bottom: 100%;
+  right: 0;
+  margin-bottom: 4px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  min-width: 180px;
+  display: none;
+  flex-direction: column;
+  overflow: hidden;
+  z-index: 10000;
+}
+
+.statusbar__sync-menu.is-open {
+  display: flex;
+}
+
+.statusbar__sync-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  color: var(--text-strong);
+  cursor: pointer;
+  font-size: 12px;
+  text-align: left;
+  transition: background 150ms ease;
+  white-space: nowrap;
+  width: 100%;
+}
+
+.statusbar__sync-menu-item:hover {
+  background: var(--hover);
+}
+
+.statusbar__sync-menu-icon {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.statusbar__sync-menu-icon svg {
+  width: 14px;
+  height: 14px;
+}

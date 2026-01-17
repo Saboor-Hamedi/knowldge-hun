@@ -24,7 +24,7 @@ export class VaultPicker {
   }
 
   async show(validationError?: { path: string; error: string; suggestion?: string }): Promise<void> {
-    if (!this.modal) return
+    if (!this.modal || this.isOpen) return
     this.isOpen = true
     this.modal.classList.add('is-open')
 

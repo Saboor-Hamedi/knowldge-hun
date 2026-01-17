@@ -24,6 +24,7 @@ export const codicons = {
   copy: '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M11 1H4.5l-.5.5v3h1V2h6v9h-1v1h1.5l.5-.5v-10l-.5-.5z"/><path d="M10.5 4h-7l-.5.5v10l.5.5h7l.5-.5v-10l-.5-.5zM10 14H4V5h6v9z"/></svg>',
   link: '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M6.35 10.35a.5.5 0 01-.7-.7l.35-.35A2.5 2.5 0 018.5 5H11a2.5 2.5 0 012.5 2.5v2.5A2.5 2.5 0 0111 12.5H8.5a2.5 2.5 0 01-2.5-2.5v-.5h1v.5a1.5 1.5 0 001.5 1.5H11a1.5 1.5 0 001.5-1.5V7.5A1.5 1.5 0 0011 6H8.5a1.5 1.5 0 00-1.5 1.5v.15l-.65.7z" fill-rule="evenodd" clip-rule="evenodd"/></svg>',
   cloudDownload: '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M13 7l-4.5 4.5L4 7h3V2h3v5h3zm-8 6h10v1H5v-1z" fill-rule="evenodd" clip-rule="evenodd"/></svg>',
+  cloudUpload: '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 2l-4.5 4.5L8 11h-3v5h6v-5H8zm8 6h-3v1h3v-1z" fill-rule="evenodd" clip-rule="evenodd"/></svg>',
   calendar: '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M13 2H3l-1 1v11l1 1h10l1-1V3l-1-1zM3 3h10v2H3V3zm10 11H3V6h10v8zM4 7h2v2H4V7zm3 0h2v2H7V7zm3 0h2v2h-2V7zm-6 4h2v2H4v-2zm3 0h2v2H7v-2zm3 0h2v2h-2v-2z" fill-rule="evenodd" clip-rule="evenodd"/></svg>',
   pin: '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M11.5 2H4.5l-.5.5v3l-1.5 4L2 10v4l.5.5H6v2.5l2-1.5 2 1.5V14.5h3.5l.5-.5V10l-.5-.5-1.5-4V2.5l-.5-.5z"/></svg>',
 

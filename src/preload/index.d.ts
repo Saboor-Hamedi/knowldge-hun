@@ -4,6 +4,7 @@ type NoteMeta = {
   id: string
   title: string
   updatedAt: number
+  createdAt?: number
   path?: string
   type?: 'note' | 'folder'
   children?: NoteMeta[]
@@ -40,6 +41,8 @@ type AppSettings = {
   activeView?: 'notes' | 'search' | 'settings'
   windowBounds?: { width: number; height: number; x?: number; y?: number }
   deepseekApiKey?: string
+  gistToken?: string
+  gistId?: string
   rightPanelWidth?: number
   rightPanelVisible?: boolean
 }
@@ -59,6 +62,7 @@ type NoteApi = {
   saveNote: (payload: NotePayload) => Promise<NoteMeta>
   deleteNote: (id: string, path?: string) => Promise<{ id: string }>
   moveNote: (id: string, fromPath?: string, toPath?: string) => Promise<NoteMeta>
+  renameNote: (id: string, newId: string, path?: string) => Promise<NoteMeta>
   importNote: (filePath: string, folderPath?: string) => Promise<NoteMeta>
   saveAsset: (buffer: ArrayBuffer, name: string) => Promise<string>
   createFolder: (name: string, parentPath?: string) => Promise<{ name: string; path: string }>
@@ -77,6 +81,9 @@ type NoteApi = {
   getSettings: () => Promise<AppSettings>
   updateSettings: (updates: Partial<AppSettings>) => Promise<AppSettings>
   resetSettings: () => Promise<AppSettings>
+  syncBackup: (token: string, gistId: string | undefined, vaultData: any) => Promise<{ success: boolean; message: string; gistId?: string }>
+  syncRestore: (token: string, gistId: string) => Promise<{ success: boolean; message: string; data?: any }>
+  syncTestToken: (token: string) => Promise<{ valid: boolean; message: string }>
   window: WindowApi
   onVaultChanged: (callback: (data: any) => void) => () => void
   onNoteOpened: (callback: (id: string) => void) => void

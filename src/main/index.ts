@@ -3,7 +3,7 @@ import { setupUpdateApp } from '../renderer/src/components/updateApp/updateApp'
 import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
 import { join, basename, dirname } from 'path'
 import { writeFile, mkdir } from 'fs/promises'
-import { existsSync, readFileSync, writeFileSync, mkdirSync, cpSync, readdirSync } from 'fs'
+import { existsSync, mkdirSync, cpSync, readdirSync } from 'fs'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { version } from '../../package.json'
 import icon from '../../resources/icon.ico?asset'
@@ -191,6 +191,7 @@ app.whenReady().then(async () => {
 
   ipcMain.handle('notes:list', async () => vault.getNotes())
   ipcMain.handle('notes:load', async (_event, id: string) => vault.getNote(id))
+  ipcMain.handle('notes:exportAll', async () => vault.exportAllNotes())
   ipcMain.handle('notes:create', async (_event, title?: string, path?: string) => {
     await ensureVault()
     return vault.createNote(title || 'Untitled', path)
@@ -390,6 +391,161 @@ app.whenReady().then(async () => {
   ipcMain.handle('settings:reset', async () => {
       saveSettings(DEFAULT_SETTINGS)
       return DEFAULT_SETTINGS
+  })
+
+  // Gist Sync Handlers
+  ipcMain.handle('sync:backup', async (_event, token: string, gistId: string | undefined, vaultData: any) => {
+    try {
+      const GIST_FILENAME = 'knowledge-hub-backup.json'
+      const GIST_DESCRIPTION = 'Knowledge Hub Vault Backup'
+      const GIST_API_URL = 'https://api.github.com/gists'
+
+      const content = JSON.stringify({
+        version: 1,
+        timestamp: Date.now(),
+        vaultPath: vault.getRootPath(),
+        notes: vaultData
+      }, null, 2)
+
+      const body: any = {
+        description: GIST_DESCRIPTION,
+        public: false,
+        files: {
+          [GIST_FILENAME]: {
+            content
+          }
+        }
+      }
+
+      // Use Bearer for fine-grained tokens (ghp_) or token for classic tokens
+      const authHeader = token.startsWith('ghp_') ? `Bearer ${token}` : `token ${token}`
+      const headers: any = {
+        'Authorization': authHeader,
+        'Accept': 'application/vnd.github.v3+json',
+        'Content-Type': 'application/json'
+      }
+
+      let response: Response
+      if (gistId) {
+        // Update existing gist
+        response = await fetch(`${GIST_API_URL}/${gistId}`, {
+          method: 'PATCH',
+          headers,
+          body: JSON.stringify(body)
+        })
+      } else {
+        // Create new gist
+        response = await fetch(GIST_API_URL, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(body)
+        })
+      }
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ message: 'Unknown error' }))
+        return {
+          success: false,
+          message: error.message || `HTTP ${response.status}: ${response.statusText}`
+        }
+      }
+
+      const result = await response.json()
+      const newGistId = result.id
+
+      // Save gistId to settings
+      if (newGistId) {
+        updateSettings({ gistId: newGistId })
+      }
+
+      return {
+        success: true,
+        message: gistId ? 'Backup updated successfully' : 'Backup created successfully',
+        gistId: newGistId
+      }
+    } catch (error) {
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : 'Backup failed'
+      }
+    }
+  })
+
+  ipcMain.handle('sync:restore', async (_event, token: string, gistId: string) => {
+    try {
+      const GIST_API_URL = `https://api.github.com/gists/${gistId}`
+      const GIST_FILENAME = 'knowledge-hub-backup.json'
+
+      // Use Bearer for fine-grained tokens (ghp_) or token for classic tokens
+      const authHeader = token.startsWith('ghp_') ? `Bearer ${token}` : `token ${token}`
+      const response = await fetch(GIST_API_URL, {
+        headers: {
+          'Authorization': authHeader,
+          'Accept': 'application/vnd.github.v3+json'
+        }
+      })
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ message: 'Unknown error' }))
+        return {
+          success: false,
+          message: error.message || `HTTP ${response.status}: ${response.statusText}`
+        }
+      }
+
+      const gist = await response.json()
+      const file = gist.files[GIST_FILENAME]
+
+      if (!file) {
+        return {
+          success: false,
+          message: 'Backup file not found in Gist'
+        }
+      }
+
+      const backupData = JSON.parse(file.content)
+      return {
+        success: true,
+        message: 'Backup restored successfully',
+        data: backupData
+      }
+    } catch (error) {
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : 'Restore failed'
+      }
+    }
+  })
+
+  ipcMain.handle('sync:testToken', async (_event, token: string) => {
+    try {
+      // Use Bearer for fine-grained tokens (ghp_) or token for classic tokens
+      const authHeader = token.startsWith('ghp_') ? `Bearer ${token}` : `token ${token}`
+      const response = await fetch('https://api.github.com/user', {
+        headers: {
+          'Authorization': authHeader,
+          'Accept': 'application/vnd.github.v3+json'
+        }
+      })
+
+      if (response.ok) {
+        const user = await response.json()
+        return {
+          valid: true,
+          message: `Token valid for user: ${user.login || 'Unknown'}`
+        }
+      } else {
+        return {
+          valid: false,
+          message: `Token validation failed: ${response.status} ${response.statusText}`
+        }
+      }
+    } catch (error) {
+      return {
+        valid: false,
+        message: error instanceof Error ? error.message : 'Token test failed'
+      }
+    }
   })
 
   ipcMain.handle('window:minimize', async () => {
