@@ -1,10 +1,10 @@
 
 .tabbar {
   display: flex;
-  align-items: center;
+  align-items: flex-end; /* align tabs to bottom */
   gap: 2px;
   height: var(--tab-height);
-  padding: 0 6px;
+  padding: 0 6px 6px 6px; /* extra bottom padding so tabs sit slightly above the bar bottom */
   background: var(--panel);
   border-bottom: 1px solid var(--border);
   overflow-x: auto;
@@ -23,13 +23,15 @@
 }
 
 .tab {
-  height: 28px;
+  height: auto; /* let content determine height so vertical centering works with flex-end */
   display: inline-flex;
   align-items: center;
   gap: 8px;
   border: none;
   border-radius: 0;
-  padding: 0 10px;
+  padding: 6px 10px; /* vertical padding so content is centered within tab */
+  min-height: 28px; /* ensure consistent height across tabs */
+  box-sizing: border-box;
   background: transparent;
   color: var(--text-soft);
   cursor: pointer;
@@ -55,7 +57,7 @@
 }
 
 .tab.is-pinned {
-  padding: 0 10px;
+  padding: 6px 10px; /* match regular tabs */
   min-width: fit-content;
 }
 
@@ -65,7 +67,9 @@
 
 .tab:hover {
   color: var(--text-strong);
-  background: rgba(127, 167, 255, 0.08);
+  /* Keep global hover subtle; specific tabs (like settings) will override to avoid full background fill */
+  background: rgba(127, 167, 255, 0.04);
+  transform: none !important; /* prevent any hover translate */
 }
 
 .tab__icon {
@@ -75,8 +79,8 @@
   color: var(--text-soft); /* Default backup */
   opacity: 1;
   flex-shrink: 0;
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
 }
 
 /* Dynamic Icon Colors */
@@ -92,8 +96,23 @@
 .tab[data-ext="jpg"] .tab__icon { color: #b83998; }
 
 .tab__icon svg {
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
+}
+
+/* Make the settings tab icon an outlined SVG (no filled background) and only slightly change on hover */
+.tab[data-id="settings"] .tab__icon svg {
+  fill: none !important;
+  stroke: currentColor !important;
+}
+.tab[data-id="settings"]:hover {
+  /* Do not show the full tab background on hover for settings - keep it transparent */
+  background: transparent !important;
+  color: var(--text-strong);
+}
+.tab[data-id="settings"]:hover .tab__icon {
+  /* Slight emphasis on icon only */
+  color: rgba(86,156,214,0.9);
 }
 
 .tab__pin-icon {
@@ -112,7 +131,7 @@
 
 .tab__label {
   white-space: nowrap;
-  font-size: 13px;
+  font-size: 12px; /* slightly reduced */
 }
 
 .tab__close {

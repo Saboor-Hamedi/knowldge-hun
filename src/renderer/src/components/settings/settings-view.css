@@ -53,14 +53,16 @@
 .settings-view__sidebar-item:hover {
   background: rgba(127, 167, 255, 0.08);
   color: var(--text-strong);
-  padding-left: 18px;
+  /* keep padding consistent to avoid text shifting */
+  padding-left: 12px;
+  transform: none;
 }
 
 .settings-view__sidebar-item.is-active {
   background: rgba(127, 167, 255, 0.12);
   color: var(--primary-strong);
   font-weight: 600;
-  padding-left: 18px;
+  padding-left: 12px;
 }
 
 .settings-view__sidebar-item.is-active::before {
@@ -72,6 +74,25 @@
   width: 3px;
   background: var(--primary);
   border-radius: 0 4px 4px 0;
+}
+
+/* Normalize sidebar icon sizes and prevent child transforms */
+.settings-view__sidebar-item svg {
+  width: 14px !important;
+  height: 14px !important;
+  display: inline-block;
+}
+.settings-view__sidebar-item .codicon,
+.settings-view__sidebar-item .codicon svg {
+  width: 14px !important;
+  height: 14px !important;
+  display: inline-block;
+}
+.settings-view__sidebar-item *,
+.settings-view__sidebar-item *:hover {
+  transform: none !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
 }
 
 .settings-view__content {

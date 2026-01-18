@@ -1,32 +1,39 @@
-.sidebar {
-  background: var(--panel);
-  border-right: 1px solid var(--border);
-  display: grid;
-  grid-template-rows: auto auto 1fr auto;
-  gap: 0;
-  overflow: hidden;
-}
-
-/* Header */
-.sidebar__header {
+.sidebar__actions {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--border);
-  background: var(--panel);
-}
-
-.sidebar__title {
-  display: flex;
-  align-items: center;
   gap: 6px;
 }
 
-.sidebar__title-text {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
+.sidebar__action {
+  border: none;
+  background: transparent;
+  color: var(--text-soft);
+  cursor: pointer;
+  border-radius: 6px;
+  padding: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.sidebar__action:hover {
+  background: rgba(127, 167, 255, 0.08);
+  color: var(--text-strong);
+}
+
+.sidebar__action-icon {
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sidebar__action-icon svg {
+  width: 16px;
+  height: 16px;
+  display: block;
+}
   color: var(--text-strong);
 }
 
@@ -36,26 +43,44 @@
 }
 
 .sidebar__action {
-  width: 22px;
-  height: 22px;
   border: none;
   background: transparent;
   color: var(--text-soft);
   cursor: pointer;
-  border-radius: 4px;
-  display: grid;
-  place-items: center;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
   transition: background 80ms ease, color 80ms ease;
 }
 
 .sidebar__action:hover {
-  background: rgba(127, 167, 255, 0.1);
+  background: rgba(127, 167, 255, 0.08);
   color: var(--text-strong);
+}
+
+/* Ensure inline codicon wrappers don't introduce padding/background */
+.sidebar__action > .codicon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  margin: 0;
+  background: transparent !important;
+  line-height: 0;
+}
+.sidebar__action > .codicon svg {
+  display: block;
+  background: transparent !important;
+  padding: 0 !important;
+  margin: 0 !important;
 }
 
 .sidebar__action svg {
   width: 16px;
   height: 16px;
+  transition: stroke 120ms, fill 120ms, color 120ms;
 }
 
 /* Search */

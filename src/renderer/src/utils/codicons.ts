@@ -139,9 +139,13 @@ export function getFileIcon(fileName: string | undefined | null): string {
   return codicons.markdown
 }
 
-export function renderIcon(svg: string, className = ''): HTMLSpanElement {
+import { colorizeSvgString } from './svg'
+
+export function renderIcon(svg: string, className = '', color?: string): HTMLSpanElement {
   const span = document.createElement('span')
   span.className = `codicon ${className}`
-  span.innerHTML = svg
+  // Prefer inline colorization so global CSS (currentColor) doesn't force monochrome
+  span.innerHTML = color ? colorizeSvgString(svg, color) : svg
+  if (color) span.style.color = color
   return span
 }

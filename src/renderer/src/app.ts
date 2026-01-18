@@ -973,7 +973,8 @@ class App {
           const info = await window.api.getVault()
           state.vaultPath = info.path
           state.projectName = info.name || 'Vault'
-          this.statusBar.setMeta(`📁 ${info.path}`)
+          // User preference: do not display vault path in status bar
+          this.statusBar.setMeta('')
           return
         } else {
           // Phase 3: Try to locate moved vault
@@ -986,7 +987,7 @@ class App {
             state.vaultPath = info.path
             state.projectName = info.name || 'Vault'
             this.statusBar.setStatus('Vault location updated')
-            this.statusBar.setMeta(`📁 ${info.path}`)
+            this.statusBar.setMeta('')
             return
           }
 
@@ -1062,7 +1063,8 @@ class App {
       this.statusBar.setMeta('Create a note to begin')
     }
     this.updateViewVisibility()
-    this.statusBar.setMeta(`📁 ${path}`)
+    // Do not display vault path in status bar
+    this.statusBar.setMeta('')
 
     // Update settings view if it's open
     this.settingsView.updateVaultPath()
@@ -1220,7 +1222,8 @@ class App {
     await this.editor.loadNote(note)
     this.updateViewVisibility()
     this.statusBar.setStatus('Ready')
-    this.statusBar.setMeta(`📁 ${state.vaultPath || ''}`)
+    // Do not display vault path in status bar
+    this.statusBar.setMeta('')
 
     // Details modal can be opened via keyboard shortcut
 
@@ -1296,7 +1299,8 @@ class App {
     this.sidebar.renderTree(this.sidebar.getSearchValue())
     this.tabBar.render()
     this.statusBar.setStatus('Autosaved')
-    this.statusBar.setMeta(`📁 ${state.vaultPath || ''}`)
+    // Do not display vault path in status bar
+    this.statusBar.setMeta('')
   }
   private showDeleteConfirmationModal(items: { id: string, type: 'note' | 'folder', path?: string }[], onConfirm: () => Promise<void>): void {
     if (items.length === 0) return

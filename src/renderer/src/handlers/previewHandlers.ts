@@ -73,7 +73,8 @@ export class PreviewHandlers {
     await this.callbacks.showPreview(note.content)
     this.callbacks.updateViewVisibility()
     this.callbacks.setStatus('Preview mode')
-    this.callbacks.setMeta(`📁 ${state.vaultPath || ''}`)
+    // Do not display vault path in the status bar (user prefers to hide it)
+    this.callbacks.setMeta('')
 
     // Update sidebar selection to the original note
     this.callbacks.updateSidebarSelection(noteId)

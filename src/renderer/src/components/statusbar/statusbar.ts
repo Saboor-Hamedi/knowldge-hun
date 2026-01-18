@@ -6,6 +6,7 @@ export class StatusBar {
   private container: HTMLElement
   private statusText: HTMLElement
   private metaText: HTMLElement
+  private versionEl: HTMLElement | null = null
   private version: string | null = null
 
   constructor(containerId: string) {
@@ -14,6 +15,7 @@ export class StatusBar {
     this.statusText = this.container.querySelector('.statusbar__left') as HTMLElement
     const rightContainer = this.container.querySelector('.statusbar__right') as HTMLElement
     this.metaText = rightContainer?.querySelector('.statusbar__meta') as HTMLElement
+    this.versionEl = rightContainer?.querySelector('.statusbar__version') as HTMLElement || null
     this.updateStatusText()
     this.attachSyncEvents()
 
@@ -64,6 +66,7 @@ export class StatusBar {
           </div>
         </div>
         <span class="statusbar__meta"></span>
+        <span class="statusbar__version"></span>
       </span>
     `
   }
@@ -114,8 +117,10 @@ export class StatusBar {
   }
 
   private updateStatusText(): void {
-    if (this.statusText) {
-      this.statusText.textContent = this.version ? `v${this.version}` : 'Ready'
+    // Keep the main status text (left) for runtime messages and
+    // always display the app version in the dedicated version element.
+    if (this.versionEl) {
+      this.versionEl.textContent = this.version ? `v${this.version}` : ''
     }
   }
 

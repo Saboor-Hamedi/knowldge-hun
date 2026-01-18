@@ -1,6 +1,7 @@
 import { state } from '../../core/state'
 import type { NoteMeta, FolderItem } from '../../core/types'
 import { getFolderIcon, getFileIcon, codicons } from '../../utils/codicons'
+import { createElement, FolderPlus, FilePlus, Files } from 'lucide'
 import { sortTreeItems } from '../../utils/tree-utils'
 import { contextMenu } from '../contextmenu/contextmenu'
 import './sidebar-tree.css'
@@ -35,6 +36,31 @@ export class SidebarTree {
 
     this.attachEvents()
     this.attachBackdropListener()
+  }
+
+  private createLucideIcon(
+    IconComponent: any,
+    size: number = 16,
+    strokeWidth: number = 1.5,
+    color?: string
+  ): string {
+    try {
+      const svgElement = createElement(IconComponent, {
+        size: size,
+        'stroke-width': strokeWidth,
+        stroke: color || 'currentColor',
+        color: color || 'currentColor'
+      })
+      if (svgElement && svgElement.outerHTML) {
+        // Ensure the icon is outline-only and uses inline stroke color so global CSS won't fill it
+        const strokeCol = color || 'currentColor'
+        svgElement.setAttribute('style', `stroke: ${strokeCol}; fill: none; color: ${strokeCol};`)
+        return svgElement.outerHTML
+      }
+      return ''
+    } catch (e) {
+      return ''
+    }
   }
 
   setGraphClickHandler(handler: () => void): void {
@@ -371,13 +397,13 @@ export class SidebarTree {
         </div>
         <div class="sidebar__actions">
           <button class="sidebar__action" title="New Folder" data-action="new-folder">
-            ${codicons.newFolderOutline || codicons.newFolder}
+            <span class="sidebar__action-icon">${this.createLucideIcon(FolderPlus, 16, 1.5)}</span>
           </button>
           <button class="sidebar__action" title="New Note (Ctrl+N)" data-action="new">
-            ${codicons.add}
+            <span class="sidebar__action-icon">${this.createLucideIcon(FilePlus, 16, 1.5)}</span>
           </button>
           <button class="sidebar__action" title="Reveal in Explorer" data-action="reveal">
-            ${codicons.folderOpenedOutline || codicons.folderOpened}
+            <span class="sidebar__action-icon">${this.createLucideIcon(Files, 16, 1.5)}</span>
           </button>
         </div>
       </header>

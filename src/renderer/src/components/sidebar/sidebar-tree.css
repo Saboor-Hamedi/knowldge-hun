@@ -13,65 +13,63 @@
 .sidebar__header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  height: var(--tab-height);
-  padding: 0 12px;
-  border-bottom: 1px solid var(--border);
-  background: var(--panel);
-  -webkit-app-region: no-drag; /* Ensure clickable */
-  flex-shrink: 0;
-}
-
-.sidebar__title {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.sidebar__title-text {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  color: var(--text-strong);
+  justify-content: space-between; /* title left, actions right */
+  padding: 2px 8px;
+  min-height: 36px; /* ensure header has enough height so contents are centered */
 }
 
 .sidebar__actions {
   display: flex;
-  gap: 0px;
+  gap: 6px;
 }
 
 .sidebar__action {
-  width: 22px;
-  height: 22px;
   border: none;
   background: transparent;
   color: var(--text-soft);
   cursor: pointer;
-  border-radius: 4px;
-  display: grid;
-  place-items: center;
-  transition: background 80ms ease, color 80ms ease;
+  border-radius: 6px;
+  padding: 4px; /* small padding so hover area is tight */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 120ms ease, color 120ms ease;
 }
 
 .sidebar__action:hover {
-  background: rgba(127, 167, 255, 0.1);
+  background: rgba(127, 167, 255, 0.08);
   color: var(--text-strong);
 }
 
-.sidebar__action svg {
+.sidebar__action-icon {
   width: 16px;
   height: 16px;
-  stroke: var(--text-soft);
-  fill: none;
-  filter: none !important;
-  display: block;
-  opacity: 1 !important;
-  color: var(--text-soft) !important;
-  transition: stroke 120ms;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
-.sidebar__action:hover svg {
-  stroke: var(--text-strong);
-  color: var(--text-strong) !important;
+
+.sidebar__action-icon svg {
+  width: 16px;
+  height: 16px;
+  display: block;
+}
+
+/* Ensure inline codicon wrappers don't introduce padding/background */
+.sidebar__action > .codicon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  margin: 0;
+  background: transparent !important;
+  line-height: 0;
+}
+.sidebar__action > .codicon svg {
+  display: block;
+  background: transparent !important;
+  padding: 0 !important;
+  margin: 0 !important;
 }
 /* For filled elements */
 .sidebar__action svg circle[fill="currentColor"],
@@ -97,7 +95,8 @@
   padding: 6px 8px;
   color: var(--text-strong);
   font-family: inherit;
-  font-size: 13px;
+  font-size: 11px; /* slightly reduced */
+  line-height: 1;
 }
 
 .sidebar__search input:focus {

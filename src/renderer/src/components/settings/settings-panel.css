@@ -107,7 +107,9 @@
 }
 
 .settings-panel__tab {
-  flex: 1;
+  flex: 1 1 0; /* equal width tabs, allow shrinking */
+  min-width: 0; /* prevent overflowing content from widening a single tab */
+  box-sizing: border-box;
   padding: 10px 18px;
   background: rgba(127, 167, 255, 0.04);
   border: 1px solid transparent;
@@ -115,7 +117,7 @@
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 150ms ease;
+  transition: background 150ms ease, color 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -123,22 +125,64 @@
   white-space: nowrap;
   border-radius: 8px;
   position: relative;
+  transform: none; /* ensure no accidental transforms */
 }
 
+/* Defensive overrides to prevent any horizontal movement on hover */
+.settings-panel__tab,
+.settings-panel__tab * {
+  box-sizing: border-box !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  padding-left: unset !important;
+  padding-right: unset !important;
+  transform: none !important;
+}
+
+.settings-panel__tab:hover {
+  /* reaffirm no movement */
+  transform: none !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+
+
 .settings-panel__tab svg {
-  width: 16px;
-  height: 16px;
+  width: 14px !important;
+  height: 14px !important;
   flex-shrink: 0;
+  display: block;
+  vertical-align: middle;
+}
+
+/* Ensure any codicon wrappers also constrain svg size */
+.settings-panel__tab .codicon,
+.settings-panel__tab .codicon svg {
+  width: 14px !important;
+  height: 14px !important;
+  display: block;
+}
+
+/* Prevent child elements from applying hover transforms or scaling */
+.settings-panel__tab svg *,
+.settings-panel__tab .codicon * {
+  transform: none !important;
 }
 
 .settings-panel__tab span {
-  font-size: 13px;
+  font-size: 12px;
+}
+
+/* Tighten tab padding to match smaller icons */
+.settings-panel__tab {
+  padding: 8px 14px;
 }
 
 .settings-panel__tab:hover {
   background: rgba(127, 167, 255, 0.12);
   color: var(--text-strong);
   border-color: rgba(127, 167, 255, 0.2);
+  transform: none !important; /* disable any translate/shift on hover */
 }
 
 .settings-panel__tab.is-active {
@@ -400,11 +444,17 @@
 
   .settings-panel__tabs {
     display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-columns: repeat(3, 1fr);
   }
 
   .settings-panel__tab {
     padding: 10px 12px;
     font-size: 12px;
   }
+}
+
+/* Defensive: prevent any child icon/span from adding transform on hover */
+.settings-panel__tab *,
+.settings-panel__tab *:hover {
+  transform: none !important;
 }
