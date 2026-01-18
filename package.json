@@ -37,6 +37,8 @@
     "markdown-it": "^14.1.0",
     "monaco-editor": "^0.52.2",
     "progress-stream": "^2.0.0"
+    ,
+    "keytar": "^8.0.0"
   },
   "nsis": {
     "oneClick": false,

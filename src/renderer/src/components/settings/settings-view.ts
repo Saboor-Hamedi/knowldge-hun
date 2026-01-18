@@ -3,6 +3,7 @@ import type { AppSettings } from '../../core/types'
 import { codicons } from '../../utils/codicons'
 import { themes } from '../../core/themes'
 import { vaultService } from '../../services/vaultService'
+import { keyboardManager } from '../../core/keyboardManager'
 import type { VaultInfo } from '../../services/vaultService'
 import { notificationManager } from '../notification/notification'
 import { createElement, CloudUpload, CloudDownload } from 'lucide'
@@ -82,6 +83,9 @@ export class SettingsView {
           </button>
           <button class="settings-view__sidebar-item ${this.activeSection === 'sync' ? 'is-active' : ''}" data-section-tab="sync">
             ${this.createLucideIcon(CloudUpload, 16)} Sync
+          </button>
+          <button class="settings-view__sidebar-item ${this.activeSection === 'shortcuts' ? 'is-active' : ''}" data-section-tab="shortcuts">
+            ${codicons.pin} Shortcuts
           </button>
         </aside>
 
@@ -328,12 +332,70 @@ export class SettingsView {
             </div>
           </div>
 
+          <!-- Shortcuts Section -->
+          <div class="settings-view__section ${this.activeSection === 'shortcuts' ? 'is-active' : ''}" data-section="shortcuts">
+            <div class="settings-view__section-header">
+              <h2 class="settings-view__section-title">Shortcuts</h2>
+            </div>
+
+            <div class="settings-field">
+              <label class="settings-field__label">Keyboard Shortcuts</label>
+              <p class="settings-field__hint">View registered keyboard shortcuts for the app (global scope).</p>
+              <div class="settings-field__control">
+                <div id="settings-shortcuts-list">
+                  <div class="settings-shortcuts-loading">Loading...</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
         </div>
       </div>
     `
-    this.attachEvents()
     if (this.activeSection === 'vault') {
       void this.loadRecentVaults()
+    }
+    this.attachEvents()
+    if (this.activeSection === 'shortcuts') {
+      void this.renderShortcuts()
+    }
+  }
+  private async renderShortcuts(): Promise<void> {
+    const host = this.container.querySelector('#settings-shortcuts-list') as HTMLElement | null
+    if (!host) return
+    host.innerHTML = '<div class="settings-shortcuts-loading">Loading...</div>'
+
+    try {
+      const bindings = keyboardManager.getBindings('global')
+      if (!bindings || bindings.length === 0) {
+        host.innerHTML = '<div class="settings-shortcuts-empty">No global shortcuts registered.</div>'
+        return
+      }
+
+      host.innerHTML = ''
+      bindings.forEach(b => {
+        const row = document.createElement('div')
+        row.className = 'settings-shortcut-row'
+
+        // Humanize and render key parts as keycaps
+        const parts = b.key.split('+').map(p => p.trim()).filter(Boolean)
+        const human = (p: string) => {
+          const m: Record<string, string> = { control: 'Ctrl', alt: 'Alt', shift: 'Shift', meta: 'Cmd' }
+          return m[p] || p.length === 1 ? p.toUpperCase() : p.charAt(0).toUpperCase() + p.slice(1)
+        }
+        const keyHtml = parts.map(p => `<kbd class="shortcut-kbd">${this.escapeHtml(human(p))}</kbd>`).join(' + ')
+
+        row.innerHTML = `
+          <div class="settings-shortcut-row__meta">
+            <div class="settings-shortcut-row__desc">${this.escapeHtml(b.description || '')}</div>
+            <div class="settings-shortcut-row__key">${keyHtml}</div>
+          </div>
+        `
+        host.appendChild(row)
+      })
+    } catch (err) {
+      host.innerHTML = '<div class="settings-shortcuts-error">Failed to load shortcuts</div>'
+      console.error('[SettingsView] renderShortcuts failed', err)
     }
   }
 
@@ -460,6 +522,8 @@ export class SettingsView {
         dsTest.removeAttribute('disabled')
       }
     })
+
+    
 
     const backupBtn = this.container.querySelector('#settings-sync-backup')
     backupBtn?.addEventListener('click', async () => {
@@ -657,7 +721,9 @@ export class SettingsView {
   }
 
   show(): void {
+    // Make settings full-screen overlay and render
     this.container.style.display = 'block'
+    this.container.classList.add('settings--fullscreen')
     this.render()
     // Update vault path when showing settings
     this.updateVaultPath()
@@ -665,5 +731,6 @@ export class SettingsView {
 
   hide(): void {
     this.container.style.display = 'none'
+    this.container.classList.remove('settings--fullscreen')
   }
 }

@@ -152,6 +152,9 @@ export class PreviewComponent {
 
     this.render()
     this.attachEvents()
+    // handle Escape key to close preview
+    this.handleKeydown = this.handleKeydown.bind(this)
+    window.addEventListener('keydown', this.handleKeydown)
   }
 
   setWikiLinkHandler(handler: (target: string) => void): void {
@@ -211,6 +214,18 @@ export class PreviewComponent {
     })
   }
 
+  private handleKeydown(e: KeyboardEvent): void {
+    if (e.key === 'Escape' || e.key === 'Esc') {
+      // Clear the preview content and ask the app to exit preview mode
+      this.clear()
+      try {
+        window.dispatchEvent(new CustomEvent('exit-preview'))
+      } catch (err) {
+        // ignore
+      }
+    }
+  }
+
   update(content: string): void {
     const previewContent = this.container.querySelector('.preview-content') as HTMLElement
     if (!previewContent) return
@@ -259,7 +274,7 @@ export class PreviewComponent {
       // Get language from code element
       const codeElement = preElement.querySelector('code')
       const language = codeElement?.className?.replace('language-', '') || ''
-      const languageName = language || 'code'
+      const languageName = language || ''
 
       // Create wrapper
       const wrapper = document.createElement('div')
@@ -269,17 +284,20 @@ export class PreviewComponent {
       const header = document.createElement('div')
       header.className = 'code-block-header'
 
-      // Language label
-      const languageLabel = document.createElement('span')
-      languageLabel.className = 'code-block-language'
-      languageLabel.textContent = languageName
-      header.appendChild(languageLabel)
+      // Language label (only when present)
+      if (languageName) {
+        const languageLabel = document.createElement('span')
+        languageLabel.className = 'code-block-language'
+        languageLabel.textContent = languageName
+        header.appendChild(languageLabel)
+      }
 
       // Copy button with Lucide icons
       const copyButton = document.createElement('button')
       copyButton.className = 'code-copy-button'
       copyButton.innerHTML = this.createLucideIcon(Copy, 16, 1.5)
       copyButton.title = 'Copy code'
+      copyButton.setAttribute('aria-label', 'Copy code')
 
       copyButton.addEventListener('click', async () => {
         const code = preElement.querySelector('code')
@@ -338,5 +356,8 @@ export class PreviewComponent {
   destroy(): void {
     this.clear()
     this.container.innerHTML = ''
+    try {
+      window.removeEventListener('keydown', this.handleKeydown)
+    } catch (_) {}
   }
 }

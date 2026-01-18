@@ -205,6 +205,18 @@ class App {
       if (!note) return
       void this.deleteItems([{ id: activeId, type: 'note', path: note.path }])
     })
+
+    // Listen for global preview-exit requests (e.g., Escape pressed in preview)
+    window.addEventListener('exit-preview', () => {
+      try {
+        if (this.editor && this.editor.isPreviewMode) {
+          this.editor.togglePreview()
+        }
+        this.updateViewVisibility()
+      } catch (err) {
+        // ignore
+      }
+    })
   }
 
   private setupMobileEvents(): void {

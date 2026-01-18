@@ -583,6 +583,75 @@ app.whenReady().then(async () => {
   return version
 })
 
+  // Secure secrets: attempt to require `keytar` at runtime and fall back to
+  // storing the API key in settings if `keytar` is not available. This lets
+  // the app run even when native deps aren't installed; recommend running
+  // `npm install` to enable OS secure storage.
+  let keytar: any = null
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    keytar = require('keytar')
+  } catch (err) {
+    console.warn('keytar not available; falling back to settings for secrets')
+    keytar = null
+  }
+
+  ipcMain.handle('secrets:store', async (_event, key: string, value: string) => {
+    if (keytar) {
+      try {
+        await keytar.setPassword('knowledge-hub', key, value)
+        return
+      } catch (err) {
+        console.error('Failed to store secret via keytar:', err)
+        throw err
+      }
+    }
+    // Fallback: persist into settings (less secure)
+    try {
+      await updateSettings({ deepseekApiKey: value })
+    } catch (err) {
+      console.error('Failed to store secret in settings fallback:', err)
+      throw err
+    }
+  })
+
+  ipcMain.handle('secrets:get', async (_event, key: string) => {
+    if (keytar) {
+      try {
+        const v = await keytar.getPassword('knowledge-hub', key)
+        return v || null
+      } catch (err) {
+        console.error('Failed to read secret via keytar:', err)
+        return null
+      }
+    }
+    try {
+      const s = loadSettings()
+      return (s as any)?.deepseekApiKey || null
+    } catch (err) {
+      console.error('Failed to read secret from settings fallback:', err)
+      return null
+    }
+  })
+
+  ipcMain.handle('secrets:delete', async (_event, key: string) => {
+    if (keytar) {
+      try {
+        await keytar.deletePassword('knowledge-hub', key)
+        return
+      } catch (err) {
+        console.error('Failed to delete secret via keytar:', err)
+        throw err
+      }
+    }
+    try {
+      await updateSettings({ deepseekApiKey: '' })
+    } catch (err) {
+      console.error('Failed to clear secret from settings fallback:', err)
+      throw err
+    }
+  })
+
   try {
      const savedPath = resolveVaultPath()
      await vault.setVaultPath(savedPath)

@@ -9,6 +9,7 @@ import { themes } from '../../core/themes'
 import type { NotePayload, AppSettings } from '../../core/types'
 import { registerWikiLinkProviders } from '../wikilink/wikilink'
 import { PreviewComponent } from '../preview/preview'
+import { InlineAIComponent } from '../../services/ai/inline-ai'
 import './editor.css'
 import '../wikilink/wikilink.css'
 
@@ -63,6 +64,9 @@ export class EditorComponent {
   private hashtagDecorations: string[] = []
   private preview?: PreviewComponent
   private previewHost?: HTMLElement
+  private inlineAI?: InlineAIComponent
+  private awaitingInlineKey: boolean = false
+  private awaitingInlineTimer?: number
   public isPreviewMode: boolean = false
 
   constructor(containerId: string) {
@@ -83,7 +87,46 @@ export class EditorComponent {
           }
         })
       }
+      // Initialize inline AI component attached to the editor container
+      try {
+        this.inlineAI = new InlineAIComponent(
+          this.container,
+          (text: string) => { this.insertAtCursor(text) },
+          (text: string) => {
+            // Replace selection if present, otherwise replace whole note content
+            try {
+              if (this.editor) {
+                const sel = this.editor.getSelection()
+                if (sel && !sel.isEmpty()) {
+                  this.editor.executeEdits('', [{ range: sel, text, forceMoveMarkers: true }])
+                } else {
+                  this.editor.setValue(text)
+                }
+              }
+            } catch (e) {
+              console.warn('[Editor] replaceCb failed', e)
+            }
+          },
+          () => {
+            try {
+              if (!this.editor) return null
+              const sel = this.editor.getSelection()
+              if (!sel || sel.isEmpty()) return null
+              const model = this.editor.getModel()
+              if (!model) return null
+              return model.getValueInRange(sel)
+            } catch (e) {
+              return null
+            }
+          }
+        )
+      } catch (e) {
+        // noop if InlineAI fails to initialize
+        console.warn('[Editor] InlineAI init failed', e)
+      }
     }, 0)
+    // Ensure keyboard shortcuts (global listener) registered immediately
+    this.attachKeyboardShortcuts()
   }
 
   setContentChangeHandler(handler: () => void): void {
@@ -358,6 +401,27 @@ export class EditorComponent {
     }
   }
 
+  async openInlineAI(): Promise<void> {
+    if (!this.inlineAI) return
+    await this.ensureEditor()
+    let x: number | undefined
+    let y: number | undefined
+    try {
+      const pos = this.editor!.getScrolledVisiblePosition(this.editor!.getPosition()) as any
+      const hostRect = this.editorHost.getBoundingClientRect()
+      if (pos) {
+        x = pos.left - 20
+        y = pos.top - 40
+        // clamp
+        x = Math.max(8, Math.min(hostRect.width - 100, x))
+        y = Math.max(8, y)
+      }
+    } catch (e) {
+      // ignore and let inlineAI choose default
+    }
+    this.inlineAI.show(x, y)
+  }
+
   getValue(): string {
     return this.editor?.getValue() ?? ''
   }
@@ -611,7 +675,9 @@ export class EditorComponent {
 
   attachKeyboardShortcuts(): void {
     if (!this.listenerAttached) {
-      window.addEventListener('keydown', this.handleKeyDown.bind(this))
+      // Use capture to receive events before Monaco's handlers and allow
+      // stopping propagation so Monaco doesn't intercept Ctrl+K.
+      window.addEventListener('keydown', this.handleKeyDown.bind(this), true)
       this.listenerAttached = true
     }
 
@@ -651,6 +717,19 @@ export class EditorComponent {
   private handleKeyDown(event: KeyboardEvent): void {
     const isMod = event.ctrlKey || event.metaKey
     const key = event.key.toLowerCase()
+
+    // Open inline AI directly with Ctrl+K (single chord)
+    if (isMod && key === 'k') {
+      try {
+        event.preventDefault()
+        // Prevent other handlers (Monaco) from seeing this event
+        try { event.stopImmediatePropagation() } catch (_) {}
+        void this.openInlineAI()
+      } catch (e) {
+        // ignore
+      }
+      return
+    }
 
     if (isMod && key === 's') {
       event.preventDefault()

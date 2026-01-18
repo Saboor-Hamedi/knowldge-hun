@@ -154,7 +154,7 @@ export class RightBar {
       else header.appendChild(toggleBtn)
     }
 
-    // Save API key
+    // Save API key with validation via keyManager
     apiSave?.addEventListener('click', async () => {
       if (!apiInput) return
       const token = apiInput.value.trim()
@@ -163,17 +163,24 @@ export class RightBar {
         return
       }
       apiSave.disabled = true
+      apiSave.textContent = 'Validating...'
       try {
-        await window.api.updateSettings({ deepseekApiKey: token })
-        await aiService.loadApiKey()
+        const res = await aiService.validateKey(token)
+        if (!res.valid) {
+          notificationManager.show(`Invalid key: ${res.message || 'Unauthorized'}`, 'error')
+          return
+        }
+        // Persist via aiService so logic is centralized
+        await aiService.setApiKey(token)
         await this.refreshApiKey()
         notificationManager.show('DeepSeek API key saved', 'success')
         if (apiDropdown) apiDropdown.style.display = 'none'
       } catch (err) {
-        console.error('[RightBar] Failed to save API key', err)
-        notificationManager.show('Failed to save API key', 'error')
+        console.error('[RightBar] Failed to validate/save API key', err)
+        notificationManager.show('Failed to validate/save API key', 'error')
       } finally {
         apiSave.disabled = false
+        apiSave.textContent = 'Save'
       }
     })
 
@@ -182,8 +189,7 @@ export class RightBar {
       apiInput.value = ''
       apiClear.disabled = true
       try {
-        await window.api.updateSettings({ deepseekApiKey: '' })
-        await aiService.loadApiKey()
+        await aiService.setApiKey('')
         await this.refreshApiKey()
         notificationManager.show('DeepSeek API key cleared', 'success')
       } catch (err) {
@@ -324,10 +330,28 @@ export class RightBar {
     }
 
     try {
-      const contextMessage = aiService.buildContextMessage(message)
-      const response = await aiService.callDeepSeekAPI(this.messages, contextMessage)
+      const contextMessage = await aiService.buildContextMessage(message)
+
+      // Add an empty assistant message that we'll stream into
+      this.messages.push({ role: 'assistant', content: '', timestamp: Date.now() })
+      this.renderMessages()
+
+      // Stream response chunks into the last assistant message
+      await aiService.callDeepSeekAPIStream(this.messages, contextMessage, (chunk: string) => {
+        try {
+          const idx = this.messages.length - 1
+          if (idx >= 0 && this.messages[idx].role === 'assistant') {
+            this.messages[idx].content += chunk
+            this.renderMessages()
+          }
+        } catch (e) {
+          console.error('[RightBar] Error applying chunk', e)
+        }
+      })
+
       this.isLoading = false
-      this.addMessage('assistant', response)
+      // final render already handled by chunks, but ensure UI reflects completion
+      this.renderMessages()
     } catch (err: unknown) {
       this.isLoading = false
       this.lastFailedMessage = message
@@ -371,32 +395,70 @@ export class RightBar {
   }
 
   private renderMessages(): void {
+    // If no messages and not loading, show welcome
     if (this.messages.length === 0 && !this.isLoading) {
       this.chatContainer.innerHTML = WELCOME_HTML
       this.chatContainer.scrollTop = 0
       return
     }
 
-    let html = this.messages.map((msg) => {
-      const isError = msg.role === 'assistant' && msg.content.startsWith('❌')
-      const content = this.formatContent(msg.content, msg.role === 'assistant')
-      const actions = msg.role === 'assistant'
-        ? `<div class="rightbar__message-actions">
-             <button type="button" class="rightbar__message-action" data-action="copy" title="Copy">Copy</button>
-             ${isError && this.lastFailedMessage ? '<button type="button" class="rightbar__message-action rightbar__message-action--retry" data-action="retry" title="Retry">Retry</button>' : ''}
-           </div>`
-        : ''
-      return `
-        <div class="rightbar__message rightbar__message--${msg.role}">
-          <div class="rightbar__message-content">${content}</div>
-          ${actions}
-        </div>
-      `
-    }).join('')
+    // Clear container and build DOM nodes safely to avoid injected HTML
+    this.chatContainer.innerHTML = ''
+    for (const msg of this.messages) {
+      const wrapper = document.createElement('div')
+      wrapper.className = `rightbar__message rightbar__message--${msg.role}`
 
-    if (this.isLoading) html += TYPING_HTML
+      const contentEl = document.createElement('div')
+      contentEl.className = 'rightbar__message-content'
 
-    this.chatContainer.innerHTML = html
+      if (msg.role === 'assistant') {
+        // Assistant: render markdown -> sanitized HTML
+        const html = this.formatContent(msg.content, true)
+        contentEl.innerHTML = html
+      } else {
+        // User: set text safely and convert newlines to <br>
+        const escaped = this.escapeHtml(msg.content || '')
+        contentEl.innerHTML = escaped.replace(/\n/g, '<br>')
+      }
+
+      wrapper.appendChild(contentEl)
+
+      if (msg.role === 'assistant') {
+        const actions = document.createElement('div')
+        actions.className = 'rightbar__message-actions'
+
+        const copyBtn = document.createElement('button')
+        copyBtn.type = 'button'
+        copyBtn.className = 'rightbar__message-action'
+        copyBtn.setAttribute('data-action', 'copy')
+        copyBtn.title = 'Copy'
+        copyBtn.textContent = 'Copy'
+        actions.appendChild(copyBtn)
+
+        if (msg.content.startsWith('❌') && this.lastFailedMessage) {
+          const retryBtn = document.createElement('button')
+          retryBtn.type = 'button'
+          retryBtn.className = 'rightbar__message-action rightbar__message-action--retry'
+          retryBtn.setAttribute('data-action', 'retry')
+          retryBtn.title = 'Retry'
+          retryBtn.textContent = 'Retry'
+          actions.appendChild(retryBtn)
+        }
+
+        wrapper.appendChild(actions)
+      }
+
+      this.chatContainer.appendChild(wrapper)
+    }
+
+    if (this.isLoading) {
+      const typingWrapper = document.createElement('div')
+      typingWrapper.className = 'rightbar__typing'
+      typingWrapper.setAttribute('aria-live', 'polite')
+      typingWrapper.innerHTML = '<span></span><span></span><span></span>'
+      this.chatContainer.appendChild(typingWrapper)
+    }
+
     this.chatContainer.scrollTo({ top: this.chatContainer.scrollHeight, behavior: 'smooth' })
   }
 

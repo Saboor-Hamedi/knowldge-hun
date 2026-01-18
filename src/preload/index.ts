@@ -130,6 +130,11 @@ const api = {
     return () => ipcRenderer.removeListener('vault:changed', subscription)
   },
   onNoteOpened: (_callback: (id: string) => void) => {} // Unused but maybe needed for typing
+  ,
+  // Secure secret storage (optional - backed by main process/keytar when available)
+  storeSecret: (key: string, value: string): Promise<void> => ipcRenderer.invoke('secrets:store', key, value),
+  getSecret: (key: string): Promise<string | null> => ipcRenderer.invoke('secrets:get', key),
+  deleteSecret: (key: string): Promise<void> => ipcRenderer.invoke('secrets:delete', key)
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

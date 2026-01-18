@@ -1,0 +1,21 @@
+/* Thin inline AI modal styles (moved from components) */
+.inline-ai {
+  position: absolute;
+  z-index: 1200;
+  min-width: 360px;
+  max-width: 700px;
+  background: var(--panel-strong, #0f1720);
+  border: 1px solid var(--border, #2b2f36);
+  box-shadow: 0 8px 24px rgba(2,6,23,0.6);
+  border-radius: 8px;
+  padding: 8px;
+  color: var(--text, #ddd);
+  font-size: 13px;
+}
+.inline-ai.hidden { display: none }
+.inline-ai .prompt { width: 100%; box-sizing: border-box; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--border-subtle); background: transparent; color: inherit }
+.inline-ai .response { margin-top: 8px; max-height: 220px; overflow: auto; padding: 6px; border-radius: 6px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.02); }
+.inline-ai .controls { display:flex; gap:8px; justify-content: flex-end; margin-top:8px }
+.inline-ai button { background: transparent; border: 1px solid rgba(255,255,255,0.04); color: inherit; padding: 6px 10px; border-radius: 6px; cursor: pointer }
+.inline-ai button.primary { background: var(--primary, #0ea5a4); color: black; border-color: transparent }
+.inline-ai .small { padding:4px 8px; font-size:12px }
