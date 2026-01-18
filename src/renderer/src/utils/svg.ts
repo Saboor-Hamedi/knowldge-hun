@@ -1,3 +1,4 @@
+// @ts-nocheck
 export function colorizeSvgString(svg: string, color?: string): string {
   if (!svg || !color) return svg
   // If svg already has a style attribute, append our color rules

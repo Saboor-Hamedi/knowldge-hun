@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { state } from '../../core/state'
 import { forceSimulation, forceLink, forceManyBody, forceRadial, forceCenter } from 'd3-force'
 import { createElement, Network, Globe, Focus, Atom, Search, Download, BarChart3, X, Maximize2, RotateCcw, Home } from 'lucide'

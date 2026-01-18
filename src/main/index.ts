@@ -142,7 +142,10 @@ function createWindow(): void {
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,
-      webSecurity: true
+      webSecurity: true,
+      // Only enable devtools when running in development mode
+      // This prevents opening devtools in production via F12 / Ctrl+Shift+I
+      devTools: is.dev
     }
   })
   mainWindowRef = mainWindow

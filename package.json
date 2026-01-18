@@ -1,6 +1,6 @@
 {
   "name": "knowledgehub",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "A minimal Electron application with TypeScript",
   "main": "./out/main/index.js",
   "author": "example.com",
@@ -25,11 +25,15 @@
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",
+    "@types/dompurify": "^3.0.5",
     "chokidar": "^5.0.0",
     "d3": "^7.9.0",
     "d3-force": "^3.0.0",
+    "dompurify": "^3.3.1",
     "electron-updater": "^6.7.3",
+    "highlight.js": "^11.11.1",
     "lucide": "^0.562.0",
+    "markdown-it": "^14.1.0",
     "monaco-editor": "^0.52.2"
   },
   "nsis": {

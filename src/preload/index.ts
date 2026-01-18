@@ -1,6 +1,20 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 
+// In production we silence console output to keep logs/console clear for end users.
+// Development is detected by NODE_ENV or presence of the renderer URL.
+const isDev = process.env.NODE_ENV === 'development' || !!process.env.ELECTRON_RENDERER_URL
+if (!isDev) {
+  const noop = () => {}
+  // Keep console.error available so uncaught errors still surface in crash reports,
+  // but silence routine logging and clear calls.
+  console.log = noop as any
+  console.info = noop as any
+  console.debug = noop as any
+  console.warn = noop as any
+  console.clear = noop as any
+}
+
 type NoteMeta = {
   id: string
   title: string

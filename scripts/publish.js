@@ -64,6 +64,52 @@ async function uploadAsset(release, filePath, name) {
     const fileData = fs.readFileSync(filePath);
     const uploadUrl = release.upload_url.replace('{?name,label}', `?name=${name}`);
 
+    // If an asset with the same name already exists on the release, delete it first
+    try {
+      const existingAssets = release.assets || [];
+      const existing = existingAssets.find(a => a.name === name);
+      if (existing) {
+        const deleteUrl = `https://api.github.com/repos/${owner}/${repo}/releases/assets/${existing.id}`;
+        const delRes = await fetch(deleteUrl, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `token ${token}`,
+            'User-Agent': 'KnowledgeHub-Publisher'
+          }
+        });
+        if (delRes.ok) {
+          console.log(`Removed existing asset ${name} (id=${existing.id}) before upload`);
+        } else {
+          console.warn(`Failed to remove existing asset ${name} (id=${existing.id}): ${delRes.status} ${delRes.statusText}`);
+        }
+        // Refresh release assets list
+        const refreshed = await fetch(`https://api.github.com/repos/${owner}/${repo}/releases/${release.id}`, {
+          headers: {
+            'Authorization': `token ${token}`,
+            'User-Agent': 'KnowledgeHub-Publisher'
+          }
+        });
+        if (refreshed.ok) {
+          const refreshedJson = await refreshed.json();
+          release.assets = refreshedJson.assets || [];
+        }
+      }
+    } catch (e) {
+      console.warn('Warning: error while checking/deleting existing assets:', e);
+    }
+
+    // Stream upload with progress reporting
+    const stat = fs.statSync(filePath);
+    const progress = require('progress-stream');
+    const ps = progress({ length: stat.size, time: 200 });
+    ps.on('progress', p => {
+      const pct = Math.round(p.percentage);
+      process.stdout.write(`\rUploading ${name}: ${pct}% (${Math.round(p.transferred/1024)}KB/${Math.round(p.length/1024)}KB)`);
+      if (pct >= 100) process.stdout.write('\n');
+    });
+
+    const readStream = fs.createReadStream(filePath).pipe(ps);
+
     const response = await fetch(uploadUrl, {
       method: 'POST',
       headers: {
@@ -71,15 +117,26 @@ async function uploadAsset(release, filePath, name) {
         'Content-Type': 'application/octet-stream',
         'User-Agent': 'KnowledgeHub-Publisher'
       },
-      body: fileData
+      body: readStream
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to upload ${name}: ${response.statusText}`);
+      throw new Error(`Failed to upload ${name}: ${response.status} ${response.statusText}`);
     }
 
     const asset = await response.json();
     console.log(`Uploaded ${name}: ${asset.browser_download_url}`);
+
+    // Verify the uploaded asset is reachable
+    try {
+      const head = await fetch(asset.browser_download_url, { method: 'HEAD' });
+      if (!head.ok) {
+        console.warn(`Warning: uploaded asset ${name} returned ${head.status} on HEAD check`);
+      }
+    } catch (e) {
+      console.warn('Warning: could not verify uploaded asset via HEAD', e.message || e);
+    }
+
     return asset;
 
   } catch (error) {
@@ -144,14 +201,17 @@ async function main() {
     const filePath = path.join(distDir, file);
     const stat = fs.statSync(filePath);
 
-    // Upload .exe, .zip, .7z files, and other .yml files
+    // Upload .exe, .7z files, and other .yml files (skip .zip to save time)
     if (stat.isFile() && (
-      file.endsWith('.zip') ||
+      /* skip .zip uploads because they are large and slow to upload */
       file.endsWith('.7z') ||
       file.endsWith('.exe') ||
       (file.endsWith('.yml') && file !== 'latest.yml') // Don't duplicate latest.yml
     )) {
-      assetsToUpload.push({ path: filePath, name: file });
+      // Normalize upload name: replace spaces with hyphens to match electron-builder's urls
+      // This prevents mismatches between `latest.yml` entries and GitHub asset names
+      const normalizedName = file.replace(/\s+/g, '-');
+      assetsToUpload.push({ path: filePath, name: normalizedName, originalName: file });
     }
   }
 
@@ -172,7 +232,9 @@ async function main() {
   });
 
   for (const asset of sortedAssets) {
-    await uploadAsset(release, asset.path, asset.name);
+    // If we normalized the name, upload using the normalized name so URLs match latest.yml
+    const uploadName = asset.name || path.basename(asset.path);
+    await uploadAsset(release, asset.path, uploadName);
   }
 
   if (latestYmlFound) {

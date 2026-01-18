@@ -15,7 +15,7 @@
 
 ## Editor Enhancements
 
-11. **Markdown preview mode**: Live preview pane alongside or instead of editor view, with toggle option.
+11. **Markdown preview mode**: Live preview pane alongside or instead of editor view, with toggle option. ✅ *Preview pane implemented*
 12. **Split view editing**: Dual-pane editor for comparing or editing multiple notes side-by-side.
 13. **Markdown extensions**: Support for math equations (LaTeX), Mermaid diagrams, code execution blocks.
 14. **Enhanced wiki links**: Link aliases, link suggestions/autocomplete, unlinked mentions detection. ✅ *Wiki links with hover preview, autocomplete, click-to-open, and link creation*
@@ -41,12 +41,12 @@
 
 ## Graph & Visualization
 
-31. **Graph filters**: Filter graph by tags, folders, date ranges, or note properties.
+31. **Graph filters**: Filter graph by tags, folders, date ranges, or note properties. ✅ *Tag/folder filters implemented*
 32. **Graph layouts**: Multiple layout algorithms (force-directed, hierarchical, circular, timeline). ✅ *Force-directed layout implemented*
 33. **Graph clustering**: Group related notes visually in the graph view.
-34. **Graph search**: Search and highlight notes in the graph view.
-35. **Graph export**: Export graph as image (PNG, SVG) or interactive HTML.
-36. **Local graph view**: Show only notes connected to the currently active note.
+34. **Graph search**: Search and highlight notes in the graph view. ✅ *Graph search implemented*
+35. **Graph export**: Export graph as image (PNG, SVG) or interactive HTML. ✅ *PNG export implemented*
+36. **Local graph view**: Show only notes connected to the currently active note. ✅ *Neighborhood/orb/local modes implemented*
 
 ## Search & Discovery
 
@@ -113,7 +113,7 @@
 
 80. **API for plugins**: Comprehensive plugin API with hooks and events.
 81. **Plugin marketplace**: Built-in marketplace for discovering and installing plugins.
-82. **Developer tools**: Debug console, performance profiler, plugin development tools.
+82. **Developer tools**: Debug console, performance profiler, plugin development tools. ✅ *Devtools control (disabled in production) and console silencing implemented*
 83. **Custom CSS**: Allow users to inject custom CSS for advanced theming.
 84. **Webhooks**: Trigger webhooks on note events for external integrations.
 
