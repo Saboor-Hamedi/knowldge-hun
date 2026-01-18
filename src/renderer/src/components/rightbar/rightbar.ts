@@ -1,4 +1,6 @@
 import { aiService, type ChatMessage } from '../../services/aiService'
+import { notificationManager } from '../notification/notification'
+import { createElement, Key } from 'lucide'
 import MarkdownIt from 'markdown-it'
 import DOMPurify from 'dompurify'
 import './rightbar.css'
@@ -56,12 +58,25 @@ export class RightBar {
         <div class="rightbar__resize-handle" id="rightbar-resize-handle"></div>
         <div class="rightbar__header">
           <h3 class="rightbar__title">AI Chat</h3>
-          <button class="rightbar__header-close" id="rightbar-header-close" title="Close (Ctrl+Shift+I)" aria-label="Close panel">
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>
-          </button>
+          <div style="margin-left:auto;display:flex;gap:6px;align-items:center;">
+            <button class="rightbar__header-close" id="rightbar-header-close" title="Close (Ctrl+Shift+I)" aria-label="Close panel">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+            </button>
+          </div>
         </div>
         <div class="rightbar__chat-container" id="rightbar-chat-container">
           <div class="rightbar__chat-messages" id="rightbar-chat-messages"></div>
+        </div>
+        <div class="rightbar__api-dropdown" id="rightbar-api-dropdown" style="display:none;position:absolute;right:12px;top:44px;z-index:40;width:320px;background:var(--surface);box-shadow:0 6px 18px rgba(0,0,0,0.12);padding:10px;border-radius:6px;">
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <label style="font-size:12px;color:var(--muted)">DeepSeek API Key</label>
+            <input id="rightbar-api-input" type="password" placeholder="sk-..." style="width:100%;padding:8px;border-radius:4px;border:1px solid var(--border);background:var(--bg);color:var(--fg)" />
+            <div style="display:flex;gap:8px;justify-content:flex-end">
+              <button id="rightbar-api-clear" class="settings-button settings-button--ghost">Clear</button>
+              <button id="rightbar-api-save" class="settings-button settings-button--primary">Save</button>
+            </div>
+            <div style="font-size:12px;color:var(--muted)">You can also manage your key in <a href="#" id="rightbar-api-open-settings">Settings → Behavior</a></div>
+          </div>
         </div>
         <div class="rightbar__chat-input-wrapper" id="rightbar-chat-input-wrapper">
           <div class="rightbar__chat-input-container">
@@ -91,6 +106,107 @@ export class RightBar {
     const closeBtn = this.container.querySelector('#rightbar-header-close') as HTMLButtonElement
     closeBtn?.addEventListener('click', () => {
       window.dispatchEvent(new CustomEvent('knowledge-hub:toggle-right-sidebar'))
+    })
+
+    // removed redundant settings-open button (we provide dropdown and separate settings link)
+
+    // API dropdown toggle and handlers
+    const apiDropdown = this.container.querySelector('#rightbar-api-dropdown') as HTMLElement | null
+    const apiInput = this.container.querySelector('#rightbar-api-input') as HTMLInputElement | null
+    const apiSave = this.container.querySelector('#rightbar-api-save') as HTMLButtonElement | null
+    const apiClear = this.container.querySelector('#rightbar-api-clear') as HTMLButtonElement | null
+    const apiOpenSettingsLink = this.container.querySelector('#rightbar-api-open-settings') as HTMLAnchorElement | null
+
+    const toggleApiDropdown = (): void => {
+      if (!apiDropdown) return
+      if (apiDropdown.style.display === 'none' || !apiDropdown.style.display) {
+        // set current value
+        if (apiInput) apiInput.value = aiService.getApiKey() || ''
+        apiDropdown.style.display = 'block'
+        setTimeout(() => apiInput?.focus(), 50)
+      } else {
+        apiDropdown.style.display = 'none'
+      }
+    }
+
+    // Add small button to header to toggle dropdown (styled minimal and inserted left of close button)
+    const header = this.container.querySelector('.rightbar__header') as HTMLElement | null
+    if (header) {
+      const toggleBtn = document.createElement('button')
+      toggleBtn.className = 'rightbar__api-toggle'
+      toggleBtn.title = 'Add API Key'
+      // Use Lucide Key icon so it matches other icons
+      try {
+        const svgEl = createElement(Key, { size: 14, 'stroke-width': 1.5, stroke: 'currentColor', color: 'currentColor' })
+        toggleBtn.innerHTML = svgEl && (svgEl as any).outerHTML ? (svgEl as any).outerHTML : ''
+      } catch (e) {
+        // Fallback to text icon
+        toggleBtn.textContent = '🔑'
+      }
+      toggleBtn.style.cursor = 'pointer'
+      toggleBtn.addEventListener('click', (e) => {
+        e.stopPropagation()
+        toggleApiDropdown()
+      })
+      // Insert before the close button so close remains at the far right
+      const closeBtnEl = this.container.querySelector('#rightbar-header-close')
+      if (closeBtnEl && closeBtnEl.parentElement) closeBtnEl.parentElement.insertBefore(toggleBtn, closeBtnEl)
+      else header.appendChild(toggleBtn)
+    }
+
+    // Save API key
+    apiSave?.addEventListener('click', async () => {
+      if (!apiInput) return
+      const token = apiInput.value.trim()
+      if (!token) {
+        notificationManager.show('Please enter an API key', 'warning')
+        return
+      }
+      apiSave.disabled = true
+      try {
+        await window.api.updateSettings({ deepseekApiKey: token })
+        await aiService.loadApiKey()
+        await this.refreshApiKey()
+        notificationManager.show('DeepSeek API key saved', 'success')
+        if (apiDropdown) apiDropdown.style.display = 'none'
+      } catch (err) {
+        console.error('[RightBar] Failed to save API key', err)
+        notificationManager.show('Failed to save API key', 'error')
+      } finally {
+        apiSave.disabled = false
+      }
+    })
+
+    apiClear?.addEventListener('click', async () => {
+      if (!apiInput) return
+      apiInput.value = ''
+      apiClear.disabled = true
+      try {
+        await window.api.updateSettings({ deepseekApiKey: '' })
+        await aiService.loadApiKey()
+        await this.refreshApiKey()
+        notificationManager.show('DeepSeek API key cleared', 'success')
+      } catch (err) {
+        console.error('[RightBar] Failed to clear API key', err)
+        notificationManager.show('Failed to clear API key', 'error')
+      } finally {
+        apiClear.disabled = false
+      }
+    })
+
+    apiOpenSettingsLink?.addEventListener('click', (e) => {
+      e.preventDefault()
+      // Reuse existing event to open settings
+      window.dispatchEvent(new CustomEvent('knowledge-hub:open-settings', { detail: { section: 'behavior' } }))
+      if (apiDropdown) apiDropdown.style.display = 'none'
+    })
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+      const target = e.target as HTMLElement
+      if (!apiDropdown) return
+      const within = target.closest('#rightbar-api-dropdown') || target.closest('.rightbar__api-toggle')
+      if (!within) apiDropdown.style.display = 'none'
     })
   }
 

@@ -39,6 +39,17 @@ export class SettingsView {
     this.render()
   }
 
+  // Open view to a specific section (e.g. 'behavior') and focus first input
+  openSection(section: string): void {
+    this.activeSection = section
+    this.render()
+    // Focus DeepSeek input when opening behavior
+    if (section === 'behavior') {
+      const inp = this.container.querySelector('#settings-deepseek-input') as HTMLInputElement | null
+      if (inp) setTimeout(() => inp.focus(), 50)
+    }
+  }
+
   private createLucideIcon(IconComponent: any, size: number = 16): string {
     const svgElement = createElement(IconComponent, {
       size: size,
@@ -203,13 +214,20 @@ export class SettingsView {
               <label class="settings-field__label">DeepSeek API Key</label>
               <p class="settings-field__hint">Your DeepSeek API key for AI chat functionality. Get one at <a href="https://platform.deepseek.com" target="_blank" style="color: var(--primary);">platform.deepseek.com</a></p>
               <div class="settings-field__control">
-                <input
-                  type="password"
-                  class="settings-input"
-                  data-setting="deepseekApiKey"
-                  placeholder="sk-..."
-                  value="${(state.settings as any)?.deepseekApiKey || ''}"
-                />
+                <div style="display:flex;gap:8px;align-items:center;">
+                  <input
+                    type="password"
+                    class="settings-input"
+                    data-setting="deepseekApiKey"
+                    id="settings-deepseek-input"
+                    placeholder="sk-..."
+                    value="${(state.settings as any)?.deepseekApiKey || ''}"
+                    style="flex:1"
+                  />
+                  <button class="settings-button settings-button--ghost" id="settings-deepseek-toggle" title="Show/Hide key">Show</button>
+                  <button class="settings-button settings-button--secondary" id="settings-deepseek-clear" title="Clear key">Clear</button>
+                  <button class="settings-button settings-button--primary" id="settings-deepseek-test" title="Save & Apply">Save & Apply</button>
+                </div>
               </div>
             </div>
           </div>
@@ -392,6 +410,54 @@ export class SettingsView {
       } finally {
         testTokenBtn.textContent = 'Test Token'
         testTokenBtn.removeAttribute('disabled')
+      }
+    })
+
+    // DeepSeek key controls (show/clear/save & apply)
+    const dsToggle = this.container.querySelector('#settings-deepseek-toggle') as HTMLButtonElement | null
+    const dsClear = this.container.querySelector('#settings-deepseek-clear') as HTMLButtonElement | null
+    const dsTest = this.container.querySelector('#settings-deepseek-test') as HTMLButtonElement | null
+    const dsInput = this.container.querySelector('#settings-deepseek-input') as HTMLInputElement | null
+
+    dsToggle?.addEventListener('click', () => {
+      if (!dsInput) return
+      if (dsInput.type === 'password') {
+        dsInput.type = 'text'
+        dsToggle.textContent = 'Hide'
+      } else {
+        dsInput.type = 'password'
+        dsToggle.textContent = 'Show'
+      }
+      dsInput.focus()
+    })
+
+    dsClear?.addEventListener('click', () => {
+      if (!dsInput) return
+      dsInput.value = ''
+      // propagate change
+      this.onSettingChange?.({ deepseekApiKey: '' } as any)
+      notificationManager.show('DeepSeek API key cleared', 'success')
+      dsInput.focus()
+    })
+
+    dsTest?.addEventListener('click', async () => {
+      if (!dsInput) return
+      const token = dsInput.value.trim()
+      if (!token) {
+        notificationManager.show('Please enter an API key first', 'warning')
+        return
+      }
+      dsTest.textContent = 'Saving...'
+      dsTest.setAttribute('disabled', 'true')
+      try {
+        // Use the existing setting change handler to persist and apply
+        this.onSettingChange?.({ deepseekApiKey: token } as any)
+        notificationManager.show('DeepSeek API key saved and applied', 'success')
+      } catch (err) {
+        notificationManager.show('Failed to save API key', 'error')
+      } finally {
+        dsTest.textContent = 'Save & Apply'
+        dsTest.removeAttribute('disabled')
       }
     })
 

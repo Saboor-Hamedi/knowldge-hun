@@ -313,6 +313,19 @@ class App {
 
     window.addEventListener('knowledge-hub:toggle-right-sidebar', () => { void this.toggleRightSidebar() })
 
+    // Open settings to a specific section (e.g. 'behavior')
+    window.addEventListener('knowledge-hub:open-settings', (async (e: CustomEvent) => {
+      const section = (e && e.detail && e.detail.section) ? e.detail.section : 'behavior'
+      // Ensure activity bar highlights Settings
+      try {
+        this.activityBar.setActiveView('settings')
+      } catch (err) {
+        // ignore if activityBar is not ready
+      }
+      await this.openSettings()
+      this.settingsView.openSection(section)
+    }) as EventListener)
+
     // Fuzzy Finder
     this.fuzzyFinder.setSelectHandler(async (id, path, type, isFinal) => {
       if (type === 'folder') {

@@ -425,6 +425,45 @@
   color: var(--text-soft);
 }
 
+/* Inline API key input: remove focus outline */
+#rightbar-api-input {
+  outline: none;
+  box-shadow: none;
+  border-radius: 4px;
+}
+#rightbar-api-input:focus {
+  outline: none;
+  box-shadow: none;
+  border-color: var(--border);
+}
+
+/* API toggle button styling to match other header icons */
+.rightbar__api-toggle {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-soft);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 120ms ease, color 120ms ease;
+  flex-shrink: 0;
+}
+
+.rightbar__api-toggle svg {
+  display: block;
+  width: 14px;
+  height: 14px;
+}
+
+.rightbar__api-toggle:hover {
+  background: rgba(127,167,255,0.12);
+  color: var(--text-strong);
+}
+
 .rightbar__chat-input:disabled {
   opacity: 0.6;
   cursor: not-allowed;

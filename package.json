@@ -1,6 +1,6 @@
 {
   "name": "knowledgehub",
-  "version": "0.0.5",
+  "version": "0.0.4",
   "description": "A minimal Electron application with TypeScript",
   "main": "./out/main/index.js",
   "author": "example.com",
@@ -19,6 +19,7 @@
     "build:win": "npm run build && electron-builder --win",
     "build:mac": "npm run build && electron-builder --mac",
     "build:linux": "npm run build && electron-builder --linux",
+    "publish:assets": "npx dotenv-cli node scripts/publish.js",
     "dist:publish": "npm run build && npx electron-builder --win --publish=never && npx dotenv-cli node scripts/publish.js",
     "icon:win": "npx electron-icon-maker --input=resources/icon.png --output=build && cp build/icons/win/icon.ico build/icon.ico && cp build/icons/mac/icon.icns build/icon.icns"
   },
@@ -34,7 +35,8 @@
     "highlight.js": "^11.11.1",
     "lucide": "^0.562.0",
     "markdown-it": "^14.1.0",
-    "monaco-editor": "^0.52.2"
+    "monaco-editor": "^0.52.2",
+    "progress-stream": "^2.0.0"
   },
   "nsis": {
     "oneClick": false,

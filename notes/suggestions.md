@@ -1,3 +1,6 @@
+npm install progress-stream --save
+npx dotenv-cli node scripts/publish.js
+npx electron-builder --win --x64 --ia32 --publish=never
 # Suggestions for Future Improvements
 
 ## Core Features
