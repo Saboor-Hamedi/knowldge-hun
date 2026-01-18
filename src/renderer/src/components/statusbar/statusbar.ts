@@ -81,25 +81,51 @@ export class StatusBar {
       const newButton = syncButton.cloneNode(true) as HTMLElement
       syncButton.parentNode?.replaceChild(newButton, syncButton)
 
+      // Portal the menu to document.body so it floats above other UI and is reachable
+      const portal = document.createElement('div')
+      portal.className = 'statusbar-sync-portal'
+      portal.style.position = 'absolute'
+      portal.style.zIndex = '10000'
+      portal.style.display = 'none'
+      document.body.appendChild(portal)
+
+      // Move menu into portal
+      portal.appendChild(syncMenu)
+
       newButton.addEventListener('click', (e) => {
         e.stopPropagation()
         e.preventDefault()
-        syncMenu.classList.toggle('is-open')
+
+        // Toggle visibility
+        const isOpen = portal.style.display === 'block'
+        if (isOpen) {
+          portal.style.display = 'none'
+          syncMenu.classList.remove('is-open')
+        } else {
+          // Position the portal just above the statusbar button
+          const rect = newButton.getBoundingClientRect()
+          portal.style.left = `${rect.right - syncMenu.clientWidth}px`
+          portal.style.top = `${rect.top - syncMenu.clientHeight - 8}px`
+          portal.style.display = 'block'
+          syncMenu.classList.add('is-open')
+        }
       })
 
+      // Prevent clicks from closing when interacting with the menu
       syncMenu.addEventListener('click', (e) => {
         e.stopPropagation()
       })
 
-      // Close menu when clicking outside (only attach once)
-      if (!(syncMenu as any).__clickOutsideAttached) {
+      // Close menu when clicking outside
+      if (!(portal as any).__clickOutsideAttached) {
         const handleClickOutside = (e: MouseEvent) => {
-          if (!syncMenu.contains(e.target as Node) && !newButton.contains(e.target as Node)) {
+          if (!portal.contains(e.target as Node) && !newButton.contains(e.target as Node)) {
+            portal.style.display = 'none'
             syncMenu.classList.remove('is-open')
           }
         }
         document.addEventListener('click', handleClickOutside)
-        ;(syncMenu as any).__clickOutsideAttached = true
+        ;(portal as any).__clickOutsideAttached = true
       }
     }
 

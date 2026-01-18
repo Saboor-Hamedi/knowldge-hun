@@ -41,8 +41,8 @@ export type GraphStats = {
 // Performance constants
 export const MAX_VISIBLE_NODES = 5000
 export const MIN_NODE_RADIUS = 3
-export const MAX_NODE_RADIUS = 30
-export const BASE_NODE_RADIUS = 6
-export const TAG_NODE_RADIUS = 5
-export const CENTRAL_NODE_RADIUS = 22
+export const MAX_NODE_RADIUS = 42
+export const BASE_NODE_RADIUS = 9
+export const TAG_NODE_RADIUS = 7
+export const CENTRAL_NODE_RADIUS = 28
 export const ANIMATION_SPEED = 0.02

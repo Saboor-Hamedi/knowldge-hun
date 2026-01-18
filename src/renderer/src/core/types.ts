@@ -23,6 +23,7 @@ export type AppState = {
   expandedFolders: Set<string>
   openTabs: NoteMeta[]
   activeId: string
+  tabsNeedingReload?: Set<string>
   isDirty: boolean
   lastSavedAt: number
   applyingRemote: boolean

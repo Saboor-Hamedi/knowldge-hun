@@ -404,7 +404,75 @@ export class VaultManager {
     const newRelPath = relative(this.rootPath, newPath).replace(/\\/g, '/')
     const actualNewId = this.getIdFromPath(newRelPath)
 
+    // After renaming the file on disk, update all wiki-style links ([[...]] ) across the vault
+    // so references to the old name/path point to the new name/path. This keeps backlinks and
+    // user-visible wikilinks consistent after a rename.
+    try {
+      await this.updateWikilinksAfterRename(id, actualNewId)
+    } catch (err) {
+      console.error('[Vault] Failed to update wikilinks after rename', err)
+    }
+
     return actualNewId
+  }
+
+  private escapeRegExp(s: string): string {
+    return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  }
+
+  private async updateWikilinksAfterRename(oldId: string, newId: string): Promise<void> {
+    const oldBase = basename(oldId)
+    const newBase = basename(newId)
+
+    const oldIdEsc = this.escapeRegExp(oldId)
+    const oldBaseEsc = this.escapeRegExp(oldBase)
+
+    const reOldId = new RegExp(`\\[\\[\\s*${oldIdEsc}(\\s*\\|[^\\]]+)?\\s*\\]\\]`, 'gi')
+    const reOldBase = new RegExp(`\\[\\[\\s*${oldBaseEsc}(\\s*\\|[^\\]]+)?\\s*\\]\\]`, 'gi')
+
+    for (const [noteId, meta] of Array.from(this.notes.entries())) {
+      // Skip the note we just renamed
+      if (noteId === newId) continue
+
+      const filename = `${basename(noteId)}.md`
+      const fullPath = join(this.rootPath, meta.path || '', filename)
+      try {
+        if (!existsSync(fullPath)) continue
+        let content = await readFile(fullPath, 'utf-8')
+        let changed = false
+
+        // Replace occurrences of full old ID (path/with folders)
+        if (reOldId.test(content)) {
+          content = content.replace(reOldId, (match, p1) => {
+            const suffix = p1 || ''
+            return `[[${newId}${suffix}]]`
+          })
+          changed = true
+        }
+
+        // Replace occurrences of basename-only links (common case)
+        if (reOldBase.test(content)) {
+          content = content.replace(reOldBase, (match, p1) => {
+            const suffix = p1 || ''
+            return `[[${newBase}${suffix}]]`
+          })
+          changed = true
+        }
+
+        if (changed) {
+          console.log(`[Vault] Updating wikilinks in ${noteId} (file: ${fullPath})`)
+          await writeFile(fullPath, content, 'utf-8')
+          // Re-index updated file so links/backlinks and metadata are refreshed
+          await this.indexFile(fullPath)
+          // Notify main window about the change so renderer can refresh if needed
+          const metaAfter = this.notes.get(noteId)
+          this.mainWindow?.webContents.send('vault-changed', { event: 'change', id: noteId, meta: metaAfter })
+          console.log(`[Vault] Notified renderer about change for ${noteId}`)
+        }
+      } catch (err) {
+        console.error(`[Vault] Failed updating wikilinks in ${fullPath}`, err)
+      }
+    }
   }
 
   public async moveNote(id: string, fromPath?: string, toPath?: string): Promise<NoteMeta> {

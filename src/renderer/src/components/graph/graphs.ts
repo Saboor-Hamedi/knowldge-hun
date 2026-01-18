@@ -1430,37 +1430,40 @@ export class GraphView {
           gradient.addColorStop(1, '#3b82f6')
         } else {
           const color = baseColor
-          gradient.addColorStop(0, color.replace('0.95', '1').replace('0.8', '0.95'))
-          gradient.addColorStop(0.7, color)
-          gradient.addColorStop(1, color.replace('0.95', '0.75').replace('0.8', '0.6'))
+          // Make fills more saturated/solid for a robust appearance
+          const solid = color.replace('0.95', '1').replace('0.8', '1')
+          gradient.addColorStop(0, solid)
+          gradient.addColorStop(0.6, color)
+          gradient.addColorStop(1, color.replace('0.95', '0.9').replace('0.8', '0.85'))
         }
       }
 
-      // No glow effects - removed shadow for cleaner look
-
+      // Solid fill for a more robust look
       ctx.beginPath()
       ctx.arc(node.x, node.y, r, 0, 2 * Math.PI)
       ctx.fillStyle = gradient
       ctx.fill()
 
-      // Border
+      // Softer, thinner border (or removed entirely for default nodes)
       const borderColor = isHighlighted ? (node.pathNode ? '#ffaa00' : '#64bafa') :
               isCentral ? '#ffaa00' :
               isActive ? '#ffaa00' :
               isHovered ? (node.type === 'tag' ? '#14b8a6' : '#64bafa') :
-              (node.hasWikiLinks ? 'rgba(255, 179, 71, 0.95)' : (node.hasTags ? '#0d9488' : 'rgba(255, 255, 255, 0.3)'))
+              (node.hasWikiLinks ? 'rgba(255, 179, 71, 0.85)' : (node.hasTags ? '#0d9488' : 'rgba(255, 255, 255, 0.12)'))
+
+      // Reduce default border to almost invisible but keep emphasis for highlighted/active nodes
+      const baseLineWidth = isHighlighted || isCentral ? 3 : (isActive || isHovered ? 2 : 0.6)
+      const wikiBoost = Math.max(0, (node.wikiLinkCount || 0) - 1)
       ctx.strokeStyle = borderColor
-      const baseLineWidth = isHighlighted || isCentral ? 3 : (isActive || isHovered ? 2 : 1)
-      const wikiBoost = Math.max(0, (node.wikiLinkCount || 0) - 1) // extra width for multiple wikilinks
-      ctx.lineWidth = (baseLineWidth + Math.min(wikiBoost, 6) * 0.4) / this.zoom
+      ctx.lineWidth = (baseLineWidth + Math.min(wikiBoost, 6) * 0.5) / this.zoom
       ctx.stroke()
 
-      // Subtle halo for highly-linked nodes
-      if ((node.wikiLinkCount || 0) >= 4) {
+      // Stronger halo for highly-linked nodes to convey knowledge hubs
+      if ((node.wikiLinkCount || 0) >= 3) {
         ctx.beginPath()
-        ctx.arc(node.x, node.y, r + 4 + Math.min((node.wikiLinkCount || 0) - 3, 6), 0, 2 * Math.PI)
-        ctx.strokeStyle = 'rgba(255, 179, 71, 0.12)'
-        ctx.lineWidth = (2 + Math.min((node.wikiLinkCount || 0) - 3, 6)) / this.zoom
+        ctx.arc(node.x, node.y, r + 6 + Math.min((node.wikiLinkCount || 0) - 2, 8), 0, 2 * Math.PI)
+        ctx.strokeStyle = 'rgba(255, 179, 71, 0.16)'
+        ctx.lineWidth = (3 + Math.min((node.wikiLinkCount || 0) - 2, 8)) / this.zoom
         ctx.stroke()
       }
 

@@ -307,7 +307,7 @@ export class EditorComponent {
     }, 0)
   }
 
-  public async loadNote(payload: NotePayload): Promise<void> {
+  public async loadNote(payload: NotePayload, opts?: { force?: boolean }): Promise<void> {
     console.log(`[Editor] Vitals Check: LOADING NOTE`, { id: payload.id })
     state.applyingRemote = true
     await this.ensureEditor()
@@ -330,8 +330,9 @@ export class EditorComponent {
     this.reRegisterProviders()
 
     const currentContent = model.getValue()
-    if (currentContent !== payload.content) {
-        this.editor.setValue(payload.content)
+    const shouldSet = opts?.force === true || currentContent !== payload.content
+    if (shouldSet) {
+      this.editor.setValue(payload.content)
     }
 
     const prevLang = model.getLanguageId()

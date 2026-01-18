@@ -127,7 +127,13 @@ const api = {
   onVaultChanged: (callback: (data: any) => void) => {
     const subscription = (_event: any, data: any) => callback(data)
     ipcRenderer.on('vault:changed', subscription)
-    return () => ipcRenderer.removeListener('vault:changed', subscription)
+    // Also listen for legacy/hyphen channel from main ('vault-changed') and forward
+    const legacySub = (_event: any, data: any) => callback(data)
+    ipcRenderer.on('vault-changed', legacySub)
+    return () => {
+      ipcRenderer.removeListener('vault:changed', subscription)
+      ipcRenderer.removeListener('vault-changed', legacySub)
+    }
   },
   onNoteOpened: (_callback: (id: string) => void) => {} // Unused but maybe needed for typing
   ,
@@ -153,3 +159,15 @@ if (process.contextIsolated) {
   // @ts-ignore (define in dts)
   window.api = api
 }
+
+// Forward IPC vault-changed messages to the window as DOM events for existing renderer listeners
+ipcRenderer.on('vault-changed', (_e, data) => {
+  try {
+    window.dispatchEvent(new CustomEvent('vault-changed', { detail: data }))
+  } catch (_) {}
+})
+ipcRenderer.on('vault:changed', (_e, data) => {
+  try {
+    window.dispatchEvent(new CustomEvent('vault-changed', { detail: data }))
+  } catch (_) {}
+})

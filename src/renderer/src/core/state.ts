@@ -6,6 +6,7 @@ export const state: AppState = {
   expandedFolders: new Set<string>(),
   openTabs: [],
   activeId: '',
+  tabsNeedingReload: new Set<string>(),
   isDirty: false,
   lastSavedAt: 0,
   applyingRemote: false,

@@ -56,12 +56,11 @@ function buildTree(items: NoteMeta[]): TreeItem[] {
     } else if (folderMap.has(parentPath)) {
       folderMap.get(parentPath)!.children?.push(treeItem)
     } else {
+      // If parent folder is missing (edge case), attach to root
       root.push(treeItem)
     }
   })
 
-  // 3. Sort recursively
-  sortTreeRecursive(root)
   return root
 }
 
@@ -73,6 +72,8 @@ class App {
       window.electron?.ipcRenderer?.on?.('update:not-available', () => {
         this.statusBar.setStatus('No update available.')
       })
+      
+      
       window.electron?.ipcRenderer?.on?.('update:progress', (_event, progressObj) => {
         const percent = progressObj.percent ? progressObj.percent.toFixed(1) : ''
         this.statusBar.setStatus(`Downloading update... ${percent}%`)
@@ -613,10 +614,76 @@ class App {
     )
   }
   private registerVaultChangeListener(): void {
-    window.addEventListener('vault-changed', () => {
+    window.addEventListener('vault-changed', ((e: CustomEvent) => {
+      // Refresh notes tree/state for any vault change
       void this.refreshNotes()
       void this.saveExpandedFolders()
-    })
+
+      // If a specific file was changed on disk (e.g., we updated wikilinks after a rename),
+      // and it's the currently active note, reload its content into the editor so the user
+      // sees updated wikilinks immediately.
+      try {
+        const detail = e && e.detail ? e.detail as any : null
+        if (detail && detail.event === 'change' && detail.id) {
+          const changedId = detail.id as string
+
+          console.debug('[App] vault-changed received', { changedId, meta: detail.meta, activeId: state.activeId })
+
+          // Build a set of candidate open IDs including basename matches
+          const openTabs = state.openTabs.map(t => t.id)
+          const openIds = new Set(openTabs)
+
+          // Helper to check if an open tab corresponds to the changed file.
+          const matchesOpenTab = (openId: string) => {
+            if (openId === changedId) return true
+            const openBase = openId.split('/').pop()
+            const changedBase = changedId.split('/').pop()
+            if (openBase && changedBase && openBase === changedBase) {
+              // If paths are provided in meta, prefer a path match
+              if (detail.meta && typeof detail.meta.path === 'string') {
+                const openMeta = state.notes.find(n => n.id === openId)
+                if (openMeta && openMeta.path === detail.meta.path) return true
+              } else {
+                return true
+              }
+            }
+            return false
+          }
+
+          // Find matching open tab id (if any)
+          const matchedOpenId = openTabs.find(id => matchesOpenTab(id))
+
+          if (matchedOpenId) {
+            // If it's the active tab, reload immediately (force) so in-memory editor
+            // reflects disk rewrites (e.g., wikilink updates). Otherwise mark for reload.
+            if (state.activeId === matchedOpenId) {
+              // Use an async IIFE so we don't make the event listener async
+              ;(async () => {
+                try {
+                  console.debug('[App] Forcing reload of active tab for', matchedOpenId)
+                  const payload = await window.api.loadNote(matchedOpenId, detail.meta?.path)
+                  if (payload) {
+                    await this.editor.loadNote(payload, { force: true })
+                    state.tabsNeedingReload?.delete(matchedOpenId)
+                  }
+                } catch (err) {
+                  console.warn('[App] Forced reload failed, falling back to openNote', err)
+                  void this.openNote(matchedOpenId, detail.meta?.path)
+                  state.tabsNeedingReload?.delete(matchedOpenId)
+                }
+              })()
+            } else {
+              state.tabsNeedingReload?.add(matchedOpenId)
+            }
+          } else {
+            // No matching open tab found; nothing to do
+            console.debug('[App] vault-changed: no matching open tab for', changedId)
+          }
+        }
+      } catch (err) {
+        // ignore
+      }
+    }) as EventListener)
 
     window.addEventListener(
       'status',
@@ -837,6 +904,32 @@ class App {
            this.fuzzyFinder.toggle('commands')
        }
     })
+
+    // Global preview toggle (Ctrl+\) — ensure it works regardless of focus
+    keyboardManager.register({
+      key: 'Control+\\',
+      scope: 'global',
+      description: 'Open Preview',
+      handler: () => {
+        void this.previewHandlers.openPreviewTab()
+      }
+    })
+
+    // Capture listener to ensure Ctrl+\ works even when focus is outside editor
+    // This runs in capture phase to intercept the chord early and avoid focus issues
+    if (!(window as any).__previewCaptureAttached) {
+      window.addEventListener('keydown', (e: KeyboardEvent) => {
+        const isMod = e.ctrlKey || e.metaKey
+        if (isMod && e.key === '\\') {
+          try {
+            e.preventDefault()
+            e.stopImmediatePropagation()
+          } catch (_) {}
+          void this.previewHandlers.openPreviewTab()
+        }
+      }, true)
+      ;(window as any).__previewCaptureAttached = true
+    }
 
     keyboardManager.register({
        key: 'Control+Shift+i',
