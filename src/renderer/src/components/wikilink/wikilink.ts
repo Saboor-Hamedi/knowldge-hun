@@ -45,15 +45,15 @@ export function registerWikiLinkProviders(monaco: any, getNotePreview: (id: stri
                .replace(/\[\[(.*?)\]\]/g, '$1') // Remove wiki links
                .trim()
 
-             // Limit length and add ellipsis
-             const maxLength = 250
+             // Limit length and add ellipsis - More robust preview
+             const maxLength = 400 // Increased from 250 to show more content
              if (formattedPreview.length > maxLength) {
                formattedPreview = formattedPreview.substring(0, maxLength).trim() + '...'
              }
 
-             // Split into lines and limit to 8 lines
+             // Split into lines and limit to 12 lines - Increased from 8
              const lines = formattedPreview.split('\n')
-             const previewLines = lines.slice(0, 8).join('\n')
+             const previewLines = lines.slice(0, 12).join('\n')
 
              return {
                range: new monaco.Range(position.lineNumber, startCol, position.lineNumber, endCol),

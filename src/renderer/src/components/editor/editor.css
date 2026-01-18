@@ -63,18 +63,24 @@
   z-index: 2147483647 !important; /* Max signed 32-bit integer */
 }
 
-/* Force hover contrast and visibility */
+/* Force hover contrast and visibility - Robust positioning */
 .monaco-hover,
 .monaco-editor-hover {
     background: var(--panel-strong) !important;
     color: var(--text-strong) !important;
     border: 1px solid var(--border) !important;
     box-shadow: var(--shadow) !important;
-    padding: 6px !important;
-    border-radius: 4px !important;
-    max-width: 450px !important;
-    max-height: 350px !important;
+    padding: 14px 14px 12px 14px !important;
+    border-radius: 2px !important;
+    max-width: 500px !important; /* Increased from 450px */
+    max-height: 400px !important; /* Increased from 350px */
+    min-height: 100px !important; /* Ensure minimum height */
     overflow-y: auto !important;
+    overflow-x: hidden !important;
+    position: fixed !important; /* Ensure it's always visible */
+    z-index: 2147483647 !important; /* Maximum z-index */
+    word-wrap: break-word !important;
+    word-break: break-word !important;
 }
 
 /* Modern suggest widget - positioned correctly, modern styling */
@@ -91,38 +97,122 @@
     /* Move closer to cursor */
     transform: translateY(2px) !important;
     margin-left: 0px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+}
+
+/* Remove all inner backgrounds that create the black layer */
+.suggest-widget > *:not(.monaco-list) {
+    background: transparent !important;
+}
+
+.suggest-widget .monaco-list-row .monaco-icon-label-container,
+.suggest-widget .monaco-list-row .monaco-icon-label,
+.suggest-widget .monaco-list-row .monaco-icon-label-description-container {
+    background: transparent !important;
 }
 
 .suggest-widget .monaco-list {
     background: transparent !important;
-}
-
-.suggest-widget .monaco-list .monaco-list-row {
-    border-radius: 4px !important;
-    margin: 2px 0 !important;
-    padding: 0 8px !important;
-    color: var(--text-strong) !important;
+    align-items: stretch !important;
 }
 
 .suggest-widget .monaco-list .monaco-list-row.selected {
     background: var(--selection) !important;
     color: var(--text-strong) !important;
+    font-size: 14px !important; /* Ensure selected items are not tiny */
+    transform: scale(1) !important;
+    zoom: 1 !important;
+}
+
+.suggest-widget .monaco-list .monaco-list-row.selected *,
+.suggest-widget .monaco-list .monaco-list-row.selected .monaco-icon-label,
+.suggest-widget .monaco-list .monaco-list-row.selected .monaco-icon-label * {
+    font-size: 14px !important;
+    transform: scale(1) !important;
+    zoom: 1 !important;
 }
 
 .suggest-widget .monaco-list .monaco-list-row:hover:not(.selected) {
     background: var(--hover) !important;
+    font-size: 14px !important; /* Ensure hovered items are not tiny */
+    transform: scale(1) !important;
+    zoom: 1 !important;
+}
+
+.suggest-widget .monaco-list .monaco-list-row:hover:not(.selected) *,
+.suggest-widget .monaco-list .monaco-list-row:hover:not(.selected) .monaco-icon-label,
+.suggest-widget .monaco-list .monaco-list-row:hover:not(.selected) .monaco-icon-label * {
+    font-size: 14px !important;
+    transform: scale(1) !important;
+    zoom: 1 !important;
 }
 
 .suggest-widget .monaco-list .monaco-list-row .monaco-icon-label {
     color: var(--text-strong) !important;
+    font-size: 14px !important; /* Match editor text size - increased from 13px */
+    line-height: 1.5 !important;
+    transform: scale(1) !important;
+    zoom: 1 !important;
+}
+
+/* Ensure selected and hovered icon labels are also properly sized */
+.suggest-widget .monaco-list .monaco-list-row.selected .monaco-icon-label,
+.suggest-widget .monaco-list .monaco-list-row:hover .monaco-icon-label {
+    font-size: 14px !important;
+    transform: scale(1) !important;
+    zoom: 1 !important;
 }
 
 .suggest-widget .monaco-list .monaco-list-row .monaco-icon-label .monaco-icon-label-description-container {
     color: var(--text-soft) !important;
+    font-size: 13px !important; /* Increased from 12px for better readability */
+    line-height: 1.4 !important;
+    transform: scale(1) !important;
+    zoom: 1 !important;
 }
 
 .suggest-details {
     display: none !important;
+    background: transparent !important;
+}
+
+/* Remove any black/overlay backgrounds from suggest widget inner elements */
+.suggest-widget * {
+    background: transparent !important;
+}
+
+/* Force font size on ALL suggest widget text elements - Very aggressive */
+.suggest-widget *,
+.suggest-widget * *,
+.suggest-widget .monaco-list-row *,
+.suggest-widget .monaco-icon-label *,
+.suggest-widget .monaco-icon-label-container *,
+.suggest-widget span,
+.suggest-widget div {
+    font-size: 14px !important;
+    line-height: 1.5 !important;
+    transform: scale(1) !important;
+    zoom: 1 !important;
+}
+
+/* Override any inline styles that might set font-size */
+.suggest-widget [style*="font-size"],
+.suggest-widget [style*="font-size"] * {
+    font-size: 14px !important;
+}
+
+/* Override any transforms that might scale text down */
+.suggest-widget [style*="transform"],
+.suggest-widget [style*="scale"] {
+    transform: scale(1) !important;
+    font-size: 14px !important;
+}
+
+
+.suggest-widget .monaco-list {
+    background: transparent !important;
 }
 
 .monaco-hover-content,
@@ -130,31 +220,60 @@
     background: transparent !important;
 }
 
+/* Remove any overlay or details panel backgrounds */
+.suggest-widget .suggest-details,
+.suggest-widget .details,
+.suggest-widget .monaco-hover,
+.suggest-widget .monaco-editor-hover,
+.suggest-widget .suggest-details-container,
+.suggest-widget .details-container,
+.suggest-widget .monaco-scrollable-element,
+.suggest-widget .monaco-list-row .monaco-icon-label-container .monaco-icon-label-description-container {
+    background: transparent !important;
+}
+
+/* Target any element with black or dark background inside suggest widget */
+.suggest-widget [style*="background"]:not(.monaco-list-row.selected):not(.monaco-list-row:hover) {
+    background: transparent !important;
+}
+
+.suggest-widget [style*="background-color"]:not(.monaco-list-row.selected):not(.monaco-list-row:hover) {
+    background-color: transparent !important;
+}
+
 /* Fix suggest widget positioning - should appear near cursor, not on right sidebar */
 .monaco-editor .suggest-widget {
     position: fixed !important;
     z-index: 10000 !important;
-    /* Move closer to cursor */
     transform: translateY(2px) !important;
     margin-left: 0px !important;
 }
 
-/* Improved WikiLink hover preview */
+/* Improved WikiLink hover preview - Robust and always visible */
 .monaco-hover .hover-contents {
-    max-width: 500px !important;
-    max-height: 400px !important;
+    max-width: 100% !important; /* Use full width of parent */
+    max-height: 100% !important; /* Use full height of parent */
     overflow-y: auto !important;
-    padding: 12px !important;
+    overflow-x: hidden !important;
+    padding: 14px 14px 12px 14px !important;
+    background: transparent !important;
+    word-wrap: break-word !important;
+    word-break: break-word !important;
+    box-sizing: border-box !important;
 }
 
 .monaco-hover .hover-contents .markdown-hover {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif !important;
     line-height: 1.6 !important;
+    word-wrap: break-word !important;
+    word-break: break-word !important;
+    overflow-wrap: break-word !important;
+    max-width: 100% !important;
 }
 
 .monaco-hover .hover-contents .markdown-hover h3,
 .monaco-hover .hover-contents .markdown-hover strong {
-    margin: 0 0 8px 0 !important;
+    margin: 0 0 12px 0 !important; /* More spacing */
     font-size: 14px !important;
     font-weight: 600 !important;
     color: var(--text-strong) !important;
@@ -162,33 +281,37 @@
 }
 
 .monaco-hover .hover-contents .monaco-editor {
-    background: var(--panel-strong) !important;
-    border: 1px solid var(--border) !important;
-    border-radius: 4px !important;
-    margin: 8px 0 !important;
-    max-height: 250px !important;
-    overflow: hidden !important;
-}
-
-/* Inline Completion (Ghost Text) Styling - Remove inner background/color layers */
-.monaco-editor .inline-suggest-decoration {
-    color: var(--muted) !important;
-    font-style: italic !important;
-    opacity: 0.6 !important;
     background: transparent !important;
+    border: none !important;
+    border-radius: 2px !important;
+    margin: 10px 0 8px 0 !important;
+    max-height: 280px !important; /* Increased to show more content */
+    min-height: 60px !important; /* Ensure minimum height */
+    overflow-y: auto !important; /* Allow scrolling if needed */
+    overflow-x: hidden !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
 }
 
-.monaco-editor .inline-suggest-decoration .suggest-preview-text {
-    color: var(--muted) !important;
-    opacity: 0.7 !important;
-    background: transparent !important;
-}
 
-/* Make inline suggestions more subtle and positioned correctly - remove all background layers */
+/* Force font size on the decoration itself and all children - Very specific */
+
+
+/* Make inline suggestions more visible and robust */
 .monaco-editor .suggest-preview-text {
-    color: rgba(127, 167, 255, 0.5) !important;
+    color: rgba(127, 167, 255, 0.7) !important;
     font-style: italic !important;
     background: transparent !important;
+    opacity: 1 !important;
+    font-size: 14px !important; /* Explicit font size matching editor (14px) */
+    line-height: 1.5 !important; /* Explicit line height */
+    font-family: inherit !important;
+    display: inline !important;
+    white-space: nowrap !important;
+    text-overflow: clip !important; /* Don't show ellipsis, show full text */
+    max-width: none !important; /* Remove width constraints */
+    width: auto !important;
+    vertical-align: baseline !important;
 }
 
 /* Remove any inner background from inline suggestion decorations */
@@ -197,10 +320,91 @@
     background-color: transparent !important;
 }
 
+/* Ensure all inline suggestion text elements have proper font size - Very aggressive */
+.monaco-editor .inline-suggest-decoration *,
+.monaco-editor .inline-suggest-decoration span,
+.monaco-editor .inline-suggest-decoration .suggest-preview-text,
+.monaco-editor .inline-suggest-decoration-container *,
+.monaco-editor .inline-suggest-decoration-container span,
+.monaco-editor [class*="inline-suggest"] *,
+.monaco-editor [class*="suggest-preview"] * {
+    font-size: 14px !important; /* Explicit font size matching editor */
+    line-height: 1.5 !important;
+    font-family: inherit !important;
+    transform: none !important; /* Remove any transforms that might scale it down */
+    scale: 1 !important;
+    zoom: 1 !important; /* Prevent browser zoom issues */
+}
+
+/* Target all possible inline suggestion elements with universal selector */
+.monaco-editor .view-line .inline-suggest-decoration,
+.monaco-editor .view-line .inline-suggest-decoration *,
+.monaco-editor .view-line .inline-suggest-decoration span,
+.monaco-editor .view-line .inline-suggest-decoration div,
+.monaco-editor .view-line .inline-suggest-decoration .suggest-preview-text {
+    font-size: 14px !important;
+    line-height: 1.5 !important;
+    transform: scale(1) !important;
+    zoom: 1 !important;
+}
+
+/* Override any inline styles Monaco might apply - Very aggressive */
+.monaco-editor .inline-suggest-decoration[style*="font-size"],
+.monaco-editor .inline-suggest-decoration [style*="font-size"],
+.monaco-editor .suggest-preview-text[style*="font-size"],
+.monaco-editor [style*="font-size"].inline-suggest-decoration,
+.monaco-editor [style*="font-size"] .inline-suggest-decoration {
+    font-size: 14px !important;
+}
+
+/* Override any transform that might scale it down */
+.monaco-editor .inline-suggest-decoration[style*="transform"],
+.monaco-editor .inline-suggest-decoration [style*="transform"],
+.monaco-editor .inline-suggest-decoration[style*="scale"] {
+    transform: scale(1) !important;
+    font-size: 14px !important;
+}
+
+/* Nuclear option - target absolutely everything in inline suggestions */
+.monaco-editor .view-line .inline-suggest-decoration,
+.monaco-editor .view-line .inline-suggest-decoration *,
+.monaco-editor .view-line .inline-suggest-decoration *::before,
+.monaco-editor .view-line .inline-suggest-decoration *::after {
+    font-size: 14px !important;
+    line-height: 1.5 !important;
+    transform: scale(1) !important;
+    zoom: 1 !important;
+}
+
+/* Force font size on any nested elements - Very specific targeting */
+.monaco-editor .view-line .inline-suggest-decoration,
+.monaco-editor .view-line .inline-suggest-decoration *,
+.monaco-editor .view-line .inline-suggest-decoration span,
+.monaco-editor .view-line .inline-suggest-decoration .suggest-preview-text,
+.monaco-editor .view-line [class*="inline-suggest"],
+.monaco-editor .view-line [class*="suggest-preview"] {
+    font-size: 14px !important;
+    line-height: 1.5 !important;
+    transform: scale(1) !important;
+    zoom: 1 !important;
+}
+
+/* Universal selector for inline suggestions - catch everything */
+.monaco-editor .inline-suggest-decoration *:not(script):not(style) {
+    font-size: 14px !important;
+    line-height: 1.5 !important;
+}
+
 /* Remove background from inline suggestion container and all related elements */
 .monaco-editor .inline-suggest-decoration-container {
     background: transparent !important;
     background-color: transparent !important;
+    position: relative !important;
+    z-index: 10 !important; /* Higher z-index to be above backgrounds */
+    max-width: none !important;
+    width: auto !important;
+    padding: 0 !important;
+    margin: 0 !important;
 }
 
 .monaco-editor .inline-suggest-decoration .monaco-editor-background {
@@ -208,11 +412,25 @@
     background-color: transparent !important;
 }
 
-/* Remove any box/border styling that might create a "layer" appearance */
+/* Robust inline suggestion styling - ensure it's always visible */
 .monaco-editor .inline-suggest-decoration {
     border: none !important;
     box-shadow: none !important;
     outline: none !important;
+    text-overflow: clip !important; /* Don't show ellipsis */
+    max-width: none !important; /* Don't limit width */
+    min-width: auto !important;
+    width: auto !important;
+    white-space: nowrap !important; /* Keep on one line */
+}
+
+/* Ensure the view line can accommodate the inline suggestion - but don't break editor layout */
+.monaco-editor .view-line .inline-suggest-decoration {
+    display: inline !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    max-width: none !important;
+    width: auto !important;
 }
 
 .monaco-hover .hover-contents .monaco-editor .view-lines {
@@ -228,32 +446,41 @@
 }
 
 .monaco-hover .hover-contents code {
-    background: var(--panel-strong) !important;
-    padding: 2px 6px !important;
-    border-radius: 3px !important;
+    background: transparent !important;
+    padding: 3px 8px !important; /* More padding */
+    border-radius: 2px !important; /* Changed to 2px */
     font-size: 12px !important;
     font-family: 'Fira Code', 'Consolas', monospace !important;
 }
 
 .monaco-hover .hover-contents pre {
-    background: var(--panel-strong) !important;
-    border: 1px solid var(--border) !important;
-    border-radius: 4px !important;
-    padding: 12px !important;
-    margin: 8px 0 !important;
+    background: transparent !important;
+    border: none !important;
+    border-radius: 2px !important;
+    padding: 12px 14px 10px 14px !important;
+    margin: 10px 0 8px 0 !important;
     overflow-x: auto !important;
-    max-height: 250px !important;
     overflow-y: auto !important;
+    max-height: 280px !important; /* Increased to show more content */
+    min-height: 40px !important; /* Ensure minimum height */
+    width: 100% !important;
+    box-sizing: border-box !important;
+    word-wrap: break-word !important;
+    white-space: pre-wrap !important; /* Wrap long lines */
 }
 
 .monaco-hover .hover-contents pre code {
     background: transparent !important;
     padding: 0 !important;
     font-size: 12px !important;
-    line-height: 1.5 !important;
+    line-height: 1.6 !important; /* Better line height for readability */
     color: var(--text-soft) !important;
     white-space: pre-wrap !important;
     word-wrap: break-word !important;
+    overflow-wrap: break-word !important;
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
 }
 
 .monaco-hover .hover-contents em {
@@ -261,7 +488,24 @@
     color: var(--text-soft) !important;
     font-style: italic !important;
     margin-top: 8px !important;
+    margin-bottom: 0 !important;
     display: block !important;
+}
+
+/* Ensure last element in hover preview has minimal spacing */
+.monaco-hover .hover-contents > *:last-child {
+    margin-bottom: 0 !important;
+    padding-bottom: 0 !important;
+}
+
+.monaco-hover .hover-contents > *:last-child *:last-child {
+    margin-bottom: 0 !important;
+    padding-bottom: 0 !important;
+}
+
+/* Add spacing between preview sections */
+.monaco-hover .hover-contents .markdown-hover + * {
+    margin-top: 8px !important;
 }
 
 /* Try to ensure they are not clipped */
@@ -331,15 +575,22 @@
 
 .monaco-editor .view-line {
     background: transparent !important;
+    /* Don't override overflow - Monaco needs its default overflow settings */
 }
 
 /* Make cursor highly visible with primary color */
+.monaco-editor .cursors-layer {
+    z-index: 100 !important; /* Ensure cursor is above everything */
+}
+
 .monaco-editor .cursors-layer .cursor {
     background: var(--primary) !important;
     width: 2px !important;
     box-shadow: none !important;
     border: none !important;
     opacity: 1 !important;
+    visibility: visible !important;
+    display: block !important;
 }
 
 .monaco-editor .cursors-layer .cursor::before,
@@ -367,4 +618,255 @@
   color: #ff6b6b !important;
   font-weight: bold !important;
   text-decoration: none !important;
+}
+
+
+
+/* Target the actual selection background */
+.monaco-editor .view-overlays .selected-text {
+    background: var(--selection) !important; /* Use your theme variable */
+    height: 100% !important; /* Ensures it fills the line-height */
+    opacity: 0.4;
+    border-radius: 0 !important; /* Remove rounded corners */
+}
+
+/* Remove rounded corners and match size for inline suggestion selection specifically */
+.monaco-editor .view-overlays .inline-suggest-decoration .selected-text,
+.monaco-editor .view-overlays .inline-suggest-decoration-container .selected-text,
+.monaco-editor .view-line .inline-suggest-decoration ~ .selected-text,
+.monaco-editor .view-line .inline-suggest-decoration-container ~ .selected-text {
+    border-radius: 0 !important; /* Remove rounded corners */
+    height: auto !important; /* Match text height exactly */
+    line-height: inherit !important; /* Match text line-height */
+    padding: 0 !important;
+    margin: 0 !important;
+    vertical-align: baseline !important;
+}
+
+/* Fix for selection height in focused/unfocused states */
+.monaco-editor .focused .selected-text {
+    background: var(--selection) !important;
+}
+
+/* Optional: If you want the selection to feel "taller" than the text */
+.monaco-editor .view-line span {
+    line-height: inherit !important;
+}
+
+
+
+/* Target the ghost text container */
+.monaco-editor .inline-suggest-decoration,
+.monaco-editor .suggest-preview-text {
+    /* DO NOT use transform: scale or zoom */
+
+    /* Ensure it inherits the editor's exact font metrics */
+    font-family: inherit !important;
+    font-size: inherit !important;
+    line-height: inherit !important;
+
+    /* Style only the color and look */
+    color: rgba(127, 167, 255, 0.7) !important;
+    font-style: italic !important;
+    opacity: 1 !important;
+
+    /* Ensure it isn't being shrunk by a parent container */
+    display: inline !important;
+    letter-spacing: normal !important;
+}
+
+/* Hide folder name/description that appears under inline suggestions - Very aggressive */
+.monaco-editor .inline-suggest-decoration [class*="description"],
+.monaco-editor .inline-suggest-decoration [class*="detail"],
+.monaco-editor .inline-suggest-decoration [class*="metadata"],
+.monaco-editor .inline-suggest-decoration [class*="folder"],
+.monaco-editor .inline-suggest-decoration [class*="path"],
+.monaco-editor .inline-suggest-decoration-container [class*="description"],
+.monaco-editor .inline-suggest-decoration-container [class*="detail"],
+.monaco-editor .inline-suggest-decoration-container [class*="metadata"],
+.monaco-editor .inline-suggest-decoration-container [class*="folder"],
+.monaco-editor .inline-suggest-decoration-container [class*="path"],
+.monaco-editor .view-line .inline-suggest-decoration [class*="description"],
+.monaco-editor .view-line .inline-suggest-decoration [class*="detail"],
+.monaco-editor .view-line .inline-suggest-decoration [class*="metadata"],
+.monaco-editor .view-line .inline-suggest-decoration [class*="folder"],
+.monaco-editor .view-line .inline-suggest-decoration [class*="path"],
+.monaco-editor .inline-suggest-decoration .monaco-icon-label-description-container,
+.monaco-editor .inline-suggest-decoration .monaco-icon-label-description,
+.monaco-editor .inline-suggest-decoration-container .monaco-icon-label-description-container,
+.monaco-editor .inline-suggest-decoration-container .monaco-icon-label-description,
+.monaco-editor .view-line .inline-suggest-decoration .monaco-icon-label-description-container,
+.monaco-editor .view-line .inline-suggest-decoration .monaco-icon-label-description {
+    display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    width: 0 !important;
+    overflow: hidden !important;
+    opacity: 0 !important;
+    font-size: 0 !important;
+    line-height: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    position: absolute !important;
+    left: -9999px !important;
+}
+
+/* Hide any additional text, metadata, or elements below inline suggestions */
+.monaco-editor .inline-suggest-decoration > *:not(.suggest-preview-text):not(span),
+.monaco-editor .inline-suggest-decoration-container > *:not(.suggest-preview-text):not(.inline-suggest-decoration):not(span),
+.monaco-editor .view-line .inline-suggest-decoration > *:not(.suggest-preview-text):not(span) {
+    display: none !important;
+}
+
+/* Hide any text content that might be showing folder names */
+.monaco-editor .inline-suggest-decoration::after,
+.monaco-editor .inline-suggest-decoration-container::after,
+.monaco-editor .view-line .inline-suggest-decoration::after {
+    display: none !important;
+    content: none !important;
+}
+
+/* Remove rounded corners and match size for inline suggestion selection background */
+.monaco-editor .inline-suggest-decoration .selected-text,
+.monaco-editor .inline-suggest-decoration .monaco-editor-background,
+.monaco-editor .inline-suggest-decoration [class*="selected"],
+.monaco-editor .inline-suggest-decoration [class*="selection"],
+.monaco-editor .view-overlays .inline-suggest-decoration .selected-text,
+.monaco-editor .view-overlays .inline-suggest-decoration .monaco-editor-background,
+.monaco-editor .inline-suggest-decoration-container .selected-text,
+.monaco-editor .inline-suggest-decoration-container .monaco-editor-background,
+.monaco-editor .view-line .inline-suggest-decoration .selected-text,
+.monaco-editor .view-line .inline-suggest-decoration .monaco-editor-background {
+    border-radius: 0 !important; /* Remove rounded corners */
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    height: auto !important; /* Match text height */
+    line-height: inherit !important; /* Match text line-height */
+    display: inline !important;
+    vertical-align: baseline !important;
+}
+
+/* Target all possible selection backgrounds within inline suggestions */
+.monaco-editor .inline-suggest-decoration *,
+.monaco-editor .inline-suggest-decoration-container *,
+.monaco-editor .view-line .inline-suggest-decoration * {
+    border-radius: 0 !important; /* Remove any rounded corners */
+}
+
+/* Specifically target Monaco's selection rendering for inline suggestions */
+.monaco-editor .view-overlays .current-line,
+.monaco-editor .view-overlays .selected-text,
+.monaco-editor .view-overlays .selectionHighlight {
+    border-radius: 0 !important;
+}
+
+/* Ensure inline suggestion selection matches text size exactly */
+.monaco-editor .inline-suggest-decoration-container,
+.monaco-editor .inline-suggest-decoration {
+    border-radius: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+/* Ensure the parent doesn't constrain the size */
+.monaco-editor .view-lines .view-line span {
+    display: inline-block;
+}
+/* 1. Fix the container height and prevent it from expanding "deep down" */
+/* Improved Suggest Widget Layout - Prevents "deep down" empty space */
+.suggest-widget {
+    max-height: 350px !important; /* Cap the total height */
+    min-height: auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+    padding: 4px !important;
+    overflow: hidden !important; /* Prevent layout push */
+    box-sizing: border-box !important; /* Include padding in height calculation */
+}
+
+/* Critical fix: Prevent list from requesting more height than widget allows */
+.suggest-widget .monaco-list {
+    max-height: calc(100% - 8px) !important; /* Account for widget padding */
+    min-height: 0 !important; /* Allow flex shrinking */
+    flex: 1 1 auto !important; /* Take available space but allow shrinking */
+    overflow: hidden !important;
+}
+
+/* Create clean bottom buffer without breaking scroll */
+.suggest-widget .monaco-list .monaco-scrollable-element {
+    padding-bottom: 12px !important;
+    box-sizing: border-box !important;
+}
+
+/* Fix row alignment - keep them tight and properly sized */
+.suggest-widget .monaco-list-row,
+.suggest-widget .monaco-list .monaco-list-row {
+    height: 32px !important; /* Slightly increased for better readability */
+    min-height: 32px !important;
+    max-height: 32px !important;
+    line-height: 32px !important;
+    margin: 0 !important; /* Remove all margins that add up */
+    padding: 0 10px !important; /* Consistent horizontal padding */
+    border-radius: 4px !important;
+    box-sizing: border-box !important;
+    display: flex !important;
+    align-items: center !important;
+    color: var(--text-strong) !important;
+    font-size: 14px !important; /* Ensure font size is maintained */
+    transform: scale(1) !important; /* Prevent any scaling */
+    zoom: 1 !important;
+}
+
+/* Ensure selected and hovered rows maintain the same height */
+.suggest-widget .monaco-list-row.selected,
+.suggest-widget .monaco-list-row:hover,
+.suggest-widget .monaco-list .monaco-list-row.selected,
+.suggest-widget .monaco-list .monaco-list-row:hover {
+    height: 32px !important;
+    min-height: 32px !important;
+    max-height: 32px !important;
+    line-height: 32px !important;
+    margin: 0 !important;
+}
+
+/* Ensure icon labels maintain proper sizing within fixed-height rows */
+.suggest-widget .monaco-list-row .monaco-icon-label,
+.suggest-widget .monaco-list .monaco-list-row .monaco-icon-label {
+    font-size: 14px !important;
+    line-height: 1.5 !important;
+    height: auto !important; /* Allow natural height within row */
+    display: flex !important;
+    align-items: center !important;
+    transform: scale(1) !important;
+    zoom: 1 !important;
+}
+
+/* Hide status bar that creates empty space */
+.suggest-widget .suggest-status-bar {
+    display: none !important;
+    height: 0 !important;
+    min-height: 0 !important;
+    max-height: 0 !important;
+    visibility: hidden !important;
+    overflow: hidden !important;
+}
+
+/* Ensure scrollbar has proper spacing from edges */
+.suggest-widget .monaco-list .scrollbar.vertical {
+    top: 4px !important;
+    bottom: 4px !important;
+    right: 4px !important;
+}
+
+/* Prevent any nested elements from adding extra height */
+.suggest-widget .monaco-list-row > * {
+    max-height: 100% !important;
+    overflow: hidden !important;
+}
+
+/* Ensure proper spacing for single item centering */
+.suggest-widget .monaco-list:has(.monaco-list-row:only-child) {
+    justify-content: center !important;
+    min-height: 32px !important;
 }

@@ -418,6 +418,7 @@ export class EditorComponent {
                 minimap: { enabled: false },
                 wordWrap: 'on',
                 fontSize: 14,
+                lineHeight: 1.5, // Match CSS line-height for consistent rendering
                 padding: { top: 12, bottom: 12 },
                 renderWhitespace: 'selection',
                 lineNumbers: 'on',
@@ -436,6 +437,8 @@ export class EditorComponent {
                 },
                 stickyScroll: { enabled: false },
                 suggest: {
+                    preview: true, // Enable preview in suggest widget
+                    previewMode: 'prefix', // Show preview as prefix (ghost text)
                     snippetsPreventQuickSuggestions: false,
                     filterGraceful: true,
                     showIcons: false,   // Remove icons for a cleaner look

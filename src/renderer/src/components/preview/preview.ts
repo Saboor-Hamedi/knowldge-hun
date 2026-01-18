@@ -38,7 +38,12 @@ export class PreviewComponent {
   private md: MarkdownIt
   private onWikiLinkClick?: (target: string) => void
 
-  private createLucideIcon(IconComponent: any, size: number = 16, strokeWidth: number = 1.5, color?: string): string {
+  private createLucideIcon(
+    IconComponent: typeof Copy,
+    size: number = 16,
+    strokeWidth: number = 1.5,
+    color?: string
+  ): string {
     // Use Lucide's createElement to create SVG element
     const svgElement = createElement(IconComponent, {
       size: size,
@@ -67,25 +72,33 @@ export class PreviewComponent {
       breaks: false, // Don't convert '\n' in paragraphs into <br> (standard markdown)
       typographer: true, // Enable some language-neutral replacement + quotes beautification
       highlight: (str: string, lang: string) => {
+        // Always escape HTML first to prevent security issues
+        const escapedStr = this.md.utils.escapeHtml(str)
+
         if (!lang) {
-          return `<pre class="hljs"><code>${this.md.utils.escapeHtml(str)}</code></pre>`
+          return `<pre class="hljs"><code>${escapedStr}</code></pre>`
         }
 
         // Normalize language name
         const normalizedLang = lang.toLowerCase().trim()
 
-        // Try to highlight
+        // Try to highlight - use escaped string to prevent security issues
         if (hljs.getLanguage(normalizedLang)) {
           try {
-            const highlighted = hljs.highlight(str, { language: normalizedLang, ignoreIllegals: true })
+            // Use escaped string - highlight.js will handle it safely
+            const highlighted = hljs.highlight(escapedStr, {
+              language: normalizedLang,
+              ignoreIllegals: true
+            })
             return `<pre class="hljs"><code class="language-${normalizedLang}">${highlighted.value}</code></pre>`
           } catch (err) {
             console.warn(`[Preview] Highlighting failed for language: ${normalizedLang}`, err)
+            // Fall through to escaped HTML
           }
         }
 
-        // Fallback: escape HTML
-        return `<pre class="hljs"><code class="language-${normalizedLang}">${this.md.utils.escapeHtml(str)}</code></pre>`
+        // Fallback: return escaped HTML
+        return `<pre class="hljs"><code class="language-${normalizedLang}">${escapedStr}</code></pre>`
       }
     })
 
@@ -297,17 +310,21 @@ export class PreviewComponent {
       wrapper.appendChild(preElement)
     })
 
-    // Re-highlight code blocks (DOMPurify might have stripped some attributes)
+    // Re-highlight code blocks safely (DOMPurify might have stripped some attributes)
+    // Skip re-highlighting to avoid security warnings - code is already highlighted in markdown-it
+    // This prevents the "unescaped HTML" security warnings from highlight.js
     previewContent.querySelectorAll('pre code').forEach((block) => {
       const codeElement = block as HTMLElement
-      const lang = codeElement.className.match(/language-(\w+)/)?.[1] || ''
-      if (lang && hljs.getLanguage(lang)) {
-        try {
-          hljs.highlightElement(codeElement as HTMLElement)
-        } catch (err) {
-          // Ignore highlighting errors
-        }
+
+      // Ensure all code blocks have proper escaping
+      // If the element doesn't have hljs class, it means it wasn't highlighted
+      // In that case, just ensure the content is safe
+      if (!codeElement.classList.contains('hljs')) {
+        const textContent = codeElement.textContent || ''
+        // Re-escape to be safe
+        codeElement.textContent = textContent
       }
+      // If it already has hljs class, it's already highlighted and safe - leave it alone
     })
   }
 

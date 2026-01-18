@@ -5,135 +5,10 @@ import { extractWikiLinks, extractTags } from '../../utils/helpers'
 import '../window-header/window-header.css'
 import './graph.css'
 
-type GraphNode = {
-  id: string
-  title: string
-  noteId?: string
-  tagName?: string
-  val: number
-  ageFactor: number
-  type: 'note' | 'tag'
-  folder?: string
-  connectionCount?: number
-  x?: number
-  y?: number
-  vx?: number
-  vy?: number
-  fx?: number | null
-  fy?: number | null
-  highlighted?: boolean
-  searchMatch?: boolean
-  pathNode?: boolean
-}
-
-type GraphLink = {
-  source: string | GraphNode
-  target: string | GraphNode
-  type?: 'wikilink' | 'tag' | 'direct'
-}
-
-type GraphStats = {
-  totalNodes: number
-  totalLinks: number
-  orphanNodes: number
-  hubNodes: number
-  tagCount: number
-  noteCount: number
-}
-
-// Performance constants
-const MAX_VISIBLE_NODES = 5000
-const MIN_NODE_RADIUS = 3
-const MAX_NODE_RADIUS = 30
-const BASE_NODE_RADIUS = 6
-const TAG_NODE_RADIUS = 5
-const CENTRAL_NODE_RADIUS = 22
-const ANIMATION_SPEED = 0.02
-
-// Simple Quadtree for spatial indexing
-class QuadTree {
-  private bounds: { x: number; y: number; width: number; height: number }
-  private nodes: GraphNode[] = []
-  private divided = false
-  private nw?: QuadTree
-  private ne?: QuadTree
-  private sw?: QuadTree
-  private se?: QuadTree
-  private capacity = 4
-
-  constructor(bounds: { x: number; y: number; width: number; height: number }) {
-    this.bounds = bounds
-  }
-
-  insert(node: GraphNode): boolean {
-    if (node.x === undefined || node.y === undefined) return false
-    if (!this.contains(node.x, node.y)) return false
-
-    if (this.nodes.length < this.capacity) {
-      this.nodes.push(node)
-      return true
-    }
-
-    if (!this.divided) {
-      this.subdivide()
-    }
-
-    return (this.nw?.insert(node) || this.ne?.insert(node) ||
-            this.sw?.insert(node) || this.se?.insert(node)) || false
-  }
-
-  private subdivide(): void {
-    const x = this.bounds.x
-    const y = this.bounds.y
-    const w = this.bounds.width / 2
-    const h = this.bounds.height / 2
-
-    this.nw = new QuadTree({ x, y, width: w, height: h })
-    this.ne = new QuadTree({ x: x + w, y, width: w, height: h })
-    this.sw = new QuadTree({ x, y: y + h, width: w, height: h })
-    this.se = new QuadTree({ x: x + w, y: y + h, width: w, height: h })
-    this.divided = true
-
-    for (const node of this.nodes) {
-      this.nw?.insert(node) || this.ne?.insert(node) ||
-      this.sw?.insert(node) || this.se?.insert(node)
-    }
-    this.nodes = []
-  }
-
-  query(range: { x: number; y: number; width: number; height: number }, found: GraphNode[] = []): GraphNode[] {
-    if (!this.intersects(range)) return found
-
-    for (const node of this.nodes) {
-      if (node.x !== undefined && node.y !== undefined &&
-          node.x >= range.x && node.x <= range.x + range.width &&
-          node.y >= range.y && node.y <= range.y + range.height) {
-        found.push(node)
-      }
-    }
-
-    if (this.divided) {
-      this.nw?.query(range, found)
-      this.ne?.query(range, found)
-      this.sw?.query(range, found)
-      this.se?.query(range, found)
-    }
-
-    return found
-  }
-
-  private contains(x: number, y: number): boolean {
-    return x >= this.bounds.x && x <= this.bounds.x + this.bounds.width &&
-           y >= this.bounds.y && y <= this.bounds.y + this.bounds.height
-  }
-
-  private intersects(range: { x: number; y: number; width: number; height: number }): boolean {
-    return !(range.x > this.bounds.x + this.bounds.width ||
-             range.x + range.width < this.bounds.x ||
-             range.y > this.bounds.y + this.bounds.height ||
-             range.y + range.height < this.bounds.y)
-  }
-}
+import type { GraphNode, GraphLink, GraphStats } from './types'
+import { MAX_VISIBLE_NODES, ANIMATION_SPEED } from './types'
+import { QuadTree } from './quadtree'
+import { getNodeRadius, getNodeColor, searchNodes, isNodeVisible, findPathBFS } from './helpers'
 
 export class GraphView {
   private container: HTMLElement
@@ -165,7 +40,10 @@ export class GraphView {
   private quadTree: QuadTree | null = null
   private animationTime = 0
   private linkParticles = new Map<string, number>()
-
+ 
+  // Bound handlers for proper cleanup
+  private handleKeyDownBound: ((e: KeyboardEvent) => void) | null = null
+  private handleResizeBound: (() => void) | null = null
   // New features
   private searchQuery = ''
   private searchResults: GraphNode[] = []
@@ -238,6 +116,16 @@ export class GraphView {
     this.panY = 0
     this.hoverNode = null
     this.draggedNode = null
+
+    // Remove global listeners if bound
+    if (this.handleKeyDownBound) {
+      window.removeEventListener('keydown', this.handleKeyDownBound)
+      this.handleKeyDownBound = null
+    }
+    if (this.handleResizeBound) {
+      window.removeEventListener('resize', this.handleResizeBound)
+      this.handleResizeBound = null
+    }
   }
 
   private async loadGraphData(): Promise<void> {
@@ -299,88 +187,7 @@ export class GraphView {
     }
   }
 
-  // Path finding using BFS
-  private findPath(start: GraphNode, end: GraphNode): GraphNode[] | null {
-    if (start.id === end.id) return [start]
-
-    const queue: { node: GraphNode; path: GraphNode[] }[] = [{ node: start, path: [start] }]
-    const visited = new Set<string>([start.id])
-    const nodeMap = new Map(this.allNodes.map(n => [n.id, n]))
-    const adjacencyList = new Map<string, Set<string>>()
-
-    // Build adjacency list
-    this.allLinks.forEach(link => {
-      const src = typeof link.source === 'string' ? link.source : link.source.id
-      const tgt = typeof link.target === 'string' ? link.target : link.target.id
-      if (!adjacencyList.has(src)) adjacencyList.set(src, new Set())
-      if (!adjacencyList.has(tgt)) adjacencyList.set(tgt, new Set())
-      adjacencyList.get(src)!.add(tgt)
-      adjacencyList.get(tgt)!.add(src)
-    })
-
-    while (queue.length > 0) {
-      const { node, path } = queue.shift()!
-
-      const neighbors = adjacencyList.get(node.id) || new Set()
-      for (const neighborId of neighbors) {
-        if (visited.has(neighborId)) continue
-        visited.add(neighborId)
-
-        const neighbor = nodeMap.get(neighborId)
-        if (!neighbor) continue
-
-        const newPath = [...path, neighbor]
-        if (neighbor.id === end.id) {
-          return newPath
-        }
-
-        queue.push({ node: neighbor, path: newPath })
-      }
-    }
-
-    return null
-  }
-
-  // Search nodes
-  private searchNodes(query: string): GraphNode[] {
-    if (!query.trim()) return []
-    const lowerQuery = query.toLowerCase()
-    return this.allNodes.filter(node => {
-      return node.title.toLowerCase().includes(lowerQuery) ||
-             node.id.toLowerCase().includes(lowerQuery) ||
-             (node.tagName && node.tagName.toLowerCase().includes(lowerQuery))
-    })
-  }
-
-  // DRY: Calculate node radius
-  private getNodeRadius(node: GraphNode, isActive: boolean, isCentral: boolean): number {
-    if (node.type === 'tag') {
-      return Math.min(MAX_NODE_RADIUS, TAG_NODE_RADIUS + Math.sqrt(node.val) * 1.2)
-    }
-    if (isCentral) {
-      // Central node is significantly bigger
-      return Math.min(MAX_NODE_RADIUS, CENTRAL_NODE_RADIUS + Math.sqrt(node.val) * 3)
-    }
-    if (isActive) {
-      // Active node is bigger than normal
-      return Math.min(MAX_NODE_RADIUS, BASE_NODE_RADIUS + 4 + Math.sqrt(node.val) * 2.5)
-    }
-    // Vary size based on connection count for more visual interest
-    const connectionBonus = (node.connectionCount || 0) * 0.3
-    return Math.min(MAX_NODE_RADIUS, BASE_NODE_RADIUS + Math.sqrt(node.val) * 2 + connectionBonus)
-  }
-
-  // DRY: Check if node is visible in viewport
-  private isNodeVisible(node: GraphNode): boolean {
-    if (node.x === undefined || node.y === undefined) return false
-
-    const screenX = node.x * this.zoom + this.panX
-    const screenY = node.y * this.zoom + this.panY
-    const r = this.getNodeRadius(node, false, false) * this.zoom
-
-    return screenX + r >= 0 && screenX - r <= this.dimensions.width &&
-           screenY + r >= 0 && screenY - r <= this.dimensions.height - 60
-  }
+  // path/search/radius/visibility logic moved to helpers
 
   // DRY: Filter visible nodes and links based on viewport
   private updateVisibleElements(): void {
@@ -433,7 +240,7 @@ export class GraphView {
     })
 
     // Viewport culling - only show nodes in view
-    this.visibleNodes = filtered.filter(node => this.isNodeVisible(node))
+    this.visibleNodes = filtered.filter(node => isNodeVisible(node, this.zoom, this.panX, this.panY, this.dimensions))
 
     // Limit visible nodes for performance
     if (this.visibleNodes.length > MAX_VISIBLE_NODES) {
@@ -449,9 +256,9 @@ export class GraphView {
       const src = typeof link.source === 'string' ? link.source : link.source.id
       const tgt = typeof link.target === 'string' ? link.target : link.target.id
 
-      // If searching, show links if at least one node matches search
+      // If searching, show links only when both nodes match search (hide stray lines)
       if (this.searchQuery) {
-        return searchMatchedIds.has(src) || searchMatchedIds.has(tgt)
+        return searchMatchedIds.has(src) && searchMatchedIds.has(tgt)
       }
 
       // Normal filtering - both nodes must be visible
@@ -500,6 +307,13 @@ export class GraphView {
         type: 'note',
         folder: note.path || 'root'
       }
+      // Preserve pinned/fx/fy state from previous data if present
+      const prev = this.allNodes ? this.allNodes.find(n => n.id === note.id) : undefined
+      if (prev && (prev.pinned || prev.fx != null || prev.fy != null)) {
+        node.pinned = prev.pinned
+        node.fx = prev.fx
+        node.fy = prev.fy
+      }
       nodeMap.set(note.id, node)
       nodes.push(node)
     })
@@ -543,9 +357,14 @@ export class GraphView {
                        (src === targetNode.id && tgt === sourceNode.id)
               })
               if (!exists) {
-                links.push({ source: sourceNode, target: targetNode, type: 'wikilink' })
-                sourceNode.val += 0.5
-                targetNode.val += 0.5
+                  links.push({ source: sourceNode, target: targetNode, type: 'wikilink' })
+                  // Mark nodes that participate in wikilinks for special rendering
+                  sourceNode.hasWikiLinks = true
+                  targetNode.hasWikiLinks = true
+                  sourceNode.wikiLinkCount = (sourceNode.wikiLinkCount || 0) + 1
+                  targetNode.wikiLinkCount = (targetNode.wikiLinkCount || 0) + 1
+                  sourceNode.val += 0.5
+                  targetNode.val += 0.5
               }
             }
           }
@@ -564,10 +383,19 @@ export class GraphView {
               ageFactor: 0.3,
               type: 'tag'
             }
+            // Preserve pinned/fx/fy for tag nodes if recreated
+            const prevTag = this.allNodes ? this.allNodes.find(n => n.id === `tag:${tag}`) : undefined
+            if (prevTag && (prevTag.pinned || prevTag.fx != null || prevTag.fy != null)) {
+              tagNode.pinned = prevTag.pinned
+              tagNode.fx = prevTag.fx
+              tagNode.fy = prevTag.fy
+            }
             tagMap.set(tag, tagNode)
             nodes.push(tagNode)
           }
           links.push({ source: sourceNode, target: tagNode, type: 'tag' })
+          // Mark note node as having tags to emphasize it
+          sourceNode.hasTags = true
           sourceNode.val += 0.3
           tagNode.val += 0.3
         })
@@ -598,7 +426,7 @@ export class GraphView {
 
     // Apply search highlighting
     if (this.searchQuery) {
-      this.searchResults = this.searchNodes(this.searchQuery)
+      this.searchResults = searchNodes(this.allNodes, this.searchQuery)
       const searchIds = new Set(this.searchResults.map(n => n.id))
       this.allNodes.forEach(n => {
         n.searchMatch = searchIds.has(n.id)
@@ -657,11 +485,11 @@ export class GraphView {
           // Central node should be pinned at center
           node.fx = centerX
           node.fy = centerY
-        } else if (node.fx === null && node.fy === null) {
-          // Node is not pinned, initialize position normally
+        } else if (node.fx == null && node.fy == null) {
+          // Node is not pinned (null or undefined), initialize position normally
           // Don't change fx/fy if they're already set (user dragged the node)
         }
-        // If fx/fy are set (not null), keep them - user dragged the node
+        // If fx/fy are set (not null/undefined), keep them - user dragged the node
       }
     })
   }
@@ -861,33 +689,138 @@ export class GraphView {
     this.overlay = document.createElement('div')
     this.overlay.className = 'nexus-overlay'
     this.overlay.innerHTML = `
+      <style>
+        /* Mode/menu styling */
+        #mode-menu {
+          background: #0b1220; /* solid, not transparent */
+          border: 1px solid rgba(255,255,255,0.06);
+          padding: 8px;
+          border-radius: 8px;
+          min-width: 160px;
+          box-shadow: 0 10px 30px rgba(2,6,23,0.9);
+          z-index: 1200;
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+        #mode-menu .mode-item {
+          cursor: pointer;
+          font-size: 11px;
+          padding: 6px 8px;
+          display: flex;
+          align-items: center;
+          justify-content: flex-start;
+          gap: 8px;
+          color: #fff;
+          border-radius: 6px;
+          white-space: nowrap;
+          background: transparent;
+          border: none;
+          -webkit-appearance: none;
+          appearance: none;
+        }
+        #mode-menu .graph-action-btn {
+          cursor: pointer;
+          font-size: 11px;
+          padding: 6px 8px;
+          display: flex;
+          align-items: center;
+          justify-content: flex-start;
+          gap: 8px;
+          color: #fff;
+          border-radius: 6px;
+          white-space: nowrap;
+          background: transparent;
+          border: none;
+          -webkit-appearance: none;
+          appearance: none;
+        }
+        #mode-menu .graph-action-btn .icon { width: 18px; height: 18px; display:flex; align-items:center; justify-content:center; }
+        #mode-menu .graph-action-btn .icon svg { width: 14px !important; height: 14px !important; }
+        /* Hover only on icon, not whole item */
+        #mode-menu .graph-action-btn .icon:hover { background: rgba(255,255,255,0.03); transform: translateY(-1px); border-radius:6px; }
+        #mode-menu .mode-item:focus, #mode-menu .graph-action-btn:focus { outline: none; box-shadow: none; }
+        #mode-menu .mode-item .icon { width: 18px; height: 18px; display:flex; align-items:center; justify-content:center; }
+        #mode-menu .mode-item .icon svg { width: 14px !important; height: 14px !important; }
+        #mode-menu .mode-item .label { font-size: 11px; margin-left: 6px; }
+        /* Hover only on icon, not whole item */
+        #mode-menu .mode-item .icon:hover {
+          background: rgba(255,255,255,0.03);
+          transform: translateY(-1px);
+          border-radius:6px;
+        }
+        /* make svg/icon color change on hover and active */
+        #mode-menu .mode-item .icon:hover svg,
+        #mode-menu .graph-action-btn .icon:hover svg {
+          color: var(--text-muted);
+          stroke: currentColor;
+          fill: currentColor;
+        }
+        #mode-menu .mode-item.active .icon svg,
+        #mode-menu .graph-action-btn.active .icon svg {
+          color: var(--text-accent);
+          stroke: currentColor;
+          fill: currentColor;
+        }
+        #mode-menu .mode-item.active {
+          background: linear-gradient(90deg, rgba(255,170,0,0.14), rgba(255,136,0,0.06));
+          box-shadow: 0 6px 18px rgba(255,136,0,0.06);
+        }
+        /* Ensure mode items visually match action buttons */
+        #mode-menu .mode-item .icon:hover, #mode-menu .graph-action-btn .icon:hover { background: rgba(255,255,255,0.03); }
+        #mode-menu .mode-item.active .icon, #mode-menu .graph-action-btn.active .icon { background: linear-gradient(90deg, rgba(255,170,0,0.14), rgba(255,136,0,0.06)); }
+        @media (max-width: 600px) {
+          #mode-menu { min-width: 120px }
+          #mode-menu .mode-item { padding: 6px; }
+        }
+      </style>
       <div class="nexus-container">
-        <header class="window-header" style="position: relative; top: 0; left: 0; right: 0; z-index: 10; -webkit-app-region: no-drag; justify-content: center;">
+          <header class="window-header" style="position: relative; top: 0; left: 0; right: 0; z-index: 10; -webkit-app-region: no-drag; justify-content: center;">
           <div class="window-header__brand" style="position: absolute; left: 8px;">
             ${this.createIconSVG(Network, 14)}
-          </div>
-          <div class="nexus-tabs-icon-only" style="display: flex; align-items: center; gap: 8px; -webkit-app-region: no-drag; margin: 0 auto; background: transparent; padding: 4px;">
-            <button class="nexus-tab-icon ${this.activeMode === 'universe' ? 'active' : ''}" data-mode="universe" title="Universe">
-              ${this.createIconSVG(Globe, 16)}
-            </button>
-            <button class="nexus-tab-icon ${this.activeMode === 'neighborhood' ? 'active' : ''}" data-mode="neighborhood" title="Neighborhood">
-              ${this.createIconSVG(Focus, 16)}
-            </button>
-            <button class="nexus-tab-icon ${this.activeMode === 'orb' ? 'active' : ''}" data-mode="orb" title="Orb">
-              ${this.createIconSVG(Atom, 16)}
-            </button>
           </div>
           <div class="window-header__controls" style="-webkit-app-region: no-drag; position: absolute; right: 0;">
             <button class="wh-btn wh-close" id="graph-close" title="Close">×</button>
           </div>
         </header>
         <div class="nexus-body" style="position: relative;">
-          <div class="graph-controls" style="position: absolute; top: 10px; left: 10px; z-index: 100; display: flex; gap: 4px; flex-direction: column;">
-            <button class="graph-control-btn" id="btn-fit" title="Fit to Screen (F)">${this.createIconSVG(Maximize2, 14)}</button>
-            <button class="graph-control-btn" id="btn-reset" title="Reset View (R)">${this.createIconSVG(RotateCcw, 14)}</button>
-            <button class="graph-control-btn" id="btn-center" title="Center Selected (C)">${this.createIconSVG(Home, 14)}</button>
-            <button class="graph-control-btn" id="btn-stats" title="Statistics">${this.createIconSVG(BarChart3, 14)}</button>
-            <button class="graph-control-btn" id="btn-export" title="Export Graph">${this.createIconSVG(Download, 14)}</button>
+          <div class="graph-controls" style="position: absolute; top: 10px; left: 10px; z-index: 200;">
+            <div id="mode-dropdown" style="position: relative;">
+              <button id="mode-toggle" title="View mode" style="width:36px; height:36px; display:flex; align-items:center; justify-content:center; border-radius:6px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); color: white;">
+                ${this.createIconSVG(Network, 14)}
+              </button>
+              <div id="mode-menu" style="display: none; position: absolute; left: 0; top: 44px; background: rgba(0,0,0,0.85); padding: 8px; border-radius: 6px; min-width: 120px; box-shadow: 0 6px 18px rgba(0,0,0,0.6);">
+                <div style="display:flex; flex-direction: column; gap:6px;">
+                  <button class="mode-item nexus-tab-icon" data-mode="universe" title="Universe">
+                    <span class="icon">${this.createIconSVG(Globe, 14)}</span><span class="label">Universe</span>
+                  </button>
+                  <button class="mode-item nexus-tab-icon" data-mode="neighborhood" title="Neighbors">
+                    <span class="icon">${this.createIconSVG(Focus, 14)}</span><span class="label">Neighbors</span>
+                  </button>
+                  <button class="mode-item nexus-tab-icon" data-mode="orb" title="Orb">
+                    <span class="icon">${this.createIconSVG(Atom, 14)}</span><span class="label">Orb</span>
+                  </button>
+                </div>
+                <hr style="border:none; height:1px; background: rgba(255,255,255,0.04); margin:6px 0;" />
+                <div style="display:flex; flex-direction: column; gap:6px; margin-top:4px;">
+                  <button class="graph-action-btn" id="btn-fit" title="Fit to Screen (F)">
+                    <span class="icon">${this.createIconSVG(Maximize2, 14)}</span><span class="label">Fit to Screen</span>
+                  </button>
+                  <button class="graph-action-btn" id="btn-reset" title="Reset View (R)">
+                    <span class="icon">${this.createIconSVG(RotateCcw, 14)}</span><span class="label">Reset View</span>
+                  </button>
+                  <button class="graph-action-btn" id="btn-center" title="Center Selected (C)">
+                    <span class="icon">${this.createIconSVG(Home, 14)}</span><span class="label">Center Selected</span>
+                  </button>
+                  <button class="graph-action-btn" id="btn-stats" title="Statistics">
+                    <span class="icon">${this.createIconSVG(BarChart3, 14)}</span><span class="label">Statistics</span>
+                  </button>
+                  <button class="graph-action-btn" id="btn-export" title="Export Graph">
+                    <span class="icon">${this.createIconSVG(Download, 14)}</span><span class="label">Export</span>
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
           <div class="graph-search" style="position: absolute; top: 10px; right: 10px; z-index: 100; background: rgba(0,0,0,0.7); padding: 8px; border-radius: 4px; min-width: 200px;">
             <div style="display: flex; align-items: center; gap: 4px; margin-bottom: 4px;">
@@ -896,6 +829,7 @@ export class GraphView {
             </div>
             <div id="search-results" style="font-size: 11px; color: rgba(255,255,255,0.7); max-height: 100px; overflow-y: auto;"></div>
           </div>
+          <!-- actions are moved into the left mode dropdown to act as a single toolbar -->
           <canvas id="graph-canvas"></canvas>
           ${this.activeMode === 'orb' ? '<div class="orb-lens"></div>' : ''}
           <div class="nexus-insight-card" id="insight-card" style="display: none;"></div>
@@ -946,7 +880,7 @@ export class GraphView {
     const searchResults = this.overlay.querySelector('#search-results') as HTMLElement
     searchInput?.addEventListener('input', (e) => {
       this.searchQuery = (e.target as HTMLInputElement).value
-      this.searchResults = this.searchNodes(this.searchQuery)
+      this.searchResults = searchNodes(this.allNodes, this.searchQuery)
 
       if (this.searchQuery && this.searchResults.length > 0) {
         searchResults.innerHTML = `${this.searchResults.length} result(s)`
@@ -994,6 +928,34 @@ export class GraphView {
       this.colorScheme = (e.target as HTMLSelectElement).value as any
       this.drawGraph()
     })
+
+    // Mode & actions dropdown toggle
+    const modeToggle = this.overlay.querySelector('#mode-toggle') as HTMLButtonElement
+    const modeMenu = this.overlay.querySelector('#mode-menu') as HTMLElement
+    if (modeToggle && modeMenu) {
+      modeToggle.addEventListener('click', (ev) => {
+        ev.stopPropagation()
+        modeMenu.style.display = modeMenu.style.display === 'block' ? 'none' : 'block'
+      })
+
+      modeToggle.addEventListener('mouseenter', () => {
+        modeToggle.style.boxShadow = '0 6px 16px rgba(0,0,0,0.6)'
+        modeToggle.style.transform = 'translateY(-1px)'
+      })
+      modeToggle.addEventListener('mouseleave', () => {
+        modeToggle.style.boxShadow = ''
+        modeToggle.style.transform = ''
+      })
+
+      // Close mode menu when clicking outside
+      document.addEventListener('click', (ev) => {
+        if (!this.overlay) return
+        const target = ev.target as Node
+        if (modeMenu.style.display === 'block' && !this.overlay.contains(target)) {
+          modeMenu.style.display = 'none'
+        }
+      })
+    }
   }
 
   private updateStatsPanel(): void {
@@ -1020,6 +982,8 @@ export class GraphView {
       }
     }
 
+    
+
     const findNodeAtPosition = (graphX: number, graphY: number): GraphNode | null => {
       // Use quadtree for faster lookup
       if (this.quadTree) {
@@ -1033,7 +997,7 @@ export class GraphView {
           const selected = this.selectedNote()
           const isActive = selected?.id === node.noteId
           const isCentral = isActive && this.activeMode === 'orb'
-          const r = this.getNodeRadius(node, isActive, isCentral) + 3
+          const r = getNodeRadius(node, isActive, isCentral) + 3
 
           const dx = graphX - node.x
           const dy = graphY - node.y
@@ -1052,7 +1016,7 @@ export class GraphView {
         const selected = this.selectedNote()
         const isActive = selected?.id === node.noteId
         const isCentral = isActive && this.activeMode === 'orb'
-        const r = this.getNodeRadius(node, isActive, isCentral) + 3
+        const r = getNodeRadius(node, isActive, isCentral) + 3
 
         const dx = graphX - node.x
         const dy = graphY - node.y
@@ -1111,7 +1075,7 @@ export class GraphView {
               clickedNode.highlighted = true
             } else if (this.pathStart.id !== clickedNode.id) {
               this.pathEnd = clickedNode
-              const path = this.findPath(this.pathStart, clickedNode)
+              const path = findPathBFS(this.allNodes, this.allLinks, this.pathStart.id, clickedNode.id)
               if (path) {
                 this.pathNodes.clear()
                 path.forEach(n => {
@@ -1151,7 +1115,8 @@ export class GraphView {
           this.draggedNode.fx = this.dimensions.width / 2
           this.draggedNode.fy = (this.dimensions.height - 60) / 2
         }
-        // Otherwise, fx and fy remain set from the drag, keeping the node pinned
+        // Mark the node as pinned so it persists across rebuilds
+        this.draggedNode.pinned = true
 
         this.isDraggingNode = false
         this.draggedNode = null
@@ -1229,20 +1194,36 @@ export class GraphView {
     closeBtn?.addEventListener('click', () => this.close())
 
 
-    this.overlay.querySelectorAll('.nexus-tab').forEach(btn => {
+    this.overlay.querySelectorAll('[data-mode]').forEach(btn => {
       btn.addEventListener('click', (e) => {
         const mode = (e.currentTarget as HTMLElement).dataset.mode as 'universe' | 'neighborhood' | 'orb'
         if (mode) {
           this.activeMode = mode
           this.updateSimulation()
-          this.overlay?.querySelectorAll('.nexus-tab').forEach(b => b.classList.remove('active'))
+          this.overlay?.querySelectorAll('[data-mode]').forEach(b => b.classList.remove('active'))
           btn.classList.add('active')
+          // Close left dropdown after selection
+          const modeMenu = this.overlay?.querySelector('#mode-menu') as HTMLElement
+          if (modeMenu) modeMenu.style.display = 'none'
+          // Add or remove orb lens for orb mode
+          const existingLens = this.overlay?.querySelector('.orb-lens') as HTMLElement | null
+          if (mode === 'orb') {
+            if (!existingLens && this.overlay) {
+              const lens = document.createElement('div')
+              lens.className = 'orb-lens'
+              this.overlay.querySelector('.nexus-body')?.appendChild(lens)
+            }
+            this.overlay?.querySelector('.nexus-container')?.classList.add('orb-mode')
+          } else {
+            if (existingLens) existingLens.remove()
+            this.overlay?.querySelector('.nexus-container')?.classList.remove('orb-mode')
+          }
         }
       })
     })
 
     // Keyboard shortcuts
-    const handleKeyDown = (e: KeyboardEvent) => {
+    this.handleKeyDownBound = (e: KeyboardEvent) => {
       if (!this.isOpen) return
 
       if (e.key === 'Escape') {
@@ -1258,12 +1239,9 @@ export class GraphView {
         this.centerOnSelected()
       }
     }
-    window.addEventListener('keydown', handleKeyDown)
-    this.overlay.addEventListener('remove', () => {
-      window.removeEventListener('keydown', handleKeyDown)
-    })
+    window.addEventListener('keydown', this.handleKeyDownBound)
 
-    const handleResize = () => {
+    this.handleResizeBound = () => {
       this.dimensions = {
         width: window.innerWidth * 0.95,
         height: window.innerHeight * 0.92
@@ -1275,40 +1253,10 @@ export class GraphView {
       this.updateVisibleElements()
       void this.updateSimulation()
     }
-    window.addEventListener('resize', handleResize)
+    window.addEventListener('resize', this.handleResizeBound)
   }
 
-  // Get node color based on color scheme
-  private getNodeColor(node: GraphNode, isActive: boolean, isHovered: boolean, isCentral: boolean): string {
-    if (node.type === 'tag') {
-      return isActive || isHovered ? '#14b8a6' : 'rgba(20, 184, 166, 0.8)'
-    }
-
-    if (isCentral || isActive) {
-      return '#ffaa00'
-    }
-
-    if (isHovered) {
-      return '#64bafa'
-    }
-
-    // Color coding
-    if (this.colorScheme === 'folder' && node.folder) {
-      const hash = node.folder.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
-      const hue = hash % 360
-      return `hsl(${hue}, 70%, 60%)`
-    }
-
-    if (this.colorScheme === 'connections' && node.connectionCount !== undefined) {
-      const count = node.connectionCount
-      if (count === 0) return 'rgba(150, 150, 150, 0.6)'
-      if (count < 3) return 'rgba(100, 160, 255, 0.8)'
-      if (count < 10) return 'rgba(100, 200, 255, 0.9)'
-      return 'rgba(255, 200, 100, 0.95)'
-    }
-
-    return 'rgba(100, 160, 255, 0.95)'
-  }
+  // Node color logic moved to helpers
 
   private drawGraph(): void {
     if (!this.canvas || !this.ctx) return
@@ -1316,8 +1264,16 @@ export class GraphView {
     const ctx = this.ctx
     ctx.clearRect(0, 0, this.canvas.width, this.canvas.height)
 
-    const nodes = this.visibleNodes.length > 0 ? this.visibleNodes : this.allNodes
-    const links = this.visibleLinks.length > 0 ? this.visibleLinks : this.allLinks
+    // Determine node set to draw. When searching, only draw matching nodes.
+    const nodes = this.searchQuery
+      ? this.allNodes.filter(n => n.searchMatch)
+      : (this.visibleNodes.length > 0 ? this.visibleNodes : this.allNodes)
+
+    // Determine links to draw. If search is active, rely on this.visibleLinks (which now only contains
+    // links whose both endpoints match the search). Otherwise fall back to visibleLinks or allLinks.
+    const links = this.searchQuery
+      ? this.visibleLinks
+      : (this.visibleLinks.length > 0 ? this.visibleLinks : this.allLinks)
 
     // LOD: Simplify rendering at low zoom
     const lodLevel = this.zoom < 0.5 ? 'low' : this.zoom < 1 ? 'medium' : 'high'
@@ -1438,7 +1394,7 @@ export class GraphView {
       const isHovered = this.hoverNode?.id === node.id
       const isCentral = isActive && this.activeMode === 'orb'
       const isHighlighted = node.highlighted || node.pathNode || node.searchMatch
-      const r = lodLevel === 'low' ? Math.max(2, this.getNodeRadius(node, isActive, isCentral) * 0.7) : this.getNodeRadius(node, isActive, isCentral)
+      const r = lodLevel === 'low' ? Math.max(2, getNodeRadius(node, isActive, isCentral) * 0.7) : getNodeRadius(node, isActive, isCentral)
 
       let alpha = 1.0
       if (this.hoverNode && this.hoverNode.id !== node.id) {
@@ -1452,7 +1408,7 @@ export class GraphView {
 
       ctx.globalAlpha = alpha
 
-      const baseColor = this.getNodeColor(node, isActive, isHovered, isCentral)
+      const baseColor = getNodeColor(node, isActive, isHovered, isCentral, this.colorScheme)
       const gradient = ctx.createRadialGradient(node.x, node.y, 0, node.x, node.y, r)
 
       if (node.type === 'tag') {
@@ -1488,13 +1444,24 @@ export class GraphView {
 
       // Border
       const borderColor = isHighlighted ? (node.pathNode ? '#ffaa00' : '#64bafa') :
-                          isCentral ? '#ffaa00' :
-                          isActive ? '#ffaa00' :
-                          isHovered ? (node.type === 'tag' ? '#14b8a6' : '#64bafa') :
-                          'rgba(255, 255, 255, 0.3)'
+              isCentral ? '#ffaa00' :
+              isActive ? '#ffaa00' :
+              isHovered ? (node.type === 'tag' ? '#14b8a6' : '#64bafa') :
+              (node.hasWikiLinks ? 'rgba(255, 179, 71, 0.95)' : (node.hasTags ? '#0d9488' : 'rgba(255, 255, 255, 0.3)'))
       ctx.strokeStyle = borderColor
-      ctx.lineWidth = isHighlighted || isCentral ? 3 / this.zoom : (isActive || isHovered ? 2 / this.zoom : 1 / this.zoom)
+      const baseLineWidth = isHighlighted || isCentral ? 3 : (isActive || isHovered ? 2 : 1)
+      const wikiBoost = Math.max(0, (node.wikiLinkCount || 0) - 1) // extra width for multiple wikilinks
+      ctx.lineWidth = (baseLineWidth + Math.min(wikiBoost, 6) * 0.4) / this.zoom
       ctx.stroke()
+
+      // Subtle halo for highly-linked nodes
+      if ((node.wikiLinkCount || 0) >= 4) {
+        ctx.beginPath()
+        ctx.arc(node.x, node.y, r + 4 + Math.min((node.wikiLinkCount || 0) - 3, 6), 0, 2 * Math.PI)
+        ctx.strokeStyle = 'rgba(255, 179, 71, 0.12)'
+        ctx.lineWidth = (2 + Math.min((node.wikiLinkCount || 0) - 3, 6)) / this.zoom
+        ctx.stroke()
+      }
 
       ctx.globalAlpha = 1.0
 
@@ -1548,8 +1515,27 @@ export class GraphView {
             `
           }
         }
+        // Position insight card at bottom-right for better visibility
+        insightCard.style.display = 'block'
+        // Override stylesheet top/left by setting to 'auto'
+        insightCard.style.top = 'auto'
+        insightCard.style.left = 'auto'
+        insightCard.style.right = '20px'
+        insightCard.style.bottom = '30px'
+        // Constrain size to avoid stretching (smaller)
+        insightCard.style.width = '260px'
+        insightCard.style.maxHeight = '160px'
+        insightCard.style.overflow = 'auto'
       } else if (insightCard) {
         insightCard.style.display = 'none'
+        // Reset positioning
+        insightCard.style.top = ''
+        insightCard.style.left = ''
+        insightCard.style.right = ''
+        insightCard.style.bottom = ''
+        insightCard.style.width = ''
+        insightCard.style.maxHeight = ''
+        insightCard.style.overflow = ''
       }
     }
     this.drawGraph()
