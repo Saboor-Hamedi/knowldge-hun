@@ -4,6 +4,7 @@ import { SessionSidebar } from './session-sidebar'
 import MarkdownIt from 'markdown-it'
 import DOMPurify from 'dompurify'
 import { Avatar } from './avatar'
+import { createElement, Copy, ThumbsUp, ThumbsDown, Check } from 'lucide'
 import './rightbar.css'
 
 const WELCOME_HTML = `
@@ -52,10 +53,18 @@ export class RightBar {
   constructor(containerId: string) {
     this.container = document.getElementById(containerId) as HTMLElement
     this.md = new MarkdownIt({
-      html: true,
+      html: false, // Disable HTML for security - let DOMPurify handle it
       linkify: true,
       breaks: true, // Convert \n to <br> for chat
-      typographer: true
+      typographer: true,
+      highlight: (str: string, lang: string) => {
+        // Always escape HTML in code blocks for security
+        const escaped = this.md.utils.escapeHtml(str)
+        if (lang) {
+          return `<pre><code class="language-${this.md.utils.escapeHtml(lang)}">${escaped}</code></pre>`
+        }
+        return `<pre><code>${escaped}</code></pre>`
+      }
     })
     void aiService.loadApiKey()
     void this.loadNotes()
@@ -528,7 +537,34 @@ export class RightBar {
       const target = (e.target as HTMLElement).closest('[data-action]')
       if (!target) return
       const action = (target as HTMLElement).dataset.action
+      const btn = target as HTMLButtonElement
+      
       if (action === 'copy') {
+        const messageIndex = parseInt(btn.dataset.messageIndex || '0', 10)
+        const message = this.messages[messageIndex]
+        if (message) {
+          // Get plain text from message content (remove markdown formatting)
+          const tempDiv = document.createElement('div')
+          tempDiv.innerHTML = this.formatContent(message.content, true)
+          const plainText = tempDiv.textContent || tempDiv.innerText || ''
+          
+          navigator.clipboard.writeText(plainText).then(() => {
+            // Show success feedback with green checkmark using Lucide Check icon
+            btn.classList.add('rightbar__message-action--copied')
+            const originalHTML = btn.innerHTML
+            btn.innerHTML = this.createLucideIcon(Check, 12, 2, '#22c55e')
+            setTimeout(() => {
+              btn.classList.remove('rightbar__message-action--copied')
+              btn.innerHTML = originalHTML
+            }, 2000)
+          }).catch(err => {
+            console.error('Failed to copy:', err)
+          })
+        }
+      } else if (action === 'thumbs-up' || action === 'thumbs-down') {
+        // Feedback functionality (can be extended later)
+        btn.classList.toggle('rightbar__message-action--active')
+      } else if (action === 'retry') {
         const msg = (target as HTMLElement).closest('.rightbar__message')
         const content = msg?.querySelector('.rightbar__message-content')
         if (content) {
@@ -1121,13 +1157,27 @@ export class RightBar {
     // Assistant messages: full markdown rendering
     if (!this.md) {
       // Fallback if md not initialized (shouldn't happen, but safety check)
-      this.md = new MarkdownIt({ html: true, linkify: true, breaks: true, typographer: true })
+      this.md = new MarkdownIt({
+        html: false,
+        linkify: true,
+        breaks: true,
+        typographer: true,
+        highlight: (str: string, lang: string) => {
+          const escaped = this.md.utils.escapeHtml(str)
+          if (lang) {
+            return `<pre><code class="language-${this.md.utils.escapeHtml(lang)}">${escaped}</code></pre>`
+          }
+          return `<pre><code>${escaped}</code></pre>`
+        }
+      })
     }
     const rawHtml = this.md.render(text)
+    // Sanitize HTML to prevent XSS attacks
     const cleanHtml = DOMPurify.sanitize(rawHtml, {
       ADD_ATTR: ['class', 'target', 'rel'],
       ADD_TAGS: ['pre', 'code'],
-      KEEP_CONTENT: true
+      KEEP_CONTENT: true,
+      ALLOW_DATA_ATTR: false
     })
     return cleanHtml
   }
@@ -1136,6 +1186,21 @@ export class RightBar {
     const div = document.createElement('div')
     div.textContent = raw
     return div.innerHTML
+  }
+
+  private createLucideIcon(IconComponent: any, size: number = 12, strokeWidth: number = 1.5, color?: string): string {
+    // Use Lucide's createElement to create SVG element
+    const svgElement = createElement(IconComponent, {
+      size: size,
+      'stroke-width': strokeWidth,
+      stroke: color || 'currentColor',
+      color: color || 'currentColor'
+    })
+    // Convert SVGElement to string
+    if (svgElement && svgElement.outerHTML) {
+      return svgElement.outerHTML
+    }
+    return ''
   }
 
   private renderMessages(): void {
@@ -1153,7 +1218,15 @@ export class RightBar {
         const actions =
           msg.role === 'assistant'
             ? `<div class="rightbar__message-actions">
-             <button type="button" class="rightbar__message-action" data-action="copy" title="Copy">Copy</button>
+             <button type="button" class="rightbar__message-action rightbar__message-action--copy" data-action="copy" data-message-index="${this.messages.indexOf(msg)}" title="Copy">
+               ${this.createLucideIcon(Copy, 12, 1.5)}
+             </button>
+             <button type="button" class="rightbar__message-action rightbar__message-action--thumbs-up" data-action="thumbs-up" data-message-index="${this.messages.indexOf(msg)}" title="Helpful">
+               ${this.createLucideIcon(ThumbsUp, 12, 1.5)}
+             </button>
+             <button type="button" class="rightbar__message-action rightbar__message-action--thumbs-down" data-action="thumbs-down" data-message-index="${this.messages.indexOf(msg)}" title="Not helpful">
+               ${this.createLucideIcon(ThumbsDown, 12, 1.5)}
+             </button>
              ${isError && this.lastFailedMessage ? '<button type="button" class="rightbar__message-action rightbar__message-action--retry" data-action="retry" title="Retry">Retry</button>' : ''}
            </div>`
             : ''

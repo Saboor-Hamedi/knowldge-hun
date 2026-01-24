@@ -424,34 +424,60 @@
   margin: 8px 0;
 }
 
-/* Message actions (Copy, Retry) */
+/* Message actions (Copy, Thumbs, Retry) */
 .rightbar__message-actions {
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin-top: 6px;
+  gap: 4px;
+  margin-top: 4px;
   flex-wrap: wrap;
 }
 
 .rightbar__message-action {
-  font-size: 11px;
-  padding: 4px 8px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--panel);
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
   color: var(--text-soft);
   cursor: pointer;
-  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s, background 0.15s;
+  flex-shrink: 0;
 }
 
 .rightbar__message-action:hover {
   color: var(--text-strong);
-  border-color: var(--text-soft);
+  background: var(--panel-strong);
+}
+
+.rightbar__message-action svg {
+  width: 12px;
+  height: 12px;
+}
+
+.rightbar__message-action--copied {
+  color: #22c55e !important;
+}
+
+.rightbar__message-action--copied svg {
+  color: #22c55e !important;
+}
+
+.rightbar__message-action--active {
+  color: var(--primary);
 }
 
 .rightbar__message-action--retry {
+  width: auto;
+  height: auto;
+  font-size: 11px;
+  padding: 4px 8px;
+  border: 1px solid var(--primary);
   color: var(--primary);
-  border-color: var(--primary);
 }
 
 .rightbar__message-action--retry:hover {
