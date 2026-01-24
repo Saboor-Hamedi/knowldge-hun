@@ -268,52 +268,175 @@ export function filterNodes(
     showOrphans?: boolean
     selectedTags?: string[]
     selectedFolders?: string[]
+    localGraphCenter?: string
+    localGraphDepth?: number
   }
 ): GraphData {
   let filteredNodes = [...data.nodes]
-  
+
+  // Local graph filter (before other filters)
+  if (options.localGraphCenter && options.localGraphDepth && options.localGraphDepth > 0) {
+    const localNodes = getNodesWithinDepth(data, options.localGraphCenter, options.localGraphDepth)
+    filteredNodes = filteredNodes.filter((n) => localNodes.has(n.id))
+  }
+
   // Search filter
   if (options.searchQuery) {
     const query = options.searchQuery.toLowerCase()
-    filteredNodes = filteredNodes.filter(n => 
-      n.title.toLowerCase().includes(query) ||
-      n.id.toLowerCase().includes(query)
+    filteredNodes = filteredNodes.filter(
+      (n) => n.title.toLowerCase().includes(query) || n.id.toLowerCase().includes(query)
     )
   }
-  
+
   // Orphan filter
   if (options.showOrphans === false) {
-    filteredNodes = filteredNodes.filter(n => !n.isOrphan)
+    filteredNodes = filteredNodes.filter((n) => !n.isOrphan)
   }
-  
+
   // Tag filter
   if (options.selectedTags && options.selectedTags.length > 0) {
-    filteredNodes = filteredNodes.filter(n => 
-      n.tags.some(t => options.selectedTags!.includes(t))
-    )
+    filteredNodes = filteredNodes.filter((n) => n.tags.some((t) => options.selectedTags!.includes(t)))
   }
-  
+
   // Folder filter
   if (options.selectedFolders && options.selectedFolders.length > 0) {
     const nodeIdsInFolders = new Set<string>()
     for (const folder of options.selectedFolders) {
       const ids = data.clusters.get(folder) || []
-      ids.forEach(id => nodeIdsInFolders.add(id))
+      ids.forEach((id) => nodeIdsInFolders.add(id))
     }
-    filteredNodes = filteredNodes.filter(n => nodeIdsInFolders.has(n.id))
+    filteredNodes = filteredNodes.filter((n) => nodeIdsInFolders.has(n.id))
   }
-  
-  const filteredNodeIds = new Set(filteredNodes.map(n => n.id))
-  const filteredLinks = data.links.filter(l => {
+
+  const filteredNodeIds = new Set(filteredNodes.map((n) => n.id))
+  const filteredLinks = data.links.filter((l) => {
     const sourceId = typeof l.source === 'string' ? l.source : l.source.id
     const targetId = typeof l.target === 'string' ? l.target : l.target.id
     return filteredNodeIds.has(sourceId) && filteredNodeIds.has(targetId)
   })
-  
+
   return {
     nodes: filteredNodes,
     links: filteredLinks,
     clusters: data.clusters,
     tags: data.tags
   }
+}
+
+/**
+ * Build adjacency list from links for efficient graph traversal
+ */
+export function buildAdjacencyList(data: GraphData): Map<string, Set<string>> {
+  const adjacency = new Map<string, Set<string>>()
+
+  // Initialize all nodes
+  for (const node of data.nodes) {
+    adjacency.set(node.id, new Set())
+  }
+
+  // Add edges (bidirectional traversal)
+  for (const link of data.links) {
+    const sourceId = typeof link.source === 'string' ? link.source : link.source.id
+    const targetId = typeof link.target === 'string' ? link.target : link.target.id
+
+    adjacency.get(sourceId)?.add(targetId)
+    adjacency.get(targetId)?.add(sourceId)
+  }
+
+  return adjacency
+}
+
+/**
+ * Get all nodes within N hops from a center node (BFS)
+ */
+export function getNodesWithinDepth(data: GraphData, centerId: string, depth: number): Set<string> {
+  const adjacency = buildAdjacencyList(data)
+  const visited = new Set<string>()
+  const queue: { id: string; level: number }[] = [{ id: centerId, level: 0 }]
+
+  while (queue.length > 0) {
+    const current = queue.shift()!
+    if (visited.has(current.id)) continue
+    visited.add(current.id)
+
+    if (current.level < depth) {
+      const neighbors = adjacency.get(current.id) || new Set()
+      for (const neighbor of neighbors) {
+        if (!visited.has(neighbor)) {
+          queue.push({ id: neighbor, level: current.level + 1 })
+        }
+      }
+    }
+  }
+
+  return visited
+}
+
+/**
+ * Find shortest path between two nodes using BFS
+ * Returns array of node IDs representing the path, or empty array if no path exists
+ */
+export function findShortestPath(data: GraphData, startId: string, endId: string): string[] {
+  if (startId === endId) return [startId]
+
+  const adjacency = buildAdjacencyList(data)
+  const visited = new Set<string>()
+  const parent = new Map<string, string>()
+  const queue: string[] = [startId]
+
+  visited.add(startId)
+
+  while (queue.length > 0) {
+    const current = queue.shift()!
+
+    const neighbors = adjacency.get(current) || new Set()
+    for (const neighbor of neighbors) {
+      if (!visited.has(neighbor)) {
+        visited.add(neighbor)
+        parent.set(neighbor, current)
+
+        if (neighbor === endId) {
+          // Reconstruct path
+          const path: string[] = [endId]
+          let node = endId
+          while (parent.has(node)) {
+            node = parent.get(node)!
+            path.unshift(node)
+          }
+          return path
+        }
+
+        queue.push(neighbor)
+      }
+    }
+  }
+
+  return [] // No path found
+}
+
+/**
+ * Get links that form a path
+ */
+export function getPathLinks(data: GraphData, path: string[]): GraphLink[] {
+  if (path.length < 2) return []
+
+  const pathLinks: GraphLink[] = []
+
+  for (let i = 0; i < path.length - 1; i++) {
+    const from = path[i]
+    const to = path[i + 1]
+
+    // Find the link between these nodes
+    const link = data.links.find((l) => {
+      const sourceId = typeof l.source === 'string' ? l.source : l.source.id
+      const targetId = typeof l.target === 'string' ? l.target : l.target.id
+      return (sourceId === from && targetId === to) || (sourceId === to && targetId === from)
+    })
+
+    if (link) {
+      pathLinks.push(link)
+    }
+  }
+
+  return pathLinks
 }

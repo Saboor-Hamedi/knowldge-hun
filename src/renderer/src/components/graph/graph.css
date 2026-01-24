@@ -595,6 +595,200 @@
 }
 
 /* ============================================
+   Path Finding
+   ============================================ */
+
+.link--path {
+  stroke: #22c55e !important;
+  stroke-opacity: 1 !important;
+  stroke-width: 4px !important;
+  stroke-dasharray: 8 4;
+  animation: path-flow 0.5s linear infinite;
+}
+
+@keyframes path-flow {
+  from {
+    stroke-dashoffset: 0;
+  }
+  to {
+    stroke-dashoffset: -12;
+  }
+}
+
+.graph-modal__pathfind-hint {
+  position: absolute;
+  top: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--panel);
+  border: 1px solid var(--primary);
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-size: 12px;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  z-index: 100;
+}
+
+.graph-modal__pathfind-cancel {
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text);
+  font-size: 11px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.graph-modal__pathfind-cancel:hover {
+  background: var(--border);
+}
+
+/* ============================================
+   Minimap
+   ============================================ */
+
+.graph-modal__minimap {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.graph-minimap__svg {
+  display: block;
+  background: var(--bg);
+}
+
+/* ============================================
+   Tool Buttons
+   ============================================ */
+
+.graph-controls__tools {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.graph-controls__tool-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px 7px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--panel-strong);
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.graph-controls__tool-btn svg {
+  width: 12px;
+  height: 12px;
+}
+
+.graph-controls__tool-btn:hover {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+
+.graph-controls__depth-value {
+  min-width: 16px;
+  text-align: center;
+  font-weight: 600;
+  color: var(--primary);
+}
+
+/* Export Dropdown */
+.graph-controls__export-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  left: auto;
+  min-width: 160px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  z-index: 150;
+  display: none;
+  overflow: hidden;
+}
+
+.graph-controls__export-dropdown.is-open {
+  display: block;
+}
+
+.graph-controls__export-dropdown .graph-controls__dropdown-list {
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.graph-controls__export-dropdown .graph-controls__dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 10px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.graph-controls__export-dropdown .graph-controls__dropdown-item::before {
+  content: '';
+  width: 28px;
+  height: 16px;
+  border-radius: 3px;
+  background: var(--panel-strong);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8px;
+  font-weight: 700;
+  color: var(--text-soft);
+  flex-shrink: 0;
+}
+
+.graph-controls__export-dropdown .graph-controls__dropdown-item[data-export="svg"]::before {
+  content: 'SVG';
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  color: #fff;
+}
+
+.graph-controls__export-dropdown .graph-controls__dropdown-item[data-export="png"]::before {
+  content: 'PNG';
+  background: linear-gradient(135deg, #22c55e 0%, #10b981 100%);
+  color: #fff;
+}
+
+.graph-controls__export-dropdown .graph-controls__dropdown-item:hover {
+  background: var(--panel-strong);
+}
+
+.graph-controls__export-dropdown .graph-controls__dropdown-item:active {
+  transform: scale(0.98);
+}
+
+/* ============================================
    Error State
    ============================================ */
 

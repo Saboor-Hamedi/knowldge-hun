@@ -13,7 +13,9 @@ import {
   processGraphData,
   filterNodes,
   getNodeRadius,
-  getGroupColor
+  getGroupColor,
+  findShortestPath,
+  getPathLinks
 } from './graph-utils'
 import './graph.css'
 import '../window-header/window-header.css'
@@ -32,6 +34,12 @@ export class GraphView {
   private groupColors: Map<number, string> = new Map()
   private showLabels = true
   private forceStrength = -300
+  private localGraphEnabled = false
+  private localGraphDepth = 2
+  private pathFindMode = false
+  private pathFindStart: string | null = null
+  private currentPath: string[] = []
+  private minimap: d3.Selection<SVGSVGElement, unknown, null, undefined> | null = null
 
   // D3 selections
   private linkSelection: d3.Selection<SVGLineElement, GraphLink, SVGGElement, unknown> | null = null
@@ -68,7 +76,12 @@ export class GraphView {
         </div>
         <div class="graph-modal__toolbar" id="graph-toolbar"></div>
         <div class="graph-modal__canvas" id="graph-canvas"></div>
+        <div class="graph-modal__minimap" id="graph-minimap"></div>
         <div class="graph-modal__tooltip" id="graph-tooltip"></div>
+        <div class="graph-modal__pathfind-hint" id="graph-pathfind-hint" style="display: none;">
+          Click on a node to select the start point, then click another node to find the path.
+          <button class="graph-modal__pathfind-cancel">Cancel</button>
+        </div>
         <div class="graph-modal__legend" id="graph-legend"></div>
       </div>
     `
@@ -85,7 +98,11 @@ export class GraphView {
         onZoomOut: () => this.handleZoom(0.7),
         onZoomReset: () => this.handleZoomReset(),
         onToggleLabels: (show) => this.handleToggleLabels(show),
-        onForceStrengthChange: (strength) => this.handleForceStrengthChange(strength)
+        onForceStrengthChange: (strength) => this.handleForceStrengthChange(strength),
+        onDepthChange: (depth) => this.handleDepthChange(depth),
+        onToggleLocalGraph: (enabled) => this.handleToggleLocalGraph(enabled),
+        onExport: (format) => this.handleExport(format),
+        onStartPathFind: () => this.handleStartPathFind()
       })
     }
   }
@@ -601,6 +618,22 @@ export class GraphView {
   }
 
   private handleNodeClick(node: GraphNode): void {
+    // Path finding mode
+    if (this.pathFindMode) {
+      if (!this.pathFindStart) {
+        // First click - set start
+        this.pathFindStart = node.id
+        this.highlightPathNode(node.id, 'start')
+        this.updatePathFindHint('Now click on the destination node.')
+      } else {
+        // Second click - find path
+        this.findAndHighlightPath(this.pathFindStart, node.id)
+        this.endPathFindMode()
+      }
+      return
+    }
+
+    // Normal mode - open note
     const note = state.notes.find((n) => n.id === node.id)
     if (note) {
       this.close()
@@ -675,11 +708,14 @@ export class GraphView {
     this.filteredData = filterNodes(this.graphData, {
       showOrphans: filters.showOrphans,
       selectedTags: filters.selectedTags,
-      selectedFolders: filters.selectedFolders
+      selectedFolders: filters.selectedFolders,
+      localGraphCenter: this.localGraphEnabled ? state.activeId || undefined : undefined,
+      localGraphDepth: this.localGraphEnabled ? this.localGraphDepth : undefined
     })
 
     this.renderGraph()
     this.updateStats()
+    this.updateMinimap()
   }
 
   private handleZoom(factor: number): void {
@@ -712,6 +748,257 @@ export class GraphView {
       chargeForce?.strength(this.forceStrength)
       this.simulation.alpha(0.5).restart()
     }
+  }
+
+  private handleDepthChange(depth: number): void {
+    this.localGraphDepth = depth
+    if (this.localGraphEnabled && this.graphData) {
+      this.filteredData = filterNodes(this.graphData, {
+        showOrphans: true,
+        selectedTags: [],
+        selectedFolders: [],
+        localGraphCenter: state.activeId || undefined,
+        localGraphDepth: depth
+      })
+      this.renderGraph()
+      this.updateStats()
+      this.updateMinimap()
+    }
+  }
+
+  private handleToggleLocalGraph(enabled: boolean): void {
+    this.localGraphEnabled = enabled
+    if (this.graphData) {
+      this.filteredData = filterNodes(this.graphData, {
+        showOrphans: true,
+        selectedTags: [],
+        selectedFolders: [],
+        localGraphCenter: enabled ? state.activeId || undefined : undefined,
+        localGraphDepth: enabled ? this.localGraphDepth : undefined
+      })
+      this.renderGraph()
+      this.updateStats()
+      this.updateMinimap()
+    }
+  }
+
+  private handleExport(format: 'svg' | 'png'): void {
+    if (!this.svg) return
+
+    const svgElement = this.svg.node()
+    if (!svgElement) return
+
+    // Clone SVG and prepare for export
+    const clone = svgElement.cloneNode(true) as SVGSVGElement
+    clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
+
+    // Inline styles for export
+    const styles = `
+      .link { stroke: #6b7280; stroke-opacity: 0.5; }
+      .link--bidirectional { stroke: #7fa7ff; }
+      .link--highlighted { stroke: #7fa7ff; stroke-width: 3px; }
+      .node circle { stroke: #1e1e1e; stroke-width: 2px; }
+      .node__label { font-family: system-ui, sans-serif; font-size: 11px; fill: #e0e0e0; }
+    `
+    const styleEl = document.createElementNS('http://www.w3.org/2000/svg', 'style')
+    styleEl.textContent = styles
+    clone.insertBefore(styleEl, clone.firstChild)
+
+    const serializer = new XMLSerializer()
+    const svgString = serializer.serializeToString(clone)
+    const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' })
+
+    if (format === 'svg') {
+      const url = URL.createObjectURL(svgBlob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `vault-graph-${Date.now()}.svg`
+      a.click()
+      URL.revokeObjectURL(url)
+    } else {
+      // PNG export using canvas
+      const canvas = document.createElement('canvas')
+      const ctx = canvas.getContext('2d')
+      const img = new Image()
+
+      img.onload = () => {
+        canvas.width = img.width * 2 // 2x for retina
+        canvas.height = img.height * 2
+        ctx?.scale(2, 2)
+        ctx?.drawImage(img, 0, 0)
+
+        canvas.toBlob((blob) => {
+          if (blob) {
+            const url = URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            a.href = url
+            a.download = `vault-graph-${Date.now()}.png`
+            a.click()
+            URL.revokeObjectURL(url)
+          }
+        }, 'image/png')
+      }
+
+      img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgString)))
+    }
+  }
+
+  private handleStartPathFind(): void {
+    this.pathFindMode = true
+    this.pathFindStart = null
+    this.currentPath = []
+    this.clearPathHighlight()
+
+    const hint = this.modal.querySelector('#graph-pathfind-hint') as HTMLElement
+    if (hint) {
+      hint.style.display = 'flex'
+      hint.querySelector('.graph-modal__pathfind-cancel')?.addEventListener('click', () => {
+        this.endPathFindMode()
+      })
+    }
+
+    this.updatePathFindHint('Click on a node to select the starting point.')
+  }
+
+  private endPathFindMode(): void {
+    this.pathFindMode = false
+    this.pathFindStart = null
+
+    const hint = this.modal.querySelector('#graph-pathfind-hint') as HTMLElement
+    if (hint) hint.style.display = 'none'
+  }
+
+  private updatePathFindHint(message: string): void {
+    const hint = this.modal.querySelector('#graph-pathfind-hint') as HTMLElement
+    if (hint) {
+      const textNode = hint.childNodes[0]
+      if (textNode) textNode.textContent = message + ' '
+    }
+  }
+
+  private highlightPathNode(nodeId: string, type: 'start' | 'end' | 'path'): void {
+    this.nodeSelection?.each(function (d) {
+      if (d.id === nodeId) {
+        const circle = d3.select(this).select('circle')
+        if (type === 'start') {
+          circle.attr('stroke', '#22c55e').attr('stroke-width', 4)
+        } else if (type === 'end') {
+          circle.attr('stroke', '#ef4444').attr('stroke-width', 4)
+        } else {
+          circle.attr('stroke', '#7fa7ff').attr('stroke-width', 3)
+        }
+      }
+    })
+  }
+
+  private findAndHighlightPath(startId: string, endId: string): void {
+    if (!this.graphData) return
+
+    const path = findShortestPath(this.graphData, startId, endId)
+
+    if (path.length === 0) {
+      this.updatePathFindHint('No path found between these notes.')
+      setTimeout(() => this.endPathFindMode(), 2000)
+      return
+    }
+
+    this.currentPath = path
+
+    // Highlight path nodes
+    this.highlightPathNode(startId, 'start')
+    this.highlightPathNode(endId, 'end')
+    for (let i = 1; i < path.length - 1; i++) {
+      this.highlightPathNode(path[i], 'path')
+    }
+
+    // Highlight path links
+    const pathLinks = getPathLinks(this.graphData, path)
+    this.linkSelection?.classed('link--path', (link) => {
+      const sourceId = typeof link.source === 'string' ? link.source : link.source.id
+      const targetId = typeof link.target === 'string' ? link.target : link.target.id
+      return pathLinks.some((pl) => {
+        const plSourceId = typeof pl.source === 'string' ? pl.source : pl.source.id
+        const plTargetId = typeof pl.target === 'string' ? pl.target : pl.target.id
+        return (
+          (sourceId === plSourceId && targetId === plTargetId) ||
+          (sourceId === plTargetId && targetId === plSourceId)
+        )
+      })
+    })
+
+    this.updatePathFindHint(`Path found: ${path.length} nodes (${path.length - 1} hops)`)
+  }
+
+  private clearPathHighlight(): void {
+    this.nodeSelection?.selectAll('circle').attr('stroke', null).attr('stroke-width', null)
+    this.linkSelection?.classed('link--path', false)
+    this.currentPath = []
+  }
+
+  private updateMinimap(): void {
+    if (!this.filteredData || !this.g) return
+
+    const minimapContainer = this.modal.querySelector('#graph-minimap') as HTMLElement
+    if (!minimapContainer) return
+
+    // Clear existing minimap
+    minimapContainer.innerHTML = ''
+
+    const minimapWidth = 150
+    const minimapHeight = 100
+
+    // Calculate bounds
+    let minX = Infinity,
+      maxX = -Infinity,
+      minY = Infinity,
+      maxY = -Infinity
+    this.filteredData.nodes.forEach((n) => {
+      if (n.x !== undefined && n.y !== undefined) {
+        minX = Math.min(minX, n.x)
+        maxX = Math.max(maxX, n.x)
+        minY = Math.min(minY, n.y)
+        maxY = Math.max(maxY, n.y)
+      }
+    })
+
+    if (!isFinite(minX)) return
+
+    const padding = 20
+    const scaleX = (minimapWidth - padding * 2) / (maxX - minX || 1)
+    const scaleY = (minimapHeight - padding * 2) / (maxY - minY || 1)
+    const scale = Math.min(scaleX, scaleY, 1)
+
+    this.minimap = d3
+      .select(minimapContainer)
+      .append('svg')
+      .attr('width', minimapWidth)
+      .attr('height', minimapHeight)
+      .attr('class', 'graph-minimap__svg')
+
+    const g = this.minimap.append('g').attr('transform', `translate(${padding}, ${padding})`)
+
+    // Draw links
+    g.selectAll('line')
+      .data(this.filteredData.links)
+      .enter()
+      .append('line')
+      .attr('x1', (d) => ((d.source as GraphNode).x! - minX) * scale)
+      .attr('y1', (d) => ((d.source as GraphNode).y! - minY) * scale)
+      .attr('x2', (d) => ((d.target as GraphNode).x! - minX) * scale)
+      .attr('y2', (d) => ((d.target as GraphNode).y! - minY) * scale)
+      .attr('stroke', 'var(--text-soft)')
+      .attr('stroke-opacity', 0.3)
+      .attr('stroke-width', 0.5)
+
+    // Draw nodes
+    g.selectAll('circle')
+      .data(this.filteredData.nodes)
+      .enter()
+      .append('circle')
+      .attr('cx', (d) => (d.x! - minX) * scale)
+      .attr('cy', (d) => (d.y! - minY) * scale)
+      .attr('r', 2)
+      .attr('fill', (d) => (d.isActive ? '#fbbf24' : 'var(--primary)'))
   }
 
   // Drag handlers

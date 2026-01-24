@@ -3,7 +3,22 @@
  * UI controls for filtering and customizing the graph view
  */
 
-import { createElement, Search, X, Filter, ZoomIn, ZoomOut, Maximize2, Tag, Folder, Circle, Eye, EyeOff } from 'lucide'
+import {
+  createElement,
+  Search,
+  X,
+  ZoomIn,
+  ZoomOut,
+  Maximize2,
+  Tag,
+  Folder,
+  Circle,
+  Eye,
+  EyeOff,
+  Download,
+  Focus,
+  Route
+} from 'lucide'
 
 export interface GraphControlsOptions {
   onSearch: (query: string) => void
@@ -13,12 +28,18 @@ export interface GraphControlsOptions {
   onZoomReset: () => void
   onToggleLabels: (show: boolean) => void
   onForceStrengthChange: (strength: number) => void
+  onDepthChange: (depth: number) => void
+  onToggleLocalGraph: (enabled: boolean) => void
+  onExport: (format: 'svg' | 'png') => void
+  onStartPathFind: () => void
 }
 
 export interface GraphFilters {
   showOrphans: boolean
   selectedTags: string[]
   selectedFolders: string[]
+  localGraphEnabled: boolean
+  localGraphDepth: number
 }
 
 export class GraphControls {
@@ -27,7 +48,9 @@ export class GraphControls {
   private filters: GraphFilters = {
     showOrphans: true,
     selectedTags: [],
-    selectedFolders: []
+    selectedFolders: [],
+    localGraphEnabled: false,
+    localGraphDepth: 2
   }
   private showLabels = true
   private availableTags: string[] = []
@@ -35,6 +58,7 @@ export class GraphControls {
   private searchInput!: HTMLInputElement
   private tagsDropdown!: HTMLElement
   private foldersDropdown!: HTMLElement
+  private depthSlider!: HTMLInputElement
 
   constructor(container: HTMLElement, options: GraphControlsOptions) {
     this.container = container
@@ -93,6 +117,43 @@ export class GraphControls {
         
         <div class="graph-controls__divider"></div>
         
+        <div class="graph-controls__section graph-controls__local">
+          <button class="graph-controls__toggle-btn ${this.filters.localGraphEnabled ? 'is-active' : ''}" 
+                  data-toggle="local" title="Show local graph around active note">
+            ${this.createIcon(Focus, 12)}
+            <span>Local</span>
+          </button>
+          
+          <label class="graph-controls__slider-label graph-controls__depth-label" style="display: ${this.filters.localGraphEnabled ? 'flex' : 'none'}">
+            <span>Depth</span>
+            <input type="range" class="graph-controls__slider graph-controls__depth-slider" 
+                   min="1" max="5" value="${this.filters.localGraphDepth}" data-slider="depth" />
+            <span class="graph-controls__depth-value">${this.filters.localGraphDepth}</span>
+          </label>
+        </div>
+        
+        <div class="graph-controls__divider"></div>
+        
+        <div class="graph-controls__section graph-controls__tools">
+          <button class="graph-controls__tool-btn" data-tool="pathfind" title="Find path between two notes">
+            ${this.createIcon(Route, 12)}
+          </button>
+          
+          <div class="graph-controls__filter-group">
+            <button class="graph-controls__tool-btn" data-tool="export" title="Export graph">
+              ${this.createIcon(Download, 12)}
+            </button>
+            <div class="graph-controls__dropdown graph-controls__export-dropdown">
+              <div class="graph-controls__dropdown-list">
+                <button class="graph-controls__dropdown-item" data-export="svg">Vector (Scalable)</button>
+                <button class="graph-controls__dropdown-item" data-export="png">Image (High-Res)</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="graph-controls__divider"></div>
+        
         <div class="graph-controls__section graph-controls__view">
           <button class="graph-controls__toggle-btn ${this.showLabels ? 'is-active' : ''}" 
                   data-toggle="labels" title="Toggle labels">
@@ -129,6 +190,7 @@ export class GraphControls {
     this.searchInput = this.container.querySelector('.graph-controls__search-input') as HTMLInputElement
     this.tagsDropdown = this.container.querySelector('.graph-controls__tags-dropdown') as HTMLElement
     this.foldersDropdown = this.container.querySelector('.graph-controls__folders-dropdown') as HTMLElement
+    this.depthSlider = this.container.querySelector('.graph-controls__depth-slider') as HTMLInputElement
 
     // Add search icon
     const searchIconContainer = this.container.querySelector('.graph-controls__search-icon') as HTMLElement
@@ -159,23 +221,46 @@ export class GraphControls {
     })
 
     // Filter dropdowns
-    this.container.querySelectorAll('.graph-controls__filter-btn').forEach(btn => {
+    this.container.querySelectorAll('.graph-controls__filter-btn').forEach((btn) => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation()
         const filter = (btn as HTMLElement).dataset.filter
-        this.toggleDropdown(filter as 'tags' | 'folders')
+        this.toggleDropdown(filter as 'tags' | 'folders' | 'export')
+      })
+    })
+
+    // Tool buttons with dropdowns
+    this.container.querySelectorAll('.graph-controls__tool-btn').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation()
+        const tool = (btn as HTMLElement).dataset.tool
+        if (tool === 'export') {
+          this.toggleDropdown('export')
+        } else if (tool === 'pathfind') {
+          this.options.onStartPathFind()
+        }
+      })
+    })
+
+    // Export buttons
+    this.container.querySelectorAll('[data-export]').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation()
+        const format = (btn as HTMLElement).dataset.export as 'svg' | 'png'
+        this.options.onExport(format)
+        this.closeAllDropdowns()
       })
     })
 
     // Prevent dropdown close when clicking inside
-    this.container.querySelectorAll('.graph-controls__dropdown').forEach(dropdown => {
+    this.container.querySelectorAll('.graph-controls__dropdown').forEach((dropdown) => {
       dropdown.addEventListener('click', (e) => {
         e.stopPropagation()
       })
     })
 
     // Toggle buttons
-    this.container.querySelectorAll('.graph-controls__toggle-btn').forEach(btn => {
+    this.container.querySelectorAll('.graph-controls__toggle-btn').forEach((btn) => {
       btn.addEventListener('click', () => {
         const toggle = (btn as HTMLElement).dataset.toggle
         if (toggle === 'orphans') {
@@ -187,12 +272,22 @@ export class GraphControls {
           btn.classList.toggle('is-active', this.showLabels)
           btn.innerHTML = `${this.createIcon(this.showLabels ? Eye : EyeOff, 12)}<span>Labels</span>`
           this.options.onToggleLabels(this.showLabels)
+        } else if (toggle === 'local') {
+          this.filters.localGraphEnabled = !this.filters.localGraphEnabled
+          btn.classList.toggle('is-active', this.filters.localGraphEnabled)
+          // Show/hide depth slider
+          const depthLabel = this.container.querySelector('.graph-controls__depth-label') as HTMLElement
+          if (depthLabel) {
+            depthLabel.style.display = this.filters.localGraphEnabled ? 'flex' : 'none'
+          }
+          this.options.onToggleLocalGraph(this.filters.localGraphEnabled)
+          this.options.onFilterChange({ ...this.filters })
         }
       })
     })
 
     // Zoom buttons
-    this.container.querySelectorAll('.graph-controls__zoom-btn').forEach(btn => {
+    this.container.querySelectorAll('.graph-controls__zoom-btn').forEach((btn) => {
       btn.addEventListener('click', () => {
         const zoom = (btn as HTMLElement).dataset.zoom
         if (zoom === 'in') this.options.onZoomIn()
@@ -207,18 +302,34 @@ export class GraphControls {
       this.options.onForceStrengthChange(parseInt(forceSlider.value, 10))
     })
 
+    // Depth slider
+    this.depthSlider?.addEventListener('input', () => {
+      const depth = parseInt(this.depthSlider.value, 10)
+      this.filters.localGraphDepth = depth
+      const depthValue = this.container.querySelector('.graph-controls__depth-value')
+      if (depthValue) depthValue.textContent = String(depth)
+      this.options.onDepthChange(depth)
+    })
+
     // Close dropdowns on outside click
     document.addEventListener('click', () => {
       this.closeAllDropdowns()
     })
   }
 
-  private toggleDropdown(type: 'tags' | 'folders'): void {
-    const dropdown = type === 'tags' ? this.tagsDropdown : this.foldersDropdown
+  private toggleDropdown(type: 'tags' | 'folders' | 'export'): void {
+    let dropdown: HTMLElement | null = null
+    if (type === 'tags') dropdown = this.tagsDropdown
+    else if (type === 'folders') dropdown = this.foldersDropdown
+    else if (type === 'export')
+      dropdown = this.container.querySelector('.graph-controls__export-dropdown')
+
+    if (!dropdown) return
+
     const isOpen = dropdown.classList.contains('is-open')
-    
+
     this.closeAllDropdowns()
-    
+
     if (!isOpen) {
       dropdown.classList.add('is-open')
     }
@@ -227,6 +338,7 @@ export class GraphControls {
   private closeAllDropdowns(): void {
     this.tagsDropdown?.classList.remove('is-open')
     this.foldersDropdown?.classList.remove('is-open')
+    this.container.querySelector('.graph-controls__export-dropdown')?.classList.remove('is-open')
   }
 
   private updateTagsDropdown(): void {
