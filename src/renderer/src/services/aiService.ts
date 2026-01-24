@@ -37,8 +37,9 @@ export class AIService {
   private vaultCacheTime: number = 0
   private readonly CACHE_DURATION = 120000 // 2 minutes cache
   private readonly MAX_CONTEXT_TOKENS = 8000 // Approximate token limit
-  private readonly MAX_NOTES_TO_LOAD = 50 // Limit notes loaded at once
-  private readonly MAX_CONTENT_LENGTH = 2000 // Max chars per note in context
+  private readonly MAX_NOTES_TO_LOAD = 30 // Limit notes loaded at once (reduced for performance)
+  private readonly MAX_CONTENT_LENGTH = 1500 // Max chars per note in context (reduced for performance)
+  private readonly BATCH_SIZE = 5 // Smaller batches for better performance
 
   async loadApiKey(): Promise<void> {
     try {

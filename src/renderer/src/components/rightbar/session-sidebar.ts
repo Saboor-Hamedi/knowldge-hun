@@ -1,5 +1,6 @@
 import { sessionStorageService, type ChatSession } from '../../services/sessionStorageService'
 import { modalManager } from '../modal/modal'
+import { createElement, Search } from 'lucide'
 
 /**
  * Session Sidebar Component
@@ -9,10 +10,13 @@ export class SessionSidebar {
   private container: HTMLElement
   private sidebarElement!: HTMLElement
   private sessionsList!: HTMLElement
+  private searchInput!: HTMLInputElement
   private isVisible = false
   private onSessionSelect?: (sessionId: string) => void
   private onNewSession?: () => void
   private currentSessionId: string | null = null
+  private allSessions: ChatSession[] = []
+  private searchQuery: string = ''
 
   constructor(container: HTMLElement | string) {
     // Accept either HTMLElement or container ID string
@@ -109,6 +113,18 @@ export class SessionSidebar {
           </button>
         </div>
         <div class="rightbar__session-sidebar-actions">
+          <div class="rightbar__session-sidebar-search">
+            <div class="rightbar__session-sidebar-search-icon">
+              ${this.createLucideIcon(Search, 14, 1.5)}
+            </div>
+            <input 
+              type="text" 
+              class="rightbar__session-sidebar-search-input" 
+              id="rightbar-session-sidebar-search" 
+              placeholder="Search sessions..."
+              autocomplete="off"
+            />
+          </div>
           <button class="rightbar__session-sidebar-new" id="rightbar-session-sidebar-new" title="New Session">
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M8 2v12M2 8h12"/>
@@ -124,6 +140,7 @@ export class SessionSidebar {
     this.container.insertAdjacentHTML('beforeend', sidebarHTML)
     this.sidebarElement = this.container.querySelector('#rightbar-session-sidebar') as HTMLElement
     this.sessionsList = this.container.querySelector('#rightbar-session-sidebar-list') as HTMLElement
+    this.searchInput = this.container.querySelector('#rightbar-session-sidebar-search') as HTMLInputElement
     
     if (!this.sidebarElement) {
       console.error('[SessionSidebar] Failed to find sidebar element after render')
@@ -131,6 +148,19 @@ export class SessionSidebar {
     if (!this.sessionsList) {
       console.error('[SessionSidebar] Failed to find sessions list after render')
     }
+  }
+
+  private createLucideIcon(IconComponent: any, size: number = 14, strokeWidth: number = 1.5, color?: string): string {
+    const svgElement = createElement(IconComponent, {
+      size: size,
+      'stroke-width': strokeWidth,
+      stroke: color || 'currentColor',
+      color: color || 'currentColor'
+    })
+    if (svgElement && svgElement.outerHTML) {
+      return svgElement.outerHTML
+    }
+    return ''
   }
 
   private attachEvents(): void {
@@ -143,17 +173,57 @@ export class SessionSidebar {
         this.onNewSession()
       }
     })
+
+    // Search functionality
+    if (this.searchInput) {
+      let searchTimeout: number | null = null
+      this.searchInput.addEventListener('input', (e) => {
+        const query = (e.target as HTMLInputElement).value.toLowerCase().trim()
+        this.searchQuery = query
+        
+        // Debounce search
+        if (searchTimeout) clearTimeout(searchTimeout)
+        searchTimeout = window.setTimeout(() => {
+          this.filterAndRenderSessions()
+        }, 200)
+      })
+
+      // Clear search on Escape
+      this.searchInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          this.searchInput.value = ''
+          this.searchQuery = ''
+          this.filterAndRenderSessions()
+          this.searchInput.blur()
+        }
+      })
+    }
   }
 
   async loadSessions(): Promise<void> {
     try {
-      const sessions = await sessionStorageService.getAllSessions(false)
-      this.renderSessions(sessions)
+      this.allSessions = await sessionStorageService.getAllSessions(false)
+      this.filterAndRenderSessions()
     } catch (error) {
       console.error('[SessionSidebar] Failed to load sessions:', error)
       this.sessionsList.innerHTML = `
         <div class="rightbar__session-sidebar-error">Failed to load sessions</div>
       `
+    }
+  }
+
+  private filterAndRenderSessions(): void {
+    if (this.searchQuery) {
+      const filtered = this.allSessions.filter(session => {
+        const titleMatch = session.title.toLowerCase().includes(this.searchQuery)
+        const contentMatch = session.messages.some(msg => 
+          msg.content.toLowerCase().includes(this.searchQuery)
+        )
+        return titleMatch || contentMatch
+      })
+      this.renderSessions(filtered)
+    } else {
+      this.renderSessions(this.allSessions)
     }
   }
 

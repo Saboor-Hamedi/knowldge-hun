@@ -4,8 +4,53 @@ import { SessionSidebar } from './session-sidebar'
 import MarkdownIt from 'markdown-it'
 import DOMPurify from 'dompurify'
 import { Avatar } from './avatar'
-import { createElement, Copy, ThumbsUp, ThumbsDown, Check } from 'lucide'
+import { createElement, Copy, ThumbsUp, ThumbsDown, Check, Search } from 'lucide'
 import './rightbar.css'
+
+// Lazy load highlight.js - load it once when first code block is encountered
+let hljsPromise: Promise<any> | null = null
+const initHighlightJS = (): Promise<any> => {
+  if (!hljsPromise) {
+    hljsPromise = (async () => {
+      try {
+        const hljsModule = await import('highlight.js')
+        const hljs = hljsModule.default
+        // Register common languages
+        const javascript = await import('highlight.js/lib/languages/javascript')
+        const typescript = await import('highlight.js/lib/languages/typescript')
+        const json = await import('highlight.js/lib/languages/json')
+        const css = await import('highlight.js/lib/languages/css')
+        const xml = await import('highlight.js/lib/languages/xml')
+        const python = await import('highlight.js/lib/languages/python')
+        const bash = await import('highlight.js/lib/languages/bash')
+        const yaml = await import('highlight.js/lib/languages/yaml')
+        
+        hljs.registerLanguage('javascript', javascript.default)
+        hljs.registerLanguage('js', javascript.default)
+        hljs.registerLanguage('typescript', typescript.default)
+        hljs.registerLanguage('ts', typescript.default)
+        hljs.registerLanguage('json', json.default)
+        hljs.registerLanguage('css', css.default)
+        hljs.registerLanguage('html', xml.default)
+        hljs.registerLanguage('xml', xml.default)
+        hljs.registerLanguage('python', python.default)
+        hljs.registerLanguage('py', python.default)
+        hljs.registerLanguage('bash', bash.default)
+        hljs.registerLanguage('sh', bash.default)
+        hljs.registerLanguage('yaml', yaml.default)
+        hljs.registerLanguage('yml', yaml.default)
+        
+        // Load CSS
+        await import('highlight.js/styles/github-dark.css')
+        return hljs
+      } catch (err) {
+        console.warn('[RightBar] Failed to load highlight.js:', err)
+        return null
+      }
+    })()
+  }
+  return hljsPromise
+}
 
 const WELCOME_HTML = `
   <div class="rightbar__welcome">
@@ -49,6 +94,7 @@ export class RightBar {
   private currentSessionId: string | null = null
   private saveTimeout: number | null = null
   private isInitialized = false
+  private messageFeedback: Map<number, 'thumbs-up' | 'thumbs-down' | null> = new Map() // Track feedback per message index
 
   constructor(containerId: string) {
     this.container = document.getElementById(containerId) as HTMLElement
@@ -58,14 +104,23 @@ export class RightBar {
       breaks: true, // Convert \n to <br> for chat
       typographer: true,
       highlight: (str: string, lang: string) => {
-        // Always escape HTML in code blocks for security
+        // Normalize language name
+        const normalizedLang = lang ? lang.toLowerCase().trim() : ''
+        
+        // Escape HTML for security (always do this)
         const escaped = this.md.utils.escapeHtml(str)
-        if (lang) {
-          return `<pre><code class="language-${this.md.utils.escapeHtml(lang)}">${escaped}</code></pre>`
+        
+        // Try to highlight synchronously if hljs is already loaded
+        // Note: We'll enhance code blocks after rendering with highlight.js
+        if (normalizedLang) {
+          return `<pre class="hljs"><code class="language-${this.md.utils.escapeHtml(normalizedLang)}" data-lang="${this.md.utils.escapeHtml(normalizedLang)}" data-code="${this.md.utils.escapeHtml(str.replace(/"/g, '&quot;'))}">${escaped}</code></pre>`
         }
-        return `<pre><code>${escaped}</code></pre>`
+        return `<pre class="hljs"><code>${escaped}</code></pre>`
       }
     })
+    
+    // Initialize highlight.js in background
+    void initHighlightJS()
     void aiService.loadApiKey()
     void this.loadNotes()
     this.render()
@@ -163,9 +218,10 @@ export class RightBar {
    * Start a new session (clear current and reuse empty or create new)
    */
   async startNewSession(): Promise<void> {
-    // Clear current messages
+    // Clear current messages and feedback
     this.messages = []
     this.lastFailedMessage = null
+    this.messageFeedback.clear()
     
     // Check if there's an existing empty session we can reuse
     try {
@@ -317,6 +373,8 @@ export class RightBar {
       if (session) {
         this.messages = [...session.messages]
         this.currentSessionId = session.id
+        // Clear feedback when loading a session
+        this.messageFeedback.clear()
         
         // Save current session ID to localStorage for persistence
         localStorage.setItem('knowledgeHub_currentSessionId', sessionId)
@@ -452,6 +510,36 @@ export class RightBar {
   private attachEvents(): void {
     this.sendButton.addEventListener('click', () => this.sendMessage())
 
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+      // Only handle shortcuts when rightbar is visible and not typing in input
+      const isRightbarVisible = this.container.classList.contains('rightbar--visible') || 
+                                this.container.offsetWidth > 0
+      if (!isRightbarVisible) return
+      
+      const activeElement = document.activeElement
+      const isInputFocused = activeElement === this.chatInput || 
+                            activeElement?.tagName === 'INPUT' ||
+                            activeElement?.tagName === 'TEXTAREA'
+      
+      // Ctrl/Cmd + K: Focus search in session sidebar
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k' && !isInputFocused) {
+        e.preventDefault()
+        if (this.sessionSidebar) {
+          this.sessionSidebar.show()
+          const searchInput = document.querySelector('#rightbar-session-sidebar-search') as HTMLInputElement
+          searchInput?.focus()
+        }
+      }
+      
+      // Escape: Close session sidebar if open
+      if (e.key === 'Escape' && !isInputFocused) {
+        if (this.sessionSidebar) {
+          this.sessionSidebar.hide()
+        }
+      }
+    })
+
     this.chatInput.addEventListener('input', (e) => {
       this.updateCharacterCount()
       this.autoResizeTextarea()
@@ -562,8 +650,37 @@ export class RightBar {
           })
         }
       } else if (action === 'thumbs-up' || action === 'thumbs-down') {
-        // Feedback functionality (can be extended later)
-        btn.classList.toggle('rightbar__message-action--active')
+        const messageIndex = parseInt(btn.dataset.messageIndex || '0', 10)
+        const currentFeedback = this.messageFeedback.get(messageIndex)
+        const messageElement = btn.closest('.rightbar__message')
+        
+        // Get both buttons for this message
+        const thumbsUpBtn = messageElement?.querySelector('[data-action="thumbs-up"]') as HTMLButtonElement
+        const thumbsDownBtn = messageElement?.querySelector('[data-action="thumbs-down"]') as HTMLButtonElement
+        
+        if (action === 'thumbs-up') {
+          if (currentFeedback === 'thumbs-up') {
+            // Toggle off
+            this.messageFeedback.delete(messageIndex)
+            thumbsUpBtn?.classList.remove('rightbar__message-action--active')
+          } else {
+            // Set thumbs up, remove thumbs down
+            this.messageFeedback.set(messageIndex, 'thumbs-up')
+            thumbsUpBtn?.classList.add('rightbar__message-action--active')
+            thumbsDownBtn?.classList.remove('rightbar__message-action--active')
+          }
+        } else if (action === 'thumbs-down') {
+          if (currentFeedback === 'thumbs-down') {
+            // Toggle off
+            this.messageFeedback.delete(messageIndex)
+            thumbsDownBtn?.classList.remove('rightbar__message-action--active')
+          } else {
+            // Set thumbs down, remove thumbs up
+            this.messageFeedback.set(messageIndex, 'thumbs-down')
+            thumbsDownBtn?.classList.add('rightbar__message-action--active')
+            thumbsUpBtn?.classList.remove('rightbar__message-action--active')
+          }
+        }
       } else if (action === 'retry') {
         const msg = (target as HTMLElement).closest('.rightbar__message')
         const content = msg?.querySelector('.rightbar__message-content')
@@ -1163,21 +1280,21 @@ export class RightBar {
         breaks: true,
         typographer: true,
         highlight: (str: string, lang: string) => {
+          const normalizedLang = lang ? lang.toLowerCase().trim() : ''
           const escaped = this.md.utils.escapeHtml(str)
-          if (lang) {
-            return `<pre><code class="language-${this.md.utils.escapeHtml(lang)}">${escaped}</code></pre>`
-          }
-          return `<pre><code>${escaped}</code></pre>`
+          return normalizedLang 
+            ? `<pre class="hljs"><code class="language-${this.md.utils.escapeHtml(normalizedLang)}" data-lang="${this.md.utils.escapeHtml(normalizedLang)}" data-code="${this.md.utils.escapeHtml(str.replace(/"/g, '&quot;'))}">${escaped}</code></pre>`
+            : `<pre class="hljs"><code>${escaped}</code></pre>`
         }
       })
     }
     const rawHtml = this.md.render(text)
-    // Sanitize HTML to prevent XSS attacks
+    // Sanitize HTML to prevent XSS attacks (allow data attributes for code highlighting)
     const cleanHtml = DOMPurify.sanitize(rawHtml, {
-      ADD_ATTR: ['class', 'target', 'rel'],
+      ADD_ATTR: ['class', 'target', 'rel', 'data-lang', 'data-code'],
       ADD_TAGS: ['pre', 'code'],
       KEEP_CONTENT: true,
-      ALLOW_DATA_ATTR: false
+      ALLOW_DATA_ATTR: true
     })
     return cleanHtml
   }
@@ -1215,16 +1332,18 @@ export class RightBar {
         const isError = msg.role === 'assistant' && msg.content.startsWith('❌')
         const content = this.formatContent(msg.content, msg.role === 'assistant')
         const avatar = Avatar.createHTML(msg.role as 'user' | 'assistant', 20)
+        const msgIndex = this.messages.indexOf(msg)
+        const feedback = this.messageFeedback.get(msgIndex)
         const actions =
           msg.role === 'assistant'
             ? `<div class="rightbar__message-actions">
-             <button type="button" class="rightbar__message-action rightbar__message-action--copy" data-action="copy" data-message-index="${this.messages.indexOf(msg)}" title="Copy">
+             <button type="button" class="rightbar__message-action rightbar__message-action--copy" data-action="copy" data-message-index="${msgIndex}" title="Copy">
                ${this.createLucideIcon(Copy, 12, 1.5)}
              </button>
-             <button type="button" class="rightbar__message-action rightbar__message-action--thumbs-up" data-action="thumbs-up" data-message-index="${this.messages.indexOf(msg)}" title="Helpful">
+             <button type="button" class="rightbar__message-action rightbar__message-action--thumbs-up ${feedback === 'thumbs-up' ? 'rightbar__message-action--active' : ''}" data-action="thumbs-up" data-message-index="${msgIndex}" title="Helpful">
                ${this.createLucideIcon(ThumbsUp, 12, 1.5)}
              </button>
-             <button type="button" class="rightbar__message-action rightbar__message-action--thumbs-down" data-action="thumbs-down" data-message-index="${this.messages.indexOf(msg)}" title="Not helpful">
+             <button type="button" class="rightbar__message-action rightbar__message-action--thumbs-down ${feedback === 'thumbs-down' ? 'rightbar__message-action--active' : ''}" data-action="thumbs-down" data-message-index="${msgIndex}" title="Not helpful">
                ${this.createLucideIcon(ThumbsDown, 12, 1.5)}
              </button>
              ${isError && this.lastFailedMessage ? '<button type="button" class="rightbar__message-action rightbar__message-action--retry" data-action="retry" title="Retry">Retry</button>' : ''}
@@ -1246,6 +1365,91 @@ export class RightBar {
 
     this.chatContainer.innerHTML = html
     this.chatContainer.scrollTo({ top: this.chatContainer.scrollHeight, behavior: 'smooth' })
+    
+    // Enhance code blocks with syntax highlighting after render
+    void this.highlightCodeBlocks()
+  }
+
+  /**
+   * Enhance code blocks with syntax highlighting and copy buttons
+   */
+  private async highlightCodeBlocks(): Promise<void> {
+    const codeBlocks = this.chatContainer.querySelectorAll('pre code[data-lang], pre code:not([data-lang])')
+    if (codeBlocks.length === 0) return
+
+    try {
+      const hljs = await initHighlightJS()
+
+      codeBlocks.forEach((codeEl) => {
+        const codeElement = codeEl as HTMLElement
+        const preElement = codeElement.closest('pre') as HTMLElement
+        if (!preElement) return
+
+        // Skip if copy button already exists
+        if (preElement.querySelector('.rightbar__code-copy')) return
+
+        const lang = codeElement.getAttribute('data-lang')
+        const code = codeElement.getAttribute('data-code') || codeElement.textContent || ''
+        
+        // Apply syntax highlighting if language is supported
+        if (lang && hljs && hljs.getLanguage(lang)) {
+          try {
+            const highlighted = hljs.highlight(code, { language: lang, ignoreIllegals: true })
+            codeElement.innerHTML = highlighted.value
+            codeElement.classList.add('hljs')
+          } catch (err) {
+            console.warn(`[RightBar] Highlighting failed for ${lang}:`, err)
+          }
+        }
+
+        // Add copy button to the pre element
+        const copyButton = document.createElement('button')
+        copyButton.className = 'rightbar__code-copy'
+        copyButton.title = 'Copy code'
+        copyButton.setAttribute('aria-label', 'Copy code')
+        copyButton.innerHTML = this.createLucideIcon(Copy, 14, 1.5)
+        
+        // Store original code for copying
+        copyButton.dataset.code = code
+        
+        copyButton.addEventListener('click', async (e) => {
+          e.stopPropagation()
+          const codeToCopy = copyButton.dataset.code || codeElement.textContent || ''
+          
+          try {
+            await navigator.clipboard.writeText(codeToCopy)
+            
+            // Visual feedback
+            const originalHTML = copyButton.innerHTML
+            copyButton.innerHTML = this.createLucideIcon(Check, 14, 1.5)
+            copyButton.classList.add('rightbar__code-copy--copied')
+            copyButton.title = 'Copied!'
+            
+            setTimeout(() => {
+              copyButton.innerHTML = originalHTML
+              copyButton.classList.remove('rightbar__code-copy--copied')
+              copyButton.title = 'Copy code'
+            }, 2000)
+          } catch (err) {
+            console.error('[RightBar] Failed to copy code:', err)
+            // Fallback: select text
+            const range = document.createRange()
+            range.selectNodeContents(codeElement)
+            const selection = window.getSelection()
+            if (selection) {
+              selection.removeAllRanges()
+              selection.addRange(range)
+            }
+          }
+        })
+
+        // Make pre element relative for absolute positioning of copy button
+        preElement.style.position = 'relative'
+        preElement.appendChild(copyButton)
+      })
+    } catch (err) {
+      console.warn('[RightBar] Failed to highlight code blocks:', err)
+    }
   }
 
   async refreshApiKey(): Promise<void> {
