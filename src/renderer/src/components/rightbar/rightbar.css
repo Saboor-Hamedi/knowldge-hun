@@ -10,6 +10,7 @@
   box-shadow: -1px 0 0 rgba(0, 0, 0, 0.03);
   position: relative;
   overflow: hidden;
+  z-index: 0; /* Lower z-index so sync menu (10001) appears above */
 }
 
 .rightbar__resize-handle {
@@ -84,6 +85,7 @@
   display: flex;
   align-items: center;
   gap: 4px;
+  position: relative; /* For dropdown positioning */
 }
 
 .rightbar__header-sessions {
@@ -110,6 +112,8 @@
 .rightbar__header-sessions:active {
   background: var(--panel);
 }
+
+/* AI Menu button uses ai-menu.css styles */
 
 /* ---- Chat area ---- */
 .rightbar__chat-container {
@@ -537,6 +541,47 @@
   color: #ef4444;
 }
 
+/* Message citations */
+.rightbar__message-citations {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+  font-size: 11px;
+}
+
+.rightbar__message-citations-label {
+  color: var(--text-soft);
+  font-weight: 500;
+  margin-right: 2px;
+}
+
+.rightbar__message-citation {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--panel-strong);
+  color: var(--primary);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 500;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.rightbar__message-citation:hover {
+  background: var(--primary);
+  color: var(--bg);
+  border-color: var(--primary);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
 .rightbar__message-action--retry {
   width: auto;
   height: auto;
@@ -660,7 +705,7 @@
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   max-height: 240px;
   overflow-y: auto;
-  z-index: 1000;
+  z-index: 1000; /* Higher than rightbar (0) but lower than menus */
   padding: 4px;
 }
 
@@ -780,6 +825,7 @@
 .rightbar__session-sidebar {
   position: absolute;
   top: 0;
+  /* width is set dynamically via JS */
   left: 0;
   width: 280px;
   height: 100%;
@@ -789,7 +835,7 @@
   flex-direction: column;
   transform: translateX(-100%);
   transition: transform 0.2s ease;
-  z-index: 200;
+  z-index: 1000; /* Higher than rightbar (0) but lower than menus */
   box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
   visibility: hidden;
 }
@@ -799,22 +845,32 @@
   visibility: visible;
 }
 
-/* Push content when sidebar is visible */
+/* Session sidebar resize handle */
+.rightbar__session-sidebar-resize {
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 4px;
+  height: 100%;
+  cursor: ew-resize;
+  z-index: 10;
+  background: transparent;
+  transition: background-color 150ms ease;
+}
+
+.rightbar__session-sidebar-resize:hover {
+  background: var(--border);
+}
+
+.rightbar__session-sidebar-resize:active {
+  background: var(--primary);
+}
+
+/* Push content when sidebar is visible - margin is set dynamically via JS */
 .rightbar--session-sidebar-visible .rightbar__header,
 .rightbar--session-sidebar-visible .rightbar__chat-container,
 .rightbar--session-sidebar-visible .rightbar__chat-input-wrapper {
-  margin-left: 280px;
   transition: margin-left 0.2s ease;
-}
-
-/* Fallback using :has() for modern browsers */
-@supports selector(:has(*)) {
-  .rightbar:has(.rightbar__session-sidebar--visible) .rightbar__header,
-  .rightbar:has(.rightbar__session-sidebar--visible) .rightbar__chat-container,
-  .rightbar:has(.rightbar__session-sidebar--visible) .rightbar__chat-input-wrapper {
-    margin-left: 280px;
-    transition: margin-left 0.2s ease;
-  }
 }
 
 
@@ -912,8 +968,14 @@
   color: var(--text-soft);
 }
 
-.rightbar__session-sidebar-new {
-  width: 100%;
+.rightbar__session-sidebar-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.rightbar__session-sidebar-new,
+.rightbar__session-sidebar-archived {
+  flex: 1;
   padding: 8px 12px;
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -929,9 +991,21 @@
   transition: background 0.15s, border-color 0.15s;
 }
 
-.rightbar__session-sidebar-new:hover {
+.rightbar__session-sidebar-new:hover,
+.rightbar__session-sidebar-archived:hover {
   background: var(--border);
   border-color: var(--text-soft);
+}
+
+.rightbar__session-sidebar-archived--active {
+  background: var(--primary);
+  color: var(--panel);
+  border-color: var(--primary);
+}
+
+.rightbar__session-sidebar-archived--active:hover {
+  background: var(--primary-dark, var(--primary));
+  border-color: var(--primary-dark, var(--primary));
 }
 
 .rightbar__session-sidebar-list {
@@ -1097,6 +1171,50 @@
 .rightbar__session-item-delete svg {
   width: 14px;
   height: 14px;
+}
+
+/* Unarchive button */
+.rightbar__session-item-unarchive {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-soft);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s, background 0.15s;
+  opacity: 0;
+  flex-shrink: 0;
+}
+
+.rightbar__session-item:hover .rightbar__session-item-unarchive {
+  opacity: 1;
+}
+
+.rightbar__session-item-unarchive:hover {
+  color: var(--success, #4ade80);
+  background: var(--panel-strong);
+}
+
+/* Archived session styling */
+.rightbar__session-item--archived {
+  opacity: 0.7;
+}
+
+.rightbar__session-item--archived .rightbar__session-item-title::before {
+  content: '';
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-right: 6px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect width='20' height='5' x='2' y='3' rx='1'/%3E%3Cpath d='M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8'/%3E%3Cpath d='M10 12h4'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-size: contain;
+  vertical-align: middle;
 }
 
 /* ---- Responsive: narrow panel ---- */

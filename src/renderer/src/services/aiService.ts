@@ -4,6 +4,9 @@ export interface ChatMessage {
   role: 'user' | 'assistant'
   content: string
   timestamp: number
+  feedback?: 'thumbs-up' | 'thumbs-down' | null
+  messageId?: string // Unique ID for tracking
+  citations?: NoteCitation[] // Notes used in this response
 }
 
 export interface EditorContext {
@@ -27,6 +30,12 @@ interface NoteMetadata {
 interface ScoredNote extends VaultNote {
   score: number
   relevanceSnippets?: string[]
+}
+
+export interface NoteCitation {
+  id: string
+  title: string
+  path?: string
 }
 
 export class AIService {
@@ -270,9 +279,11 @@ export class AIService {
    */
   /**
    * Build context message with smart RAG (lightweight and robust)
+   * Returns both the context string and citations of notes used
    */
-  async buildContextMessage(userMessage: string): Promise<string> {
+  async buildContextMessage(userMessage: string): Promise<{ context: string; citations: NoteCitation[] }> {
     let context = 'You are an AI assistant helping with a note-taking application. You have FULL ACCESS to the user\'s entire vault of notes. You can read, analyze, and reference any note in the vault.\n\n'
+    const citations: NoteCitation[] = []
 
     // Get current note context
     if (this.editorContext) {
@@ -281,6 +292,7 @@ export class AIService {
 
       if (noteInfo) {
         context += `Current note: "${noteInfo.title}" (ID: ${noteInfo.id})\n`
+        citations.push({ id: noteInfo.id, title: noteInfo.title })
       }
 
       if (editorContent && editorContent.trim()) {
@@ -316,6 +328,10 @@ export class AIService {
           notesToShow.forEach((note, index) => {
             const path = note.path ? ` [${note.path}]` : ''
             context += `${index + 1}. "${note.title}"${path}\n`
+            // Add to citations if not already there
+            if (!citations.find(c => c.id === note.id)) {
+              citations.push({ id: note.id, title: note.title, path: note.path })
+            }
           })
 
           if (vaultSize > notesToShow.length) {
@@ -351,6 +367,11 @@ export class AIService {
 
               context += noteContext
               totalLength += estimatedTokens
+
+              // Add to citations
+              if (!citations.find(c => c.id === note.id)) {
+                citations.push({ id: note.id, title: note.title, path: note.path })
+              }
             }
           } else {
             // No relevant matches, show a few recent notes
@@ -362,6 +383,10 @@ export class AIService {
                 const preview = content.length > 200 ? content.substring(0, 200) + '...' : content
                 const path = meta.path ? ` [${meta.path}]` : ''
                 context += `\n"${meta.title}"${path}:\n${preview}\n`
+                // Add to citations
+                if (!citations.find(c => c.id === meta.id)) {
+                  citations.push({ id: meta.id, title: meta.title, path: meta.path })
+                }
               }
             }
           }
@@ -376,24 +401,26 @@ export class AIService {
 
     context += `\n\n=== USER QUESTION ===\n${userMessage}`
 
-    return context
+    return { context, citations }
   }
 
-  async callDeepSeekAPI(messages: ChatMessage[], contextMessage: string): Promise<string> {
+  async callDeepSeekAPI(messages: ChatMessage[], contextMessage: string | { context: string; citations: NoteCitation[] }): Promise<string> {
+    // Handle both old string format and new object format for backward compatibility
+    const context = typeof contextMessage === 'string' ? contextMessage : contextMessage.context
     if (!this.apiKey) {
       throw new Error('API key not configured')
     }
 
     try {
       // Build messages array - exclude the last user message, use the context-aware one
-      const messagesForAPI = messages.slice(0, -1).map(m => ({ role: m.role, content: m.content }))
-      messagesForAPI.push({ role: 'user', content: contextMessage })
+      const messagesForAPI = messages.slice(0, -1).map((m) => ({ role: m.role, content: m.content }))
+      messagesForAPI.push({ role: 'user', content: context })
 
       const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.apiKey}`
+          Authorization: `Bearer ${this.apiKey}`
         },
         body: JSON.stringify({
           model: 'deepseek-chat',
@@ -413,6 +440,114 @@ export class AIService {
     } catch (err: any) {
       if (err.name === 'TypeError' && err.message.includes('fetch')) {
         throw new Error('Network error: Unable to connect to DeepSeek API. Please check your internet connection.')
+      }
+      throw err
+    }
+  }
+
+  /**
+   * Call DeepSeek API with streaming support
+   * @param messages - Chat messages array
+   * @param contextMessage - Context-aware user message
+   * @param onChunk - Callback for each chunk received
+   * @returns Full response text
+   */
+  async callDeepSeekAPIStream(
+    messages: ChatMessage[],
+    contextMessage: string | { context: string; citations: NoteCitation[] },
+    onChunk: (chunk: string) => void
+  ): Promise<string> {
+    // Handle both old string format and new object format for backward compatibility
+    const context = typeof contextMessage === 'string' ? contextMessage : contextMessage.context
+
+    if (!this.apiKey) {
+      throw new Error('API key not configured')
+    }
+
+    try {
+      // Build messages array - exclude the last user message, use the context-aware one
+      const messagesForAPI = messages.slice(0, -1).map((m) => ({ role: m.role, content: m.content }))
+      messagesForAPI.push({ role: 'user', content: context })
+
+      const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${this.apiKey}`
+        },
+        body: JSON.stringify({
+          model: 'deepseek-chat',
+          messages: messagesForAPI,
+          temperature: 0.7,
+          max_tokens: 2000,
+          stream: true
+        })
+      })
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}))
+        throw new Error(error.error?.message || `API error: ${response.status}`)
+      }
+
+      if (!response.body) {
+        throw new Error('Response body is null')
+      }
+
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+      let fullText = ''
+      let buffer = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() || '' // Keep incomplete line in buffer
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6)
+            if (data === '[DONE]') continue
+
+            try {
+              const json = JSON.parse(data)
+              const delta = json.choices?.[0]?.delta?.content
+              if (delta) {
+                fullText += delta
+                onChunk(delta)
+              }
+            } catch (e) {
+              // Skip invalid JSON
+            }
+          }
+        }
+      }
+
+      // Process remaining buffer
+      if (buffer.startsWith('data: ')) {
+        const data = buffer.slice(6)
+        if (data !== '[DONE]') {
+          try {
+            const json = JSON.parse(data)
+            const delta = json.choices?.[0]?.delta?.content
+            if (delta) {
+              fullText += delta
+              onChunk(delta)
+            }
+          } catch (e) {
+            // Skip invalid JSON
+          }
+        }
+      }
+
+      return fullText
+    } catch (err: any) {
+      if (err.name === 'TypeError' && err.message.includes('fetch')) {
+        throw new Error(
+          'Network error: Unable to connect to DeepSeek API. Please check your internet connection.'
+        )
       }
       throw err
     }

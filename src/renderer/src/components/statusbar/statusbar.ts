@@ -85,6 +85,22 @@ export class StatusBar {
       newButton.addEventListener('click', (e) => {
         e.stopPropagation()
         e.preventDefault()
+
+        const isOpen = syncMenu.classList.contains('is-open')
+
+        if (!isOpen) {
+          // Calculate position dynamically to appear above the button
+          // Use getBoundingClientRect to get viewport-relative position
+          const buttonRect = newButton.getBoundingClientRect()
+          // Position menu above the button, aligned to the right edge
+          // bottom = distance from bottom of viewport
+          syncMenu.style.bottom = `${window.innerHeight - buttonRect.top + 4}px`
+          // right = distance from right edge of viewport
+          syncMenu.style.right = `${window.innerWidth - buttonRect.right}px`
+          syncMenu.style.left = 'auto' // Clear any left positioning
+          syncMenu.style.top = 'auto' // Clear any top positioning
+        }
+
         syncMenu.classList.toggle('is-open')
       })
 

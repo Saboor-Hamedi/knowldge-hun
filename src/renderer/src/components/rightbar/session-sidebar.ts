@@ -1,6 +1,6 @@
 import { sessionStorageService, type ChatSession } from '../../services/sessionStorageService'
 import { modalManager } from '../modal/modal'
-import { createElement, Search } from 'lucide'
+import { createElement, Search, Archive, RotateCcw } from 'lucide'
 
 /**
  * Session Sidebar Component
@@ -11,12 +11,17 @@ export class SessionSidebar {
   private sidebarElement!: HTMLElement
   private sessionsList!: HTMLElement
   private searchInput!: HTMLInputElement
+  private resizeHandle!: HTMLElement
   private isVisible = false
+  private isResizing = false
   private onSessionSelect?: (sessionId: string) => void
   private onNewSession?: () => void
   private currentSessionId: string | null = null
   private allSessions: ChatSession[] = []
+  private archivedSessions: ChatSession[] = []
   private searchQuery: string = ''
+  private showArchived: boolean = false
+  private sidebarWidth: number = 280 // Default width
 
   constructor(container: HTMLElement | string) {
     // Accept either HTMLElement or container ID string
@@ -59,11 +64,13 @@ export class SessionSidebar {
     
     if (this.isVisible) {
       this.sidebarElement.classList.add('rightbar__session-sidebar--visible')
+      this.sidebarElement.style.width = `${this.sidebarWidth}px`
       // Add class to parent rightbar for content shifting (fallback for browsers without :has() support)
       const rightbar = this.container.closest('.rightbar')
       if (rightbar) {
         rightbar.classList.add('rightbar--session-sidebar-visible')
       }
+      this.updateContentMargin()
       void this.loadSessions()
     } else {
       this.sidebarElement.classList.remove('rightbar__session-sidebar--visible')
@@ -72,17 +79,20 @@ export class SessionSidebar {
       if (rightbar) {
         rightbar.classList.remove('rightbar--session-sidebar-visible')
       }
+      this.clearContentMargin()
     }
   }
 
   show(): void {
     this.isVisible = true
     this.sidebarElement.classList.add('rightbar__session-sidebar--visible')
+    this.sidebarElement.style.width = `${this.sidebarWidth}px`
     // Add class to parent rightbar for content shifting
     const rightbar = this.container.closest('.rightbar')
     if (rightbar) {
       rightbar.classList.add('rightbar--session-sidebar-visible')
     }
+    this.updateContentMargin()
     void this.loadSessions()
   }
 
@@ -94,6 +104,7 @@ export class SessionSidebar {
     if (rightbar) {
       rightbar.classList.remove('rightbar--session-sidebar-visible')
     }
+    this.clearContentMargin()
   }
 
   private render(): void {
@@ -102,8 +113,15 @@ export class SessionSidebar {
       return
     }
     
+    // Load saved width from localStorage
+    const savedWidth = localStorage.getItem('knowledgeHub_sessionSidebarWidth')
+    if (savedWidth) {
+      this.sidebarWidth = parseInt(savedWidth, 10)
+    }
+
     const sidebarHTML = `
-      <div class="rightbar__session-sidebar" id="rightbar-session-sidebar">
+      <div class="rightbar__session-sidebar" id="rightbar-session-sidebar" style="width: ${this.sidebarWidth}px;">
+        <div class="rightbar__session-sidebar-resize" id="rightbar-session-sidebar-resize"></div>
         <div class="rightbar__session-sidebar-header">
           <h3 class="rightbar__session-sidebar-title">Sessions</h3>
           <button class="rightbar__session-sidebar-close" id="rightbar-session-sidebar-close" title="Close sidebar" aria-label="Close sidebar">
@@ -125,12 +143,18 @@ export class SessionSidebar {
               autocomplete="off"
             />
           </div>
-          <button class="rightbar__session-sidebar-new" id="rightbar-session-sidebar-new" title="New Session">
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M8 2v12M2 8h12"/>
-            </svg>
-            New Session
-          </button>
+          <div class="rightbar__session-sidebar-buttons">
+            <button class="rightbar__session-sidebar-new" id="rightbar-session-sidebar-new" title="New Session">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M8 2v12M2 8h12"/>
+              </svg>
+              New
+            </button>
+            <button class="rightbar__session-sidebar-archived" id="rightbar-session-sidebar-archived" title="View Archived Sessions">
+              ${this.createLucideIcon(Archive, 14, 1.5)}
+              Archived
+            </button>
+          </div>
         </div>
         <div class="rightbar__session-sidebar-list" id="rightbar-session-sidebar-list">
           <div class="rightbar__session-sidebar-loading">Loading sessions...</div>
@@ -141,6 +165,7 @@ export class SessionSidebar {
     this.sidebarElement = this.container.querySelector('#rightbar-session-sidebar') as HTMLElement
     this.sessionsList = this.container.querySelector('#rightbar-session-sidebar-list') as HTMLElement
     this.searchInput = this.container.querySelector('#rightbar-session-sidebar-search') as HTMLInputElement
+    this.resizeHandle = this.container.querySelector('#rightbar-session-sidebar-resize') as HTMLElement
     
     if (!this.sidebarElement) {
       console.error('[SessionSidebar] Failed to find sidebar element after render')
@@ -166,6 +191,7 @@ export class SessionSidebar {
   private attachEvents(): void {
     const closeBtn = this.container.querySelector('#rightbar-session-sidebar-close')
     const newBtn = this.container.querySelector('#rightbar-session-sidebar-new')
+    const archivedBtn = this.container.querySelector('#rightbar-session-sidebar-archived')
 
     closeBtn?.addEventListener('click', () => this.hide())
     newBtn?.addEventListener('click', () => {
@@ -173,6 +199,17 @@ export class SessionSidebar {
         this.onNewSession()
       }
     })
+
+    archivedBtn?.addEventListener('click', () => {
+      this.showArchived = !this.showArchived
+      archivedBtn.classList.toggle('rightbar__session-sidebar-archived--active', this.showArchived)
+      void this.loadSessions()
+    })
+
+    // Resize functionality
+    if (this.resizeHandle) {
+      this.resizeHandle.addEventListener('mousedown', (e) => this.handleResizeStart(e))
+    }
 
     // Search functionality
     if (this.searchInput) {
@@ -202,7 +239,10 @@ export class SessionSidebar {
 
   async loadSessions(): Promise<void> {
     try {
-      this.allSessions = await sessionStorageService.getAllSessions(false)
+      // Load both regular and archived sessions
+      const allSessionsIncludingArchived = await sessionStorageService.getAllSessions(true)
+      this.allSessions = allSessionsIncludingArchived.filter(s => !s.is_archived)
+      this.archivedSessions = allSessionsIncludingArchived.filter(s => s.is_archived)
       this.filterAndRenderSessions()
     } catch (error) {
       console.error('[SessionSidebar] Failed to load sessions:', error)
@@ -213,24 +253,30 @@ export class SessionSidebar {
   }
 
   private filterAndRenderSessions(): void {
+    // Choose which sessions to display based on archive toggle
+    const sessionsToFilter = this.showArchived ? this.archivedSessions : this.allSessions
+    
     if (this.searchQuery) {
-      const filtered = this.allSessions.filter(session => {
+      const filtered = sessionsToFilter.filter(session => {
         const titleMatch = session.title.toLowerCase().includes(this.searchQuery)
         const contentMatch = session.messages.some(msg => 
           msg.content.toLowerCase().includes(this.searchQuery)
         )
         return titleMatch || contentMatch
       })
-      this.renderSessions(filtered)
+      this.renderSessions(filtered, this.showArchived)
     } else {
-      this.renderSessions(this.allSessions)
+      this.renderSessions(sessionsToFilter, this.showArchived)
     }
   }
 
-  private renderSessions(sessions: ChatSession[]): void {
+  private renderSessions(sessions: ChatSession[], isArchived: boolean = false): void {
     if (sessions.length === 0) {
+      const emptyMessage = isArchived 
+        ? 'No archived sessions.' 
+        : 'No sessions yet. Start a conversation!'
       this.sessionsList.innerHTML = `
-        <div class="rightbar__session-sidebar-empty">No sessions yet. Start a conversation!</div>
+        <div class="rightbar__session-sidebar-empty">${emptyMessage}</div>
       `
       return
     }
@@ -240,8 +286,43 @@ export class SessionSidebar {
       const date = new Date(session.metadata.updated_at)
       const timeAgo = this.formatTimeAgo(date)
       
+      // Different actions for archived vs regular sessions
+      const actionsHTML = isArchived ? `
+        <button class="rightbar__session-item-unarchive" 
+                data-session-id="${session.id}" 
+                title="Restore session"
+                aria-label="Restore session">
+          ${this.createLucideIcon(RotateCcw, 14, 1.5)}
+        </button>
+        <button class="rightbar__session-item-delete" 
+                data-session-id="${session.id}" 
+                title="Delete permanently"
+                aria-label="Delete permanently">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 6h10M5 6v8a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2V6M8 4V2M8 4h4M8 4H4"/>
+          </svg>
+        </button>
+      ` : `
+        <button class="rightbar__session-item-rename" 
+                data-session-id="${session.id}" 
+                title="Rename session"
+                aria-label="Rename session">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M11 4l1 1-7 7H4v-1l7-7zM9.5 2.5l3 3"/>
+          </svg>
+        </button>
+        <button class="rightbar__session-item-delete" 
+                data-session-id="${session.id}" 
+                title="Delete session"
+                aria-label="Delete session">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 6h10M5 6v8a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2V6M8 4V2M8 4h4M8 4H4"/>
+          </svg>
+        </button>
+      `
+      
       return `
-        <div class="rightbar__session-item ${isActive ? 'rightbar__session-item--active' : ''}" 
+        <div class="rightbar__session-item ${isActive ? 'rightbar__session-item--active' : ''} ${isArchived ? 'rightbar__session-item--archived' : ''}" 
              data-session-id="${session.id}">
           <div class="rightbar__session-item-content">
             <div class="rightbar__session-item-title-wrapper">
@@ -253,22 +334,7 @@ export class SessionSidebar {
             </div>
           </div>
           <div class="rightbar__session-item-actions">
-            <button class="rightbar__session-item-rename" 
-                    data-session-id="${session.id}" 
-                    title="Rename session"
-                    aria-label="Rename session">
-              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M11 4l1 1-7 7H4v-1l7-7zM9.5 2.5l3 3"/>
-              </svg>
-            </button>
-            <button class="rightbar__session-item-delete" 
-                    data-session-id="${session.id}" 
-                    title="Delete session"
-                    aria-label="Delete session">
-              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M3 6h10M5 6v8a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2V6M8 4V2M8 4h4M8 4H4"/>
-              </svg>
-            </button>
+            ${actionsHTML}
           </div>
         </div>
       `
@@ -343,6 +409,22 @@ export class SessionSidebar {
               { label: 'Cancel', variant: 'ghost', onClick: (m) => m.close() }
             ]
           })
+        }
+      })
+    })
+
+    // Handle unarchive buttons (for archived sessions)
+    this.sessionsList.querySelectorAll('.rightbar__session-item-unarchive').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation()
+        const sessionId = (btn as HTMLElement).dataset.sessionId
+        if (sessionId) {
+          try {
+            await sessionStorageService.archiveSession(sessionId, false) // false = unarchive
+            await this.loadSessions()
+          } catch (error) {
+            console.error('[SessionSidebar] Failed to unarchive session:', error)
+          }
         }
       })
     })
@@ -445,5 +527,79 @@ export class SessionSidebar {
 
   async refresh(): Promise<void> {
     await this.loadSessions()
+  }
+
+  // ---- Resize handlers ----
+  private handleResizeStart(e: MouseEvent): void {
+    e.preventDefault()
+    this.isResizing = true
+
+    document.addEventListener('mousemove', this.handleResizeMove)
+    document.addEventListener('mouseup', this.handleResizeEnd)
+    document.body.style.cursor = 'ew-resize'
+    document.body.style.userSelect = 'none'
+  }
+
+  private handleResizeMove = (e: MouseEvent): void => {
+    if (!this.isResizing || !this.sidebarElement) return
+
+    // Calculate new width based on mouse position relative to the sidebar's left edge
+    const sidebarRect = this.sidebarElement.getBoundingClientRect()
+    const newWidth = e.clientX - sidebarRect.left
+
+    // Clamp width between min and max
+    const minWidth = 200
+    const maxWidth = 500
+    const clampedWidth = Math.max(minWidth, Math.min(maxWidth, newWidth))
+
+    this.sidebarWidth = clampedWidth
+    this.sidebarElement.style.width = `${clampedWidth}px`
+
+    // Update the margin on content areas that are pushed by the sidebar
+    this.updateContentMargin()
+  }
+
+  private handleResizeEnd = (): void => {
+    if (!this.isResizing) return
+    this.isResizing = false
+
+    document.removeEventListener('mousemove', this.handleResizeMove)
+    document.removeEventListener('mouseup', this.handleResizeEnd)
+    document.body.style.cursor = ''
+    document.body.style.userSelect = ''
+
+    // Save width to localStorage
+    localStorage.setItem('knowledgeHub_sessionSidebarWidth', String(this.sidebarWidth))
+  }
+
+  private updateContentMargin(): void {
+    // Update the margin-left of content areas when sidebar is visible
+    if (!this.isVisible) return
+
+    const rightbar = this.container.closest('.rightbar')
+    if (!rightbar) return
+
+    const header = rightbar.querySelector('.rightbar__header') as HTMLElement
+    const chatContainer = rightbar.querySelector('.rightbar__chat-container') as HTMLElement
+    const chatInputWrapper = rightbar.querySelector('.rightbar__chat-input-wrapper') as HTMLElement
+
+    const marginValue = `${this.sidebarWidth}px`
+
+    if (header) header.style.marginLeft = marginValue
+    if (chatContainer) chatContainer.style.marginLeft = marginValue
+    if (chatInputWrapper) chatInputWrapper.style.marginLeft = marginValue
+  }
+
+  private clearContentMargin(): void {
+    const rightbar = this.container.closest('.rightbar')
+    if (!rightbar) return
+
+    const header = rightbar.querySelector('.rightbar__header') as HTMLElement
+    const chatContainer = rightbar.querySelector('.rightbar__chat-container') as HTMLElement
+    const chatInputWrapper = rightbar.querySelector('.rightbar__chat-input-wrapper') as HTMLElement
+
+    if (header) header.style.marginLeft = ''
+    if (chatContainer) chatContainer.style.marginLeft = ''
+    if (chatInputWrapper) chatInputWrapper.style.marginLeft = ''
   }
 }

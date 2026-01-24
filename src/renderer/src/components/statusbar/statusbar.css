@@ -8,6 +8,8 @@
   font-size: 11px;
   background: var(--status);
   border-top: 1px solid #0b4f7c;
+  position: relative;
+  z-index: 10003; /* Higher than rightbar (0) and AI menu (10002) */
 }
 
 .statusbar__left,
@@ -24,6 +26,8 @@
 
 .statusbar__sync {
   position: relative;
+  z-index: 10004; /* Ensure sync button and menu are above rightbar */
+  isolation: isolate; /* Create new stacking context */
 }
 
 .statusbar__sync-button {
@@ -52,19 +56,16 @@
 }
 
 .statusbar__sync-menu {
-  position: absolute;
-  bottom: 100%;
-  right: 0;
-  margin-bottom: 4px;
+  position: fixed !important; /* Use fixed positioning to escape rightbar stacking context */
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 4px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(0, 0, 0, 0.1);
   min-width: 180px;
   display: none;
   flex-direction: column;
   overflow: hidden;
-  z-index: 10000;
+  z-index: 10005 !important; /* Highest z-index - appears above everything including rightbar (0), AI menu (10002), and statusbar (10003) */
 }
 
 .statusbar__sync-menu.is-open {

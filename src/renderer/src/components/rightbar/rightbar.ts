@@ -1,11 +1,13 @@
 import { aiService, type ChatMessage } from '../../services/aiService'
 import { sessionStorageService, type ChatSession } from '../../services/sessionStorageService'
 import { SessionSidebar } from './session-sidebar'
+import { AIMenu, type AIMenuItem } from './ai-menu'
 import MarkdownIt from 'markdown-it'
 import DOMPurify from 'dompurify'
 import { Avatar } from './avatar'
-import { createElement, Copy, ThumbsUp, ThumbsDown, Check, Search } from 'lucide'
+import { createElement, Copy, ThumbsUp, ThumbsDown, Check, Search, Download, Edit2, RotateCw, Upload, Trash2, Settings, Info, Archive } from 'lucide'
 import './rightbar.css'
+import './ai-menu.css'
 
 // Lazy load highlight.js - load it once when first code block is encountered
 let hljsPromise: Promise<any> | null = null
@@ -24,7 +26,7 @@ const initHighlightJS = (): Promise<any> => {
         const python = await import('highlight.js/lib/languages/python')
         const bash = await import('highlight.js/lib/languages/bash')
         const yaml = await import('highlight.js/lib/languages/yaml')
-        
+
         hljs.registerLanguage('javascript', javascript.default)
         hljs.registerLanguage('js', javascript.default)
         hljs.registerLanguage('typescript', typescript.default)
@@ -39,7 +41,7 @@ const initHighlightJS = (): Promise<any> => {
         hljs.registerLanguage('sh', bash.default)
         hljs.registerLanguage('yaml', yaml.default)
         hljs.registerLanguage('yml', yaml.default)
-        
+
         // Load CSS
         await import('highlight.js/styles/github-dark.css')
         return hljs
@@ -65,7 +67,7 @@ const TYPING_HTML = `
   <div class="rightbar__typing" aria-live="polite">
     ${Avatar.createHTML('assistant', 20)}
     <div class="rightbar__typing-dots">
-      <span></span><span></span><span></span>
+    <span></span><span></span><span></span>
     </div>
   </div>
 `
@@ -95,6 +97,9 @@ export class RightBar {
   private saveTimeout: number | null = null
   private isInitialized = false
   private messageFeedback: Map<number, 'thumbs-up' | 'thumbs-down' | null> = new Map() // Track feedback per message index
+  private streamingMessageIndex: number | null = null // Track which message is currently streaming
+  private streamingAbortController: AbortController | null = null // For canceling streaming
+  private aiMenu!: AIMenu
 
   constructor(containerId: string) {
     this.container = document.getElementById(containerId) as HTMLElement
@@ -106,10 +111,10 @@ export class RightBar {
       highlight: (str: string, lang: string) => {
         // Normalize language name
         const normalizedLang = lang ? lang.toLowerCase().trim() : ''
-        
+
         // Escape HTML for security (always do this)
         const escaped = this.md.utils.escapeHtml(str)
-        
+
         // Try to highlight synchronously if hljs is already loaded
         // Note: We'll enhance code blocks after rendering with highlight.js
         if (normalizedLang) {
@@ -118,7 +123,7 @@ export class RightBar {
         return `<pre class="hljs"><code>${escaped}</code></pre>`
       }
     })
-    
+
     // Initialize highlight.js in background
     void initHighlightJS()
     void aiService.loadApiKey()
@@ -136,7 +141,7 @@ export class RightBar {
       // Initialize IndexedDB
       await sessionStorageService.getAllSessions()
       this.isInitialized = true
-      
+
       // Try to restore last active session
       const lastSessionId = localStorage.getItem('knowledgeHub_currentSessionId')
       if (lastSessionId && this.sessionSidebar) {
@@ -148,6 +153,7 @@ export class RightBar {
             this.currentSessionId = session.id
             this.sessionSidebar.setCurrentSession(session.id)
             this.renderMessages()
+            this.updateMenuItems() // Update menu after restoring session
             return // Don't create a new session
           }
         } catch (error) {
@@ -155,11 +161,12 @@ export class RightBar {
           localStorage.removeItem('knowledgeHub_currentSessionId')
         }
       }
-      
+
       // Create a new session if we don't have messages (only after sidebar is initialized)
       if (this.messages.length === 0 && this.sessionSidebar) {
         await this.createNewSession()
       }
+      this.updateMenuItems() // Update menu after initialization
     } catch (error) {
       console.error('[RightBar] Failed to initialize session storage:', error)
       this.isInitialized = false
@@ -178,15 +185,15 @@ export class RightBar {
       // Check if there's an existing empty session (no messages)
       const allSessions = await sessionStorageService.getAllSessions(false)
       const emptySession = allSessions.find(session => session.messages.length === 0)
-      
+
       if (emptySession) {
         // Reuse existing empty session
         this.currentSessionId = emptySession.id
         this.messages = []
-        
+
         // Save to localStorage for persistence
         localStorage.setItem('knowledgeHub_currentSessionId', emptySession.id)
-        
+
         // Update sidebar if it exists
         if (this.sessionSidebar) {
           this.sessionSidebar.setCurrentSession(emptySession.id)
@@ -200,15 +207,18 @@ export class RightBar {
       const title = this.messages.length > 0 ? this.generateSmartTitle() : undefined
       const session = await sessionStorageService.createSession(this.messages, title)
       this.currentSessionId = session.id
-      
+
       // Save to localStorage for persistence
       localStorage.setItem('knowledgeHub_currentSessionId', session.id)
-      
+
       // Update sidebar if it exists
       if (this.sessionSidebar) {
         this.sessionSidebar.setCurrentSession(session.id)
         await this.sessionSidebar.refresh()
       }
+
+      // Update menu items now that we have a session
+      this.updateMenuItems()
     } catch (error) {
       console.error('[RightBar] Failed to create session:', error)
     }
@@ -222,23 +232,24 @@ export class RightBar {
     this.messages = []
     this.lastFailedMessage = null
     this.messageFeedback.clear()
-    
+    this.updateMenuItems()
+
     // Check if there's an existing empty session we can reuse
     try {
       const allSessions = await sessionStorageService.getAllSessions(false)
       const emptySession = allSessions.find(session => session.messages.length === 0)
-      
+
       if (emptySession) {
         // Reuse existing empty session
         this.currentSessionId = emptySession.id
         localStorage.setItem('knowledgeHub_currentSessionId', emptySession.id)
-        
+
         if (this.sessionSidebar) {
           this.sessionSidebar.setCurrentSession(emptySession.id)
         }
-        
+
         this.renderMessages()
-        
+
         if (this.sessionSidebar) {
           await this.sessionSidebar.refresh()
         }
@@ -247,18 +258,18 @@ export class RightBar {
     } catch (error) {
       console.warn('[RightBar] Failed to check for empty sessions:', error)
     }
-    
+
     // No empty session found, create a new one
     this.currentSessionId = null
     localStorage.removeItem('knowledgeHub_currentSessionId')
-    
+
     if (this.sessionSidebar) {
       this.sessionSidebar.setCurrentSession(null)
     }
-    
+
     await this.createNewSession()
     this.renderMessages()
-    
+
     if (this.sessionSidebar) {
       await this.sessionSidebar.refresh()
     }
@@ -320,7 +331,7 @@ export class RightBar {
     }
 
     let text = firstUserMessage.content.trim()
-    
+
     // Remove markdown formatting
     text = text
       .replace(/^#+\s+/, '')
@@ -336,7 +347,7 @@ export class RightBar {
       /^(explain|describe|tell|show|help|please)\s+/i,
       /^(i want|i need|i would like|i\'m looking for)\s+/i
     ]
-    
+
     for (const prefix of prefixes) {
       text = text.replace(prefix, '')
     }
@@ -344,15 +355,15 @@ export class RightBar {
 
     const firstLine = text.split('\n')[0]
     let title = firstLine.substring(0, 40).trim()
-    
+
     if (title.length > 0) {
       title = title.charAt(0).toUpperCase() + title.slice(1)
     }
-    
+
     if (title.length > 1 && /[.,!?;:]$/.test(title)) {
       title = title.slice(0, -1)
     }
-    
+
     if (firstLine.length > 40) {
       title += '...'
     }
@@ -373,18 +384,25 @@ export class RightBar {
       if (session) {
         this.messages = [...session.messages]
         this.currentSessionId = session.id
-        // Clear feedback when loading a session
+
+        // Restore feedback from messages
         this.messageFeedback.clear()
-        
+        this.messages.forEach((msg, index) => {
+          if (msg.feedback) {
+            this.messageFeedback.set(index, msg.feedback)
+          }
+        })
+
         // Save current session ID to localStorage for persistence
         localStorage.setItem('knowledgeHub_currentSessionId', sessionId)
-        
+
         if (this.sessionSidebar) {
           this.sessionSidebar.setCurrentSession(sessionId)
           // Don't hide sidebar - let user close it manually
         }
-        
+
         this.renderMessages()
+        this.updateMenuItems()
       }
     } catch (error) {
       console.error('[RightBar] Failed to load session:', error)
@@ -427,14 +445,15 @@ export class RightBar {
         <div class="rightbar__header">
           <h3 class="rightbar__title">AI Chat</h3>
           <div class="rightbar__header-actions">
+            <button class="rightbar__header-ai-menu" id="rightbar-header-ai-menu" title="More options" aria-label="AI chat menu"></button>
             <button class="rightbar__header-sessions" id="rightbar-header-sessions" title="Sessions" aria-label="Toggle sessions">
               <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M3 2h10M3 6h10M3 10h10M3 14h10"/>
               </svg>
             </button>
-            <button class="rightbar__header-close" id="rightbar-header-close" title="Close (Ctrl+I)" aria-label="Close panel">
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>
-            </button>
+          <button class="rightbar__header-close" id="rightbar-header-close" title="Close (Ctrl+I)" aria-label="Close panel">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+          </button>
           </div>
         </div>
         <div class="rightbar__chat-container" id="rightbar-chat-container">
@@ -444,8 +463,8 @@ export class RightBar {
           <div class="rightbar__chat-input-container" id="rightbar-chat-input-container">
             <div class="rightbar__chat-input-wrapper-inner">
               <div
-                class="rightbar__chat-input"
-                id="rightbar-chat-input"
+              class="rightbar__chat-input"
+              id="rightbar-chat-input"
                 contenteditable="true"
                 data-placeholder="Ask me anything... Use @notename to reference notes"
                 role="textbox"
@@ -469,7 +488,7 @@ export class RightBar {
       </div>
     `
     const rightbarElement = this.container.querySelector('.rightbar') as HTMLElement
-    
+
     this.chatContainer = this.container.querySelector('#rightbar-chat-messages') as HTMLElement
     this.chatInput = this.container.querySelector('#rightbar-chat-input') as HTMLElement
     this.sendButton = this.container.querySelector('#rightbar-chat-send') as HTMLButtonElement
@@ -504,6 +523,14 @@ export class RightBar {
           this.sessionSidebar.toggle()
         }
       })
+
+      // Initialize AI Menu
+      this.aiMenu = new AIMenu(this.container)
+      this.aiMenu.render('rightbar-header-ai-menu')
+      this.aiMenu.setOnItemClick((itemId) => {
+        void this.handleMenuAction(itemId)
+      })
+      this.updateMenuItems()
     }
   }
 
@@ -513,15 +540,15 @@ export class RightBar {
     // Keyboard shortcuts
     document.addEventListener('keydown', (e) => {
       // Only handle shortcuts when rightbar is visible and not typing in input
-      const isRightbarVisible = this.container.classList.contains('rightbar--visible') || 
+      const isRightbarVisible = this.container.classList.contains('rightbar--visible') ||
                                 this.container.offsetWidth > 0
       if (!isRightbarVisible) return
-      
+
       const activeElement = document.activeElement
-      const isInputFocused = activeElement === this.chatInput || 
+      const isInputFocused = activeElement === this.chatInput ||
                             activeElement?.tagName === 'INPUT' ||
                             activeElement?.tagName === 'TEXTAREA'
-      
+
       // Ctrl/Cmd + K: Focus search in session sidebar
       if ((e.ctrlKey || e.metaKey) && e.key === 'k' && !isInputFocused) {
         e.preventDefault()
@@ -531,7 +558,7 @@ export class RightBar {
           searchInput?.focus()
         }
       }
-      
+
       // Escape: Close session sidebar if open
       if (e.key === 'Escape' && !isInputFocused) {
         if (this.sessionSidebar) {
@@ -543,15 +570,15 @@ export class RightBar {
     this.chatInput.addEventListener('input', (e) => {
       this.updateCharacterCount()
       this.autoResizeTextarea()
-      
+
       // Clear any existing timeout
       if (this.typingTimeout !== null) {
         clearTimeout(this.typingTimeout)
       }
-      
+
       // Remove highlight immediately when typing to avoid interference
       this.removeTypingHighlight()
-      
+
       // Handle mention input with a small delay to avoid interfering with typing
       this.typingTimeout = window.setTimeout(() => {
         this.handleNoteReferenceInput()
@@ -626,7 +653,7 @@ export class RightBar {
       if (!target) return
       const action = (target as HTMLElement).dataset.action
       const btn = target as HTMLButtonElement
-      
+
       if (action === 'copy') {
         const messageIndex = parseInt(btn.dataset.messageIndex || '0', 10)
         const message = this.messages[messageIndex]
@@ -635,7 +662,7 @@ export class RightBar {
           const tempDiv = document.createElement('div')
           tempDiv.innerHTML = this.formatContent(message.content, true)
           const plainText = tempDiv.textContent || tempDiv.innerText || ''
-          
+
           navigator.clipboard.writeText(plainText).then(() => {
             // Show success feedback with green checkmark using Lucide Check icon
             btn.classList.add('rightbar__message-action--copied')
@@ -651,36 +678,49 @@ export class RightBar {
         }
       } else if (action === 'thumbs-up' || action === 'thumbs-down') {
         const messageIndex = parseInt(btn.dataset.messageIndex || '0', 10)
+        const message = this.messages[messageIndex]
+        if (!message) return
+
         const currentFeedback = this.messageFeedback.get(messageIndex)
         const messageElement = btn.closest('.rightbar__message')
-        
+
         // Get both buttons for this message
         const thumbsUpBtn = messageElement?.querySelector('[data-action="thumbs-up"]') as HTMLButtonElement
         const thumbsDownBtn = messageElement?.querySelector('[data-action="thumbs-down"]') as HTMLButtonElement
-        
+
+        let newFeedback: 'thumbs-up' | 'thumbs-down' | null = null
+
         if (action === 'thumbs-up') {
           if (currentFeedback === 'thumbs-up') {
             // Toggle off
             this.messageFeedback.delete(messageIndex)
             thumbsUpBtn?.classList.remove('rightbar__message-action--active')
+            newFeedback = null
           } else {
             // Set thumbs up, remove thumbs down
             this.messageFeedback.set(messageIndex, 'thumbs-up')
             thumbsUpBtn?.classList.add('rightbar__message-action--active')
             thumbsDownBtn?.classList.remove('rightbar__message-action--active')
+            newFeedback = 'thumbs-up'
           }
         } else if (action === 'thumbs-down') {
           if (currentFeedback === 'thumbs-down') {
             // Toggle off
             this.messageFeedback.delete(messageIndex)
             thumbsDownBtn?.classList.remove('rightbar__message-action--active')
+            newFeedback = null
           } else {
             // Set thumbs down, remove thumbs up
             this.messageFeedback.set(messageIndex, 'thumbs-down')
             thumbsDownBtn?.classList.add('rightbar__message-action--active')
             thumbsUpBtn?.classList.remove('rightbar__message-action--active')
+            newFeedback = 'thumbs-down'
           }
         }
+
+        // Update message feedback and persist
+        message.feedback = newFeedback
+        void this.autoSaveSession()
       } else if (action === 'retry') {
         const msg = (target as HTMLElement).closest('.rightbar__message')
         const content = msg?.querySelector('.rightbar__message-content')
@@ -701,8 +741,435 @@ export class RightBar {
         const toSend = this.lastFailedMessage
         this.lastFailedMessage = null
         this.doSend(toSend)
+      } else if (action === 'regenerate') {
+        const messageIndex = parseInt(btn.dataset.messageIndex || '0', 10)
+        void this.regenerateMessage(messageIndex)
+      } else if (action === 'edit') {
+        const messageIndex = parseInt(btn.dataset.messageIndex || '0', 10)
+        this.editMessage(messageIndex)
       }
     })
+
+    // Handle citation clicks
+    this.chatContainer.querySelectorAll('.rightbar__message-citation').forEach(citationBtn => {
+      citationBtn.addEventListener('click', (e) => {
+        e.stopPropagation()
+        const noteId = (citationBtn as HTMLElement).dataset.noteId
+        const notePath = (citationBtn as HTMLElement).dataset.notePath
+        if (noteId) {
+          window.dispatchEvent(new CustomEvent('knowledge-hub:open-note', {
+            detail: { id: noteId, path: notePath || undefined }
+          }))
+        }
+      })
+    })
+  }
+
+  /**
+   * Update menu items based on current state
+   */
+  private updateMenuItems(): void {
+    const hasMessages = this.messages.length > 0
+    const hasSession = this.currentSessionId !== null
+
+    const items: AIMenuItem[] = [
+      {
+        id: 'export',
+        label: 'Export Session',
+        icon: Download,
+        onClick: () => {},
+        disabled: !hasMessages,
+        shortcut: 'Ctrl+E'
+      },
+      {
+        id: 'import',
+        label: 'Import Session',
+        icon: Upload,
+        onClick: () => {},
+        shortcut: 'Ctrl+I'
+      },
+      { separator: true },
+      {
+        id: 'clear',
+        label: 'Clear Conversation',
+        icon: Trash2,
+        onClick: () => {},
+        disabled: !hasMessages
+      },
+      {
+        id: 'info',
+        label: 'Session Info',
+        icon: Info,
+        onClick: () => {},
+        disabled: !hasSession
+      },
+      {
+        id: 'archive',
+        label: 'Archive Session',
+        icon: Archive,
+        onClick: () => {},
+        disabled: !hasSession
+      },
+      { separator: true },
+      {
+        id: 'settings',
+        label: 'AI Settings',
+        icon: Settings,
+        onClick: () => {}
+      }
+    ]
+
+    this.aiMenu.setItems(items)
+  }
+
+  /**
+   * Handle menu action
+   */
+  private async handleMenuAction(itemId: string): Promise<void> {
+    switch (itemId) {
+      case 'export':
+        await this.exportSession()
+        break
+      case 'import':
+        await this.importSession()
+        break
+      case 'clear':
+        await this.clearConversation()
+        break
+      case 'info':
+        await this.showSessionInfo()
+        break
+      case 'archive':
+        await this.archiveSession()
+        break
+      case 'settings':
+        this.openAISettings()
+        break
+    }
+  }
+
+  /**
+   * Export current session to Markdown or JSON
+   */
+  private async exportSession(): Promise<void> {
+    if (this.messages.length === 0) {
+      // Show notification or modal
+      return
+    }
+
+    try {
+      const session = this.currentSessionId
+        ? await sessionStorageService.getSession(this.currentSessionId)
+        : null
+
+      const title = session?.title || 'Chat Session'
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+
+      // Create Markdown export
+      let markdown = `# ${title}\n\n`
+      markdown += `*Exported on ${new Date().toLocaleString()}*\n\n`
+      markdown += '---\n\n'
+
+      this.messages.forEach((msg, index) => {
+        const role = msg.role === 'user' ? '**You**' : '**AI**'
+        const time = new Date(msg.timestamp).toLocaleTimeString()
+        markdown += `### ${role} (${time})\n\n`
+        markdown += `${msg.content}\n\n`
+        if (msg.feedback) {
+          markdown += `*Feedback: ${msg.feedback === 'thumbs-up' ? '👍' : '👎'}*\n\n`
+        }
+        markdown += '---\n\n'
+      })
+
+      // Create downloadable file
+      const blob = new Blob([markdown], { type: 'text/markdown' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${title.replace(/[^a-z0-9]/gi, '_')}_${timestamp}.md`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('[RightBar] Failed to export session:', error)
+    }
+  }
+
+  /**
+   * Import session from file
+   */
+  private async importSession(): Promise<void> {
+    try {
+      // Create file input
+      const input = document.createElement('input')
+      input.type = 'file'
+      input.accept = '.md,.json'
+      input.style.display = 'none'
+      document.body.appendChild(input)
+
+      input.addEventListener('change', async (e) => {
+        const file = (e.target as HTMLInputElement).files?.[0]
+        if (!file) {
+          document.body.removeChild(input)
+          return
+        }
+
+        try {
+          const text = await file.text()
+          const lines = text.split('\n')
+
+          // Try to parse as markdown export
+          let title = file.name.replace(/\.(md|json)$/i, '')
+          const messages: ChatMessage[] = []
+          let currentRole: 'user' | 'assistant' | null = null
+          let currentContent: string[] = []
+
+          for (const line of lines) {
+            if (line.startsWith('# ')) {
+              title = line.slice(2).trim()
+            } else if (line.startsWith('### **You**')) {
+              if (currentRole && currentContent.length > 0) {
+                messages.push({
+                  role: currentRole,
+                  content: currentContent.join('\n').trim(),
+                  timestamp: Date.now()
+                })
+              }
+              currentRole = 'user'
+              currentContent = []
+            } else if (line.startsWith('### **AI**')) {
+              if (currentRole && currentContent.length > 0) {
+                messages.push({
+                  role: currentRole,
+                  content: currentContent.join('\n').trim(),
+                  timestamp: Date.now()
+                })
+              }
+              currentRole = 'assistant'
+              currentContent = []
+            } else if (currentRole && !line.startsWith('---') && !line.startsWith('*Exported')) {
+              currentContent.push(line)
+            }
+          }
+
+          // Add last message
+          if (currentRole && currentContent.length > 0) {
+            messages.push({
+              role: currentRole,
+              content: currentContent.join('\n').trim(),
+              timestamp: Date.now()
+            })
+          }
+
+          if (messages.length > 0) {
+            // Create new session from imported messages
+            const session = await sessionStorageService.createSession(messages, title)
+            await this.loadSession(session.id)
+            this.updateMenuItems()
+          }
+        } catch (error) {
+          console.error('[RightBar] Failed to import session:', error)
+        }
+
+        document.body.removeChild(input)
+      })
+
+      input.click()
+    } catch (error) {
+      console.error('[RightBar] Failed to import session:', error)
+    }
+  }
+
+  /**
+   * Clear current conversation
+   */
+  private async clearConversation(): Promise<void> {
+    if (this.messages.length === 0) return
+
+    // Use modal for confirmation
+    const { modalManager } = await import('../modal/modal')
+    modalManager.open({
+      title: 'Clear Conversation',
+      content: 'Are you sure you want to clear this conversation? This action cannot be undone.',
+      size: 'sm',
+      buttons: [
+        {
+          label: 'Clear',
+          variant: 'danger',
+          onClick: async (m) => {
+            m.close()
+            this.messages = []
+            this.messageFeedback.clear()
+            this.renderMessages()
+            await this.startNewSession()
+            this.updateMenuItems()
+          }
+        },
+        { label: 'Cancel', variant: 'ghost', onClick: (m) => m.close() }
+      ]
+    })
+  }
+
+  /**
+   * Show session information
+   */
+  private async showSessionInfo(): Promise<void> {
+    if (!this.currentSessionId) return
+
+    try {
+      const session = await sessionStorageService.getSession(this.currentSessionId)
+      if (!session) return
+
+      const createdDate = new Date(session.metadata.created_at).toLocaleString()
+      const updatedDate = new Date(session.metadata.updated_at).toLocaleString()
+      const messageCount = session.messages.length
+      const userMessages = session.messages.filter(m => m.role === 'user').length
+      const assistantMessages = session.messages.filter(m => m.role === 'assistant').length
+
+      const { modalManager } = await import('../modal/modal')
+
+      // Build custom content element to avoid HTML escaping
+      const infoContent = document.createElement('div')
+      infoContent.style.fontSize = '12px'
+      infoContent.style.lineHeight = '1.6'
+
+      const items = [
+        { label: 'Title', value: session.title },
+        { label: 'Created', value: createdDate },
+        { label: 'Last Updated', value: updatedDate },
+        { label: 'Total Messages', value: String(messageCount) },
+        { label: 'User Messages', value: String(userMessages) },
+        { label: 'AI Messages', value: String(assistantMessages) }
+      ]
+
+      if (session.metadata.note_references && session.metadata.note_references.length > 0) {
+        items.push({ label: 'Referenced Notes', value: String(session.metadata.note_references.length) })
+      }
+
+      items.forEach(item => {
+        const p = document.createElement('p')
+        p.style.margin = '8px 0'
+        const strong = document.createElement('strong')
+        strong.textContent = `${item.label}: `
+        p.appendChild(strong)
+        p.appendChild(document.createTextNode(item.value))
+        infoContent.appendChild(p)
+      })
+
+      modalManager.open({
+        title: 'Session Information',
+        customContent: infoContent,
+        size: 'sm',
+        buttons: [
+          { label: 'Close', variant: 'primary', onClick: (m) => m.close() }
+        ]
+      })
+    } catch (error) {
+      console.error('[RightBar] Failed to show session info:', error)
+    }
+  }
+
+  /**
+   * Archive current session
+   */
+  private async archiveSession(): Promise<void> {
+    if (!this.currentSessionId) return
+
+    try {
+      const { modalManager } = await import('../modal/modal')
+      modalManager.open({
+        title: 'Archive Session',
+        content: 'Are you sure you want to archive this session? You can restore it later from the sessions list.',
+        size: 'sm',
+        buttons: [
+          {
+            label: 'Archive',
+            variant: 'primary',
+            onClick: async (m) => {
+              m.close()
+              await sessionStorageService.archiveSession(this.currentSessionId!)
+              await this.startNewSession()
+              if (this.sessionSidebar) {
+                await this.sessionSidebar.refresh()
+              }
+              this.updateMenuItems()
+            }
+          },
+          { label: 'Cancel', variant: 'ghost', onClick: (m) => m.close() }
+        ]
+      })
+    } catch (error) {
+      console.error('[RightBar] Failed to archive session:', error)
+    }
+  }
+
+  /**
+   * Open AI settings
+   */
+  private openAISettings(): void {
+    // Dispatch event to open settings and focus on AI/Behavior section
+    window.dispatchEvent(new CustomEvent('knowledge-hub:open-settings', {
+      detail: { section: 'behavior' }
+    }))
+  }
+
+  /**
+   * Regenerate AI response from a specific message
+   */
+  private async regenerateMessage(messageIndex: number): Promise<void> {
+    const message = this.messages[messageIndex]
+    if (!message || message.role !== 'assistant') return
+
+    // Find the user message that prompted this response
+    let userMessageIndex = messageIndex - 1
+    while (userMessageIndex >= 0 && this.messages[userMessageIndex].role !== 'user') {
+      userMessageIndex--
+    }
+
+    if (userMessageIndex < 0) return
+
+    const userMessage = this.messages[userMessageIndex].content
+
+    // Remove the assistant message and all subsequent messages (but keep the user message)
+    // We need to remove from messageIndex (the assistant message) onwards
+    this.messages = this.messages.slice(0, messageIndex)
+
+    // Re-render to update UI
+    this.renderMessages()
+    this.updateMenuItems()
+
+    // Regenerate response - pass skipAddingUserMessage=true since user message already exists
+    this.isLoading = true
+    this.sendButton.disabled = true
+    this.lastFailedMessage = null
+    await this.doSend(userMessage, true) // Skip adding user message since it's already in the array
+  }
+
+  /**
+   * Edit a user message and regenerate response
+   */
+  private editMessage(messageIndex: number): void {
+    const message = this.messages[messageIndex]
+    if (!message || message.role !== 'user') return
+
+    // Set input to message content
+    this.chatInput.textContent = message.content
+    this.chatInput.innerHTML = this.escapeHtml(message.content)
+    this.updateCharacterCount()
+    this.autoResizeTextarea()
+
+    // Remove this message and all subsequent messages
+    this.messages.splice(messageIndex)
+
+    // Re-render
+    this.renderMessages()
+
+    // Focus input
+    this.chatInput.focus()
+
+    // Scroll to input
+    this.chatInput.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
   }
 
   private handleResizeStart(e: MouseEvent): void {
@@ -757,7 +1224,7 @@ export class RightBar {
     if (!this.characterCounter) {
       this.characterCounter = this.container.querySelector('#rightbar-chat-counter') as HTMLElement
     }
-    
+
     if (this.characterCounter) {
       const text = this.getPlainText()
       const count = text.length
@@ -788,7 +1255,7 @@ export class RightBar {
     range.setEndAfter(textNode)
     selection.removeAllRanges()
     selection.addRange(range)
-    
+
     this.updateCharacterCount()
     this.autoResizeTextarea()
   }
@@ -802,16 +1269,16 @@ export class RightBar {
     }
 
     const range = selection.getRangeAt(0)
-    
+
     // Clone range and get text before cursor
     const rangeClone = range.cloneRange()
     rangeClone.selectNodeContents(this.chatInput)
     rangeClone.setEnd(range.endContainer, range.endOffset)
     const textBeforeCursor = rangeClone.toString()
-    
+
     // Find the last @ character before cursor
     const lastAtIndex = textBeforeCursor.lastIndexOf('@')
-    
+
     if (lastAtIndex === -1) {
       this.hideAutocomplete()
       this.removeTypingHighlight()
@@ -828,10 +1295,10 @@ export class RightBar {
 
     // Get the query (text after @)
     const query = afterAt.toLowerCase().trim()
-    
+
     // Show autocomplete
     this.showAutocomplete(lastAtIndex, query, range)
-    
+
     // Highlight the typing mention with proper cursor preservation
     if (query.length > 0) {
       // Use requestAnimationFrame to ensure highlighting happens after browser processes input
@@ -855,35 +1322,35 @@ export class RightBar {
         return
       }
     }
-    
+
     // Remove existing typing highlight first
     this.removeTypingHighlight()
-    
+
     // Only highlight if there's actually text to highlight
     if (queryLength === 0) return
-    
+
     const selection = window.getSelection()
     if (!selection || selection.rangeCount === 0) return
-    
+
     // Get current cursor position BEFORE any DOM manipulation
     const currentRange = selection.getRangeAt(0)
     const cursorTextRange = currentRange.cloneRange()
     cursorTextRange.selectNodeContents(this.chatInput)
     cursorTextRange.setEnd(currentRange.endContainer, currentRange.endOffset)
     const absoluteCursorPos = cursorTextRange.toString().length
-    
+
     // Find the text node containing @ and the query
     const walker = document.createTreeWalker(this.chatInput, NodeFilter.SHOW_TEXT)
     let textPos = 0
     let targetNode: Text | null = null
     let atOffset = 0
     let queryEndOffset = 0
-    
+
     while (walker.nextNode()) {
       const node = walker.currentNode as Text
       const nodeText = node.textContent || ''
       const nodeLength = nodeText.length
-      
+
       // Check if @ is in this node
       if (textPos <= atIndex && atIndex < textPos + nodeLength) {
         targetNode = node
@@ -891,26 +1358,26 @@ export class RightBar {
         queryEndOffset = atOffset + 1 + queryLength
         break
       }
-      
+
       textPos += nodeLength
     }
-    
+
     if (targetNode && queryEndOffset <= (targetNode.textContent || '').length) {
       try {
         const text = targetNode.textContent || ''
         const beforeText = text.substring(0, atOffset)
         const highlightText = text.substring(atOffset, queryEndOffset)
         const afterText = text.substring(queryEndOffset)
-        
+
         if (highlightText.length === 0) return
-        
+
         // Create new structure
         const beforeNode = beforeText ? document.createTextNode(beforeText) : null
         const highlightSpan = document.createElement('span')
         highlightSpan.className = 'rightbar__mention-typing'
         highlightSpan.textContent = highlightText
         const afterNode = afterText ? document.createTextNode(afterText) : null
-        
+
         // Replace the text node
         const parent = targetNode.parentNode
         if (parent) {
@@ -919,9 +1386,9 @@ export class RightBar {
           parent.insertBefore(highlightSpan, targetNode)
           if (afterNode) parent.insertBefore(afterNode, targetNode)
           parent.removeChild(targetNode)
-          
+
           ;(this.chatInput as any).__typingHighlight = highlightSpan
-          
+
           // Restore cursor - always at the end of the query (where user is typing)
           this.restoreCursorAfterHighlight(highlightSpan)
         }
@@ -934,12 +1401,12 @@ export class RightBar {
   private restoreCursorAfterHighlight(highlightSpan: HTMLElement): void {
     const selection = window.getSelection()
     if (!selection) return
-    
+
     // Always place cursor right after the highlight (at the end of the query being typed)
     const newRange = document.createRange()
     newRange.setStartAfter(highlightSpan)
     newRange.setEndAfter(highlightSpan)
-    
+
     // Use setTimeout to ensure this happens after DOM updates
     setTimeout(() => {
       if (selection) {
@@ -962,32 +1429,32 @@ export class RightBar {
         rangeClone.setEnd(range.endContainer, range.endOffset)
         cursorPos = rangeClone.toString().length
       }
-      
+
       const parent = highlight.parentNode
       const text = highlight.textContent || ''
       const textNode = document.createTextNode(text)
       parent.replaceChild(textNode, highlight)
-      
+
       // Restore cursor position
       if (selection) {
         const walker = document.createTreeWalker(this.chatInput, NodeFilter.SHOW_TEXT)
         let currentPos = 0
         let targetNode: Text | null = null
         let targetOffset = 0
-        
+
         while (walker.nextNode()) {
           const node = walker.currentNode as Text
           const nodeLength = (node.textContent || '').length
-          
+
           if (currentPos <= cursorPos && cursorPos <= currentPos + nodeLength) {
             targetNode = node
             targetOffset = cursorPos - currentPos
             break
           }
-          
+
           currentPos += nodeLength
         }
-        
+
         if (targetNode) {
           const newRange = document.createRange()
           newRange.setStart(targetNode, targetOffset)
@@ -996,7 +1463,7 @@ export class RightBar {
           selection.addRange(newRange)
         }
       }
-      
+
       ;(this.chatInput as any).__typingHighlight = null
     }
   }
@@ -1065,7 +1532,7 @@ export class RightBar {
     const item = this.autocompleteItems[this.selectedAutocompleteIndex]
     const noteTitle = item.dataset.noteTitle || ''
     const noteId = item.dataset.noteId || ''
-    
+
     if (!noteTitle) return
 
     const context = (this.autocompleteDropdown as any).__context
@@ -1076,15 +1543,15 @@ export class RightBar {
     // Get current selection to find where the query actually ends
     const selection = window.getSelection()
     if (!selection || selection.rangeCount === 0) return
-    
+
     const currentRange = selection.getRangeAt(0)
-    
+
     // Get all text before cursor to find where the query ends
     const textRange = currentRange.cloneRange()
     textRange.selectNodeContents(this.chatInput)
     textRange.setEnd(currentRange.endContainer, currentRange.endOffset)
     const textBeforeCursor = textRange.toString()
-    
+
     // Find where the query ends (either at space, newline, or end of text)
     const afterAt = textBeforeCursor.substring(atIndex + 1)
     const spaceIndex = afterAt.search(/[\s\n]/)
@@ -1093,7 +1560,7 @@ export class RightBar {
 
     // Create new range to replace from @ to end of query
     const replaceRange = document.createRange()
-    
+
     // Find the @ position and query end position in DOM
     const walker = document.createTreeWalker(this.chatInput, NodeFilter.SHOW_TEXT)
     let currentPos = 0
@@ -1101,33 +1568,33 @@ export class RightBar {
     let startOffset = 0
     let endNode: Node | null = null
     let endOffset = 0
-    
+
     while (walker.nextNode()) {
       const node = walker.currentNode as Text
       const nodeText = node.textContent || ''
       const nodeLength = nodeText.length
-      
+
       // Find start (@ position)
       if (!startNode && currentPos <= atIndex && atIndex < currentPos + nodeLength) {
         startNode = node
         startOffset = atIndex - currentPos
       }
-      
+
       // Find end (end of query)
       if (!endNode && currentPos <= actualQueryEnd && actualQueryEnd <= currentPos + nodeLength) {
         endNode = node
         endOffset = actualQueryEnd - currentPos
         break
       }
-      
+
       currentPos += nodeLength
     }
-    
+
     if (startNode && endNode) {
       replaceRange.setStart(startNode, startOffset)
       replaceRange.setEnd(endNode, endOffset)
       replaceRange.deleteContents()
-      
+
       // Create mention span
       const mentionSpan = document.createElement('span')
       mentionSpan.className = 'rightbar__mention'
@@ -1135,32 +1602,32 @@ export class RightBar {
       mentionSpan.dataset.noteTitle = noteTitle
       mentionSpan.contentEditable = 'false'
       mentionSpan.textContent = `@${noteTitle}`
-      
+
       // Remove any existing typing highlight
       this.removeTypingHighlight()
-      
+
       // Store cursor position before manipulation
       const selection = window.getSelection()
       if (!selection || selection.rangeCount === 0) return
-      
+
       const cursorBefore = selection.getRangeAt(0).cloneRange()
       cursorBefore.selectNodeContents(this.chatInput)
       cursorBefore.setEnd(selection.getRangeAt(0).endContainer, selection.getRangeAt(0).endOffset)
       const cursorTextPos = cursorBefore.toString().length
-      
+
       replaceRange.insertNode(mentionSpan)
-      
+
       // Position caret right after the mention
       const newRange = document.createRange()
       newRange.setStartAfter(mentionSpan)
       newRange.setEndAfter(mentionSpan)
-      
+
       if (selection) {
         selection.removeAllRanges()
         selection.addRange(newRange)
       }
     }
-    
+
     this.hideAutocomplete()
     this.autoResizeTextarea()
     this.updateCharacterCount()
@@ -1177,7 +1644,7 @@ export class RightBar {
     // Find all mention spans and ensure they're styled correctly
     const mentions = this.chatInput.querySelectorAll('.rightbar__mention')
     const refs = new Set<string>()
-    
+
     mentions.forEach(mention => {
       const noteId = (mention as HTMLElement).dataset.noteId
       if (noteId) refs.add(noteId)
@@ -1193,7 +1660,7 @@ export class RightBar {
   private sendMessage(): void {
     const text = this.getPlainText().trim()
     if (!text) return
-    
+
     // Clear the contenteditable
     this.chatInput.innerHTML = ''
     this.chatInput.textContent = ''
@@ -1203,13 +1670,16 @@ export class RightBar {
     this.doSend(text)
   }
 
-  private async doSend(message: string): Promise<void> {
+  private async doSend(message: string, skipAddingUserMessage: boolean = false): Promise<void> {
     // Create or reuse empty session if this is the first message
     if (!this.currentSessionId && this.isInitialized) {
       await this.createNewSession()
     }
 
+    // Only add user message if not regenerating (where message already exists)
+    if (!skipAddingUserMessage) {
     this.addMessage('user', message)
+    }
     this.sendButton.disabled = true
     this.lastFailedMessage = null
     this.isLoading = true
@@ -1231,39 +1701,100 @@ export class RightBar {
     // This allows Monaco editor to remain responsive during AI processing
     setTimeout(async () => {
       try {
-        const contextMessage = await aiService.buildContextMessage(message)
-        const response = await aiService.callDeepSeekAPI(this.messages, contextMessage)
-        
+        const { context: contextMessage, citations } = await aiService.buildContextMessage(message)
+
+        // Create placeholder message for streaming
+        // If regenerating, insert after the last user message (which is already in the array)
+        // If new message, insert at the end (after the user message we just added)
+        let insertIndex = this.messages.length
+        if (skipAddingUserMessage) {
+          // When regenerating, the last message should be the user message we're regenerating from
+          // Insert the assistant response right after it
+          insertIndex = this.messages.length
+        }
+
+        // Insert placeholder assistant message
+        this.messages.splice(insertIndex, 0, {
+          role: 'assistant',
+          content: '',
+          timestamp: Date.now(),
+          messageId: `msg_${Date.now()}_${Math.random()}`,
+          citations: citations.length > 0 ? citations : undefined
+        })
+        this.streamingMessageIndex = insertIndex
+        this.renderMessages()
+
+        // Start streaming - use all messages up to (but not including) the placeholder
+        const messagesForAPI = this.messages.slice(0, insertIndex)
+        const fullResponse = await aiService.callDeepSeekAPIStream(
+          messagesForAPI,
+          { context: contextMessage, citations },
+          (chunk: string) => {
+            // Update message content as chunks arrive
+            if (this.streamingMessageIndex !== null && this.messages[this.streamingMessageIndex]) {
+              this.messages[this.streamingMessageIndex].content += chunk
+              // Throttle UI updates for performance
+              requestAnimationFrame(() => {
+                this.renderMessages()
+                this.chatContainer.scrollTo({ top: this.chatContainer.scrollHeight, behavior: 'smooth' })
+              })
+            }
+          }
+        )
+
+        // Final update with complete message
+        if (this.streamingMessageIndex !== null && this.messages[this.streamingMessageIndex]) {
+          this.messages[this.streamingMessageIndex].content = fullResponse
+        }
+
+        this.streamingMessageIndex = null
+
         // Use requestAnimationFrame for smooth UI updates
         requestAnimationFrame(() => {
-          this.isLoading = false
-          this.addMessage('assistant', response)
+      this.isLoading = false
+          this.renderMessages()
           this.sendButton.disabled = false
           this.chatInput.focus()
+          // Auto-save after streaming completes
+          void this.autoSaveSession()
         })
-      } catch (err: unknown) {
+    } catch (err: unknown) {
+        // Remove placeholder message on error
+        if (this.streamingMessageIndex !== null) {
+          this.messages.splice(this.streamingMessageIndex, 1)
+          this.streamingMessageIndex = null
+        }
+
         requestAnimationFrame(() => {
-          this.isLoading = false
-          this.lastFailedMessage = message
-          const errorMsg = err instanceof Error ? err.message : 'Failed to get response'
-          this.addMessage(
-            'assistant',
-            `❌ **Error**\n\n${errorMsg}\n\nPlease check your API key and internet connection.`
-          )
-          this.sendButton.disabled = false
-          this.chatInput.focus()
+      this.isLoading = false
+      this.lastFailedMessage = message
+      const errorMsg = err instanceof Error ? err.message : 'Failed to get response'
+      this.addMessage(
+        'assistant',
+        `❌ **Error**\n\n${errorMsg}\n\nPlease check your API key and internet connection.`
+      )
+      this.sendButton.disabled = false
+      this.chatInput.focus()
         })
         console.error('[RightBar] API Error:', err)
       }
     }, 0)
   }
 
-  private addMessage(role: 'user' | 'assistant', content: string): void {
-    this.messages.push({ role, content, timestamp: Date.now() })
+  private addMessage(role: 'user' | 'assistant', content: string, messageId?: string): void {
+    this.messages.push({
+      role,
+      content,
+      timestamp: Date.now(),
+      messageId: messageId || `msg_${Date.now()}_${Math.random()}`
+    })
     this.renderMessages()
-    
-    // Auto-save session after adding message
-    void this.autoSaveSession()
+    this.updateMenuItems()
+
+    // Auto-save session after adding message (unless streaming)
+    if (this.streamingMessageIndex === null) {
+      void this.autoSaveSession()
+    }
   }
 
   private formatContent(text: string, isAssistant: boolean): string {
@@ -1282,7 +1813,7 @@ export class RightBar {
         highlight: (str: string, lang: string) => {
           const normalizedLang = lang ? lang.toLowerCase().trim() : ''
           const escaped = this.md.utils.escapeHtml(str)
-          return normalizedLang 
+          return normalizedLang
             ? `<pre class="hljs"><code class="language-${this.md.utils.escapeHtml(normalizedLang)}" data-lang="${this.md.utils.escapeHtml(normalizedLang)}" data-code="${this.md.utils.escapeHtml(str.replace(/"/g, '&quot;'))}">${escaped}</code></pre>`
             : `<pre class="hljs"><code>${escaped}</code></pre>`
         }
@@ -1333,12 +1864,25 @@ export class RightBar {
         const content = this.formatContent(msg.content, msg.role === 'assistant')
         const avatar = Avatar.createHTML(msg.role as 'user' | 'assistant', 20)
         const msgIndex = this.messages.indexOf(msg)
-        const feedback = this.messageFeedback.get(msgIndex)
+        const feedback = msg.feedback || this.messageFeedback.get(msgIndex) || null
+        const citations = msg.citations && msg.citations.length > 0
+          ? `<div class="rightbar__message-citations">
+               <span class="rightbar__message-citations-label">Referenced notes:</span>
+               ${msg.citations.map(citation =>
+                 `<button class="rightbar__message-citation" data-note-id="${citation.id}" data-note-path="${citation.path || ''}" title="Open: ${citation.title}">
+                   ${this.escapeHtml(citation.title)}
+                 </button>`
+               ).join('')}
+             </div>`
+          : ''
         const actions =
           msg.role === 'assistant'
             ? `<div class="rightbar__message-actions">
              <button type="button" class="rightbar__message-action rightbar__message-action--copy" data-action="copy" data-message-index="${msgIndex}" title="Copy">
                ${this.createLucideIcon(Copy, 12, 1.5)}
+             </button>
+             <button type="button" class="rightbar__message-action rightbar__message-action--regenerate" data-action="regenerate" data-message-index="${msgIndex}" title="Regenerate">
+               ${this.createLucideIcon(RotateCw, 12, 1.5)}
              </button>
              <button type="button" class="rightbar__message-action rightbar__message-action--thumbs-up ${feedback === 'thumbs-up' ? 'rightbar__message-action--active' : ''}" data-action="thumbs-up" data-message-index="${msgIndex}" title="Helpful">
                ${this.createLucideIcon(ThumbsUp, 12, 1.5)}
@@ -1348,13 +1892,18 @@ export class RightBar {
              </button>
              ${isError && this.lastFailedMessage ? '<button type="button" class="rightbar__message-action rightbar__message-action--retry" data-action="retry" title="Retry">Retry</button>' : ''}
            </div>`
-            : ''
+            : `<div class="rightbar__message-actions">
+             <button type="button" class="rightbar__message-action rightbar__message-action--edit" data-action="edit" data-message-index="${msgIndex}" title="Edit message">
+               ${this.createLucideIcon(Edit2, 12, 1.5)}
+             </button>
+           </div>`
         return `
         <div class="rightbar__message rightbar__message--${msg.role}">
           ${avatar}
           <div class="rightbar__message-body">
-            <div class="rightbar__message-content">${content}</div>
-            ${actions}
+          <div class="rightbar__message-content">${content}</div>
+            ${citations}
+          ${actions}
           </div>
         </div>
       `
@@ -1365,7 +1914,7 @@ export class RightBar {
 
     this.chatContainer.innerHTML = html
     this.chatContainer.scrollTo({ top: this.chatContainer.scrollHeight, behavior: 'smooth' })
-    
+
     // Enhance code blocks with syntax highlighting after render
     void this.highlightCodeBlocks()
   }
@@ -1390,7 +1939,7 @@ export class RightBar {
 
         const lang = codeElement.getAttribute('data-lang')
         const code = codeElement.getAttribute('data-code') || codeElement.textContent || ''
-        
+
         // Apply syntax highlighting if language is supported
         if (lang && hljs && hljs.getLanguage(lang)) {
           try {
@@ -1408,23 +1957,23 @@ export class RightBar {
         copyButton.title = 'Copy code'
         copyButton.setAttribute('aria-label', 'Copy code')
         copyButton.innerHTML = this.createLucideIcon(Copy, 14, 1.5)
-        
+
         // Store original code for copying
         copyButton.dataset.code = code
-        
+
         copyButton.addEventListener('click', async (e) => {
           e.stopPropagation()
           const codeToCopy = copyButton.dataset.code || codeElement.textContent || ''
-          
+
           try {
             await navigator.clipboard.writeText(codeToCopy)
-            
+
             // Visual feedback
             const originalHTML = copyButton.innerHTML
             copyButton.innerHTML = this.createLucideIcon(Check, 14, 1.5)
             copyButton.classList.add('rightbar__code-copy--copied')
             copyButton.title = 'Copied!'
-            
+
             setTimeout(() => {
               copyButton.innerHTML = originalHTML
               copyButton.classList.remove('rightbar__code-copy--copied')

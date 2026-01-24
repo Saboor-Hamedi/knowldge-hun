@@ -1,26 +1,41 @@
+/**
+ * Enhanced Graph View
+ * Force-directed graph visualization with filtering, clustering, and rich interactions
+ */
+
 import * as d3 from 'd3'
 import { state } from '../../core/state'
+import { GraphControls, type GraphFilters } from './graph-controls'
+import {
+  type GraphNode,
+  type GraphLink,
+  type GraphData,
+  processGraphData,
+  filterNodes,
+  getNodeRadius,
+  getGroupColor
+} from './graph-utils'
 import './graph.css'
 import '../window-header/window-header.css'
-
-interface GraphNode extends d3.SimulationNodeDatum {
-  id: string
-  title: string
-  group: number
-}
-
-interface GraphLink extends d3.SimulationLinkDatum<GraphNode> {
-  source: string | GraphNode
-  target: string | GraphNode
-}
 
 export class GraphView {
   private container: HTMLElement
   private modal: HTMLElement
   private svg: d3.Selection<SVGSVGElement, unknown, null, undefined> | null = null
+  private g: d3.Selection<SVGGElement, unknown, null, undefined> | null = null
   private simulation: d3.Simulation<GraphNode, GraphLink> | null = null
-  private nodes: GraphNode[] = []
-  private links: GraphLink[] = []
+  private zoom: d3.ZoomBehavior<SVGSVGElement, unknown> | null = null
+  private controls: GraphControls | null = null
+
+  private graphData: GraphData | null = null
+  private filteredData: GraphData | null = null
+  private groupColors: Map<number, string> = new Map()
+  private showLabels = true
+  private forceStrength = -300
+
+  // D3 selections
+  private linkSelection: d3.Selection<SVGLineElement, GraphLink, SVGGElement, unknown> | null = null
+  private nodeSelection: d3.Selection<SVGGElement, GraphNode, SVGGElement, unknown> | null = null
 
   constructor() {
     this.container = document.body
@@ -28,12 +43,12 @@ export class GraphView {
     this.modal.className = 'graph-modal'
     this.render()
     this.container.appendChild(this.modal)
-    
+
     // Bind Escape key
     window.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && this.modal.classList.contains('is-visible')) {
-            this.close()
-        }
+      if (e.key === 'Escape' && this.modal.classList.contains('is-visible')) {
+        this.close()
+      }
     })
   }
 
@@ -43,19 +58,34 @@ export class GraphView {
         <div class="window-header" style="border-radius: 8px 8px 0 0; flex-shrink: 0;">
           <div class="window-header__brand">
             <span class="window-header__title">Vault Graph</span>
+            <span class="graph-modal__stats" id="graph-stats"></span>
           </div>
           <div class="window-header__controls">
-            <button class="wh-btn wh-close graph-modal__close" title="Close" aria-label="Close">×</button>
+            <button class="wh-btn wh-close graph-modal__close" title="Close (Esc)" aria-label="Close">×</button>
           </div>
         </div>
+        <div class="graph-modal__toolbar" id="graph-toolbar"></div>
         <div class="graph-modal__canvas" id="graph-canvas"></div>
-        <div class="graph-modal__controls">
-            <span style="font-size: 12px; color: var(--text-soft);">Scroll to Zoom • Drag to Pan • Click Node to Open</span>
-        </div>
+        <div class="graph-modal__tooltip" id="graph-tooltip"></div>
+        <div class="graph-modal__legend" id="graph-legend"></div>
       </div>
     `
 
     this.modal.querySelector('.graph-modal__close')?.addEventListener('click', () => this.close())
+
+    // Initialize controls
+    const toolbar = this.modal.querySelector('#graph-toolbar') as HTMLElement
+    if (toolbar) {
+      this.controls = new GraphControls(toolbar, {
+        onSearch: (query) => this.handleSearch(query),
+        onFilterChange: (filters) => this.handleFilterChange(filters),
+        onZoomIn: () => this.handleZoom(1.3),
+        onZoomOut: () => this.handleZoom(0.7),
+        onZoomReset: () => this.handleZoomReset(),
+        onToggleLabels: (show) => this.handleToggleLabels(show),
+        onForceStrengthChange: (strength) => this.handleForceStrengthChange(strength)
+      })
+    }
   }
 
   async open(): Promise<void> {
@@ -66,137 +96,536 @@ export class GraphView {
   close(): void {
     this.modal.classList.remove('is-visible')
     if (this.simulation) {
-        this.simulation.stop()
+      this.simulation.stop()
     }
   }
 
   private async initGraph(): Promise<void> {
     const canvas = this.modal.querySelector('#graph-canvas') as HTMLElement
     if (!canvas) return
-    
+
     // Clear previous
     canvas.innerHTML = ''
-    
-    // Check for API availability (requires restart after update)
+    this.hideTooltip()
+
+    // Check for API availability
     if (!window.api.getGraph) {
-        alert('Graph API not found. Please restart the application to apply updates.')
-        this.close()
-        return
+      this.showError('Graph API not found. Please restart the application.')
+      return
     }
 
     try {
-        // Fetch Data
-        const graphData = await window.api.getGraph()
-        const allNotes = state.notes
-        
-        if (!graphData || !allNotes) return
-    
-        // Prepare Nodes
-        this.nodes = allNotes.map(n => ({
-            id: n.id,
-            title: n.title || n.id,
-            group: 1
-        }))
-        
-        // Prepare Links
-        // Filter links to ensure both source and target exist
-        const nodeIds = new Set(this.nodes.map(n => n.id))
-        this.links = graphData.links.filter(l => nodeIds.has(l.source) && nodeIds.has(l.target)).map(l => ({
-            source: l.source,
-            target: l.target
-        }))
-    } catch (e) {
-        console.error('Failed to load graph data', e)
-        return
-    }
+      // Fetch data
+      const graphData = await window.api.getGraph()
+      const allNotes = state.notes
 
+      if (!graphData || !allNotes) {
+        this.showError('No notes found in vault.')
+        return
+      }
+
+      // Load note contents for tag extraction
+      const noteContents = new Map<string, string>()
+      const notesToLoad = allNotes.filter((n) => n.type !== 'folder').slice(0, 200) // Limit for performance
+
+      await Promise.all(
+        notesToLoad.map(async (note) => {
+          try {
+            const loaded = await window.api.loadNote(note.id, note.path)
+            if (loaded?.content) {
+              noteContents.set(note.id, loaded.content)
+            }
+          } catch {
+            // Ignore load errors
+          }
+        })
+      )
+
+      // Process graph data
+      console.log('[Graph] Raw links from vault:', graphData.links.length)
+      this.graphData = processGraphData(allNotes, graphData.links, noteContents, state.activeId)
+      this.filteredData = this.graphData
+      console.log(
+        '[Graph] Processed nodes:',
+        this.graphData.nodes.length,
+        'links:',
+        this.graphData.links.length
+      )
+
+      // Generate group colors
+      const uniqueGroups = new Set(this.graphData.nodes.map((n) => n.group))
+      uniqueGroups.forEach((group, index) => {
+        this.groupColors.set(group, getGroupColor(index, uniqueGroups.size))
+      })
+
+      // Update controls with available filters
+      if (this.controls) {
+        this.controls.setAvailableTags(Array.from(this.graphData.tags.keys()))
+        this.controls.setAvailableFolders(Array.from(this.graphData.clusters.keys()))
+      }
+
+      // Render legend
+      this.renderLegend()
+
+      // Initialize D3
+      this.initD3(canvas)
+
+      // Update stats
+      this.updateStats()
+    } catch (e) {
+      console.error('Failed to load graph data', e)
+      this.showError('Failed to load graph data.')
+    }
+  }
+
+  private initD3(canvas: HTMLElement): void {
     const width = canvas.clientWidth
     const height = canvas.clientHeight
 
-    // D3 Setup
-    this.svg = d3.select(canvas).append('svg')
-        .attr('width', width)
-        .attr('height', height)
-        .call(d3.zoom<SVGSVGElement, unknown>().on('zoom', (event) => {
-            g.attr('transform', event.transform)
-        }))
+    // Create SVG
+    this.svg = d3
+      .select(canvas)
+      .append('svg')
+      .attr('width', width)
+      .attr('height', height)
+      .attr('class', 'graph-svg')
 
-    const g = this.svg.append('g')
+    // Add defs for gradients/filters
+    const defs = this.svg.append('defs')
 
-    this.simulation = d3.forceSimulation(this.nodes)
-        .force('link', d3.forceLink(this.links).id((d: any) => d.id).distance(100))
-        .force('charge', d3.forceManyBody().strength(-300))
-        .force('center', d3.forceCenter(width / 2, height / 2))
-        .force('collision', d3.forceCollide().radius(20))
+    // Glow filter for active/hovered nodes
+    const glowFilter = defs
+      .append('filter')
+      .attr('id', 'glow')
+      .attr('x', '-50%')
+      .attr('y', '-50%')
+      .attr('width', '200%')
+      .attr('height', '200%')
 
-    const link = g.append('g')
-        .attr('class', 'links')
-        .selectAll('line')
-        .data(this.links)
-        .enter().append('line')
-        .attr('class', 'link')
-        .attr('stroke-width', 1)
+    glowFilter.append('feGaussianBlur').attr('stdDeviation', '3').attr('result', 'coloredBlur')
 
-    const node = g.append('g')
-        .attr('class', 'nodes')
-        .selectAll('g')
-        .data(this.nodes)
-        .enter().append('g')
-        .attr('class', 'node')
-        .call(d3.drag<SVGGElement, GraphNode>()
-            .on('start', this.dragstarted.bind(this))
-            .on('drag', this.dragged.bind(this))
-            .on('end', this.dragended.bind(this)))
+    const feMerge = glowFilter.append('feMerge')
+    feMerge.append('feMergeNode').attr('in', 'coloredBlur')
+    feMerge.append('feMergeNode').attr('in', 'SourceGraphic')
 
-    node.append('circle')
-        .attr('r', 5)
-        .attr('fill', '#4fc1ff')
+    // Arrow marker for directed links (smaller)
+    defs
+      .append('marker')
+      .attr('id', 'arrow')
+      .attr('viewBox', '0 -3 6 6')
+      .attr('refX', 18)
+      .attr('refY', 0)
+      .attr('markerWidth', 4)
+      .attr('markerHeight', 4)
+      .attr('orient', 'auto')
+      .append('path')
+      .attr('d', 'M0,-3L6,0L0,3')
+      .attr('fill', 'var(--text-soft)')
+      .attr('opacity', 0.6)
 
-    node.append('text')
-        .attr('dx', 8)
-        .attr('dy', 3)
-        .text(d => d.title)
+    // Highlighted arrow marker (for hover state)
+    defs
+      .append('marker')
+      .attr('id', 'arrow-highlighted')
+      .attr('viewBox', '0 -3 6 6')
+      .attr('refX', 18)
+      .attr('refY', 0)
+      .attr('markerWidth', 5)
+      .attr('markerHeight', 5)
+      .attr('orient', 'auto')
+      .append('path')
+      .attr('d', 'M0,-3L6,0L0,3')
+      .attr('fill', 'var(--primary)')
 
-    node.on('click', (_event, d) => {
-        // Open the note
-        const note = state.notes.find(n => n.id === d.id)
-        if (note) {
-            this.close()
-            // Dispatch custom event or callback?
-            // Since GraphView is imported in App, we can maybe pass a callback?
-            // For now, let's emit a global event or assume app handles it?
-            // Better: GraphView should accept an onNodeClick callback.
-            // But for simplicity, let's dispatch a custom DOM event on window.
-            window.dispatchEvent(new CustomEvent('knowledge-hub:open-note', { detail: { id: d.id, path: note.path } }))
-        }
-    })
+    // Main group for zoom/pan
+    this.g = this.svg.append('g').attr('class', 'graph-container')
 
-    this.simulation.on('tick', () => {
-        link
-            .attr('x1', (d: any) => d.source.x)
-            .attr('y1', (d: any) => d.source.y)
-            .attr('x2', (d: any) => d.target.x)
-            .attr('y2', (d: any) => d.target.y)
+    // Zoom behavior
+    this.zoom = d3
+      .zoom<SVGSVGElement, unknown>()
+      .scaleExtent([0.1, 4])
+      .on('zoom', (event) => {
+        this.g?.attr('transform', event.transform)
+      })
 
-        node
-            .attr('transform', (d: any) => `translate(${d.x},${d.y})`)
-    })
+    this.svg.call(this.zoom)
+
+    // Initialize simulation
+    this.initSimulation(width, height)
+
+    // Render graph
+    this.renderGraph()
   }
 
-  private dragstarted(event: any, d: any) {
+  private initSimulation(width: number, height: number): void {
+    if (!this.filteredData) return
+
+    this.simulation = d3
+      .forceSimulation<GraphNode, GraphLink>(this.filteredData.nodes)
+      .force(
+        'link',
+        d3
+          .forceLink<GraphNode, GraphLink>(this.filteredData.links)
+          .id((d) => d.id)
+          .distance((d) => (d.bidirectional ? 80 : 120))
+      )
+      .force('charge', d3.forceManyBody<GraphNode>().strength(this.forceStrength))
+      .force('center', d3.forceCenter(width / 2, height / 2))
+      .force(
+        'collision',
+        d3.forceCollide<GraphNode>().radius((d) => getNodeRadius(d) + 10)
+      )
+      .force('x', d3.forceX(width / 2).strength(0.05))
+      .force('y', d3.forceY(height / 2).strength(0.05))
+
+    this.simulation.on('tick', () => this.tick())
+  }
+
+  private renderGraph(): void {
+    if (!this.g || !this.filteredData) return
+
+    // Clear previous
+    this.g.selectAll('.links').remove()
+    this.g.selectAll('.nodes').remove()
+
+    // Links
+    const linkGroup = this.g.append('g').attr('class', 'links')
+    this.linkSelection = linkGroup
+      .selectAll<SVGLineElement, GraphLink>('line')
+      .data(this.filteredData.links)
+      .enter()
+      .append('line')
+      .attr('class', (d) => `link ${d.bidirectional ? 'link--bidirectional' : ''}`)
+      .attr('stroke-width', (d) => (d.bidirectional ? 2 : 1))
+      .attr('marker-end', (d) => (d.bidirectional ? '' : 'url(#arrow)'))
+
+    // Nodes
+    const nodeGroup = this.g.append('g').attr('class', 'nodes')
+    this.nodeSelection = nodeGroup
+      .selectAll<SVGGElement, GraphNode>('g')
+      .data(this.filteredData.nodes)
+      .enter()
+      .append('g')
+      .attr('class', (d) => {
+        let classes = 'node'
+        if (d.isActive) classes += ' node--active'
+        if (d.isOrphan) classes += ' node--orphan'
+        if (d.isHub) classes += ' node--hub'
+        return classes
+      })
+      .call(
+        d3
+          .drag<SVGGElement, GraphNode>()
+          .on('start', (event, d) => this.dragStarted(event, d))
+          .on('drag', (event, d) => this.dragged(event, d))
+          .on('end', (event, d) => this.dragEnded(event, d))
+      )
+
+    // Node circles
+    this.nodeSelection
+      .append('circle')
+      .attr('r', (d) => getNodeRadius(d))
+      .attr('fill', (d) => this.getNodeColor(d))
+      .attr('filter', (d) => (d.isActive ? 'url(#glow)' : null))
+
+    // Node labels
+    this.nodeSelection
+      .append('text')
+      .attr('class', 'node__label')
+      .attr('dx', (d) => getNodeRadius(d) + 4)
+      .attr('dy', 4)
+      .text((d) => d.title)
+      .style('display', this.showLabels ? 'block' : 'none')
+
+    // Node interactions
+    this.nodeSelection
+      .on('mouseenter', (_event, d) => this.handleNodeHover(d, true))
+      .on('mouseleave', (_event, d) => this.handleNodeHover(d, false))
+      .on('click', (_event, d) => this.handleNodeClick(d))
+
+    // Restart simulation
+    if (this.simulation) {
+      this.simulation.nodes(this.filteredData.nodes)
+      const linkForce = this.simulation.force('link') as d3.ForceLink<GraphNode, GraphLink>
+      linkForce?.links(this.filteredData.links)
+      this.simulation.alpha(1).restart()
+    }
+  }
+
+  private tick(): void {
+    if (!this.linkSelection || !this.nodeSelection) return
+
+    this.linkSelection
+      .attr('x1', (d) => (d.source as GraphNode).x || 0)
+      .attr('y1', (d) => (d.source as GraphNode).y || 0)
+      .attr('x2', (d) => (d.target as GraphNode).x || 0)
+      .attr('y2', (d) => (d.target as GraphNode).y || 0)
+
+    this.nodeSelection.attr('transform', (d) => `translate(${d.x || 0},${d.y || 0})`)
+  }
+
+  private getNodeColor(node: GraphNode): string {
+    if (node.isActive) {
+      return '#fbbf24' // Gold for active
+    }
+    if (node.isOrphan) {
+      return '#6b7280' // Gray for orphans
+    }
+    if (node.isHub) {
+      return '#f97316' // Orange for hubs
+    }
+    return this.groupColors.get(node.group) || '#4fc1ff'
+  }
+
+  private handleNodeHover(node: GraphNode, isEntering: boolean): void {
+    if (isEntering) {
+      this.showTooltip(node)
+      this.highlightConnections(node)
+    } else {
+      this.hideTooltip()
+      this.clearHighlight()
+    }
+  }
+
+  private highlightConnections(node: GraphNode): void {
+    if (!this.linkSelection || !this.nodeSelection || !this.filteredData) return
+
+    const connectedIds = new Set<string>([node.id])
+
+    // Find connected nodes
+    this.filteredData.links.forEach((link) => {
+      const sourceId = typeof link.source === 'string' ? link.source : link.source.id
+      const targetId = typeof link.target === 'string' ? link.target : link.target.id
+      if (sourceId === node.id) connectedIds.add(targetId)
+      if (targetId === node.id) connectedIds.add(sourceId)
+    })
+
+    // Dim non-connected nodes
+    this.nodeSelection
+      .classed('node--dimmed', (d) => !connectedIds.has(d.id))
+      .classed('node--highlighted', (d) => connectedIds.has(d.id) && d.id !== node.id)
+
+    // Highlight connected links with flow animation
+    this.linkSelection
+      .classed('link--highlighted', (link) => {
+        const sourceId = typeof link.source === 'string' ? link.source : link.source.id
+        const targetId = typeof link.target === 'string' ? link.target : link.target.id
+        return sourceId === node.id || targetId === node.id
+      })
+      .classed('link--outgoing', (link) => {
+        const sourceId = typeof link.source === 'string' ? link.source : link.source.id
+        return sourceId === node.id
+      })
+      .classed('link--incoming', (link) => {
+        const targetId = typeof link.target === 'string' ? link.target : link.target.id
+        return targetId === node.id
+      })
+      .attr('marker-end', (link) => {
+        const sourceId = typeof link.source === 'string' ? link.source : link.source.id
+        const targetId = typeof link.target === 'string' ? link.target : link.target.id
+        const isHighlighted = sourceId === node.id || targetId === node.id
+        if ((link as GraphLink).bidirectional) return ''
+        return isHighlighted ? 'url(#arrow-highlighted)' : 'url(#arrow)'
+      })
+  }
+
+  private clearHighlight(): void {
+    this.nodeSelection?.classed('node--dimmed', false).classed('node--highlighted', false)
+    this.linkSelection
+      ?.classed('link--highlighted', false)
+      .classed('link--outgoing', false)
+      .classed('link--incoming', false)
+      .attr('marker-end', (d) => ((d as GraphLink).bidirectional ? '' : 'url(#arrow)'))
+  }
+
+  private showTooltip(node: GraphNode): void {
+    const tooltip = this.modal.querySelector('#graph-tooltip') as HTMLElement
+    if (!tooltip) return
+
+    const tags =
+      node.tags.length > 0
+        ? `<div class="graph-tooltip__tags">${node.tags.map((t) => `<span class="graph-tooltip__tag">#${t}</span>`).join('')}</div>`
+        : ''
+
+    tooltip.innerHTML = `
+      <div class="graph-tooltip__title">${this.escapeHtml(node.title)}</div>
+      <div class="graph-tooltip__meta">
+        <span>${node.incomingCount} incoming</span>
+        <span>•</span>
+        <span>${node.outgoingCount} outgoing</span>
+        ${node.path ? `<span>•</span><span>${node.path}</span>` : ''}
+      </div>
+      ${tags}
+      ${node.isHub ? '<div class="graph-tooltip__badge graph-tooltip__badge--hub">Hub Note</div>' : ''}
+      ${node.isOrphan ? '<div class="graph-tooltip__badge graph-tooltip__badge--orphan">Orphan</div>' : ''}
+    `
+
+    tooltip.classList.add('is-visible')
+
+    // Position tooltip near mouse
+    const updatePosition = (e: MouseEvent): void => {
+      tooltip.style.left = `${e.clientX + 15}px`
+      tooltip.style.top = `${e.clientY + 15}px`
+    }
+
+    this.modal.addEventListener('mousemove', updatePosition)
+    tooltip.dataset.moveHandler = 'active'
+  }
+
+  private hideTooltip(): void {
+    const tooltip = this.modal.querySelector('#graph-tooltip') as HTMLElement
+    tooltip?.classList.remove('is-visible')
+  }
+
+  private handleNodeClick(node: GraphNode): void {
+    const note = state.notes.find((n) => n.id === node.id)
+    if (note) {
+      this.close()
+      window.dispatchEvent(
+        new CustomEvent('knowledge-hub:open-note', {
+          detail: { id: node.id, path: note.path }
+        })
+      )
+    }
+  }
+
+  private renderLegend(): void {
+    const legend = this.modal.querySelector('#graph-legend') as HTMLElement
+    if (!legend) return
+
+    legend.innerHTML = `
+      <div class="graph-legend__title">Legend</div>
+      <div class="graph-legend__items">
+        <div class="graph-legend__item">
+          <span class="graph-legend__dot" style="background: #fbbf24;"></span>
+          <span>Active Note</span>
+        </div>
+        <div class="graph-legend__item">
+          <span class="graph-legend__dot" style="background: #f97316;"></span>
+          <span>Hub Note</span>
+        </div>
+        <div class="graph-legend__item">
+          <span class="graph-legend__dot" style="background: #6b7280;"></span>
+          <span>Orphan</span>
+        </div>
+        <div class="graph-legend__item">
+          <span class="graph-legend__sizes">
+            <span class="graph-legend__size graph-legend__size--sm"></span>
+            <span class="graph-legend__size graph-legend__size--md"></span>
+            <span class="graph-legend__size graph-legend__size--lg"></span>
+          </span>
+          <span>Size = Connections</span>
+        </div>
+      </div>
+    `
+  }
+
+  private updateStats(): void {
+    const stats = this.modal.querySelector('#graph-stats') as HTMLElement
+    if (!stats || !this.filteredData) return
+
+    const nodeCount = this.filteredData.nodes.length
+    const linkCount = this.filteredData.links.length
+    const orphanCount = this.filteredData.nodes.filter((n) => n.isOrphan).length
+
+    stats.textContent = `${nodeCount} notes • ${linkCount} links • ${orphanCount} orphans`
+  }
+
+  // Control handlers
+  private handleSearch(query: string): void {
+    if (!this.graphData) return
+
+    this.filteredData = filterNodes(this.graphData, {
+      searchQuery: query,
+      showOrphans: true,
+      selectedTags: [],
+      selectedFolders: []
+    })
+
+    this.renderGraph()
+    this.updateStats()
+  }
+
+  private handleFilterChange(filters: GraphFilters): void {
+    if (!this.graphData) return
+
+    this.filteredData = filterNodes(this.graphData, {
+      showOrphans: filters.showOrphans,
+      selectedTags: filters.selectedTags,
+      selectedFolders: filters.selectedFolders
+    })
+
+    this.renderGraph()
+    this.updateStats()
+  }
+
+  private handleZoom(factor: number): void {
+    if (!this.svg || !this.zoom) return
+    this.svg
+      .transition()
+      .duration(300)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .call(this.zoom.scaleBy as any, factor)
+  }
+
+  private handleZoomReset(): void {
+    if (!this.svg || !this.zoom) return
+    this.svg
+      .transition()
+      .duration(300)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .call(this.zoom.transform as any, d3.zoomIdentity)
+  }
+
+  private handleToggleLabels(show: boolean): void {
+    this.showLabels = show
+    this.nodeSelection?.selectAll('.node__label').style('display', show ? 'block' : 'none')
+  }
+
+  private handleForceStrengthChange(strength: number): void {
+    this.forceStrength = -strength
+    if (this.simulation) {
+      const chargeForce = this.simulation.force('charge') as d3.ForceManyBody<GraphNode>
+      chargeForce?.strength(this.forceStrength)
+      this.simulation.alpha(0.5).restart()
+    }
+  }
+
+  // Drag handlers
+  private dragStarted(
+    event: d3.D3DragEvent<SVGGElement, GraphNode, GraphNode>,
+    d: GraphNode
+  ): void {
     if (!event.active) this.simulation?.alphaTarget(0.3).restart()
     d.fx = d.x
     d.fy = d.y
   }
 
-  private dragged(event: any, d: any) {
+  private dragged(event: d3.D3DragEvent<SVGGElement, GraphNode, GraphNode>, d: GraphNode): void {
     d.fx = event.x
     d.fy = event.y
   }
 
-  private dragended(event: any, d: any) {
+  private dragEnded(event: d3.D3DragEvent<SVGGElement, GraphNode, GraphNode>, d: GraphNode): void {
     if (!event.active) this.simulation?.alphaTarget(0)
     d.fx = null
     d.fy = null
+  }
+
+  private showError(message: string): void {
+    const canvas = this.modal.querySelector('#graph-canvas') as HTMLElement
+    if (canvas) {
+      canvas.innerHTML = `
+        <div class="graph-modal__error">
+          <span>${message}</span>
+        </div>
+      `
+    }
+  }
+
+  private escapeHtml(text: string): string {
+    const div = document.createElement('div')
+    div.textContent = text
+    return div.innerHTML
   }
 }
