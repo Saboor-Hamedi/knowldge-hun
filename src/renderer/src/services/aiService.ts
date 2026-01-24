@@ -38,6 +38,63 @@ export interface NoteCitation {
   path?: string
 }
 
+export type ChatMode = 'balanced' | 'thinking' | 'creative' | 'precise' | 'code'
+
+export interface ChatModeConfig {
+  id: ChatMode
+  label: string
+  icon: string
+  description: string
+  temperature: number
+  systemPrompt?: string
+}
+
+export const CHAT_MODES: ChatModeConfig[] = [
+  {
+    id: 'balanced',
+    label: 'Balanced',
+    icon: '⚖️',
+    description: 'General purpose responses',
+    temperature: 0.7
+  },
+  {
+    id: 'thinking',
+    label: 'Thinking',
+    icon: '🧠',
+    description: 'Deep reasoning and analysis',
+    temperature: 0.3,
+    systemPrompt:
+      'Think step by step. Break down complex problems into smaller parts. Show your reasoning process clearly before giving the final answer.'
+  },
+  {
+    id: 'creative',
+    label: 'Creative',
+    icon: '✨',
+    description: 'More imaginative responses',
+    temperature: 0.9,
+    systemPrompt:
+      'Be creative and imaginative. Think outside the box. Offer unique perspectives and novel ideas.'
+  },
+  {
+    id: 'precise',
+    label: 'Precise',
+    icon: '🎯',
+    description: 'Factual and concise',
+    temperature: 0.2,
+    systemPrompt:
+      'Be concise and precise. Focus on facts. Avoid unnecessary elaboration. Give direct answers.'
+  },
+  {
+    id: 'code',
+    label: 'Code',
+    icon: '💻',
+    description: 'Optimized for coding tasks',
+    temperature: 0.4,
+    systemPrompt:
+      'You are a coding expert. Provide clean, well-documented code. Explain technical concepts clearly. Follow best practices and modern conventions.'
+  }
+]
+
 export class AIService {
   private apiKey: string | null = null
   private editorContext?: EditorContext
@@ -49,6 +106,29 @@ export class AIService {
   private readonly MAX_NOTES_TO_LOAD = 30 // Limit notes loaded at once (reduced for performance)
   private readonly MAX_CONTENT_LENGTH = 1500 // Max chars per note in context (reduced for performance)
   private readonly BATCH_SIZE = 5 // Smaller batches for better performance
+  private currentMode: ChatMode = 'balanced'
+
+  constructor() {
+    // Load persisted mode from localStorage
+    const savedMode = localStorage.getItem('ai-chat-mode') as ChatMode | null
+    if (savedMode && CHAT_MODES.some((m) => m.id === savedMode)) {
+      this.currentMode = savedMode
+    }
+  }
+
+  setMode(mode: ChatMode): void {
+    this.currentMode = mode
+    // Persist mode to localStorage
+    localStorage.setItem('ai-chat-mode', mode)
+  }
+
+  getMode(): ChatMode {
+    return this.currentMode
+  }
+
+  getModeConfig(): ChatModeConfig {
+    return CHAT_MODES.find((m) => m.id === this.currentMode) || CHAT_MODES[0]
+  }
 
   async loadApiKey(): Promise<void> {
     try {
@@ -67,7 +147,6 @@ export class AIService {
     return this.apiKey
   }
 
-
   /**
    * Load note metadata only (lightweight, fast)
    */
@@ -75,7 +154,7 @@ export class AIService {
     const now = Date.now()
 
     // Return cached metadata if still valid
-    if (this.vaultMetadataCache.size > 0 && (now - this.vaultCacheTime) < this.CACHE_DURATION) {
+    if (this.vaultMetadataCache.size > 0 && now - this.vaultCacheTime < this.CACHE_DURATION) {
       return Array.from(this.vaultMetadataCache.values())
     }
 
@@ -101,7 +180,7 @@ export class AIService {
 
       // Update metadata cache
       this.vaultMetadataCache.clear()
-      metadata.forEach(meta => {
+      metadata.forEach((meta) => {
         this.vaultMetadataCache.set(meta.id, meta)
       })
       this.vaultCacheTime = now
@@ -150,20 +229,77 @@ export class AIService {
    */
   private extractQueryTerms(query: string): string[] {
     const lowerQuery = query.toLowerCase()
-    const stopWords = new Set(['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'is', 'are', 'was', 'were', 'be', 'been', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'can', 'this', 'that', 'these', 'those', 'i', 'you', 'he', 'she', 'it', 'we', 'they', 'what', 'which', 'who', 'where', 'when', 'why', 'how'])
-    const words = lowerQuery.split(/[\s\W]+/).filter(w => w.length >= 3 && !stopWords.has(w))
+    const stopWords = new Set([
+      'the',
+      'a',
+      'an',
+      'and',
+      'or',
+      'but',
+      'in',
+      'on',
+      'at',
+      'to',
+      'for',
+      'of',
+      'with',
+      'by',
+      'is',
+      'are',
+      'was',
+      'were',
+      'be',
+      'been',
+      'have',
+      'has',
+      'had',
+      'do',
+      'does',
+      'did',
+      'will',
+      'would',
+      'could',
+      'should',
+      'may',
+      'might',
+      'can',
+      'this',
+      'that',
+      'these',
+      'those',
+      'i',
+      'you',
+      'he',
+      'she',
+      'it',
+      'we',
+      'they',
+      'what',
+      'which',
+      'who',
+      'where',
+      'when',
+      'why',
+      'how'
+    ])
+    const words = lowerQuery.split(/[\s\W]+/).filter((w) => w.length >= 3 && !stopWords.has(w))
     return Array.from(new Set(words))
   }
 
   /**
    * Calculate TF-IDF score for better relevance
    */
-  private calculateRelevanceScore(queryTerms: string[], noteTitle: string, noteContent: string, allNotes: NoteMetadata[]): number {
+  private calculateRelevanceScore(
+    queryTerms: string[],
+    noteTitle: string,
+    noteContent: string,
+    allNotes: NoteMetadata[]
+  ): number {
     const lowerTitle = noteTitle.toLowerCase()
     const lowerContent = noteContent.toLowerCase()
     let score = 0
 
-    queryTerms.forEach(term => {
+    queryTerms.forEach((term) => {
       if (lowerTitle.includes(term)) {
         score += 20
       }
@@ -172,16 +308,18 @@ export class AIService {
       }
     })
 
-    queryTerms.forEach(term => {
+    queryTerms.forEach((term) => {
       const titleMatches = (lowerTitle.match(new RegExp(term, 'g')) || []).length
       const contentMatches = (lowerContent.match(new RegExp(term, 'g')) || []).length
       const termFrequency = titleMatches * 3 + contentMatches
-      const documentFrequency = allNotes.filter(n => n.title.toLowerCase().includes(term)).length
+      const documentFrequency = allNotes.filter((n) => n.title.toLowerCase().includes(term)).length
       const idf = documentFrequency > 0 ? Math.log(allNotes.length / documentFrequency) : 1
       score += termFrequency * idf
     })
 
-    const matchedTerms = queryTerms.filter(term => lowerTitle.includes(term) || lowerContent.includes(term)).length
+    const matchedTerms = queryTerms.filter(
+      (term) => lowerTitle.includes(term) || lowerContent.includes(term)
+    ).length
     score += matchedTerms * 5
 
     return score
@@ -190,14 +328,18 @@ export class AIService {
   /**
    * Extract relevant snippets from note content
    */
-  private extractRelevantSnippets(content: string, queryTerms: string[], maxLength: number = 300): string[] {
+  private extractRelevantSnippets(
+    content: string,
+    queryTerms: string[],
+    maxLength: number = 300
+  ): string[] {
     const lowerContent = content.toLowerCase()
     const sentences = content.split(/[.!?]\s+/)
 
-    const scoredSentences = sentences.map(sentence => {
+    const scoredSentences = sentences.map((sentence) => {
       const lowerSentence = sentence.toLowerCase()
       let score = 0
-      queryTerms.forEach(term => {
+      queryTerms.forEach((term) => {
         if (lowerSentence.includes(term)) {
           score += (lowerSentence.match(new RegExp(term, 'g')) || []).length
         }
@@ -205,7 +347,11 @@ export class AIService {
       return { sentence, score }
     })
 
-    const topSentences = scoredSentences.filter(s => s.score > 0).sort((a, b) => b.score - a.score).slice(0, 3).map(s => s.sentence)
+    const topSentences = scoredSentences
+      .filter((s) => s.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 3)
+      .map((s) => s.sentence)
 
     if (topSentences.length > 0) {
       const combined = topSentences.join('. ')
@@ -230,7 +376,7 @@ export class AIService {
         allMetadata.map(async (meta) => {
           const lowerTitle = meta.title.toLowerCase()
           let quickScore = 0
-          queryTerms.forEach(term => {
+          queryTerms.forEach((term) => {
             if (lowerTitle.includes(term)) quickScore += 10
           })
           return { meta, quickScore }
@@ -238,10 +384,10 @@ export class AIService {
       )
 
       const topCandidates = scoredMetadata
-        .filter(item => item.quickScore > 0)
+        .filter((item) => item.quickScore > 0)
         .sort((a, b) => b.quickScore - a.quickScore)
         .slice(0, Math.min(limit * 3, this.MAX_NOTES_TO_LOAD))
-        .map(item => item.meta)
+        .map((item) => item.meta)
 
       const scoredNotes: ScoredNote[] = []
 
@@ -281,8 +427,11 @@ export class AIService {
    * Build context message with smart RAG (lightweight and robust)
    * Returns both the context string and citations of notes used
    */
-  async buildContextMessage(userMessage: string): Promise<{ context: string; citations: NoteCitation[] }> {
-    let context = 'You are an AI assistant helping with a note-taking application. You have FULL ACCESS to the user\'s entire vault of notes. You can read, analyze, and reference any note in the vault.\n\n'
+  async buildContextMessage(
+    userMessage: string
+  ): Promise<{ context: string; citations: NoteCitation[] }> {
+    let context =
+      "You are an AI assistant helping with a note-taking application. You have FULL ACCESS to the user's entire vault of notes. You can read, analyze, and reference any note in the vault.\n\n"
     const citations: NoteCitation[] = []
 
     // Get current note context
@@ -296,9 +445,8 @@ export class AIService {
       }
 
       if (editorContent && editorContent.trim()) {
-        const contentPreview = editorContent.length > 1500
-          ? editorContent.substring(0, 1500) + '...'
-          : editorContent
+        const contentPreview =
+          editorContent.length > 1500 ? editorContent.substring(0, 1500) + '...' : editorContent
         context += `\nCurrent note content:\n${contentPreview}\n\n`
       }
     }
@@ -315,23 +463,21 @@ export class AIService {
 
         // Check if user is asking about vault overview
         const lowerMessage = userMessage.toLowerCase()
-        const isVaultQuery = lowerMessage.includes('vault') ||
-                            lowerMessage.includes('all notes') ||
-                            lowerMessage.includes('my notes') ||
-                            lowerMessage.includes('list') ||
-                            lowerMessage.includes('show me')
+        const isVaultQuery =
+          lowerMessage.includes('vault') ||
+          lowerMessage.includes('all notes') ||
+          lowerMessage.includes('my notes') ||
+          lowerMessage.includes('list') ||
+          lowerMessage.includes('show me')
 
         if (isVaultQuery) {
           // Show vault overview (metadata only, lightweight)
+          // Don't add vault overview notes to citations - they're just context, not specific references
           const notesToShow = metadata.slice(0, 15)
           context += `\nVault overview (${notesToShow.length} of ${vaultSize} notes):\n`
           notesToShow.forEach((note, index) => {
             const path = note.path ? ` [${note.path}]` : ''
             context += `${index + 1}. "${note.title}"${path}\n`
-            // Add to citations if not already there
-            if (!citations.find(c => c.id === note.id)) {
-              citations.push({ id: note.id, title: note.title, path: note.path })
-            }
           })
 
           if (vaultSize > notesToShow.length) {
@@ -347,11 +493,12 @@ export class AIService {
             let totalLength = 0
             for (const note of relevantNotes) {
               // Use snippets if available, otherwise truncate
-              const contentToShow = note.relevanceSnippets && note.relevanceSnippets.length > 0
-                ? note.relevanceSnippets.join(' ')
-                : note.content.length > this.MAX_CONTENT_LENGTH
-                  ? note.content.substring(0, this.MAX_CONTENT_LENGTH) + '...'
-                  : note.content
+              const contentToShow =
+                note.relevanceSnippets && note.relevanceSnippets.length > 0
+                  ? note.relevanceSnippets.join(' ')
+                  : note.content.length > this.MAX_CONTENT_LENGTH
+                    ? note.content.substring(0, this.MAX_CONTENT_LENGTH) + '...'
+                    : note.content
 
               const path = note.path ? ` [${note.path}]` : ''
               const noteContext = `\n"${note.title}"${path}:\n${contentToShow}\n`
@@ -369,26 +516,14 @@ export class AIService {
               totalLength += estimatedTokens
 
               // Add to citations
-              if (!citations.find(c => c.id === note.id)) {
+              if (!citations.find((c) => c.id === note.id)) {
                 citations.push({ id: note.id, title: note.title, path: note.path })
               }
             }
           } else {
-            // No relevant matches, show a few recent notes
-            const recentNotes = metadata.slice(0, 3)
-            context += `\nRecent notes (no specific matches found):\n`
-            for (const meta of recentNotes) {
-              const content = await this.loadNoteContent(meta.id, meta.path)
-              if (content) {
-                const preview = content.length > 200 ? content.substring(0, 200) + '...' : content
-                const path = meta.path ? ` [${meta.path}]` : ''
-                context += `\n"${meta.title}"${path}:\n${preview}\n`
-                // Add to citations
-                if (!citations.find(c => c.id === meta.id)) {
-                  citations.push({ id: meta.id, title: meta.title, path: meta.path })
-                }
-              }
-            }
+            // No relevant matches found - don't add fallback notes to citations
+            // Only provide context hint to AI without showing irrelevant citations to user
+            context += `\nNo notes found matching your query. The vault contains ${vaultSize} notes that you can ask about.\n`
           }
         }
 
@@ -396,7 +531,8 @@ export class AIService {
       }
     } catch (error) {
       console.error('[AIService] Failed to load vault for context:', error)
-      context += '\nNote: Unable to load vault at this time. You can still help with the current note.\n'
+      context +=
+        '\nNote: Unable to load vault at this time. You can still help with the current note.\n'
     }
 
     context += `\n\n=== USER QUESTION ===\n${userMessage}`
@@ -404,16 +540,33 @@ export class AIService {
     return { context, citations }
   }
 
-  async callDeepSeekAPI(messages: ChatMessage[], contextMessage: string | { context: string; citations: NoteCitation[] }): Promise<string> {
+  async callDeepSeekAPI(
+    messages: ChatMessage[],
+    contextMessage: string | { context: string; citations: NoteCitation[] }
+  ): Promise<string> {
     // Handle both old string format and new object format for backward compatibility
     const context = typeof contextMessage === 'string' ? contextMessage : contextMessage.context
     if (!this.apiKey) {
       throw new Error('API key not configured')
     }
 
+    const modeConfig = this.getModeConfig()
+
     try {
-      // Build messages array - exclude the last user message, use the context-aware one
-      const messagesForAPI = messages.slice(0, -1).map((m) => ({ role: m.role, content: m.content }))
+      // Build messages array with optional system prompt for mode
+      const messagesForAPI: Array<{ role: string; content: string }> = []
+
+      // Add system prompt if mode has one
+      if (modeConfig.systemPrompt) {
+        messagesForAPI.push({ role: 'system', content: modeConfig.systemPrompt })
+      }
+
+      // Add conversation history (exclude the last user message)
+      messagesForAPI.push(
+        ...messages.slice(0, -1).map((m) => ({ role: m.role, content: m.content }))
+      )
+
+      // Add the context-enhanced user message
       messagesForAPI.push({ role: 'user', content: context })
 
       const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
@@ -425,7 +578,7 @@ export class AIService {
         body: JSON.stringify({
           model: 'deepseek-chat',
           messages: messagesForAPI,
-          temperature: 0.7,
+          temperature: modeConfig.temperature,
           max_tokens: 2000
         })
       })
@@ -439,7 +592,9 @@ export class AIService {
       return data.choices[0]?.message?.content || 'No response'
     } catch (err: any) {
       if (err.name === 'TypeError' && err.message.includes('fetch')) {
-        throw new Error('Network error: Unable to connect to DeepSeek API. Please check your internet connection.')
+        throw new Error(
+          'Network error: Unable to connect to DeepSeek API. Please check your internet connection.'
+        )
       }
       throw err
     }
@@ -464,9 +619,23 @@ export class AIService {
       throw new Error('API key not configured')
     }
 
+    const modeConfig = this.getModeConfig()
+
     try {
-      // Build messages array - exclude the last user message, use the context-aware one
-      const messagesForAPI = messages.slice(0, -1).map((m) => ({ role: m.role, content: m.content }))
+      // Build messages array with optional system prompt for mode
+      const messagesForAPI: Array<{ role: string; content: string }> = []
+
+      // Add system prompt if mode has one
+      if (modeConfig.systemPrompt) {
+        messagesForAPI.push({ role: 'system', content: modeConfig.systemPrompt })
+      }
+
+      // Add conversation history (exclude the last user message)
+      messagesForAPI.push(
+        ...messages.slice(0, -1).map((m) => ({ role: m.role, content: m.content }))
+      )
+
+      // Add the context-enhanced user message
       messagesForAPI.push({ role: 'user', content: context })
 
       const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
@@ -478,7 +647,7 @@ export class AIService {
         body: JSON.stringify({
           model: 'deepseek-chat',
           messages: messagesForAPI,
-          temperature: 0.7,
+          temperature: modeConfig.temperature,
           max_tokens: 2000,
           stream: true
         })

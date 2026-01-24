@@ -1,11 +1,26 @@
-import { aiService, type ChatMessage } from '../../services/aiService'
+import { aiService, type ChatMessage, type ChatMode, CHAT_MODES } from '../../services/aiService'
 import { sessionStorageService, type ChatSession } from '../../services/sessionStorageService'
 import { SessionSidebar } from './session-sidebar'
 import { AIMenu, type AIMenuItem } from './ai-menu'
 import MarkdownIt from 'markdown-it'
 import DOMPurify from 'dompurify'
 import { Avatar } from './avatar'
-import { createElement, Copy, ThumbsUp, ThumbsDown, Check, Search, Download, Edit2, RotateCw, Upload, Trash2, Settings, Info, Archive } from 'lucide'
+import {
+  createElement,
+  Copy,
+  ThumbsUp,
+  ThumbsDown,
+  Check,
+  Search,
+  Download,
+  Edit2,
+  RotateCw,
+  Upload,
+  Trash2,
+  Settings,
+  Info,
+  Archive
+} from 'lucide'
 import './rightbar.css'
 import './ai-menu.css'
 
@@ -100,6 +115,8 @@ export class RightBar {
   private streamingMessageIndex: number | null = null // Track which message is currently streaming
   private streamingAbortController: AbortController | null = null // For canceling streaming
   private aiMenu!: AIMenu
+  private modeDropdown!: HTMLElement
+  private modeButton!: HTMLElement
 
   constructor(containerId: string) {
     this.container = document.getElementById(containerId) as HTMLElement
@@ -184,7 +201,7 @@ export class RightBar {
     try {
       // Check if there's an existing empty session (no messages)
       const allSessions = await sessionStorageService.getAllSessions(false)
-      const emptySession = allSessions.find(session => session.messages.length === 0)
+      const emptySession = allSessions.find((session) => session.messages.length === 0)
 
       if (emptySession) {
         // Reuse existing empty session
@@ -237,7 +254,7 @@ export class RightBar {
     // Check if there's an existing empty session we can reuse
     try {
       const allSessions = await sessionStorageService.getAllSessions(false)
-      const emptySession = allSessions.find(session => session.messages.length === 0)
+      const emptySession = allSessions.find((session) => session.messages.length === 0)
 
       if (emptySession) {
         // Reuse existing empty session
@@ -294,10 +311,7 @@ export class RightBar {
       // Use requestIdleCallback if available, otherwise setTimeout with 0 delay
       const saveOperation = async () => {
         try {
-          await sessionStorageService.updateSessionMessages(
-            this.currentSessionId!,
-            this.messages
-          )
+          await sessionStorageService.updateSessionMessages(this.currentSessionId!, this.messages)
           // Update session title if it's still the default
           const session = await sessionStorageService.getSession(this.currentSessionId!)
           if (session && session.title === 'New Session' && this.messages.length > 0) {
@@ -325,7 +339,7 @@ export class RightBar {
    * Generate smart title from current messages
    */
   private generateSmartTitle(): string {
-    const firstUserMessage = this.messages.find(msg => msg.role === 'user')
+    const firstUserMessage = this.messages.find((msg) => msg.role === 'user')
     if (!firstUserMessage) {
       return 'New Session'
     }
@@ -420,7 +434,7 @@ export class RightBar {
   private async loadNotes(): Promise<void> {
     try {
       const notes = await window.api.listNotes()
-      this.allNotes = notes.map(note => ({
+      this.allNotes = notes.map((note) => ({
         id: note.id,
         title: note.title,
         path: note.path
@@ -461,12 +475,12 @@ export class RightBar {
         </div>
         <div class="rightbar__chat-input-wrapper" id="rightbar-chat-input-wrapper">
           <div class="rightbar__chat-input-container" id="rightbar-chat-input-container">
-            <div class="rightbar__chat-input-wrapper-inner">
+            <div class="rightbar__chat-input-area">
               <div
-              class="rightbar__chat-input"
-              id="rightbar-chat-input"
+                class="rightbar__chat-input"
+                id="rightbar-chat-input"
                 contenteditable="true"
-                data-placeholder="Ask me anything... Use @notename to reference notes"
+                data-placeholder="Ask anything... @note to reference"
                 role="textbox"
                 aria-multiline="true"
               ></div>
@@ -474,12 +488,33 @@ export class RightBar {
             </div>
             <div class="rightbar__chat-footer">
               <div class="rightbar__chat-footer-left">
-                <span class="rightbar__chat-hint">Shift+Enter for new line</span>
+                <div class="rightbar__mode-selector">
+                  <button class="rightbar__mode-button" id="rightbar-mode-button" type="button" title="Select AI mode">
+                    <span class="rightbar__mode-icon">⚖️</span>
+                    <span class="rightbar__mode-label">Balanced</span>
+                    <svg class="rightbar__mode-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M6 9l6 6 6-6"/>
+                    </svg>
+                  </button>
+                  <div class="rightbar__mode-dropdown" id="rightbar-mode-dropdown">
+                    ${CHAT_MODES.map(
+                      (mode) => `
+                      <button class="rightbar__mode-option ${mode.id === 'balanced' ? 'is-active' : ''}" data-mode="${mode.id}">
+                        <span class="rightbar__mode-option-icon">${mode.icon}</span>
+                        <div class="rightbar__mode-option-info">
+                          <span class="rightbar__mode-option-label">${mode.label}</span>
+                          <span class="rightbar__mode-option-desc">${mode.description}</span>
+                        </div>
+                      </button>
+                    `
+                    ).join('')}
+                  </div>
+                </div>
                 <span class="rightbar__chat-counter" id="rightbar-chat-counter">0</span>
               </div>
-              <button class="rightbar__chat-send" id="rightbar-chat-send" type="button" title="Send message (Enter)">
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M2 14l12-6L2 2v4l8 2-8 2v4z"/>
+              <button class="rightbar__chat-send" id="rightbar-chat-send" type="button" title="Send (Enter)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M22 2L11 13"/><path d="M22 2L15 22L11 13L2 9L22 2Z"/>
                 </svg>
               </button>
             </div>
@@ -494,8 +529,12 @@ export class RightBar {
     this.sendButton = this.container.querySelector('#rightbar-chat-send') as HTMLButtonElement
     this.inputWrapper = this.container.querySelector('#rightbar-chat-input-wrapper') as HTMLElement
     this.resizeHandle = this.container.querySelector('#rightbar-resize-handle') as HTMLElement
-    this.autocompleteDropdown = this.container.querySelector('#rightbar-chat-autocomplete') as HTMLElement
+    this.autocompleteDropdown = this.container.querySelector(
+      '#rightbar-chat-autocomplete'
+    ) as HTMLElement
     this.characterCounter = this.container.querySelector('#rightbar-chat-counter') as HTMLElement
+    this.modeButton = this.container.querySelector('#rightbar-mode-button') as HTMLElement
+    this.modeDropdown = this.container.querySelector('#rightbar-mode-dropdown') as HTMLElement
 
     const closeBtn = this.container.querySelector('#rightbar-header-close') as HTMLButtonElement
     closeBtn?.addEventListener('click', () => {
@@ -507,6 +546,9 @@ export class RightBar {
       this.characterCounter.textContent = '0'
     }
 
+    // Initialize mode selector
+    this.initModeSelector()
+
     // Initialize session sidebar - append to the rightbar element
     if (rightbarElement) {
       this.sessionSidebar = new SessionSidebar(rightbarElement)
@@ -517,7 +559,9 @@ export class RightBar {
         void this.startNewSession()
       })
 
-      const sessionsBtn = this.container.querySelector('#rightbar-header-sessions') as HTMLButtonElement
+      const sessionsBtn = this.container.querySelector(
+        '#rightbar-header-sessions'
+      ) as HTMLButtonElement
       sessionsBtn?.addEventListener('click', () => {
         if (this.sessionSidebar) {
           this.sessionSidebar.toggle()
@@ -540,21 +584,24 @@ export class RightBar {
     // Keyboard shortcuts
     document.addEventListener('keydown', (e) => {
       // Only handle shortcuts when rightbar is visible and not typing in input
-      const isRightbarVisible = this.container.classList.contains('rightbar--visible') ||
-                                this.container.offsetWidth > 0
+      const isRightbarVisible =
+        this.container.classList.contains('rightbar--visible') || this.container.offsetWidth > 0
       if (!isRightbarVisible) return
 
       const activeElement = document.activeElement
-      const isInputFocused = activeElement === this.chatInput ||
-                            activeElement?.tagName === 'INPUT' ||
-                            activeElement?.tagName === 'TEXTAREA'
+      const isInputFocused =
+        activeElement === this.chatInput ||
+        activeElement?.tagName === 'INPUT' ||
+        activeElement?.tagName === 'TEXTAREA'
 
       // Ctrl/Cmd + K: Focus search in session sidebar
       if ((e.ctrlKey || e.metaKey) && e.key === 'k' && !isInputFocused) {
         e.preventDefault()
         if (this.sessionSidebar) {
           this.sessionSidebar.show()
-          const searchInput = document.querySelector('#rightbar-session-sidebar-search') as HTMLInputElement
+          const searchInput = document.querySelector(
+            '#rightbar-session-sidebar-search'
+          ) as HTMLInputElement
           searchInput?.focus()
         }
       }
@@ -663,18 +710,21 @@ export class RightBar {
           tempDiv.innerHTML = this.formatContent(message.content, true)
           const plainText = tempDiv.textContent || tempDiv.innerText || ''
 
-          navigator.clipboard.writeText(plainText).then(() => {
-            // Show success feedback with green checkmark using Lucide Check icon
-            btn.classList.add('rightbar__message-action--copied')
-            const originalHTML = btn.innerHTML
-            btn.innerHTML = this.createLucideIcon(Check, 12, 2, '#22c55e')
-            setTimeout(() => {
-              btn.classList.remove('rightbar__message-action--copied')
-              btn.innerHTML = originalHTML
-            }, 2000)
-          }).catch(err => {
-            console.error('Failed to copy:', err)
-          })
+          navigator.clipboard
+            .writeText(plainText)
+            .then(() => {
+              // Show success feedback with green checkmark using Lucide Check icon
+              btn.classList.add('rightbar__message-action--copied')
+              const originalHTML = btn.innerHTML
+              btn.innerHTML = this.createLucideIcon(Check, 12, 2, '#22c55e')
+              setTimeout(() => {
+                btn.classList.remove('rightbar__message-action--copied')
+                btn.innerHTML = originalHTML
+              }, 2000)
+            })
+            .catch((err) => {
+              console.error('Failed to copy:', err)
+            })
         }
       } else if (action === 'thumbs-up' || action === 'thumbs-down') {
         const messageIndex = parseInt(btn.dataset.messageIndex || '0', 10)
@@ -685,8 +735,12 @@ export class RightBar {
         const messageElement = btn.closest('.rightbar__message')
 
         // Get both buttons for this message
-        const thumbsUpBtn = messageElement?.querySelector('[data-action="thumbs-up"]') as HTMLButtonElement
-        const thumbsDownBtn = messageElement?.querySelector('[data-action="thumbs-down"]') as HTMLButtonElement
+        const thumbsUpBtn = messageElement?.querySelector(
+          '[data-action="thumbs-up"]'
+        ) as HTMLButtonElement
+        const thumbsDownBtn = messageElement?.querySelector(
+          '[data-action="thumbs-down"]'
+        ) as HTMLButtonElement
 
         let newFeedback: 'thumbs-up' | 'thumbs-down' | null = null
 
@@ -751,15 +805,17 @@ export class RightBar {
     })
 
     // Handle citation clicks
-    this.chatContainer.querySelectorAll('.rightbar__message-citation').forEach(citationBtn => {
+    this.chatContainer.querySelectorAll('.rightbar__message-citation').forEach((citationBtn) => {
       citationBtn.addEventListener('click', (e) => {
         e.stopPropagation()
         const noteId = (citationBtn as HTMLElement).dataset.noteId
         const notePath = (citationBtn as HTMLElement).dataset.notePath
         if (noteId) {
-          window.dispatchEvent(new CustomEvent('knowledge-hub:open-note', {
-            detail: { id: noteId, path: notePath || undefined }
-          }))
+          window.dispatchEvent(
+            new CustomEvent('knowledge-hub:open-note', {
+              detail: { id: noteId, path: notePath || undefined }
+            })
+          )
         }
       })
     })
@@ -1024,8 +1080,8 @@ export class RightBar {
       const createdDate = new Date(session.metadata.created_at).toLocaleString()
       const updatedDate = new Date(session.metadata.updated_at).toLocaleString()
       const messageCount = session.messages.length
-      const userMessages = session.messages.filter(m => m.role === 'user').length
-      const assistantMessages = session.messages.filter(m => m.role === 'assistant').length
+      const userMessages = session.messages.filter((m) => m.role === 'user').length
+      const assistantMessages = session.messages.filter((m) => m.role === 'assistant').length
 
       const { modalManager } = await import('../modal/modal')
 
@@ -1044,10 +1100,13 @@ export class RightBar {
       ]
 
       if (session.metadata.note_references && session.metadata.note_references.length > 0) {
-        items.push({ label: 'Referenced Notes', value: String(session.metadata.note_references.length) })
+        items.push({
+          label: 'Referenced Notes',
+          value: String(session.metadata.note_references.length)
+        })
       }
 
-      items.forEach(item => {
+      items.forEach((item) => {
         const p = document.createElement('p')
         p.style.margin = '8px 0'
         const strong = document.createElement('strong')
@@ -1061,9 +1120,7 @@ export class RightBar {
         title: 'Session Information',
         customContent: infoContent,
         size: 'sm',
-        buttons: [
-          { label: 'Close', variant: 'primary', onClick: (m) => m.close() }
-        ]
+        buttons: [{ label: 'Close', variant: 'primary', onClick: (m) => m.close() }]
       })
     } catch (error) {
       console.error('[RightBar] Failed to show session info:', error)
@@ -1080,7 +1137,8 @@ export class RightBar {
       const { modalManager } = await import('../modal/modal')
       modalManager.open({
         title: 'Archive Session',
-        content: 'Are you sure you want to archive this session? You can restore it later from the sessions list.',
+        content:
+          'Are you sure you want to archive this session? You can restore it later from the sessions list.',
         size: 'sm',
         buttons: [
           {
@@ -1109,9 +1167,11 @@ export class RightBar {
    */
   private openAISettings(): void {
     // Dispatch event to open settings and focus on AI/Behavior section
-    window.dispatchEvent(new CustomEvent('knowledge-hub:open-settings', {
-      detail: { section: 'behavior' }
-    }))
+    window.dispatchEvent(
+      new CustomEvent('knowledge-hub:open-settings', {
+        detail: { section: 'behavior' }
+      })
+    )
   }
 
   /**
@@ -1220,6 +1280,69 @@ export class RightBar {
     this.chatInput.style.height = `${Math.min(this.chatInput.scrollHeight, 200)}px`
   }
 
+  private initModeSelector(): void {
+    if (!this.modeButton || !this.modeDropdown) return
+
+    // Load persisted mode and update UI
+    const savedMode = aiService.getMode()
+    this.updateModeUI(savedMode)
+
+    // Toggle dropdown with fixed positioning
+    this.modeButton.addEventListener('click', (e) => {
+      e.stopPropagation()
+      const isOpen = this.modeDropdown.classList.contains('is-open')
+
+      if (!isOpen) {
+        // Position dropdown above button using fixed positioning
+        const rect = this.modeButton.getBoundingClientRect()
+        this.modeDropdown.style.left = `${rect.left}px`
+        this.modeDropdown.style.bottom = `${window.innerHeight - rect.top + 6}px`
+      }
+
+      this.modeDropdown.classList.toggle('is-open')
+    })
+
+    // Handle mode selection
+    this.modeDropdown.querySelectorAll('.rightbar__mode-option').forEach((option) => {
+      option.addEventListener('click', (e) => {
+        e.stopPropagation()
+        const mode = (option as HTMLElement).dataset.mode as ChatMode
+        this.setMode(mode)
+        this.modeDropdown.classList.remove('is-open')
+      })
+    })
+
+    // Close dropdown on outside click
+    document.addEventListener('click', () => {
+      this.modeDropdown?.classList.remove('is-open')
+    })
+
+    // Prevent dropdown from closing when clicking inside
+    this.modeDropdown.addEventListener('click', (e) => {
+      e.stopPropagation()
+    })
+  }
+
+  private updateModeUI(mode: ChatMode): void {
+    const modeConfig = CHAT_MODES.find((m) => m.id === mode)
+    if (modeConfig && this.modeButton) {
+      const iconEl = this.modeButton.querySelector('.rightbar__mode-icon')
+      const labelEl = this.modeButton.querySelector('.rightbar__mode-label')
+      if (iconEl) iconEl.textContent = modeConfig.icon
+      if (labelEl) labelEl.textContent = modeConfig.label
+    }
+
+    // Update active state in dropdown
+    this.modeDropdown?.querySelectorAll('.rightbar__mode-option').forEach((option) => {
+      option.classList.toggle('is-active', (option as HTMLElement).dataset.mode === mode)
+    })
+  }
+
+  private setMode(mode: ChatMode): void {
+    aiService.setMode(mode)
+    this.updateModeUI(mode)
+  }
+
   private updateCharacterCount(): void {
     if (!this.characterCounter) {
       this.characterCounter = this.container.querySelector('#rightbar-chat-counter') as HTMLElement
@@ -1236,7 +1359,7 @@ export class RightBar {
     // Get text content, removing HTML tags but preserving text
     const clone = this.chatInput.cloneNode(true) as HTMLElement
     // Remove mention spans but keep their text
-    clone.querySelectorAll('.rightbar__mention').forEach(span => {
+    clone.querySelectorAll('.rightbar__mention').forEach((span) => {
       const text = span.textContent || ''
       span.replaceWith(document.createTextNode(text))
     })
@@ -1316,7 +1439,9 @@ export class RightBar {
     if (existingHighlight && existingHighlight.parentNode) {
       const existingText = existingHighlight.textContent || ''
       // If the highlight text matches what we want to highlight, don't re-highlight
-      if (existingText === `@${range.toString().substring(atIndex + 1, atIndex + 1 + queryLength)}`) {
+      if (
+        existingText === `@${range.toString().substring(atIndex + 1, atIndex + 1 + queryLength)}`
+      ) {
         // Just update cursor position
         this.restoreCursorAfterHighlight(existingHighlight)
         return
@@ -1386,7 +1511,6 @@ export class RightBar {
           parent.insertBefore(highlightSpan, targetNode)
           if (afterNode) parent.insertBefore(afterNode, targetNode)
           parent.removeChild(targetNode)
-
           ;(this.chatInput as any).__typingHighlight = highlightSpan
 
           // Restore cursor - always at the end of the query (where user is typing)
@@ -1469,10 +1593,12 @@ export class RightBar {
   }
 
   private showAutocomplete(atIndex: number, query: string, range: Range): void {
-    const filteredNotes = this.allNotes.filter(note => {
-      const titleLower = note.title.toLowerCase()
-      return titleLower.includes(query) || titleLower.startsWith(query)
-    }).slice(0, 8) // Limit to 8 results
+    const filteredNotes = this.allNotes
+      .filter((note) => {
+        const titleLower = note.title.toLowerCase()
+        return titleLower.includes(query) || titleLower.startsWith(query)
+      })
+      .slice(0, 8) // Limit to 8 results
 
     if (filteredNotes.length === 0) {
       this.hideAutocomplete()
@@ -1485,16 +1611,18 @@ export class RightBar {
     // Store context for selection
     ;(this.autocompleteDropdown as any).__context = { atIndex, range, query }
 
-    const html = filteredNotes.map((note, index) => {
-      const displayTitle = note.title
-      const displayPath = note.path ? `/${note.path}` : ''
-      return `
+    const html = filteredNotes
+      .map((note, index) => {
+        const displayTitle = note.title
+        const displayPath = note.path ? `/${note.path}` : ''
+        return `
         <div class="rightbar__autocomplete-item" data-index="${index}" data-note-id="${note.id}" data-note-title="${this.escapeHtml(note.title)}">
           <span class="rightbar__autocomplete-item-title">${this.escapeHtml(displayTitle)}</span>
           ${displayPath ? `<span class="rightbar__autocomplete-item-path">${this.escapeHtml(displayPath)}</span>` : ''}
         </div>
       `
-    }).join('')
+      })
+      .join('')
 
     this.autocompleteDropdown.innerHTML = html
     this.autocompleteDropdown.style.display = 'block'
@@ -1525,7 +1653,10 @@ export class RightBar {
   }
 
   private selectAutocompleteItem(): void {
-    if (this.selectedAutocompleteIndex < 0 || this.selectedAutocompleteIndex >= this.autocompleteItems.length) {
+    if (
+      this.selectedAutocompleteIndex < 0 ||
+      this.selectedAutocompleteIndex >= this.autocompleteItems.length
+    ) {
       return
     }
 
@@ -1645,7 +1776,7 @@ export class RightBar {
     const mentions = this.chatInput.querySelectorAll('.rightbar__mention')
     const refs = new Set<string>()
 
-    mentions.forEach(mention => {
+    mentions.forEach((mention) => {
       const noteId = (mention as HTMLElement).dataset.noteId
       if (noteId) refs.add(noteId)
     })
@@ -1678,7 +1809,7 @@ export class RightBar {
 
     // Only add user message if not regenerating (where message already exists)
     if (!skipAddingUserMessage) {
-    this.addMessage('user', message)
+      this.addMessage('user', message)
     }
     this.sendButton.disabled = true
     this.lastFailedMessage = null
@@ -1697,10 +1828,12 @@ export class RightBar {
       return
     }
 
-    // Use setTimeout to ensure AI response doesn't block main thread
-    // This allows Monaco editor to remain responsive during AI processing
-    setTimeout(async () => {
+    // Use queueMicrotask to ensure AI response doesn't block main thread
+    // This allows Monaco editor and other UI to remain responsive during AI processing
+    queueMicrotask(async () => {
       try {
+        // Yield to allow UI to update before heavy processing
+        await new Promise((resolve) => setTimeout(resolve, 0))
         const { context: contextMessage, citations } = await aiService.buildContextMessage(message)
 
         // Create placeholder message for streaming
@@ -1726,6 +1859,9 @@ export class RightBar {
 
         // Start streaming - use all messages up to (but not including) the placeholder
         const messagesForAPI = this.messages.slice(0, insertIndex)
+        let lastRenderTime = 0
+        const RENDER_THROTTLE_MS = 100 // Only render every 100ms max
+
         const fullResponse = await aiService.callDeepSeekAPIStream(
           messagesForAPI,
           { context: contextMessage, citations },
@@ -1733,11 +1869,22 @@ export class RightBar {
             // Update message content as chunks arrive
             if (this.streamingMessageIndex !== null && this.messages[this.streamingMessageIndex]) {
               this.messages[this.streamingMessageIndex].content += chunk
-              // Throttle UI updates for performance
-              requestAnimationFrame(() => {
-                this.renderMessages()
-                this.chatContainer.scrollTo({ top: this.chatContainer.scrollHeight, behavior: 'smooth' })
-              })
+
+              // Throttle UI updates for performance - don't render every chunk
+              const now = Date.now()
+              if (now - lastRenderTime >= RENDER_THROTTLE_MS) {
+                lastRenderTime = now
+                // Use requestIdleCallback for non-blocking updates, fallback to setTimeout
+                const scheduleUpdate =
+                  window.requestIdleCallback || ((cb: () => void) => setTimeout(cb, 1))
+                scheduleUpdate(() => {
+                  this.renderMessages()
+                  this.chatContainer.scrollTo({
+                    top: this.chatContainer.scrollHeight,
+                    behavior: 'auto'
+                  })
+                })
+              }
             }
           }
         )
@@ -1751,14 +1898,14 @@ export class RightBar {
 
         // Use requestAnimationFrame for smooth UI updates
         requestAnimationFrame(() => {
-      this.isLoading = false
+          this.isLoading = false
           this.renderMessages()
           this.sendButton.disabled = false
           this.chatInput.focus()
           // Auto-save after streaming completes
           void this.autoSaveSession()
         })
-    } catch (err: unknown) {
+      } catch (err: unknown) {
         // Remove placeholder message on error
         if (this.streamingMessageIndex !== null) {
           this.messages.splice(this.streamingMessageIndex, 1)
@@ -1766,15 +1913,15 @@ export class RightBar {
         }
 
         requestAnimationFrame(() => {
-      this.isLoading = false
-      this.lastFailedMessage = message
-      const errorMsg = err instanceof Error ? err.message : 'Failed to get response'
-      this.addMessage(
-        'assistant',
-        `❌ **Error**\n\n${errorMsg}\n\nPlease check your API key and internet connection.`
-      )
-      this.sendButton.disabled = false
-      this.chatInput.focus()
+          this.isLoading = false
+          this.lastFailedMessage = message
+          const errorMsg = err instanceof Error ? err.message : 'Failed to get response'
+          this.addMessage(
+            'assistant',
+            `❌ **Error**\n\n${errorMsg}\n\nPlease check your API key and internet connection.`
+          )
+          this.sendButton.disabled = false
+          this.chatInput.focus()
         })
         console.error('[RightBar] API Error:', err)
       }
@@ -1836,7 +1983,12 @@ export class RightBar {
     return div.innerHTML
   }
 
-  private createLucideIcon(IconComponent: any, size: number = 12, strokeWidth: number = 1.5, color?: string): string {
+  private createLucideIcon(
+    IconComponent: any,
+    size: number = 12,
+    strokeWidth: number = 1.5,
+    color?: string
+  ): string {
     // Use Lucide's createElement to create SVG element
     const svgElement = createElement(IconComponent, {
       size: size,
@@ -1865,16 +2017,20 @@ export class RightBar {
         const avatar = Avatar.createHTML(msg.role as 'user' | 'assistant', 20)
         const msgIndex = this.messages.indexOf(msg)
         const feedback = msg.feedback || this.messageFeedback.get(msgIndex) || null
-        const citations = msg.citations && msg.citations.length > 0
-          ? `<div class="rightbar__message-citations">
+        const citations =
+          msg.citations && msg.citations.length > 0
+            ? `<div class="rightbar__message-citations">
                <span class="rightbar__message-citations-label">Referenced notes:</span>
-               ${msg.citations.map(citation =>
-                 `<button class="rightbar__message-citation" data-note-id="${citation.id}" data-note-path="${citation.path || ''}" title="Open: ${citation.title}">
+               ${msg.citations
+                 .map(
+                   (citation) =>
+                     `<button class="rightbar__message-citation" data-note-id="${citation.id}" data-note-path="${citation.path || ''}" title="Open: ${citation.title}">
                    ${this.escapeHtml(citation.title)}
                  </button>`
-               ).join('')}
+                 )
+                 .join('')}
              </div>`
-          : ''
+            : ''
         const actions =
           msg.role === 'assistant'
             ? `<div class="rightbar__message-actions">
@@ -1923,7 +2079,9 @@ export class RightBar {
    * Enhance code blocks with syntax highlighting and copy buttons
    */
   private async highlightCodeBlocks(): Promise<void> {
-    const codeBlocks = this.chatContainer.querySelectorAll('pre code[data-lang], pre code:not([data-lang])')
+    const codeBlocks = this.chatContainer.querySelectorAll(
+      'pre code[data-lang], pre code:not([data-lang])'
+    )
     if (codeBlocks.length === 0) return
 
     try {
