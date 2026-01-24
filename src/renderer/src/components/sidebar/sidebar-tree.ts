@@ -4,7 +4,20 @@ import { getFolderIcon, codicons } from '../../utils/codicons'
 import { sortTreeItems } from '../../utils/tree-utils'
 import { contextMenu } from '../contextmenu/contextmenu'
 import getFileIcon from '../../utils/fileIconMappers'
-import { createElement, FolderPlus, FilePlus, FolderOpen } from 'lucide'
+import {
+  createElement,
+  FolderPlus,
+  FilePlus,
+  FolderOpen,
+  Pencil,
+  Trash2,
+  Copy,
+  ClipboardCopy,
+  ExternalLink,
+  FileText,
+  Folder,
+  Files
+} from 'lucide'
 import './sidebar-tree.css'
 
 export class SidebarTree {
@@ -729,14 +742,27 @@ export class SidebarTree {
 
       if (!item) {
         event.preventDefault()
+        const newNoteIcon = this.createLucideIcon(FileText, 14, 1.5)
+        const newFolderIcon = this.createLucideIcon(FolderPlus, 14, 1.5)
+        const revealIcon = this.createLucideIcon(ExternalLink, 14, 1.5)
+
         contextMenu.show(event.clientX, event.clientY, [
           {
             label: 'New Note',
+            icon: newNoteIcon,
+            keybinding: 'Ctrl+N',
             onClick: () => this.onNoteCreate?.(this.getDefaultParentPath())
           },
           {
             label: 'New Folder',
+            icon: newFolderIcon,
             onClick: () => this.onFolderCreate?.(this.getDefaultParentPath())
+          },
+          { separator: true },
+          {
+            label: 'Reveal in Explorer',
+            icon: revealIcon,
+            onClick: () => window.api.revealVault?.()
           }
         ])
         return
@@ -1210,6 +1236,8 @@ export class SidebarTree {
   private showContextMenu(event: MouseEvent, item: HTMLElement): void {
     const id = item.dataset.id!
     const isSelected = state.selectedIds.has(id)
+    const itemPath = item.dataset.path
+    const itemType = item.dataset.type as 'note' | 'folder'
 
     // If we right click an item that is NOT selected, we should select it (clearing others)
     if (!isSelected) {
@@ -1221,11 +1249,47 @@ export class SidebarTree {
 
     const selectedCount = state.selectedIds.size
 
+    // Helper to get full path
+    const getFullPath = (noteId: string, notePath?: string): string => {
+      if (notePath) {
+        return `${notePath}/${noteId}`
+      }
+      return noteId
+    }
+
+    // Helper to copy to clipboard
+    const copyToClipboard = (text: string): void => {
+      navigator.clipboard.writeText(text).catch(() => {
+        // Fallback for older browsers
+        const textarea = document.createElement('textarea')
+        textarea.value = text
+        document.body.appendChild(textarea)
+        textarea.select()
+        document.execCommand('copy')
+        document.body.removeChild(textarea)
+      })
+    }
+
+    // Icons for menu items
+    const icons = {
+      newNote: this.createLucideIcon(FileText, 14, 1.5),
+      newFolder: this.createLucideIcon(FolderPlus, 14, 1.5),
+      rename: this.createLucideIcon(Pencil, 14, 1.5),
+      delete: this.createLucideIcon(Trash2, 14, 1.5),
+      copy: this.createLucideIcon(Copy, 14, 1.5),
+      copyPath: this.createLucideIcon(ClipboardCopy, 14, 1.5),
+      reveal: this.createLucideIcon(ExternalLink, 14, 1.5),
+      folder: this.createLucideIcon(Folder, 14, 1.5),
+      files: this.createLucideIcon(Files, 14, 1.5)
+    }
+
     if (selectedCount > 1) {
       contextMenu.show(event.clientX, event.clientY, [
         {
           label: `Delete ${selectedCount} items`,
+          icon: icons.delete,
           keybinding: 'Del',
+          danger: true,
           onClick: () => {
             const idsToDelete = Array.from(state.selectedIds)
             const itemsToDelete = idsToDelete
@@ -1261,46 +1325,102 @@ export class SidebarTree {
       return
     }
 
-    if (item.dataset.type === 'folder') {
+    if (itemType === 'folder') {
+      const folderPath = id
       contextMenu.show(event.clientX, event.clientY, [
         {
           label: 'New Note',
-          onClick: () => this.onNoteCreate?.(item.dataset.id)
+          icon: icons.newNote,
+          keybinding: 'Ctrl+N',
+          onClick: () => this.onNoteCreate?.(id)
         },
         {
           label: 'New Folder',
-          onClick: () => this.onFolderCreate?.(item.dataset.id)
+          icon: icons.newFolder,
+          onClick: () => this.onFolderCreate?.(id)
+        },
+        { separator: true },
+        {
+          label: 'Copy Name',
+          icon: icons.copy,
+          onClick: () => {
+            const folderName = id.split('/').pop() || id
+            copyToClipboard(folderName)
+          }
+        },
+        {
+          label: 'Copy Path',
+          icon: icons.copyPath,
+          onClick: () => copyToClipboard(folderPath)
+        },
+        { separator: true },
+        {
+          label: 'Reveal in Explorer',
+          icon: icons.reveal,
+          onClick: () => window.api.revealVault?.()
         },
         { separator: true },
         {
           label: 'Rename',
-          keybinding: 'Ctrl+R',
-          onClick: () => this.startRename(item.dataset.id!)
+          icon: icons.rename,
+          keybinding: 'F2',
+          onClick: () => this.startRename(id)
         },
         {
           label: 'Delete',
+          icon: icons.delete,
           keybinding: 'Del',
+          danger: true,
           onClick: () => {
             if (this.onItemsDelete) {
-              this.onItemsDelete([{ id: item.dataset.id!, type: 'folder' }])
+              this.onItemsDelete([{ id, type: 'folder' }])
             } else {
-              void this.deleteFolder(item.dataset.id!)
+              void this.deleteFolder(id)
             }
           }
         }
       ])
     } else {
+      // Note context menu
+      const fullPath = getFullPath(id, itemPath)
+      const note = state.notes.find((n) => n.id === id)
+      const noteName = note?.title || id
+
       contextMenu.show(event.clientX, event.clientY, [
         {
-          label: 'Rename',
-          keybinding: 'Ctrl+R',
-          onClick: () => this.startRename(item.dataset.id!)
+          label: 'Copy Name',
+          icon: icons.copy,
+          onClick: () => copyToClipboard(noteName)
+        },
+        {
+          label: 'Copy Path',
+          icon: icons.copyPath,
+          onClick: () => copyToClipboard(fullPath)
+        },
+        {
+          label: 'Copy as WikiLink',
+          icon: icons.files,
+          onClick: () => copyToClipboard(`[[${noteName}]]`)
         },
         { separator: true },
         {
+          label: 'Reveal in Explorer',
+          icon: icons.reveal,
+          onClick: () => window.api.revealVault?.()
+        },
+        { separator: true },
+        {
+          label: 'Rename',
+          icon: icons.rename,
+          keybinding: 'F2',
+          onClick: () => this.startRename(id)
+        },
+        {
           label: 'Delete',
-          keybinding: 'Ctrl+D',
-          onClick: () => this.onNoteDelete?.(item.dataset.id!, item.dataset.path || undefined)
+          icon: icons.delete,
+          keybinding: 'Del',
+          danger: true,
+          onClick: () => this.onNoteDelete?.(id, itemPath || undefined)
         }
       ])
     }

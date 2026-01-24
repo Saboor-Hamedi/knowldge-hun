@@ -122,7 +122,7 @@
 
 /* Inner container for tree items - this gets the focus border, not the scrollable body */
 .sidebar__body-inner {
-  padding: 4px 0;
+  padding: 4px 0 80px 0; /* Bottom padding for root selection area */
   min-height: 100%;
   position: relative;
 }
@@ -239,8 +239,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-left: 4px;
-  margin-right: 6px;
+  margin-left: 2px;
+  margin-right: 4px;
   font-size: 12px;
   line-height: 1;
 }
@@ -248,9 +248,20 @@
 .sidebar__icon svg {
   width: 16px;
   height: 16px;
-  fill: currentColor;
-  color: currentColor;
-  fill: currentColor;
+  stroke: currentColor;
+  fill: none;
+}
+
+/* Folder icons - specific styling */
+.tree-item--folder .tree-item__icon svg {
+  color: var(--primary, #7fa7ff);
+  stroke: currentColor;
+  fill: none;
+}
+
+.tree-item--folder:hover .tree-item__icon svg,
+.tree-item--folder.is-active .tree-item__icon svg {
+  color: var(--text-strong);
 }
 
 .tree-item__label {

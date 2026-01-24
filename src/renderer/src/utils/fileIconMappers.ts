@@ -107,7 +107,7 @@ const getIconEmoji = (icon: any): string => {
   if (icon === ShoppingBag) return '🛍️'
   if (icon === Brain) return '🧠'
   if (icon === BarChart3 || icon === LayoutDashboard) return '📊'
-  if (icon === Github) return '🐙'
+  if (icon === Github) return '🚫' // Git ignore files (red circle)
   if (icon === Twitter) return '🐦'
   if (icon === Facebook) return '📘'
   if (icon === Instagram) return '📷'
@@ -294,8 +294,11 @@ const getFileIcon = (title, language) => {
     'prettier.config.js': Cog,
     '.prettierrc': Cog,
     '.eslintrc': Cog,
-    '.gitignore': File,
-    '.gitattributes': File,
+    '.gitignore': Github,
+    gitignore: Github,
+    '.gitattributes': Github,
+    '.github': Github,
+    github: Github,
     dockerfile: Terminal,
     '.dockerignore': File,
     'docker-compose.yml': Terminal,
@@ -562,7 +565,8 @@ const getFileIcon = (title, language) => {
     { pattern: /package/, icon: Package },
     { pattern: /release|dist|bundle/, icon: Archive },
     { pattern: /docker/, icon: Terminal },
-    { pattern: /^\.git/, icon: File },
+    { pattern: /^\.git/, icon: Github },
+    { pattern: /gitignore/, icon: Github },
     { pattern: /^\.docker/, icon: Terminal },
     { pattern: /security/, icon: Shield },
     { pattern: /secret/, icon: Lock },

@@ -81,7 +81,8 @@ export class TabBar {
         })
         icon.innerHTML = eyeIcon.outerHTML || getFileIcon(title, 'markdown')
       } else {
-        icon.innerHTML = tab.id === 'settings' ? codicons.settingsGear : getFileIcon(title, 'markdown')
+        icon.innerHTML =
+          tab.id === 'settings' ? codicons.settingsGear : getFileIcon(title, 'markdown')
       }
 
       const label = document.createElement('span')
@@ -92,29 +93,61 @@ export class TabBar {
       button.appendChild(label)
 
       if (isPinned) {
-          const pinIcon = document.createElement('span')
-          pinIcon.className = 'tab__pin-icon'
-          const lucidePin = createElement(Pin, {
-            size: 14,
-            'stroke-width': 1.5,
-            stroke: 'currentColor',
-            color: 'currentColor'
-          })
-          pinIcon.innerHTML = lucidePin.outerHTML || codicons.pin
-          button.appendChild(pinIcon)
+        const pinIcon = document.createElement('span')
+        pinIcon.className = 'tab__pin-icon'
+        const lucidePin = createElement(Pin, {
+          size: 14,
+          'stroke-width': 1.5,
+          stroke: 'currentColor',
+          color: 'currentColor'
+        })
+        pinIcon.innerHTML = lucidePin.outerHTML || codicons.pin
+        button.appendChild(pinIcon)
       } else {
-          const close = document.createElement('span')
-          close.className = 'tab__close'
-          close.innerHTML = codicons.close // SVG
-          close.title = 'Close (Ctrl+W)'
+        const close = document.createElement('span')
+        close.className = 'tab__close'
+        close.innerHTML = codicons.close // SVG
+        close.title = 'Close (Ctrl+W)'
 
-          close.setAttribute('data-action', 'close')
-          close.setAttribute('data-id', tab.id)
+        close.setAttribute('data-action', 'close')
+        close.setAttribute('data-id', tab.id)
 
-          button.appendChild(close)
+        button.appendChild(close)
       }
 
       this.container.appendChild(button)
+    })
+
+    // Scroll active tab into view
+    this.scrollActiveTabIntoView()
+  }
+
+  /**
+   * Scrolls the active tab into view, centering it when possible
+   */
+  public scrollActiveTabIntoView(): void {
+    requestAnimationFrame(() => {
+      const activeTab = this.container.querySelector('.tab.is-active') as HTMLElement
+      if (!activeTab) return
+
+      const containerRect = this.container.getBoundingClientRect()
+      const tabRect = activeTab.getBoundingClientRect()
+
+      // Check if tab is already fully visible
+      const isFullyVisible =
+        tabRect.left >= containerRect.left && tabRect.right <= containerRect.right
+
+      if (!isFullyVisible) {
+        // Calculate scroll position to center the tab
+        const tabCenter = activeTab.offsetLeft + activeTab.offsetWidth / 2
+        const containerCenter = this.container.offsetWidth / 2
+        const scrollTarget = tabCenter - containerCenter
+
+        this.container.scrollTo({
+          left: Math.max(0, scrollTarget),
+          behavior: 'smooth'
+        })
+      }
     })
   }
 
@@ -137,6 +170,8 @@ export class TabBar {
     const button = target.closest('.tab') as HTMLElement
     if (button && button.dataset.id) {
       this.onTabSelect?.(button.dataset.id)
+      // Scroll the clicked tab into view (it will become active)
+      this.scrollActiveTabIntoView()
     }
   }
 
@@ -145,8 +180,8 @@ export class TabBar {
     const button = target.closest('.tab') as HTMLElement
 
     if (button && button.dataset.id) {
-        event.preventDefault()
-        this.onTabContextMenu?.(button.dataset.id, event)
+      event.preventDefault()
+      this.onTabContextMenu?.(button.dataset.id, event)
     }
   }
 }

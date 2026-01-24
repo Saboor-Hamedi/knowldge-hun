@@ -23,10 +23,10 @@
   height: 100%;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   border: none;
   border-right: 1px solid var(--border);
-  padding: 0 12px;
+  padding: 0 10px;
   background: var(--bg);
   color: var(--text-soft);
   cursor: pointer;
@@ -35,8 +35,9 @@
     color 120ms ease;
   box-sizing: border-box;
   position: relative;
-  min-width: 0;
+  min-width: 120px;
   max-width: 180px;
+  flex-shrink: 0; /* Never shrink below min-width - scroll instead */
 }
 
 .tab:last-child {

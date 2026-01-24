@@ -1,6 +1,9 @@
 import { state } from '../../core/state'
 
-export function registerWikiLinkProviders(monaco: any, getNotePreview: (id: string) => Promise<string | null>): { dispose: () => void }[] {
+export function registerWikiLinkProviders(
+  monaco: any,
+  getNotePreview: (id: string) => Promise<string | null>
+): { dispose: () => void }[] {
   const disposables: { dispose: () => void }[] = []
 
   // 1. Hover Provider
@@ -17,61 +20,60 @@ export function registerWikiLinkProviders(monaco: any, getNotePreview: (id: stri
           const endCol = match.index + match[0].length + 1
 
           if (position.column >= startCol && position.column <= endCol) {
-             const content = match[1]
-             const [target] = content.split('|')
-             const cleanTarget = target.trim()
+            const content = match[1]
+            const [target] = content.split('|')
+            const cleanTarget = target.trim()
 
-             console.log(`[WikiLink] Hover match: "${cleanTarget}"`)
-
-             const note = state.notes.find(n =>
+            const note = state.notes.find(
+              (n) =>
                 n.id.toLowerCase() === cleanTarget.toLowerCase() ||
                 (n.title && n.title.toLowerCase() === cleanTarget.toLowerCase()) ||
                 (n.path && `${n.path}/${n.id}`.toLowerCase() === cleanTarget.toLowerCase())
-             )
+            )
 
-             const preview = await getNotePreview(cleanTarget)
+            const preview = await getNotePreview(cleanTarget)
 
-             // Format preview with better styling
-             const noteTitle = note ? (note.title || note.id) : cleanTarget
-             const previewText = preview || (note ? 'Note is empty' : 'Note not found')
+            // Format preview with better styling
+            const noteTitle = note ? note.title || note.id : cleanTarget
+            const previewText = preview || (note ? 'Note is empty' : 'Note not found')
 
-             // Clean and format preview text
-             let formattedPreview = previewText
-               .replace(/\n{3,}/g, '\n\n') // Remove excessive line breaks
-               .replace(/^#+\s+/gm, '') // Remove markdown headers
-               .replace(/\*\*(.*?)\*\*/g, '$1') // Remove bold
-               .replace(/\*(.*?)\*/g, '$1') // Remove italic
-               .replace(/`(.*?)`/g, '$1') // Remove inline code
-               .replace(/\[\[(.*?)\]\]/g, '$1') // Remove wiki links
-               .trim()
+            // Clean and format preview text
+            let formattedPreview = previewText
+              .replace(/\n{3,}/g, '\n\n') // Remove excessive line breaks
+              .replace(/^#+\s+/gm, '') // Remove markdown headers
+              .replace(/\*\*(.*?)\*\*/g, '$1') // Remove bold
+              .replace(/\*(.*?)\*/g, '$1') // Remove italic
+              .replace(/`(.*?)`/g, '$1') // Remove inline code
+              .replace(/\[\[(.*?)\]\]/g, '$1') // Remove wiki links
+              .trim()
 
-             // Limit length and add ellipsis
-             const maxLength = 250
-             if (formattedPreview.length > maxLength) {
-               formattedPreview = formattedPreview.substring(0, maxLength).trim() + '...'
-             }
+            // Limit length and add ellipsis
+            const maxLength = 250
+            if (formattedPreview.length > maxLength) {
+              formattedPreview = formattedPreview.substring(0, maxLength).trim() + '...'
+            }
 
-             // Split into lines and limit to 8 lines
-             const lines = formattedPreview.split('\n')
-             const previewLines = lines.slice(0, 8).join('\n')
+            // Split into lines and limit to 8 lines
+            const lines = formattedPreview.split('\n')
+            const previewLines = lines.slice(0, 8).join('\n')
 
-             return {
-               range: new monaco.Range(position.lineNumber, startCol, position.lineNumber, endCol),
-               contents: [
-                 {
-                   value: `**${noteTitle}**`,
-                   isTrusted: true
-                 },
-                 {
-                   value: `\`\`\`\n${previewLines}\n\`\`\``,
-                   isTrusted: true
-                 },
-                 {
-                   value: `*Ctrl+Click to open*`,
-                   isTrusted: true
-                 }
-               ]
-             }
+            return {
+              range: new monaco.Range(position.lineNumber, startCol, position.lineNumber, endCol),
+              contents: [
+                {
+                  value: `**${noteTitle}**`,
+                  isTrusted: true
+                },
+                {
+                  value: `\`\`\`\n${previewLines}\n\`\`\``,
+                  isTrusted: true
+                },
+                {
+                  value: `*Ctrl+Click to open*`,
+                  isTrusted: true
+                }
+              ]
+            }
           }
         }
         return null
@@ -111,8 +113,8 @@ export function registerWikiLinkProviders(monaco: any, getNotePreview: (id: stri
       const range = new monaco.Range(position.lineNumber, startCol, position.lineNumber, endCol)
 
       let suggestions = state.notes
-        .filter(n => (n.title || n.id).toLowerCase().includes(search))
-        .map(n => {
+        .filter((n) => (n.title || n.id).toLowerCase().includes(search))
+        .map((n) => {
           const name = n.title || n.id
           return {
             label: name,
@@ -126,32 +128,32 @@ export function registerWikiLinkProviders(monaco: any, getNotePreview: (id: stri
           }
         })
 
-       if (search.trim().length > 0) {
-           const createLabel = `Create "${match[1]}"`
-           if (!suggestions.find(s => s.label === match[1])) {
-               suggestions.push({
-                   label: createLabel,
-                   kind: monaco.languages.CompletionItemKind.Constructor,
-                   insertText: hasClosing ? match[1] : match[1] + ']]',
-                   detail: 'New Note',
-                   documentation: 'Link to a non-existent note',
-                   range: range,
-                   sortText: '0-' + match[1],
-                   filterText: match[1]
-               })
-           }
-       } else if (suggestions.length === 0) {
-           suggestions.push({
-               label: 'No notes found',
-               kind: monaco.languages.CompletionItemKind.Text,
-               insertText: '',
-               detail: 'Vault is empty',
-               range: range,
-               documentation: 'Add notes to your vault to see them here',
-               filterText: 'no notes',
-               sortText: '9-empty'
-           })
-       }
+      if (search.trim().length > 0) {
+        const createLabel = `Create "${match[1]}"`
+        if (!suggestions.find((s) => s.label === match[1])) {
+          suggestions.push({
+            label: createLabel,
+            kind: monaco.languages.CompletionItemKind.Constructor,
+            insertText: hasClosing ? match[1] : match[1] + ']]',
+            detail: 'New Note',
+            documentation: 'Link to a non-existent note',
+            range: range,
+            sortText: '0-' + match[1],
+            filterText: match[1]
+          })
+        }
+      } else if (suggestions.length === 0) {
+        suggestions.push({
+          label: 'No notes found',
+          kind: monaco.languages.CompletionItemKind.Text,
+          insertText: '',
+          detail: 'Vault is empty',
+          range: range,
+          documentation: 'Add notes to your vault to see them here',
+          filterText: 'no notes',
+          sortText: '9-empty'
+        })
+      }
 
       return { suggestions }
     }
@@ -168,36 +170,40 @@ export function registerWikiLinkProviders(monaco: any, getNotePreview: (id: stri
       })
 
       if (textUntilPosition.includes('[[')) {
-          const match = /\[\[([^\]]*)$/.exec(textUntilPosition)
-          if (match) {
-              const partial = match[1].toLowerCase()
-              // Only show suggestion if there's at least one character typed
-              if (partial && partial.length > 0) {
-                  const bestMatch = state.notes.find(n => (n.title || n.id).toLowerCase().startsWith(partial))
-                  if (bestMatch) {
-                       const name = bestMatch.title || bestMatch.id
-                       // Calculate where the [[ starts (match.index is the position of [[ in the string)
-                       const bracketStartCol = match.index! + 1 // +1 because Monaco columns are 1-based
-                       // The range should start right after [[ and end at current cursor
-                       // This positions the ghost text right after [[
-                       return {
-                           items: [{
-                               insertText: name + ']]',
-                               range: new monaco.Range(
-                                   position.lineNumber,
-                                   bracketStartCol + 2, // Start right after [[
-                                   position.lineNumber,
-                                   position.column // End at current cursor position
-                               ),
-                               command: {
-                                   id: 'editor.action.inlineSuggest.commit',
-                                   title: 'Accept'
-                               }
-                           }]
-                       }
+        const match = /\[\[([^\]]*)$/.exec(textUntilPosition)
+        if (match) {
+          const partial = match[1].toLowerCase()
+          // Only show suggestion if there's at least one character typed
+          if (partial && partial.length > 0) {
+            const bestMatch = state.notes.find((n) =>
+              (n.title || n.id).toLowerCase().startsWith(partial)
+            )
+            if (bestMatch) {
+              const name = bestMatch.title || bestMatch.id
+              // Calculate where the [[ starts (match.index is the position of [[ in the string)
+              const bracketStartCol = match.index! + 1 // +1 because Monaco columns are 1-based
+              // The range should start right after [[ and end at current cursor
+              // This positions the ghost text right after [[
+              return {
+                items: [
+                  {
+                    insertText: name + ']]',
+                    range: new monaco.Range(
+                      position.lineNumber,
+                      bracketStartCol + 2, // Start right after [[
+                      position.lineNumber,
+                      position.column // End at current cursor position
+                    ),
+                    command: {
+                      id: 'editor.action.inlineSuggest.commit',
+                      title: 'Accept'
+                    }
                   }
+                ]
               }
+            }
           }
+        }
       }
       return { items: [] }
     },

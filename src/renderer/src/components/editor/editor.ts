@@ -99,15 +99,15 @@ export class EditorComponent {
   }
 
   setHoverContentHandler(handler: (target: string) => Promise<string | null>): void {
-      this.onGetHoverContent = handler
+    this.onGetHoverContent = handler
   }
 
   setContextMenuHandler(handler: (e: MouseEvent) => void): void {
-      this.onContextMenu = handler
+    this.onContextMenu = handler
   }
 
   setTabCloseHandler(handler: () => void): void {
-      this.onTabClose = handler
+    this.onTabClose = handler
   }
 
   setDropHandler(handler: (path: string, isFile: boolean) => void): void {
@@ -130,8 +130,6 @@ export class EditorComponent {
         e.stopPropagation()
         this.container.classList.remove('drag-over')
 
-        console.log('Drop detected on:', element.className)
-
         let filePath: string | null = null
 
         // Try files array first (most reliable in Electron)
@@ -139,7 +137,6 @@ export class EditorComponent {
         if (files && files.length > 0) {
           const file = files[0]
           filePath = (file as any).path
-          console.log('Got path from files array:', filePath)
         }
 
         // If no path from files, try items (fallback)
@@ -150,81 +147,88 @@ export class EditorComponent {
             const entry = (item as any).webkitGetAsEntry?.()
             if (entry) {
               filePath = (entry as any).fullPath || (entry as any).path
-              console.log('Got path from items:', filePath)
             }
           }
         }
 
         // If coming from sidebar, we might have 'from-sidebar' data
         if (!filePath) {
-             const sidebarPath = e.dataTransfer?.getData('text/plain')
-             const fromSidebar = e.dataTransfer?.getData('from-sidebar')
-             if (fromSidebar === 'true' && sidebarPath) {
-                 // Sidebar notes are internal, handle them as "open" request
-                 // But wait, the drop handler expects a file path to 'open' or 'import'.
-                 // Let's pass it. Since it's internal, we might want to distinguish,
-                 // but for now, treating it as a file path works if the path is absolute.
-                 filePath = sidebarPath
-                 console.log('Got path from sidebar drag:', filePath)
-             }
+          const sidebarPath = e.dataTransfer?.getData('text/plain')
+          const fromSidebar = e.dataTransfer?.getData('from-sidebar')
+          if (fromSidebar === 'true' && sidebarPath) {
+            filePath = sidebarPath
+          }
         }
 
         if (filePath) {
-          console.log('Detected file path:', filePath)
           const ext = filePath.split('.').pop()?.toLowerCase() || ''
           const isImage = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp'].includes(ext)
 
           if (isImage) {
-              // Handle image drop directly
-              const files = e.dataTransfer?.files
-              let file: File | null = null
+            // Handle image drop directly
+            const files = e.dataTransfer?.files
+            let file: File | null = null
 
-              if (files && files.length > 0) {
-                  file = files[0]
-              } else {
-                  // If we only have path (e.g. from sidebar), we can't easily read it as blob in renderer without node integration?
-                  // Actually, "preload" exposes specific APIs.
-                  // We don't have "readFile".
-                  // But if it's external drag, we have 'files'.
-                  // If it's internal sidebar drag, it's not a new asset, just a link?
-                  // If dragging image FROM sidebar to editor?
-                  // Sidebar currently doesn't show images.
-                  // So likely external drop.
-              }
+            if (files && files.length > 0) {
+              file = files[0]
+            } else {
+              // If we only have path (e.g. from sidebar), we can't easily read it as blob in renderer without node integration?
+              // Actually, "preload" exposes specific APIs.
+              // We don't have "readFile".
+              // But if it's external drag, we have 'files'.
+              // If it's internal sidebar drag, it's not a new asset, just a link?
+              // If dragging image FROM sidebar to editor?
+              // Sidebar currently doesn't show images.
+              // So likely external drop.
+            }
 
-              if (file) {
-                  try {
-                      const buffer = await file.arrayBuffer()
-                      const name = file.name // or `image-${Date.now()}.${ext}`
-                      const savedPath = await window.api.saveAsset(buffer, name)
+            if (file) {
+              try {
+                const buffer = await file.arrayBuffer()
+                const name = file.name // or `image-${Date.now()}.${ext}`
+                const savedPath = await window.api.saveAsset(buffer, name)
 
-                      // Calculate drop position
-                      // Monaco doesn't use standard caretRange easily.
-                      // We can use editor.getTargetAtClientPoint
+                // Calculate drop position
+                // Monaco doesn't use standard caretRange easily.
+                // We can use editor.getTargetAtClientPoint
 
-                      const target = this.editor?.getTargetAtClientPoint({ x: e.clientX, y: e.clientY })
-                      if (target && target.position) {
-                          this.editor!.executeEdits('', [{
-                              range: new this.monacoInstance!.Range(target.position.lineNumber, target.position.column, target.position.lineNumber, target.position.column),
-                              text: `![${name}](${savedPath})`,
-                              forceMoveMarkers: true
-                          }])
-                      } else {
-                          // Fallback to cursor
-                          const pos = this.editor?.getPosition()
-                          if (pos) {
-                               this.editor!.executeEdits('', [{
-                                  range: new this.monacoInstance!.Range(pos.lineNumber, pos.column, pos.lineNumber, pos.column),
-                                  text: `![${name}](${savedPath})`,
-                                  forceMoveMarkers: true
-                              }])
-                          }
+                const target = this.editor?.getTargetAtClientPoint({ x: e.clientX, y: e.clientY })
+                if (target && target.position) {
+                  this.editor!.executeEdits('', [
+                    {
+                      range: new this.monacoInstance!.Range(
+                        target.position.lineNumber,
+                        target.position.column,
+                        target.position.lineNumber,
+                        target.position.column
+                      ),
+                      text: `![${name}](${savedPath})`,
+                      forceMoveMarkers: true
+                    }
+                  ])
+                } else {
+                  // Fallback to cursor
+                  const pos = this.editor?.getPosition()
+                  if (pos) {
+                    this.editor!.executeEdits('', [
+                      {
+                        range: new this.monacoInstance!.Range(
+                          pos.lineNumber,
+                          pos.column,
+                          pos.lineNumber,
+                          pos.column
+                        ),
+                        text: `![${name}](${savedPath})`,
+                        forceMoveMarkers: true
                       }
-                  } catch (err) {
-                      console.error('Failed to save dropped image', err)
+                    ])
                   }
-                  return
+                }
+              } catch (err) {
+                console.error('Failed to save dropped image', err)
               }
+              return
+            }
           }
 
           const isFile = /\.[^.]+$/.test(filePath)
@@ -265,7 +269,6 @@ export class EditorComponent {
   }
 
   public async loadNote(payload: NotePayload): Promise<void> {
-    console.log(`[Editor] Vitals Check: LOADING NOTE`, { id: payload.id })
     state.applyingRemote = true
     await this.ensureEditor()
 
@@ -273,14 +276,14 @@ export class EditorComponent {
     this.attachKeyboardShortcuts()
 
     if (!this.editor) {
-        state.applyingRemote = false
-        return
+      state.applyingRemote = false
+      return
     }
 
     const model = this.editor.getModel()
     if (!model) {
-        state.applyingRemote = false
-        return
+      state.applyingRemote = false
+      return
     }
 
     // Fresh Providers check
@@ -288,15 +291,13 @@ export class EditorComponent {
 
     const currentContent = model.getValue()
     if (currentContent !== payload.content) {
-        this.editor.setValue(payload.content)
+      this.editor.setValue(payload.content)
     }
 
-    const prevLang = model.getLanguageId()
     try {
-        this.monacoInstance!.editor.setModelLanguage(model, 'markdown')
-        console.log(`[Editor] Language transition: "${prevLang}" -> "${model.getLanguageId()}"`)
-    } catch (e) {
-        console.warn('[Editor] Failed to set language', e)
+      this.monacoInstance!.editor.setModelLanguage(model, 'markdown')
+    } catch {
+      // Language setting failed, continue with current language
     }
 
     state.applyingRemote = false
@@ -319,15 +320,17 @@ export class EditorComponent {
   private reRegisterProviders(): void {
     if (!this.monacoInstance || !this.onGetHoverContent) return
 
-    console.log('[Editor] Refreshing WikiLink providers for fresh note load...')
-    this.providers.forEach(p => p.dispose())
+    this.providers.forEach((p) => p.dispose())
     this.providers = []
 
     try {
-        const wikilinkProviders = registerWikiLinkProviders(this.monacoInstance, this.onGetHoverContent)
-        this.providers.push(...wikilinkProviders)
+      const wikilinkProviders = registerWikiLinkProviders(
+        this.monacoInstance,
+        this.onGetHoverContent
+      )
+      this.providers.push(...wikilinkProviders)
     } catch (err) {
-        console.error('[Editor] Refresh failure:', err)
+      console.error('[Editor] Refresh failure:', err)
     }
   }
 
@@ -378,21 +381,21 @@ export class EditorComponent {
   }
 
   insertAtCursor(text: string): void {
-      if (!this.editor || !this.monacoInstance) return
-      const selection = this.editor.getSelection()
-      if (!selection) return
+    if (!this.editor || !this.monacoInstance) return
+    const selection = this.editor.getSelection()
+    if (!selection) return
 
-      this.editor.executeEdits('keyboard', [
-          {
-              range: selection,
-              text,
-              forceMoveMarkers: true
-          }
-      ])
+    this.editor.executeEdits('keyboard', [
+      {
+        range: selection,
+        text,
+        forceMoveMarkers: true
+      }
+    ])
   }
 
   triggerAction(actionId: string): void {
-      this.editor?.trigger('context-menu', actionId, null)
+    this.editor?.trigger('context-menu', actionId, null)
   }
 
   private async ensureEditor(): Promise<void> {
@@ -400,130 +403,122 @@ export class EditorComponent {
 
     // Prevent race conditions if multiple calls happen before init completes
     if (this.initPromise) {
-        return this.initPromise
+      return this.initPromise
     }
 
     this.initPromise = (async () => {
+      try {
+        const monaco = await this.loadMonaco()
+        // Double check inside the lock
+        if (this.editor) return
+
+        this.editor = monaco.editor.create(this.editorHost, {
+          value: '',
+          language: 'markdown',
+          theme: 'vs-dark',
+          automaticLayout: true,
+          minimap: { enabled: false },
+          wordWrap: 'on',
+          fontSize: 14,
+          padding: { top: 12, bottom: 12 },
+          renderWhitespace: 'selection',
+          lineNumbers: 'on',
+          glyphMargin: false, // Ensure no extra icons in the gutter
+          folding: false, // Disable the "checkbox" symbols for folding
+          scrollBeyondLastLine: false,
+          fixedOverflowWidgets: true,
+          breadcrumbs: { enabled: false }, // Remove the "meta header" path breadcrumbs
+          quickSuggestions: {
+            other: true,
+            comments: false,
+            strings: true
+          },
+          inlineSuggest: {
+            enabled: true // Enable inline suggestions for wiki links
+          },
+          stickyScroll: { enabled: false },
+          suggest: {
+            snippetsPreventQuickSuggestions: false,
+            filterGraceful: true,
+            showIcons: false, // Remove icons for a cleaner look
+            showDetails: false, // Remove the "layer on top" detail/documentation window
+            maxVisibleSuggestions: 6
+          },
+          hover: {
+            enabled: true,
+            delay: 300,
+            sticky: true
+          },
+          contextmenu: false // Disable Monaco's native menu
+        })
+
+        this.editor.onDidChangeModelContent(() => {
+          this.updateDecorations()
+          this.updateHashtagDecorations()
+          if (state.applyingRemote) return
+          this.markDirty()
+        })
+
+        // Register WikiLink Providers
         try {
-            console.log('%c[Editor] Vitals Check: STARTING UP', 'color: #00ff00; font-weight: bold; font-size: 14px;');
-            const monaco = await this.loadMonaco()
-            // Double check inside the lock
-            if (this.editor) return
-
-            this.editor = monaco.editor.create(this.editorHost, {
-                value: '',
-                language: 'markdown',
-                theme: 'vs-dark',
-                automaticLayout: true,
-                minimap: { enabled: false },
-                wordWrap: 'on',
-                fontSize: 14,
-                padding: { top: 12, bottom: 12 },
-                renderWhitespace: 'selection',
-                lineNumbers: 'on',
-                glyphMargin: false, // Ensure no extra icons in the gutter
-                folding: false,     // Disable the "checkbox" symbols for folding
-                scrollBeyondLastLine: false,
-                fixedOverflowWidgets: true,
-                breadcrumbs: { enabled: false }, // Remove the "meta header" path breadcrumbs
-                quickSuggestions: {
-                    other: true,
-                    comments: false,
-                    strings: true
-                },
-                inlineSuggest: {
-                    enabled: true // Enable inline suggestions for wiki links
-                },
-                stickyScroll: { enabled: false },
-                suggest: {
-                    snippetsPreventQuickSuggestions: false,
-                    filterGraceful: true,
-                    showIcons: false,   // Remove icons for a cleaner look
-                    showDetails: false, // Remove the "layer on top" detail/documentation window
-                    maxVisibleSuggestions: 6
-                },
-                hover: {
-                    enabled: true,
-                    delay: 300,
-                    sticky: true
-                },
-                contextmenu: false // Disable Monaco's native menu
-            })
-
-            this.editor.onDidChangeModelContent(() => {
-                this.updateDecorations()
-                this.updateHashtagDecorations()
-                if (state.applyingRemote) return
-                this.markDirty()
-            })
-
-            // Register WikiLink Providers
-            console.log('[Editor] Attempting to register WikiLink providers...', {
-                hasMonaco: !!this.monacoInstance,
-                hasHoverHandler: !!this.onGetHoverContent
-            })
-
-            try {
-                if (this.onGetHoverContent && this.monacoInstance) {
-                     const wikilinkProviders = registerWikiLinkProviders(this.monacoInstance, this.onGetHoverContent)
-                     this.providers.push(...wikilinkProviders)
-                     console.log('[Editor] WikiLink providers registered successfully.')
-                } else {
-                    console.warn('[Editor] SKIPPING WikiLink registration. Missing dependencies.')
-                }
-            } catch (err) {
-                console.error('[Editor] Failed to register WikiLink providers:', err)
-            }
-
-            // Register custom hashtag syntax highlighting
-            try {
-                this.registerHashtagHighlighting()
-                console.log('[Editor] Hashtag highlighting registered successfully.')
-            } catch (err) {
-                console.error('[Editor] Failed to register hashtag highlighting:', err)
-            }
-
-            this.editorHost.addEventListener('contextmenu', (e) => {
-                if (this.onContextMenu) {
-                    e.preventDefault()
-                    e.stopPropagation()
-                    this.onContextMenu(e)
-                }
-            })
-
-            this.editor.onMouseDown((e) => {
-                // ... same as before
-                if (!e.target || !e.target.position) return
-
-                if (e.event.ctrlKey || e.event.metaKey) {
-                    const model = this.editor!.getModel()
-                    if (!model) return
-
-                    const lineContent = model.getLineContent(e.target.position.lineNumber)
-                    const regex = /\[\[(.*?)\]\]/g
-                    let match
-
-                    while ((match = regex.exec(lineContent)) !== null) {
-                        const startCol = match.index + 1
-                        const endCol = match.index + match[0].length + 1
-
-                        if (e.target.position.column >= startCol && e.target.position.column < endCol) {
-                            const linkContent = match[1]
-                            const [target] = linkContent.split('|')
-                            console.log(`[Editor] Link clicked: "${target.trim()}"`)
-                            this.onLinkClick?.(target.trim())
-                            e.event.preventDefault()
-                            e.event.stopPropagation()
-                            return
-                        }
-                    }
-                }
-            })
-
-            // ... (paste handler)
-        } finally {
-            this.initPromise = null
+          if (this.onGetHoverContent && this.monacoInstance) {
+            const wikilinkProviders = registerWikiLinkProviders(
+              this.monacoInstance,
+              this.onGetHoverContent
+            )
+            this.providers.push(...wikilinkProviders)
+          }
+        } catch {
+          // WikiLink registration failed
         }
+
+        // Register custom hashtag syntax highlighting
+        try {
+          this.registerHashtagHighlighting()
+        } catch {
+          // Hashtag highlighting registration failed
+        }
+
+        this.editorHost.addEventListener('contextmenu', (e) => {
+          if (this.onContextMenu) {
+            e.preventDefault()
+            e.stopPropagation()
+            this.onContextMenu(e)
+          }
+        })
+
+        this.editor.onMouseDown((e) => {
+          // ... same as before
+          if (!e.target || !e.target.position) return
+
+          if (e.event.ctrlKey || e.event.metaKey) {
+            const model = this.editor!.getModel()
+            if (!model) return
+
+            const lineContent = model.getLineContent(e.target.position.lineNumber)
+            const regex = /\[\[(.*?)\]\]/g
+            let match
+
+            while ((match = regex.exec(lineContent)) !== null) {
+              const startCol = match.index + 1
+              const endCol = match.index + match[0].length + 1
+
+              if (e.target.position.column >= startCol && e.target.position.column < endCol) {
+                const linkContent = match[1]
+                const [target] = linkContent.split('|')
+                this.onLinkClick?.(target.trim())
+                e.event.preventDefault()
+                e.event.stopPropagation()
+                return
+              }
+            }
+          }
+        })
+
+        // ... (paste handler)
+      } finally {
+        this.initPromise = null
+      }
     })()
 
     return this.initPromise
@@ -540,13 +535,18 @@ export class EditorComponent {
 
     let match: RegExpExecArray | null
     while ((match = regex.exec(text)) !== null) {
-        const startPos = model.getPositionAt(match.index)
-        const endPos = model.getPositionAt(match.index + match[0].length)
+      const startPos = model.getPositionAt(match.index)
+      const endPos = model.getPositionAt(match.index + match[0].length)
 
-        newDecorations.push({
-            range: new this.monacoInstance.Range(startPos.lineNumber, startPos.column, endPos.lineNumber, endPos.column),
-            options: { inlineClassName: 'wiki-link' }
-        })
+      newDecorations.push({
+        range: new this.monacoInstance.Range(
+          startPos.lineNumber,
+          startPos.column,
+          endPos.lineNumber,
+          endPos.column
+        ),
+        options: { inlineClassName: 'wiki-link' }
+      })
     }
 
     this.decorations = this.editor.deltaDecorations(this.decorations, newDecorations)
@@ -568,10 +568,8 @@ export class EditorComponent {
   }
 
   private triggerSave(): void {
-    console.log('[Editor] Triggering Save...', { activeId: state.activeId, hasEditor: !!this.editor, hasHandler: !!this.onSave })
     if (!state.activeId || !this.editor || !this.onSave) {
-        console.warn('[Editor] Save aborted: Missing requirements')
-        return
+      return
     }
 
     const content = this.editor.getValue()
@@ -590,7 +588,6 @@ export class EditorComponent {
   }
 
   manualSave(): void {
-    console.log('[Editor] Manual Save Requested')
     if (this.pendingSave) {
       window.clearTimeout(this.pendingSave)
       this.pendingSave = undefined
@@ -614,19 +611,28 @@ export class EditorComponent {
 
     // Override Ctrl+D to delete active note instead of Monaco's default
     if (this.editor && !this.shortcutsAttached) {
-      this.editor.addCommand(this.monacoInstance.KeyMod.CtrlCmd | this.monacoInstance.KeyCode.KeyD, () => {
-        window.dispatchEvent(new CustomEvent('delete-active-note'))
-      })
+      this.editor.addCommand(
+        this.monacoInstance.KeyMod.CtrlCmd | this.monacoInstance.KeyCode.KeyD,
+        () => {
+          window.dispatchEvent(new CustomEvent('delete-active-note'))
+        }
+      )
 
       // Add Ctrl+\ (or Cmd+\ on Mac) to toggle preview
-      this.editor.addCommand(this.monacoInstance.KeyMod.CtrlCmd | this.monacoInstance.KeyCode.Backslash, () => {
-        this.togglePreview()
-      })
+      this.editor.addCommand(
+        this.monacoInstance.KeyMod.CtrlCmd | this.monacoInstance.KeyCode.Backslash,
+        () => {
+          this.togglePreview()
+        }
+      )
 
       // Override Ctrl+I to toggle right sidebar
-      this.editor.addCommand(this.monacoInstance.KeyMod.CtrlCmd | this.monacoInstance.KeyCode.KeyI, () => {
-        window.dispatchEvent(new CustomEvent('toggle-right-sidebar'))
-      })
+      this.editor.addCommand(
+        this.monacoInstance.KeyMod.CtrlCmd | this.monacoInstance.KeyCode.KeyI,
+        () => {
+          window.dispatchEvent(new CustomEvent('toggle-right-sidebar'))
+        }
+      )
 
       this.shortcutsAttached = true
     }
@@ -705,59 +711,58 @@ export class EditorComponent {
 
     // Apply Theme
     if (settings.theme) {
-        console.log('Applying theme:', settings.theme)
-        const theme = themes[settings.theme]
-        if (theme) {
-             const isLight = settings.theme === 'light' || settings.theme === 'github-light'
-             const base = isLight ? 'vs' : 'vs-dark'
+      const theme = themes[settings.theme]
+      if (theme) {
+        const isLight = settings.theme === 'light' || settings.theme === 'github-light'
+        const base = isLight ? 'vs' : 'vs-dark'
 
-             // Use a unique name for the theme to ensure Monaco registers it as a switch
-             // If we reuse the name, Monaco might optimizations skip the update if it thinks current theme is the same
-             const monacoThemeId = `app-theme-${settings.theme}`
+        // Use a unique name for the theme to ensure Monaco registers it as a switch
+        // If we reuse the name, Monaco might optimizations skip the update if it thinks current theme is the same
+        const monacoThemeId = `app-theme-${settings.theme}`
 
-             this.monacoInstance?.editor.defineTheme(monacoThemeId, {
-                 base: base,
-                 inherit: true,
-                 rules: [],
-                colors: {
-                    'editor.background': theme.colors['--bg'],
-                    'editor.foreground': theme.colors['--text'],
-                    'editor.lineHighlightBackground': theme.colors['--hover'],
-                    'editor.selectionBackground': theme.colors['--selection'],
-                    'editorCursor.foreground': theme.colors['--primary'],
-                    'editorCursor.background': 'transparent',
-                    'editorCursor.backgroundUnfocused': 'transparent',
-                    'editorLineNumber.foreground': theme.colors['--muted'],
-                    'editorIndentGuide.background': theme.colors['--border-subtle'],
-                    'editorIndentGuide.activeBackground': theme.colors['--border'],
-                    'editorWidget.background': theme.colors['--panel-strong'],
-                    'editorWidget.border': theme.colors['--border'],
-                    'list.activeSelectionBackground': theme.colors['--selection'],
-                    'list.activeSelectionForeground': theme.colors['--text-strong'],
-                    'list.hoverBackground': theme.colors['--hover'],
-                    'list.hoverForeground': theme.colors['--text-strong'],
-                    'list.focusBackground': theme.colors['--selection'],
-                    'list.focusForeground': theme.colors['--text-strong'],
-                    'list.inactiveSelectionBackground': theme.colors['--selection'],
-                    'list.inactiveSelectionForeground': theme.colors['--text-strong']
-                }
-             })
-             this.monacoInstance?.editor.setTheme(monacoThemeId)
-        } else {
-             // Fallback to light/dark if custom theme not found or invalid
-             switch (settings.theme) {
-                case 'light':
-                case 'github-light':
-                    this.monacoInstance?.editor.setTheme('vs')
-                    break
-                default:
-                    this.monacoInstance?.editor.setTheme('vs-dark')
-                    break
-             }
+        this.monacoInstance?.editor.defineTheme(monacoThemeId, {
+          base: base,
+          inherit: true,
+          rules: [],
+          colors: {
+            'editor.background': theme.colors['--bg'],
+            'editor.foreground': theme.colors['--text'],
+            'editor.lineHighlightBackground': theme.colors['--hover'],
+            'editor.selectionBackground': theme.colors['--selection'],
+            'editorCursor.foreground': theme.colors['--primary'],
+            'editorCursor.background': 'transparent',
+            'editorCursor.backgroundUnfocused': 'transparent',
+            'editorLineNumber.foreground': theme.colors['--muted'],
+            'editorIndentGuide.background': theme.colors['--border-subtle'],
+            'editorIndentGuide.activeBackground': theme.colors['--border'],
+            'editorWidget.background': theme.colors['--panel-strong'],
+            'editorWidget.border': theme.colors['--border'],
+            'list.activeSelectionBackground': theme.colors['--selection'],
+            'list.activeSelectionForeground': theme.colors['--text-strong'],
+            'list.hoverBackground': theme.colors['--hover'],
+            'list.hoverForeground': theme.colors['--text-strong'],
+            'list.focusBackground': theme.colors['--selection'],
+            'list.focusForeground': theme.colors['--text-strong'],
+            'list.inactiveSelectionBackground': theme.colors['--selection'],
+            'list.inactiveSelectionForeground': theme.colors['--text-strong']
+          }
+        })
+        this.monacoInstance?.editor.setTheme(monacoThemeId)
+      } else {
+        // Fallback to light/dark if custom theme not found or invalid
+        switch (settings.theme) {
+          case 'light':
+          case 'github-light':
+            this.monacoInstance?.editor.setTheme('vs')
+            break
+          default:
+            this.monacoInstance?.editor.setTheme('vs-dark')
+            break
         }
+      }
     } else {
-        // Default fallback
-        this.monacoInstance?.editor.setTheme('vs-dark')
+      // Default fallback
+      this.monacoInstance?.editor.setTheme('vs-dark')
     }
 
     this.editor.updateOptions(options)
@@ -853,18 +858,25 @@ export class EditorComponent {
         const endColumn = match.index + match[0].length + 1
 
         decorations.push({
-          range: new this.monacoInstance!.Range(lineIndex + 1, startColumn, lineIndex + 1, endColumn),
+          range: new this.monacoInstance!.Range(
+            lineIndex + 1,
+            startColumn,
+            lineIndex + 1,
+            endColumn
+          ),
           options: {
             inlineClassName: 'hashtag-highlight',
-            stickiness: this.monacoInstance!.editor.TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges
+            stickiness:
+              this.monacoInstance!.editor.TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges
           }
         })
       }
     })
 
     // Apply decorations
-    this.hashtagDecorations = this.editor.deltaDecorations(this.hashtagDecorations || [], decorations)
+    this.hashtagDecorations = this.editor.deltaDecorations(
+      this.hashtagDecorations || [],
+      decorations
+    )
   }
 }
-
-

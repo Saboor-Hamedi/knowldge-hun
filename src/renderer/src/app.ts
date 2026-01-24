@@ -957,7 +957,6 @@ class App {
   }
 
   async init(): Promise<void> {
-    console.log('[App] Init started')
     this.statusBar.setStatus('Initializing...')
     await this.initSettings()
     await this.initVault()
@@ -967,12 +966,10 @@ class App {
     }
 
     await this.refreshNotes()
-    console.log(`[App] Notes refreshed: ${state.notes.length} notes found.`)
 
     if (state.openTabs.length > 0) {
       this.statusBar.setStatus('Restoring workspace...')
       const toOpen = state.settings?.activeId || state.openTabs[0].id
-      console.log(`[App] Restoring tab: ${toOpen}`)
       const noteToOpen =
         state.notes.find((n) => n.id === toOpen) ||
         state.notes.find((n) => n.id === state.openTabs[0].id)
@@ -983,23 +980,19 @@ class App {
         // Handle settings tab restore
         await this.openSettings()
       } else {
-        console.warn(`[App] Failed to find note to restore: ${toOpen}. Showing first.`)
         if (state.notes.length > 0) await this.openNote(state.notes[0].id)
         else this.editor.showEmpty()
       }
     } else if (state.notes.length > 0) {
-      console.log(`[App] No tabs. Opening first note: ${state.notes[0].id}`)
       await this.openNote(state.notes[0].id)
     } else {
-      console.log('[App] No notes or tabs. Showing empty.')
       this.editor.showEmpty()
       this.statusBar.setStatus('No notes yet')
       this.statusBar.setMeta('Create a note to begin')
     }
 
     this.tabBar.render()
-    this.updateViewVisibility() // Added
-    console.log('[App] Init complete')
+    this.updateViewVisibility()
     document.body.classList.remove('is-loading')
 
     // Global context menu suppression to prevent browser default appearing over custom menus
@@ -1038,7 +1031,6 @@ class App {
           const foundPath = await vaultService.locateMovedVault(savedVaultPath)
           if (foundPath) {
             // Found it! Update and continue
-            console.log(`[App] Found moved vault: ${savedVaultPath} -> ${foundPath}`)
             await vaultService.openVault(foundPath)
             const info = await window.api.getVault()
             state.vaultPath = info.path
@@ -1049,7 +1041,6 @@ class App {
           }
 
           // Phase 2: Show vault picker with error
-          console.warn(`[App] Vault not found: ${savedVaultPath}`)
           await this.vaultPicker.show({
             path: savedVaultPath,
             error: validation.error || 'Vault path does not exist',
@@ -1128,8 +1119,7 @@ class App {
     this.settingsView.updateVaultPath()
   }
 
-  private async handleVaultLocated(originalPath: string, newPath: string): Promise<void> {
-    console.log(`[App] Vault located: ${originalPath} -> ${newPath}`)
+  private async handleVaultLocated(_originalPath: string, newPath: string): Promise<void> {
     await this.handleVaultSelected(newPath)
     this.statusBar.setStatus('Vault location updated')
   }
@@ -1256,11 +1246,11 @@ class App {
         return
       }
       // Only show notification if truly missing
-      console.warn(`[App] Note ${id} not found at ${path}. Refreshing...`)
+      console.warn(`[App] Note "${id}" not found at path "${path || 'root'}". Refreshing...`)
       notificationManager.show(
-        `Note not found after rename or move. Please check your vault.`,
+        `Note "${id}" could not be found. It may have been renamed, moved, or deleted.`,
         'warning',
-        { title: 'Note Missing' }
+        { title: 'Note Not Found' }
       )
       this.statusBar.setStatus('Note missing on disk')
       if (state.activeId === id || !state.activeId) {
@@ -1557,7 +1547,23 @@ class App {
     const isActive = state.activeId === noteId
     let notePath: string | undefined
 
-    const existing = state.notes.find((n) => n.id === noteId)
+    // Try to find the note in state.notes first
+    let existing = state.notes.find((n) => n.id === noteId)
+
+    // If not found in state, try to find in openTabs (newly created notes might not be in state.notes yet)
+    if (!existing) {
+      const tabNote = state.openTabs.find((t) => t.id === noteId)
+      if (tabNote) {
+        existing = tabNote as any
+      }
+    }
+
+    // If still not found, try refreshing notes first
+    if (!existing) {
+      await this.refreshNotes()
+      existing = state.notes.find((n) => n.id === noteId)
+    }
+
     if (existing) {
       notePath = existing.path
     }

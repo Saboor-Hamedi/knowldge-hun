@@ -1,32 +1,122 @@
 .context-menu {
   position: fixed;
-  background: var(--panel-strong);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
-  padding: 4px 0;
-  min-width: 200px;
+  background: var(--panel-strong, #1e2430);
+  border: 1px solid var(--border, #2d3548);
+  border-radius: 8px;
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.3),
+    0 8px 24px rgba(0, 0, 0, 0.2);
+  padding: 6px;
+  min-width: 180px;
+  max-width: 280px;
   z-index: 10000;
   font-size: 13px;
+  outline: none;
+  animation: contextMenuIn 0.12s ease-out;
+  backdrop-filter: blur(8px);
+}
+
+@keyframes contextMenuIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.context-menu--submenu {
+  animation: submenuIn 0.1s ease-out;
+}
+
+@keyframes submenuIn {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 .context-menu__item {
   display: flex;
   align-items: center;
-  padding: 5px 20px;
+  gap: 8px;
+  padding: 7px 12px;
+  border-radius: 5px;
   cursor: pointer;
-  transition: background 80ms ease;
-  color: var(--text-strong);
+  transition:
+    background 80ms ease,
+    color 80ms ease;
+  color: var(--text-strong, #e4e8f1);
+  position: relative;
 }
 
+/* Only use hover for highlighting - keyboard focus is handled via JS adding is-focused class */
+/* When hovering, remove is-focused from other items via mouseenter handler */
 .context-menu__item:hover:not(.is-disabled) {
-  background: var(--primary);
-  color: #0b1220; /* High contrast on primary blue */
+  background: var(--primary, #7fa7ff);
+  color: #0b1220;
+}
+
+.context-menu__item:hover:not(.is-disabled) .context-menu__keybinding {
+  color: rgba(11, 18, 32, 0.7);
+}
+
+.context-menu__item:hover:not(.is-disabled) .context-menu__icon {
+  color: #0b1220;
+}
+
+.context-menu__item:hover:not(.is-disabled) .context-menu__arrow {
+  color: #0b1220;
+}
+
+/* Keyboard focus styling - only applies when not hovering */
+.context-menu:not(:hover) .context-menu__item.is-focused:not(.is-disabled) {
+  background: var(--primary, #7fa7ff);
+  color: #0b1220;
+}
+
+.context-menu:not(:hover)
+  .context-menu__item.is-focused:not(.is-disabled)
+  .context-menu__keybinding {
+  color: rgba(11, 18, 32, 0.7);
+}
+
+.context-menu:not(:hover) .context-menu__item.is-focused:not(.is-disabled) .context-menu__icon {
+  color: #0b1220;
+}
+
+.context-menu:not(:hover) .context-menu__item.is-focused:not(.is-disabled) .context-menu__arrow {
+  color: #0b1220;
 }
 
 .context-menu__item.is-disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+.context-menu__item.is-danger {
+  color: var(--error, #f87171);
+}
+
+.context-menu__item.is-danger:hover:not(.is-disabled),
+.context-menu__item.is-danger.is-focused:not(.is-disabled) {
+  background: var(--error, #f87171);
+  color: #fff;
+}
+
+.context-menu__item.is-danger:hover:not(.is-disabled) .context-menu__icon,
+.context-menu__item.is-danger.is-focused:not(.is-disabled) .context-menu__icon {
+  color: #fff;
+}
+
+.context-menu__item.has-submenu::after {
+  content: '';
 }
 
 .context-menu__icon {
@@ -36,6 +126,8 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  color: var(--text-soft, #8b95a8);
+  transition: color 80ms ease;
 }
 
 .context-menu__icon svg {
@@ -43,18 +135,65 @@
   height: 16px;
 }
 
+.context-menu__icon-space {
+  width: 16px;
+  flex-shrink: 0;
+}
+
 .context-menu__label {
   flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .context-menu__keybinding {
   font-size: 11px;
-  opacity: 0.7;
-  font-family: monospace;
+  color: var(--text-soft, #8b95a8);
+  font-family: inherit;
+  margin-left: auto;
+  padding-left: 16px;
+  opacity: 0.8;
+  transition: color 80ms ease;
+}
+
+.context-menu__arrow {
+  width: 12px;
+  height: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-soft, #8b95a8);
+  margin-left: 4px;
+  transition: color 80ms ease;
+}
+
+.context-menu__arrow svg {
+  width: 12px;
+  height: 12px;
 }
 
 .context-menu__separator {
   height: 1px;
-  background: var(--border);
-  margin: 4px 8px;
+  background: var(--border, #2d3548);
+  margin: 6px 8px;
+}
+
+/* Scrollbar for long menus */
+.context-menu::-webkit-scrollbar {
+  width: 6px;
+}
+
+.context-menu::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.context-menu::-webkit-scrollbar-thumb {
+  background: var(--text-soft, #8b95a8);
+  border-radius: 3px;
+  opacity: 0.5;
+}
+
+.context-menu::-webkit-scrollbar-thumb:hover {
+  background: var(--text-strong, #e4e8f1);
 }

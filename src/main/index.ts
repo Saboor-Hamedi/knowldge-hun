@@ -9,7 +9,13 @@ import { version } from '../../package.json'
 import icon from '../../resources/icon.ico?asset'
 import { vault } from './vault'
 import type { NotePayload } from './vault'
-import { loadSettings, saveSettings, updateSettings, DEFAULT_SETTINGS, type Settings } from './settings'
+import {
+  loadSettings,
+  saveSettings,
+  updateSettings,
+  DEFAULT_SETTINGS,
+  type Settings
+} from './settings'
 
 let mainWindowRef: BrowserWindow | null = null
 
@@ -31,27 +37,25 @@ function isValidVaultPath(path: string): boolean {
 }
 
 function migrateVaultContent(oldPath: string, newPath: string): void {
-    if (!existsSync(oldPath)) return
-    if (!existsSync(newPath)) {
-        try {
-            mkdirSync(newPath, { recursive: true })
-        } catch (e) {
-             console.error('Failed to create new vault dir', e)
-             return
-        }
-    }
-
+  if (!existsSync(oldPath)) return
+  if (!existsSync(newPath)) {
     try {
-        const files = readdirSync(newPath)
-        if (files.length > 0) {
-            console.warn('Target vault not empty, skipping migration')
-            return
-        }
-        console.log(`Migrating vault from ${oldPath} to ${newPath}`)
-        cpSync(oldPath, newPath, { recursive: true })
-    } catch (err) {
-        console.error('Migration failed:', err)
+      mkdirSync(newPath, { recursive: true })
+    } catch (e) {
+      console.error('Failed to create new vault dir', e)
+      return
     }
+  }
+
+  try {
+    const files = readdirSync(newPath)
+    if (files.length > 0) {
+      return
+    }
+    cpSync(oldPath, newPath, { recursive: true })
+  } catch {
+    // Migration failed
+  }
 }
 
 function resolveVaultPath(): string {
@@ -60,9 +64,9 @@ function resolveVaultPath(): string {
   const oldDefault = join(app.getPath('userData'), 'notes')
 
   if (settings.vaultPath === oldDefault) {
-      migrateVaultContent(oldDefault, defaultPath)
-      settings.vaultPath = undefined
-      saveSettings(settings)
+    migrateVaultContent(oldDefault, defaultPath)
+    settings.vaultPath = undefined
+    saveSettings(settings)
   }
 
   if (settings.vaultPath && isValidVaultPath(settings.vaultPath)) {
@@ -70,11 +74,11 @@ function resolveVaultPath(): string {
   }
 
   if (!existsSync(defaultPath)) {
-      try {
-          mkdirSync(defaultPath, { recursive: true })
-      } catch (e) {
-          console.error('Failed to create default notes dir', e)
-      }
+    try {
+      mkdirSync(defaultPath, { recursive: true })
+    } catch (e) {
+      console.error('Failed to create default notes dir', e)
+    }
   }
 
   if (settings.vaultPath && settings.vaultPath !== defaultPath) {
@@ -197,8 +201,8 @@ app.whenReady().then(async () => {
     return vault.createNote(title || 'Untitled', path)
   })
   ipcMain.handle('notes:save', async (_event, payload: NotePayload) => {
-     await ensureVault()
-     return vault.saveNote(payload.id, payload.content, payload.title)
+    await ensureVault()
+    return vault.saveNote(payload.id, payload.content, payload.title)
   })
   ipcMain.handle('notes:delete', async (_event, id: string) => {
     await ensureVault()
@@ -243,9 +247,9 @@ app.whenReady().then(async () => {
   })
 
   ipcMain.handle('vault:reveal', async () => {
-      let root = vault.getRootPath()
-      if (!root) root = resolveVaultPath()
-      if (root && existsSync(root)) await shell.openPath(root)
+    let root = vault.getRootPath()
+    if (!root) root = resolveVaultPath()
+    if (root && existsSync(root)) await shell.openPath(root)
   })
 
   ipcMain.handle('vault:choose', async () => {
@@ -273,7 +277,7 @@ app.whenReady().then(async () => {
   ipcMain.handle('vault:validate', async (_event, path: string) => {
     const exists = isValidVaultPath(path)
     const settings = loadSettings()
-    const recentVault = settings.recentVaults?.find(p => p === path)
+    const recentVault = settings.recentVaults?.find((p) => p === path)
     return {
       exists,
       lastOpened: recentVault ? Date.now() : undefined // Could track actual last opened time
@@ -302,7 +306,7 @@ app.whenReady().then(async () => {
       join(app.getPath('home'), 'Documents'),
       join(app.getPath('home'), 'Desktop'),
       dirname(originalPath), // Check parent directory
-      join(dirname(originalPath), '..'), // Check grandparent
+      join(dirname(originalPath), '..') // Check grandparent
     ]
 
     // Also check recent vaults for similar structure
@@ -315,7 +319,9 @@ app.whenReady().then(async () => {
           // Found a recent vault with the same name
           try {
             const files = readdirSync(recentPath, { recursive: true, withFileTypes: true })
-            const hasNotes = files.some(f => f.isFile() && (f.name.endsWith('.md') || f.name.endsWith('.txt')))
+            const hasNotes = files.some(
+              (f) => f.isFile() && (f.name.endsWith('.md') || f.name.endsWith('.txt'))
+            )
             if (hasNotes) {
               return { foundPath: recentPath }
             }
@@ -336,7 +342,9 @@ app.whenReady().then(async () => {
           // Quick validation: check if it looks like a vault (has .md files)
           try {
             const files = readdirSync(potentialPath, { recursive: true, withFileTypes: true })
-            const hasNotes = files.some(f => f.isFile() && (f.name.endsWith('.md') || f.name.endsWith('.txt')))
+            const hasNotes = files.some(
+              (f) => f.isFile() && (f.name.endsWith('.md') || f.name.endsWith('.txt'))
+            )
             if (hasNotes) {
               return { foundPath: potentialPath }
             }
@@ -353,7 +361,9 @@ app.whenReady().then(async () => {
               const subPath = join(basePath, entry.name)
               try {
                 const files = readdirSync(subPath, { recursive: true, withFileTypes: true })
-                const hasNotes = files.some(f => f.isFile() && (f.name.endsWith('.md') || f.name.endsWith('.txt')))
+                const hasNotes = files.some(
+                  (f) => f.isFile() && (f.name.endsWith('.md') || f.name.endsWith('.txt'))
+                )
                 if (hasNotes) {
                   return { foundPath: subPath }
                 }
@@ -375,101 +385,112 @@ app.whenReady().then(async () => {
 
   ipcMain.handle('notes:search', async (_event, query: string) => vault.search(query))
   ipcMain.handle('notes:getBacklinks', async (_event, id: string) => vault.getBacklinks(id))
-  ipcMain.handle('graph:get', async () => { return { links: vault.getAllLinks() } })
+  ipcMain.handle('graph:get', async () => {
+    return { links: vault.getAllLinks() }
+  })
 
   ipcMain.handle('assets:save', async (_event, buffer: ArrayBuffer, name: string) => {
-      const root = getVaultRoot()
-      const assetsDir = join(root, 'assets')
-      await mkdir(assetsDir, { recursive: true })
-      const filePath = join(assetsDir, name)
-      await writeFile(filePath, Buffer.from(buffer))
-      return `assets/${name}`
+    const root = getVaultRoot()
+    const assetsDir = join(root, 'assets')
+    await mkdir(assetsDir, { recursive: true })
+    const filePath = join(assetsDir, name)
+    await writeFile(filePath, Buffer.from(buffer))
+    return `assets/${name}`
   })
 
   ipcMain.handle('settings:get', async () => loadSettings())
-  ipcMain.handle('settings:update', async (_event, updates: Partial<Settings>) => updateSettings(updates))
+  ipcMain.handle('settings:update', async (_event, updates: Partial<Settings>) =>
+    updateSettings(updates)
+  )
   ipcMain.handle('settings:reset', async () => {
-      saveSettings(DEFAULT_SETTINGS)
-      return DEFAULT_SETTINGS
+    saveSettings(DEFAULT_SETTINGS)
+    return DEFAULT_SETTINGS
   })
 
   // Gist Sync Handlers
-  ipcMain.handle('sync:backup', async (_event, token: string, gistId: string | undefined, vaultData: any) => {
-    try {
-      const GIST_FILENAME = 'knowledge-hub-backup.json'
-      const GIST_DESCRIPTION = 'Knowledge Hub Vault Backup'
-      const GIST_API_URL = 'https://api.github.com/gists'
+  ipcMain.handle(
+    'sync:backup',
+    async (_event, token: string, gistId: string | undefined, vaultData: any) => {
+      try {
+        const GIST_FILENAME = 'knowledge-hub-backup.json'
+        const GIST_DESCRIPTION = 'Knowledge Hub Vault Backup'
+        const GIST_API_URL = 'https://api.github.com/gists'
 
-      const content = JSON.stringify({
-        version: 1,
-        timestamp: Date.now(),
-        vaultPath: vault.getRootPath(),
-        notes: vaultData
-      }, null, 2)
+        const content = JSON.stringify(
+          {
+            version: 1,
+            timestamp: Date.now(),
+            vaultPath: vault.getRootPath(),
+            notes: vaultData
+          },
+          null,
+          2
+        )
 
-      const body: any = {
-        description: GIST_DESCRIPTION,
-        public: false,
-        files: {
-          [GIST_FILENAME]: {
-            content
+        const body: any = {
+          description: GIST_DESCRIPTION,
+          public: false,
+          files: {
+            [GIST_FILENAME]: {
+              content
+            }
           }
         }
-      }
 
-      // Use Bearer for fine-grained tokens (ghp_) or token for classic tokens
-      const authHeader = token.startsWith('ghp_') ? `Bearer ${token}` : `token ${token}`
-      const headers: any = {
-        'Authorization': authHeader,
-        'Accept': 'application/vnd.github.v3+json',
-        'Content-Type': 'application/json'
-      }
+        // Use Bearer for fine-grained tokens (ghp_) or token for classic tokens
+        const authHeader = token.startsWith('ghp_') ? `Bearer ${token}` : `token ${token}`
+        const headers: any = {
+          Authorization: authHeader,
+          Accept: 'application/vnd.github.v3+json',
+          'Content-Type': 'application/json'
+        }
 
-      let response: Response
-      if (gistId) {
-        // Update existing gist
-        response = await fetch(`${GIST_API_URL}/${gistId}`, {
-          method: 'PATCH',
-          headers,
-          body: JSON.stringify(body)
-        })
-      } else {
-        // Create new gist
-        response = await fetch(GIST_API_URL, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify(body)
-        })
-      }
+        let response: Response
+        if (gistId) {
+          // Update existing gist
+          response = await fetch(`${GIST_API_URL}/${gistId}`, {
+            method: 'PATCH',
+            headers,
+            body: JSON.stringify(body)
+          })
+        } else {
+          // Create new gist
+          response = await fetch(GIST_API_URL, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(body)
+          })
+        }
 
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({ message: 'Unknown error' }))
+        if (!response.ok) {
+          const error = await response.json().catch(() => ({ message: 'Unknown error' }))
+          return {
+            success: false,
+            message: error.message || `HTTP ${response.status}: ${response.statusText}`
+          }
+        }
+
+        const result = await response.json()
+        const newGistId = result.id
+
+        // Save gistId to settings
+        if (newGistId) {
+          updateSettings({ gistId: newGistId })
+        }
+
+        return {
+          success: true,
+          message: gistId ? 'Backup updated successfully' : 'Backup created successfully',
+          gistId: newGistId
+        }
+      } catch (error) {
         return {
           success: false,
-          message: error.message || `HTTP ${response.status}: ${response.statusText}`
+          message: error instanceof Error ? error.message : 'Backup failed'
         }
       }
-
-      const result = await response.json()
-      const newGistId = result.id
-
-      // Save gistId to settings
-      if (newGistId) {
-        updateSettings({ gistId: newGistId })
-      }
-
-      return {
-        success: true,
-        message: gistId ? 'Backup updated successfully' : 'Backup created successfully',
-        gistId: newGistId
-      }
-    } catch (error) {
-      return {
-        success: false,
-        message: error instanceof Error ? error.message : 'Backup failed'
-      }
     }
-  })
+  )
 
   ipcMain.handle('sync:restore', async (_event, token: string, gistId: string) => {
     try {
@@ -480,8 +501,8 @@ app.whenReady().then(async () => {
       const authHeader = token.startsWith('ghp_') ? `Bearer ${token}` : `token ${token}`
       const response = await fetch(GIST_API_URL, {
         headers: {
-          'Authorization': authHeader,
-          'Accept': 'application/vnd.github.v3+json'
+          Authorization: authHeader,
+          Accept: 'application/vnd.github.v3+json'
         }
       })
 
@@ -523,8 +544,8 @@ app.whenReady().then(async () => {
       const authHeader = token.startsWith('ghp_') ? `Bearer ${token}` : `token ${token}`
       const response = await fetch('https://api.github.com/user', {
         headers: {
-          'Authorization': authHeader,
-          'Accept': 'application/vnd.github.v3+json'
+          Authorization: authHeader,
+          Accept: 'application/vnd.github.v3+json'
         }
       })
 
@@ -577,14 +598,14 @@ app.whenReady().then(async () => {
   //   return app.getVersion()
   // })
   ipcMain.handle('app:getVersion', () => {
-  return version
-})
+    return version
+  })
 
   try {
-     const savedPath = resolveVaultPath()
-     await vault.setVaultPath(savedPath)
+    const savedPath = resolveVaultPath()
+    await vault.setVaultPath(savedPath)
   } catch (err) {
-      console.error('Failed to initialize vault:', err)
+    console.error('Failed to initialize vault:', err)
   }
 
   createWindow()

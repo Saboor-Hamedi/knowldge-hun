@@ -7,7 +7,14 @@ export interface TabHandlers {
   togglePinTab: (id: string) => void
   closeOtherTabs: (id: string) => Promise<void>
   closeAllTabs: () => Promise<void>
-  closeTab: (id: string, force?: boolean, onTabClose?: (id: string) => Promise<void>, onRefresh?: () => Promise<void>, onOpenNote?: (id: string, path?: string) => Promise<void>, onShowEmpty?: () => void) => Promise<void>
+  closeTab: (
+    id: string,
+    force?: boolean,
+    onTabClose?: (id: string) => Promise<void>,
+    onRefresh?: () => Promise<void>,
+    onOpenNote?: (id: string, path?: string) => Promise<void>,
+    onShowEmpty?: () => void
+  ) => Promise<void>
 }
 
 export class TabHandlersImpl {
@@ -60,7 +67,10 @@ export class TabHandlersImpl {
     void this.persistWorkspace()
   }
 
-  async closeOtherTabs(id: string, closeTabFn: (id: string, force?: boolean) => Promise<void>): Promise<void> {
+  async closeOtherTabs(
+    id: string,
+    closeTabFn: (id: string, force?: boolean) => Promise<void>
+  ): Promise<void> {
     const toClose = state.openTabs.filter((t) => t.id !== id && !state.pinnedTabs.has(t.id))
     for (const tab of toClose) {
       await closeTabFn(tab.id, true)
@@ -96,21 +106,20 @@ export class TabHandlersImpl {
     }
 
     const wasActive = state.activeId === id
-    const tabIndex = state.openTabs.findIndex(t => t.id === id)
+    const tabIndex = state.openTabs.findIndex((t) => t.id === id)
 
     if (state.pinnedTabs.has(id)) {
       state.pinnedTabs.delete(id)
     }
 
-    const tab = state.openTabs.find(t => t.id === id)
+    const tab = state.openTabs.find((t) => t.id === id)
     if (tab && (state.newlyCreatedIds.has(id) || state.newlyCreatedIds.has(tab.id))) {
-      console.log(`[TabHandlers] Cleaning up unused new note: ${id}`)
       try {
         if (onDeleteNote) await onDeleteNote(id, tab.path)
         state.newlyCreatedIds.delete(id)
         if (onRefreshNotes) await onRefreshNotes()
-      } catch (e) {
-        console.error('[TabHandlers] Failed to cleanup new note', e)
+      } catch {
+        // Failed to cleanup new note
       }
     }
 

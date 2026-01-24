@@ -1516,8 +1516,8 @@ export class RightBar {
           // Restore cursor - always at the end of the query (where user is typing)
           this.restoreCursorAfterHighlight(highlightSpan)
         }
-      } catch (e) {
-        console.debug('[RightBar] Highlight error:', e)
+      } catch {
+        // Highlight error
       }
     }
   }

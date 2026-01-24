@@ -161,15 +161,8 @@ export class GraphView {
       )
 
       // Process graph data
-      console.log('[Graph] Raw links from vault:', graphData.links.length)
       this.graphData = processGraphData(allNotes, graphData.links, noteContents, state.activeId)
       this.filteredData = this.graphData
-      console.log(
-        '[Graph] Processed nodes:',
-        this.graphData.nodes.length,
-        'links:',
-        this.graphData.links.length
-      )
 
       // Generate group colors
       const uniqueGroups = new Set(this.graphData.nodes.map((n) => n.group))

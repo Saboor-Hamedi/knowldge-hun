@@ -30,7 +30,9 @@ export class NoteService {
     }
   }
 
-  async deleteItems(items: { id: string, type: 'note' | 'folder', path?: string }[]): Promise<{ success: boolean, errors: string[] }> {
+  async deleteItems(
+    items: { id: string; type: 'note' | 'folder'; path?: string }[]
+  ): Promise<{ success: boolean; errors: string[] }> {
     const errors: string[] = []
 
     for (const item of items) {
@@ -56,7 +58,7 @@ export class NoteService {
     const newMeta = await window.api.moveNote(id, fromPath, toPath)
 
     // Update tabs and active state
-    state.openTabs = state.openTabs.map(tab => {
+    state.openTabs = state.openTabs.map((tab) => {
       if (tab.id === id) {
         return { ...newMeta }
       }
@@ -86,14 +88,14 @@ export class NoteService {
     const allNotes = await window.api.listNotes()
 
     // Update tabs - preserve all properties and update from refreshed notes
-    state.openTabs = state.openTabs.map(tab => {
+    state.openTabs = state.openTabs.map((tab) => {
       if (tab.id.startsWith(oldPrefix)) {
         const newId = tab.id.replace(oldPrefix, newPrefix)
         const lastSlash = newId.lastIndexOf('/')
         const newNotePath = lastSlash === -1 ? '' : newId.substring(0, lastSlash)
 
         // Find the updated note metadata from the refreshed list
-        const updatedNote = allNotes.find(n => n.id === newId)
+        const updatedNote = allNotes.find((n) => n.id === newId)
         if (updatedNote) {
           return { ...updatedNote }
         }
@@ -126,7 +128,9 @@ export class NoteService {
     for (const path of Array.from(state.expandedFolders)) {
       if (path.startsWith(oldPrefix)) {
         state.expandedFolders.delete(path)
-        state.expandedFolders.add(path === sourcePath ? newFolderPath : path.replace(oldPrefix, newPrefix))
+        state.expandedFolders.add(
+          path === sourcePath ? newFolderPath : path.replace(oldPrefix, newPrefix)
+        )
       }
     }
 
@@ -148,12 +152,24 @@ export class NoteService {
   async renameNote(id: string, newId: string, path?: string): Promise<NoteMeta> {
     const newMeta = await window.api.renameNote(id, newId, path)
 
+    // Handle case where rename fails or returns null
+    if (!newMeta) {
+      console.error(`[NoteService] renameNote: API returned null for ${id} -> ${newId}`)
+      throw new Error(`Failed to rename note "${id}" to "${newId}"`)
+    }
+
     // Ensure newMeta has all required properties
     if (!newMeta.title) {
       console.warn(`[NoteService] renameNote: newMeta missing title for ${newMeta.id}`)
       // Extract title from id as fallback
       const parts = newMeta.id.split('/')
       newMeta.title = parts[parts.length - 1] || 'Untitled'
+    }
+
+    // Ensure newMeta.id is set
+    if (!newMeta.id) {
+      console.warn(`[NoteService] renameNote: newMeta missing id, using ${newId}`)
+      newMeta.id = newId
     }
 
     // Update state
@@ -164,9 +180,8 @@ export class NoteService {
       state.notes.unshift(newMeta)
     }
 
-
     // Update tabs - preserve title if newMeta doesn't have it
-    state.openTabs = state.openTabs.map(tab => {
+    state.openTabs = state.openTabs.map((tab) => {
       if (tab.id === id) {
         return {
           ...newMeta,

@@ -22,18 +22,18 @@ export class WikiLinkService {
     const cleanTarget = target.toLowerCase()
 
     // 1. Exact match (ID, Path, Title)
-    let note = state.notes.find(n =>
-      n.id.toLowerCase() === cleanTarget ||
-      (n.path && `${n.path}/${n.id}`.toLowerCase() === cleanTarget) ||
-      (n.title && n.title.toLowerCase() === cleanTarget)
+    let note = state.notes.find(
+      (n) =>
+        n.id.toLowerCase() === cleanTarget ||
+        (n.path && `${n.path}/${n.id}`.toLowerCase() === cleanTarget) ||
+        (n.title && n.title.toLowerCase() === cleanTarget)
     )
 
     // 2. Strip extension if present (e.g. "note.md" -> "note")
     if (!note && cleanTarget.endsWith('.md')) {
       const base = cleanTarget.slice(0, -3)
-      note = state.notes.find(n =>
-        n.id.toLowerCase() === base ||
-        (n.title && n.title.toLowerCase() === base)
+      note = state.notes.find(
+        (n) => n.id.toLowerCase() === base || (n.title && n.title.toLowerCase() === base)
       )
     }
 
@@ -46,8 +46,6 @@ export class WikiLinkService {
   async getNotePreview(target: string): Promise<string | null> {
     const cleanTarget = target.trim().toLowerCase()
     const note = this.resolveNote(cleanTarget)
-
-    console.log(`[WikiLinkService] getNotePreview for "${target}":`, note ? `Found (${note.id})` : 'NOT FOUND')
 
     if (note) {
       // Optimization: If the target note is the one currently open in the editor,
@@ -93,7 +91,6 @@ export class WikiLinkService {
       }
     } else {
       // Auto-create note on click if it doesn't exist (Wiki behavior)
-      console.log(`[WikiLinkService] Note "${linkTarget}" not found, creating...`)
       try {
         await this.callbacks.createNote(linkTarget.trim())
         if (this.callbacks.setStatus) {
