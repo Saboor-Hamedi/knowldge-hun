@@ -1,11 +1,11 @@
-
+/* Tabbar Container */
 .tabbar {
   display: flex;
-  align-items: center;
-  gap: 2px;
+  align-items: stretch;
+  gap: 0;
   height: var(--tab-height);
-  padding: 0 6px;
-  background: var(--panel);
+  padding: 0;
+  background: var(--bg);
   border-bottom: 1px solid var(--border);
   overflow-x: auto;
   overflow-y: hidden;
@@ -18,91 +18,124 @@
   display: none;
 }
 
-.tabbar::-webkit-scrollbar {
-  display: none;
-}
-
+/* Individual Tab */
 .tab {
-  height: 28px;
+  height: 100%;
   display: inline-flex;
   align-items: center;
   gap: 8px;
   border: none;
-  border-radius: 0;
-  padding: 0 10px;
-  background: transparent;
+  border-right: 1px solid var(--border);
+  padding: 0 12px;
+  background: var(--bg);
   color: var(--text-soft);
   cursor: pointer;
-  transition: background 120ms ease, color 120ms ease;
+  transition:
+    background 120ms ease,
+    color 120ms ease;
   box-sizing: border-box;
+  position: relative;
+  min-width: 0;
+  max-width: 180px;
 }
 
+.tab:last-child {
+  border-right: none;
+}
+
+/* Active Tab */
 .tab.is-active {
   background: var(--panel);
   color: var(--text-strong);
-  position: relative;
 }
 
-.tab.is-active::before {
+.tab.is-active::after {
   content: '';
   position: absolute;
   left: 0;
-  top: 0;
-  bottom: 0;
-  width: 2px;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
   background: var(--primary);
-  z-index: 1;
+  z-index: 2;
 }
 
+/* Pinned Tab */
 .tab.is-pinned {
   padding: 0 10px;
   min-width: fit-content;
+  max-width: none;
 }
 
 .tab.is-pinned .tab__icon {
-  margin-right: 6px;
+  margin-right: 4px;
 }
 
+/* Hover State */
 .tab:hover {
   color: var(--text-strong);
-  background: rgba(127, 167, 255, 0.08);
+  background: var(--panel-strong);
 }
 
+.tab.is-active:hover {
+  background: var(--panel);
+}
+
+/* Tab Icon */
 .tab__icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--text-soft); /* Default backup */
-  opacity: 1;
+  color: var(--text-soft);
   flex-shrink: 0;
-  width: 20px;
-  height: 20px;
+  width: 16px;
+  height: 16px;
+}
+
+.tab__icon svg {
+  width: 16px;
+  height: 16px;
 }
 
 /* Dynamic Icon Colors */
-.tab[data-ext="md"] .tab__icon { color: #519aba; }
-.tab[data-ext="js"] .tab__icon { color: #f7df1e; }
-.tab[data-ext="ts"] .tab__icon { color: #3178c6; }
-.tab[data-ext="jsx"] .tab__icon { color: #61dafb; }
-.tab[data-ext="tsx"] .tab__icon { color: #61dafb; }
-.tab[data-ext="html"] .tab__icon { color: #e34c26; }
-.tab[data-ext="css"] .tab__icon { color: #264de4; }
-.tab[data-ext="json"] .tab__icon { color: #f1e05a; }
-.tab[data-ext="png"] .tab__icon,
-.tab[data-ext="jpg"] .tab__icon { color: #b83998; }
-
-.tab__icon svg {
-  width: 20px;
-  height: 20px;
+.tab[data-ext='md'] .tab__icon {
+  color: #519aba;
+}
+.tab[data-ext='js'] .tab__icon {
+  color: #f7df1e;
+}
+.tab[data-ext='ts'] .tab__icon {
+  color: #3178c6;
+}
+.tab[data-ext='jsx'] .tab__icon {
+  color: #61dafb;
+}
+.tab[data-ext='tsx'] .tab__icon {
+  color: #61dafb;
+}
+.tab[data-ext='html'] .tab__icon {
+  color: #e34c26;
+}
+.tab[data-ext='css'] .tab__icon {
+  color: #264de4;
+}
+.tab[data-ext='json'] .tab__icon {
+  color: #f1e05a;
+}
+.tab[data-ext='png'] .tab__icon,
+.tab[data-ext='jpg'] .tab__icon {
+  color: #b83998;
 }
 
+/* Pin Icon */
 .tab__pin-icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--text-soft);
-  margin-left: 6px;
-  opacity: 0.8;
+  color: var(--primary);
+  margin-left: 4px;
+  opacity: 0.7;
+  flex-shrink: 0;
 }
 
 .tab__pin-icon svg {
@@ -110,31 +143,64 @@
   height: 12px;
 }
 
-.tab__label {
-  white-space: nowrap;
-  font-size: 13px;
+.tab.is-pinned:hover .tab__pin-icon {
+  opacity: 1;
 }
 
+/* Tab Label */
+.tab__label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 12px;
+  font-weight: 400;
+  flex: 1;
+  min-width: 0;
+}
+
+.tab.is-active .tab__label {
+  font-weight: 500;
+}
+
+/* Close Button */
 .tab__close {
-  display: inline-grid;
-  place-items: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 18px;
   height: 18px;
   border-radius: 4px;
-  color: var(--muted);
-  font-size: 18px;
-  line-height: 1;
+  color: var(--text-soft);
+  opacity: 0;
+  transition:
+    opacity 100ms ease,
+    background 100ms ease,
+    color 100ms ease;
+  flex-shrink: 0;
+  margin-left: 4px;
+}
+
+.tab:hover .tab__close {
+  opacity: 0.7;
 }
 
 .tab__close:hover {
-  background: rgba(255, 255, 255, 0.06);
+  opacity: 1 !important;
+  background: rgba(255, 255, 255, 0.1);
   color: var(--text-strong);
 }
 
-.tabbar__empty {
-  color: var(--muted);
-  padding: 0 10px;
-  font-size: 13px;
+.tab__close svg {
+  width: 14px;
+  height: 14px;
 }
 
-/* Pinned Tabs - Cleaned up */
+/* Empty State */
+.tabbar__empty {
+  color: var(--muted);
+  padding: 0 16px;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  height: 100%;
+}

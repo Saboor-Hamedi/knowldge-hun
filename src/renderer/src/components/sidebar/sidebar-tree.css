@@ -5,7 +5,9 @@
   grid-template-rows: auto auto 1fr auto;
   gap: 0;
   overflow: hidden;
-  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+  transition:
+    box-shadow 0.2s ease,
+    border-color 0.2s ease;
   position: relative;
 }
 
@@ -37,49 +39,48 @@
 
 .sidebar__actions {
   display: flex;
-  gap: 0px;
+  gap: 2px;
 }
 
 .sidebar__action {
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   border: none;
   background: transparent;
   color: var(--text-soft);
   cursor: pointer;
   border-radius: 4px;
-  display: grid;
-  place-items: center;
-  transition: background 80ms ease, color 80ms ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    background 100ms ease,
+    color 100ms ease;
 }
 
 .sidebar__action:hover {
-  background: rgba(127, 167, 255, 0.1);
+  background: rgba(127, 167, 255, 0.12);
   color: var(--text-strong);
 }
 
-.sidebar__action svg {
-  width: 16px;
-  height: 16px;
-  stroke: var(--text-soft);
-  fill: none;
-  filter: none !important;
-  display: block;
-  opacity: 1 !important;
-  color: var(--text-soft) !important;
-  transition: stroke 120ms;
+.sidebar__action:active {
+  background: rgba(127, 167, 255, 0.18);
 }
+
+.sidebar__action svg {
+  width: 15px;
+  height: 15px;
+  stroke: currentColor;
+  fill: none;
+  display: block;
+  transition: stroke 100ms ease;
+}
+
 .sidebar__action:hover svg {
   stroke: var(--text-strong);
-  color: var(--text-strong) !important;
 }
-/* For filled elements */
-.sidebar__action svg circle[fill="currentColor"],
-.sidebar__action svg path[fill="currentColor"] {
-  fill: var(--text-soft);
-}
-.sidebar__action:hover svg circle[fill="currentColor"],
-.sidebar__action:hover svg path[fill="currentColor"] {
+.sidebar__action:hover svg circle[fill='currentColor'],
+.sidebar__action:hover svg path[fill='currentColor'] {
   fill: var(--text-strong);
 }
 
@@ -109,23 +110,50 @@
   color: var(--muted);
 }
 
-/* Body */
+/* Body - VS Code style scrolling */
 .sidebar__body {
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 4px 0 300px 0; /* Huge bottom space for root selection */
+  padding: 0;
   position: relative;
-  outline: none; /* Remove default browser focus ring */
+  outline: none;
+  min-height: 0; /* Important for flex/grid children to scroll properly */
 }
 
-.sidebar__body.is-root-selected::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border: 1px solid var(--primary);
-  opacity: 0.2;
-  pointer-events: none;
-  z-index: 100;
+/* Inner container for tree items - this gets the focus border, not the scrollable body */
+.sidebar__body-inner {
+  padding: 4px 0;
+  min-height: 100%;
+  position: relative;
+}
+
+/* Focus indicator on inner container when focused, not on scrollable area */
+.sidebar__body:focus-within .sidebar__body-inner,
+.sidebar__body.is-root-selected .sidebar__body-inner {
+  outline: 1px solid rgba(127, 167, 255, 0.3);
+  outline-offset: -1px;
+}
+
+/* Scrollbar styling - thin like VS Code */
+.sidebar__body::-webkit-scrollbar {
+  width: 10px;
+}
+
+.sidebar__body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar__body::-webkit-scrollbar-thumb {
+  background: rgba(127, 167, 255, 0.15);
+  border-radius: 5px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+.sidebar__body::-webkit-scrollbar-thumb:hover {
+  background: rgba(127, 167, 255, 0.3);
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
 
 /* Tree Items */
@@ -203,7 +231,6 @@
   transform: rotate(90deg);
 }
 
-
 .sidebar__icon {
   width: 16px;
   height: 16px;
@@ -256,12 +283,12 @@
   position: relative;
 }
 
-.tree-item[data-depth="0"]::before,
-.tree-item[data-depth="0"]::after {
+.tree-item[data-depth='0']::before,
+.tree-item[data-depth='0']::after {
   display: none !important;
 }
 
-.tree-item[data-depth="1"]::before {
+.tree-item[data-depth='1']::before {
   content: '';
   position: absolute;
   left: 23px;
@@ -271,7 +298,7 @@
   background: rgba(127, 127, 127, 0.3);
 }
 
-.tree-item[data-depth="1"]::after {
+.tree-item[data-depth='1']::after {
   content: '';
   position: absolute;
   left: 23px;
@@ -281,7 +308,7 @@
   background: rgba(127, 127, 127, 0.3);
 }
 
-.tree-item[data-depth="2"]::before {
+.tree-item[data-depth='2']::before {
   content: '';
   position: absolute;
   left: 39px;
@@ -291,7 +318,7 @@
   background: rgba(127, 127, 127, 0.2);
 }
 
-.tree-item[data-depth="2"]::after {
+.tree-item[data-depth='2']::after {
   content: '';
   position: absolute;
   left: 39px;
@@ -301,7 +328,7 @@
   background: rgba(127, 127, 127, 0.2);
 }
 
-.tree-item[data-depth="3"]::before {
+.tree-item[data-depth='3']::before {
   content: '';
   position: absolute;
   left: 55px;
@@ -311,7 +338,7 @@
   background: rgba(127, 127, 127, 0.15);
 }
 
-.tree-item[data-depth="3"]::after {
+.tree-item[data-depth='3']::after {
   content: '';
   position: absolute;
   left: 55px;
@@ -322,23 +349,23 @@
 }
 
 /* Tree depth styling */
-.tree-item[data-depth="1"] {
+.tree-item[data-depth='1'] {
   padding-left: 8px;
 }
 
-.tree-item[data-depth="2"] {
+.tree-item[data-depth='2'] {
   padding-left: 8px;
 }
 
-.tree-item[data-depth="3"] {
+.tree-item[data-depth='3'] {
   padding-left: 8px;
 }
 
-.tree-item[data-depth="4"] {
+.tree-item[data-depth='4'] {
   padding-left: 8px;
 }
 
-.tree-item[data-depth="5"] {
+.tree-item[data-depth='5'] {
   padding-left: 8px;
 }
 
@@ -363,44 +390,44 @@
 }
 
 /* Root folder - special blue color */
-.tree-item--folder[data-folder-type="root"] .tree-item__icon,
-.tree-item--folder .tree-item__icon[data-folder-type="root"] {
+.tree-item--folder[data-folder-type='root'] .tree-item__icon,
+.tree-item--folder .tree-item__icon[data-folder-type='root'] {
   color: #42a5f5;
 }
 
 /* Source folders - orange/yellow */
-.tree-item--folder[data-folder-type="src"] .tree-item__icon,
-.tree-item--folder .tree-item__icon[data-folder-type="src"] {
+.tree-item--folder[data-folder-type='src'] .tree-item__icon,
+.tree-item--folder .tree-item__icon[data-folder-type='src'] {
   color: #e3a341;
 }
 
 /* Config folders - blue */
-.tree-item--folder[data-folder-type="config"] .tree-item__icon,
-.tree-item--folder .tree-item__icon[data-folder-type="config"] {
+.tree-item--folder[data-folder-type='config'] .tree-item__icon,
+.tree-item--folder .tree-item__icon[data-folder-type='config'] {
   color: #42a5f5;
 }
 
 /* Settings folders - purple */
-.tree-item--folder[data-folder-type="settings"] .tree-item__icon,
-.tree-item--folder .tree-item__icon[data-folder-type="settings"] {
+.tree-item--folder[data-folder-type='settings'] .tree-item__icon,
+.tree-item--folder .tree-item__icon[data-folder-type='settings'] {
   color: #ab47bc;
 }
 
 /* Test folders - green */
-.tree-item--folder[data-folder-type="test"] .tree-item__icon,
-.tree-item--folder .tree-item__icon[data-folder-type="test"] {
+.tree-item--folder[data-folder-type='test'] .tree-item__icon,
+.tree-item--folder .tree-item__icon[data-folder-type='test'] {
   color: #66bb6a;
 }
 
 /* Public/Assets folders - light blue */
-.tree-item--folder[data-folder-type="public"] .tree-item__icon,
-.tree-item--folder .tree-item__icon[data-folder-type="public"] {
+.tree-item--folder[data-folder-type='public'] .tree-item__icon,
+.tree-item--folder .tree-item__icon[data-folder-type='public'] {
   color: #29b6f6;
 }
 
 /* Library/Utils folders - red/pink */
-.tree-item--folder[data-folder-type="lib"] .tree-item__icon,
-.tree-item--folder .tree-item__icon[data-folder-type="lib"] {
+.tree-item--folder[data-folder-type='lib'] .tree-item__icon,
+.tree-item--folder .tree-item__icon[data-folder-type='lib'] {
   color: #ef5350;
 }
 
@@ -412,50 +439,50 @@
 }
 
 /* Markdown files - blue */
-.tree-item--note[data-note-type="markdown"] .tree-item__icon,
-.tree-item--note .tree-item__icon[data-note-type="markdown"] {
+.tree-item--note[data-note-type='markdown'] .tree-item__icon,
+.tree-item--note .tree-item__icon[data-note-type='markdown'] {
   color: #42a5f5;
 }
 
 /* JavaScript files - yellow */
-.tree-item--note[data-note-type="javascript"] .tree-item__icon,
-.tree-item--note .tree-item__icon[data-note-type="javascript"] {
+.tree-item--note[data-note-type='javascript'] .tree-item__icon,
+.tree-item--note .tree-item__icon[data-note-type='javascript'] {
   color: #f7df1e;
 }
 
 /* TypeScript files - blue */
-.tree-item--note[data-note-type="typescript"] .tree-item__icon,
-.tree-item--note .tree-item__icon[data-note-type="typescript"] {
+.tree-item--note[data-note-type='typescript'] .tree-item__icon,
+.tree-item--note .tree-item__icon[data-note-type='typescript'] {
   color: #3178c6;
 }
 
 /* JSON files - yellow (matching tabbar) */
-.tree-item--note[data-note-type="json"] .tree-item__icon,
-.tree-item--note .tree-item__icon[data-note-type="json"] {
+.tree-item--note[data-note-type='json'] .tree-item__icon,
+.tree-item--note .tree-item__icon[data-note-type='json'] {
   color: #f1e05a;
 }
 
 /* HTML files - orange/red */
-.tree-item--note[data-note-type="html"] .tree-item__icon,
-.tree-item--note .tree-item__icon[data-note-type="html"] {
+.tree-item--note[data-note-type='html'] .tree-item__icon,
+.tree-item--note .tree-item__icon[data-note-type='html'] {
   color: #e34c26;
 }
 
 /* CSS files - blue */
-.tree-item--note[data-note-type="css"] .tree-item__icon,
-.tree-item--note .tree-item__icon[data-note-type="css"] {
+.tree-item--note[data-note-type='css'] .tree-item__icon,
+.tree-item--note .tree-item__icon[data-note-type='css'] {
   color: #264de4;
 }
 
 /* Text files - gray */
-.tree-item--note[data-note-type="text"] .tree-item__icon,
-.tree-item--note .tree-item__icon[data-note-type="text"] {
+.tree-item--note[data-note-type='text'] .tree-item__icon,
+.tree-item--note .tree-item__icon[data-note-type='text'] {
   color: #9ca3af;
 }
 
 /* Default files - gray */
-.tree-item--note[data-note-type="file"] .tree-item__icon,
-.tree-item--note .tree-item__icon[data-note-type="file"] {
+.tree-item--note[data-note-type='file'] .tree-item__icon,
+.tree-item--note .tree-item__icon[data-note-type='file'] {
   color: #9ca3af;
 }
 
