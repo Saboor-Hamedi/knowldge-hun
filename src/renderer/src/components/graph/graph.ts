@@ -36,6 +36,8 @@ export class GraphView {
   // D3 selections
   private linkSelection: d3.Selection<SVGLineElement, GraphLink, SVGGElement, unknown> | null = null
   private nodeSelection: d3.Selection<SVGGElement, GraphNode, SVGGElement, unknown> | null = null
+  private particleGroup: d3.Selection<SVGGElement, unknown, null, undefined> | null = null
+  private activeParticleAnimations: number[] = []
 
   constructor() {
     this.container = document.body
@@ -287,6 +289,7 @@ export class GraphView {
     // Clear previous
     this.g.selectAll('.links').remove()
     this.g.selectAll('.nodes').remove()
+    this.g.selectAll('.particles').remove()
 
     // Links
     const linkGroup = this.g.append('g').attr('class', 'links')
@@ -343,6 +346,9 @@ export class GraphView {
       .on('mouseleave', (_event, d) => this.handleNodeHover(d, false))
       .on('click', (_event, d) => this.handleNodeClick(d))
 
+    // Particle group (for animated dots on links)
+    this.particleGroup = this.g.append('g').attr('class', 'particles')
+
     // Restart simulation
     if (this.simulation) {
       this.simulation.nodes(this.filteredData.nodes)
@@ -391,13 +397,17 @@ export class GraphView {
     if (!this.linkSelection || !this.nodeSelection || !this.filteredData) return
 
     const connectedIds = new Set<string>([node.id])
+    const connectedLinks: GraphLink[] = []
 
-    // Find connected nodes
+    // Find connected nodes and links
     this.filteredData.links.forEach((link) => {
       const sourceId = typeof link.source === 'string' ? link.source : link.source.id
       const targetId = typeof link.target === 'string' ? link.target : link.target.id
-      if (sourceId === node.id) connectedIds.add(targetId)
-      if (targetId === node.id) connectedIds.add(sourceId)
+      if (sourceId === node.id || targetId === node.id) {
+        connectedLinks.push(link)
+        connectedIds.add(sourceId)
+        connectedIds.add(targetId)
+      }
     })
 
     // Dim non-connected nodes
@@ -405,20 +415,12 @@ export class GraphView {
       .classed('node--dimmed', (d) => !connectedIds.has(d.id))
       .classed('node--highlighted', (d) => connectedIds.has(d.id) && d.id !== node.id)
 
-    // Highlight connected links with flow animation
+    // Highlight connected links
     this.linkSelection
       .classed('link--highlighted', (link) => {
         const sourceId = typeof link.source === 'string' ? link.source : link.source.id
         const targetId = typeof link.target === 'string' ? link.target : link.target.id
         return sourceId === node.id || targetId === node.id
-      })
-      .classed('link--outgoing', (link) => {
-        const sourceId = typeof link.source === 'string' ? link.source : link.source.id
-        return sourceId === node.id
-      })
-      .classed('link--incoming', (link) => {
-        const targetId = typeof link.target === 'string' ? link.target : link.target.id
-        return targetId === node.id
       })
       .attr('marker-end', (link) => {
         const sourceId = typeof link.source === 'string' ? link.source : link.source.id
@@ -427,15 +429,136 @@ export class GraphView {
         if ((link as GraphLink).bidirectional) return ''
         return isHighlighted ? 'url(#arrow-highlighted)' : 'url(#arrow)'
       })
+
+    // Start particle animations on connected links
+    this.startParticleAnimations(node, connectedLinks)
+  }
+
+  private startParticleAnimations(hoveredNode: GraphNode, links: GraphLink[]): void {
+    if (!this.particleGroup) return
+
+    // Clear any existing animations
+    this.stopParticleAnimations()
+
+    // Performance limits
+    const MAX_TOTAL_PARTICLES = 24
+    const PARTICLES_PER_LINK = 2
+
+    // Calculate how many particles per link based on total links
+    const totalLinks = links.length
+    const particlesPerLink = Math.min(
+      PARTICLES_PER_LINK,
+      Math.max(1, Math.floor(MAX_TOTAL_PARTICLES / totalLinks))
+    )
+
+    // Skip animation entirely if too many links (performance)
+    if (totalLinks > 30) {
+      return
+    }
+
+    // Prepare particle data for efficient rendering
+    interface ParticleData {
+      source: GraphNode
+      target: GraphNode
+      isOutgoing: boolean
+      offset: number // 0 to 1, stagger position
+      speed: number // duration in ms
+    }
+
+    const particleData: ParticleData[] = []
+
+    links.forEach((link) => {
+      const source = link.source as GraphNode
+      const target = link.target as GraphNode
+      const isOutgoing = source.id === hoveredNode.id
+
+      for (let i = 0; i < particlesPerLink; i++) {
+        particleData.push({
+          source,
+          target,
+          isOutgoing,
+          offset: i / particlesPerLink,
+          speed: 2000 + Math.random() * 500 // Slight variation
+        })
+      }
+    })
+
+    // Create all particles at once (batch DOM operation)
+    const particles = this.particleGroup
+      .selectAll<SVGCircleElement, ParticleData>('.link-particle')
+      .data(particleData)
+      .enter()
+      .append('circle')
+      .attr('class', 'link-particle')
+      .attr('r', 2.5)
+
+    // Use requestAnimationFrame for smooth, batched animation
+    let startTime: number | null = null
+    let animationId: number
+
+    const animate = (timestamp: number): void => {
+      if (!startTime) startTime = timestamp
+      const elapsed = timestamp - startTime
+
+      particles.each(function (this: SVGCircleElement, d) {
+        const duration = d.speed
+        // Calculate progress with offset for stagger effect
+        const progress = (elapsed / duration + d.offset) % 1
+
+        // Get current positions (nodes may have moved due to simulation)
+        const x1 = d.source.x || 0
+        const y1 = d.source.y || 0
+        const x2 = d.target.x || 0
+        const y2 = d.target.y || 0
+
+        // Interpolate position based on direction
+        let x: number, y: number
+        if (d.isOutgoing) {
+          x = x1 + (x2 - x1) * progress
+          y = y1 + (y2 - y1) * progress
+        } else {
+          x = x2 + (x1 - x2) * progress
+          y = y2 + (y1 - y2) * progress
+        }
+
+        // Update position directly (no D3 transition overhead)
+        this.setAttribute('cx', String(x))
+        this.setAttribute('cy', String(y))
+      })
+
+      // Continue animation loop
+      animationId = requestAnimationFrame(animate)
+    }
+
+    animationId = requestAnimationFrame(animate)
+
+    // Store the animation frame ID for cleanup (use negative to distinguish)
+    this.activeParticleAnimations.push(-animationId)
+  }
+
+  private stopParticleAnimations(): void {
+    // Clear all pending timeouts and animation frames
+    this.activeParticleAnimations.forEach((id) => {
+      if (id < 0) {
+        cancelAnimationFrame(-id)
+      } else {
+        window.clearTimeout(id)
+      }
+    })
+    this.activeParticleAnimations = []
+
+    // Remove all particles
+    this.particleGroup?.selectAll('.link-particle').remove()
   }
 
   private clearHighlight(): void {
     this.nodeSelection?.classed('node--dimmed', false).classed('node--highlighted', false)
     this.linkSelection
       ?.classed('link--highlighted', false)
-      .classed('link--outgoing', false)
-      .classed('link--incoming', false)
       .attr('marker-end', (d) => ((d as GraphLink).bidirectional ? '' : 'url(#arrow)'))
+
+    // Stop particle animations
+    this.stopParticleAnimations()
   }
 
   private showTooltip(node: GraphNode): void {

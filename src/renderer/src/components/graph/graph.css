@@ -374,36 +374,11 @@
   stroke-width: 3px !important;
 }
 
-/* Outgoing links: flowing dots animation away from hovered node */
-.link--outgoing {
-  stroke-dasharray: 2 12;
-  stroke-linecap: round;
-  animation: link-flow-out 0.8s linear infinite;
-}
-
-/* Incoming links: flowing dots animation toward hovered node */
-.link--incoming {
-  stroke-dasharray: 2 12;
-  stroke-linecap: round;
-  animation: link-flow-in 0.8s linear infinite;
-}
-
-@keyframes link-flow-out {
-  from {
-    stroke-dashoffset: 0;
-  }
-  to {
-    stroke-dashoffset: -14;
-  }
-}
-
-@keyframes link-flow-in {
-  from {
-    stroke-dashoffset: 0;
-  }
-  to {
-    stroke-dashoffset: 14;
-  }
+/* Animated particles on links */
+.link-particle {
+  fill: var(--primary);
+  pointer-events: none;
+  opacity: 0.9;
 }
 
 /* Nodes */
