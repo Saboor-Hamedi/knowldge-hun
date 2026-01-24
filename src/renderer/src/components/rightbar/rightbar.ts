@@ -1,6 +1,9 @@
 import { aiService, type ChatMessage } from '../../services/aiService'
+import { sessionStorageService, type ChatSession } from '../../services/sessionStorageService'
+import { SessionSidebar } from './session-sidebar'
 import MarkdownIt from 'markdown-it'
 import DOMPurify from 'dompurify'
+import { Avatar } from './avatar'
 import './rightbar.css'
 
 const WELCOME_HTML = `
@@ -14,7 +17,10 @@ const WELCOME_HTML = `
 
 const TYPING_HTML = `
   <div class="rightbar__typing" aria-live="polite">
-    <span></span><span></span><span></span>
+    ${Avatar.createHTML('assistant', 20)}
+    <div class="rightbar__typing-dots">
+      <span></span><span></span><span></span>
+    </div>
   </div>
 `
 
@@ -39,6 +45,9 @@ export class RightBar {
   private noteReferences: Set<string> = new Set()
   private characterCounter!: HTMLElement
   private typingTimeout: number | null = null
+  private currentSessionId: string | null = null
+  private saveTimeout: number | null = null
+  private isInitialized = false
 
   constructor(containerId: string) {
     this.container = document.getElementById(containerId) as HTMLElement
@@ -52,6 +61,275 @@ export class RightBar {
     void this.loadNotes()
     this.render()
     this.attachEvents()
+    void this.initializeSession()
+  }
+
+  /**
+   * Initialize session storage and load/create session
+   */
+  private async initializeSession(): Promise<void> {
+    try {
+      // Initialize IndexedDB
+      await sessionStorageService.getAllSessions()
+      this.isInitialized = true
+      
+      // Try to restore last active session
+      const lastSessionId = localStorage.getItem('knowledgeHub_currentSessionId')
+      if (lastSessionId && this.sessionSidebar) {
+        try {
+          const session = await sessionStorageService.getSession(lastSessionId)
+          if (session) {
+            // Restore the session
+            this.messages = [...session.messages]
+            this.currentSessionId = session.id
+            this.sessionSidebar.setCurrentSession(session.id)
+            this.renderMessages()
+            return // Don't create a new session
+          }
+        } catch (error) {
+          console.warn('[RightBar] Failed to restore last session:', error)
+          localStorage.removeItem('knowledgeHub_currentSessionId')
+        }
+      }
+      
+      // Create a new session if we don't have messages (only after sidebar is initialized)
+      if (this.messages.length === 0 && this.sessionSidebar) {
+        await this.createNewSession()
+      }
+    } catch (error) {
+      console.error('[RightBar] Failed to initialize session storage:', error)
+      this.isInitialized = false
+    }
+  }
+
+  /**
+   * Create a new session or reuse existing empty session
+   */
+  private async createNewSession(): Promise<void> {
+    if (!this.isInitialized) {
+      await this.initializeSession()
+    }
+
+    try {
+      // Check if there's an existing empty session (no messages)
+      const allSessions = await sessionStorageService.getAllSessions(false)
+      const emptySession = allSessions.find(session => session.messages.length === 0)
+      
+      if (emptySession) {
+        // Reuse existing empty session
+        this.currentSessionId = emptySession.id
+        this.messages = []
+        
+        // Save to localStorage for persistence
+        localStorage.setItem('knowledgeHub_currentSessionId', emptySession.id)
+        
+        // Update sidebar if it exists
+        if (this.sessionSidebar) {
+          this.sessionSidebar.setCurrentSession(emptySession.id)
+          await this.sessionSidebar.refresh()
+        }
+        return
+      }
+
+      // No empty session found, create a new one
+      // Generate smart title if we have messages
+      const title = this.messages.length > 0 ? this.generateSmartTitle() : undefined
+      const session = await sessionStorageService.createSession(this.messages, title)
+      this.currentSessionId = session.id
+      
+      // Save to localStorage for persistence
+      localStorage.setItem('knowledgeHub_currentSessionId', session.id)
+      
+      // Update sidebar if it exists
+      if (this.sessionSidebar) {
+        this.sessionSidebar.setCurrentSession(session.id)
+        await this.sessionSidebar.refresh()
+      }
+    } catch (error) {
+      console.error('[RightBar] Failed to create session:', error)
+    }
+  }
+
+  /**
+   * Start a new session (clear current and reuse empty or create new)
+   */
+  async startNewSession(): Promise<void> {
+    // Clear current messages
+    this.messages = []
+    this.lastFailedMessage = null
+    
+    // Check if there's an existing empty session we can reuse
+    try {
+      const allSessions = await sessionStorageService.getAllSessions(false)
+      const emptySession = allSessions.find(session => session.messages.length === 0)
+      
+      if (emptySession) {
+        // Reuse existing empty session
+        this.currentSessionId = emptySession.id
+        localStorage.setItem('knowledgeHub_currentSessionId', emptySession.id)
+        
+        if (this.sessionSidebar) {
+          this.sessionSidebar.setCurrentSession(emptySession.id)
+        }
+        
+        this.renderMessages()
+        
+        if (this.sessionSidebar) {
+          await this.sessionSidebar.refresh()
+        }
+        return
+      }
+    } catch (error) {
+      console.warn('[RightBar] Failed to check for empty sessions:', error)
+    }
+    
+    // No empty session found, create a new one
+    this.currentSessionId = null
+    localStorage.removeItem('knowledgeHub_currentSessionId')
+    
+    if (this.sessionSidebar) {
+      this.sessionSidebar.setCurrentSession(null)
+    }
+    
+    await this.createNewSession()
+    this.renderMessages()
+    
+    if (this.sessionSidebar) {
+      await this.sessionSidebar.refresh()
+    }
+  }
+
+  /**
+   * Auto-save current session (debounced, non-blocking)
+   */
+  private async autoSaveSession(): Promise<void> {
+    if (!this.isInitialized || !this.currentSessionId || this.messages.length === 0) {
+      return
+    }
+
+    // Clear existing timeout
+    if (this.saveTimeout !== null) {
+      clearTimeout(this.saveTimeout)
+    }
+
+    // Debounce saves (wait 1 second after last message change)
+    // Use setTimeout to ensure this doesn't block the main thread
+    this.saveTimeout = window.setTimeout(() => {
+      // Use requestIdleCallback if available, otherwise setTimeout with 0 delay
+      const saveOperation = async () => {
+        try {
+          await sessionStorageService.updateSessionMessages(
+            this.currentSessionId!,
+            this.messages
+          )
+          // Update session title if it's still the default
+          const session = await sessionStorageService.getSession(this.currentSessionId!)
+          if (session && session.title === 'New Session' && this.messages.length > 0) {
+            const newTitle = this.generateSmartTitle()
+            if (newTitle && newTitle !== 'New Session') {
+              await sessionStorageService.updateSessionTitle(this.currentSessionId!, newTitle)
+              await this.sessionSidebar.refresh()
+            }
+          }
+        } catch (error) {
+          console.error('[RightBar] Failed to auto-save session:', error)
+        }
+        this.saveTimeout = null
+      }
+
+      if ('requestIdleCallback' in window) {
+        requestIdleCallback(saveOperation, { timeout: 2000 })
+      } else {
+        setTimeout(saveOperation, 0)
+      }
+    }, 1000)
+  }
+
+  /**
+   * Generate smart title from current messages
+   */
+  private generateSmartTitle(): string {
+    const firstUserMessage = this.messages.find(msg => msg.role === 'user')
+    if (!firstUserMessage) {
+      return 'New Session'
+    }
+
+    let text = firstUserMessage.content.trim()
+    
+    // Remove markdown formatting
+    text = text
+      .replace(/^#+\s+/, '')
+      .replace(/\*\*(.+?)\*\*/g, '$1')
+      .replace(/\*(.+?)\*/g, '$1')
+      .replace(/`(.+?)`/g, '$1')
+      .replace(/\[(.+?)\]\(.+?\)/g, '$1')
+      .trim()
+
+    // Remove common prefixes
+    const prefixes = [
+      /^(what|how|why|when|where|who|can|could|should|would|is|are|do|does|did)\s+/i,
+      /^(explain|describe|tell|show|help|please)\s+/i,
+      /^(i want|i need|i would like|i\'m looking for)\s+/i
+    ]
+    
+    for (const prefix of prefixes) {
+      text = text.replace(prefix, '')
+    }
+    text = text.trim()
+
+    const firstLine = text.split('\n')[0]
+    let title = firstLine.substring(0, 40).trim()
+    
+    if (title.length > 0) {
+      title = title.charAt(0).toUpperCase() + title.slice(1)
+    }
+    
+    if (title.length > 1 && /[.,!?;:]$/.test(title)) {
+      title = title.slice(0, -1)
+    }
+    
+    if (firstLine.length > 40) {
+      title += '...'
+    }
+
+    return title || 'New Session'
+  }
+
+  /**
+   * Load a session by ID
+   */
+  async loadSession(sessionId: string): Promise<void> {
+    if (!this.isInitialized) {
+      await this.initializeSession()
+    }
+
+    try {
+      const session = await sessionStorageService.getSession(sessionId)
+      if (session) {
+        this.messages = [...session.messages]
+        this.currentSessionId = session.id
+        
+        // Save current session ID to localStorage for persistence
+        localStorage.setItem('knowledgeHub_currentSessionId', sessionId)
+        
+        if (this.sessionSidebar) {
+          this.sessionSidebar.setCurrentSession(sessionId)
+          // Don't hide sidebar - let user close it manually
+        }
+        
+        this.renderMessages()
+      }
+    } catch (error) {
+      console.error('[RightBar] Failed to load session:', error)
+    }
+  }
+
+  /**
+   * Get current session
+   */
+  async getCurrentSession(): Promise<ChatSession | null> {
+    if (!this.currentSessionId) return null
+    return await sessionStorageService.getSession(this.currentSessionId)
   }
 
   private async loadNotes(): Promise<void> {
@@ -81,9 +359,16 @@ export class RightBar {
         <div class="rightbar__resize-handle" id="rightbar-resize-handle"></div>
         <div class="rightbar__header">
           <h3 class="rightbar__title">AI Chat</h3>
-          <button class="rightbar__header-close" id="rightbar-header-close" title="Close (Ctrl+I)" aria-label="Close panel">
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>
-          </button>
+          <div class="rightbar__header-actions">
+            <button class="rightbar__header-sessions" id="rightbar-header-sessions" title="Sessions" aria-label="Toggle sessions">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 2h10M3 6h10M3 10h10M3 14h10"/>
+              </svg>
+            </button>
+            <button class="rightbar__header-close" id="rightbar-header-close" title="Close (Ctrl+I)" aria-label="Close panel">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+            </button>
+          </div>
         </div>
         <div class="rightbar__chat-container" id="rightbar-chat-container">
           <div class="rightbar__chat-messages" id="rightbar-chat-messages"></div>
@@ -116,6 +401,8 @@ export class RightBar {
         </div>
       </div>
     `
+    const rightbarElement = this.container.querySelector('.rightbar') as HTMLElement
+    
     this.chatContainer = this.container.querySelector('#rightbar-chat-messages') as HTMLElement
     this.chatInput = this.container.querySelector('#rightbar-chat-input') as HTMLElement
     this.sendButton = this.container.querySelector('#rightbar-chat-send') as HTMLButtonElement
@@ -132,6 +419,24 @@ export class RightBar {
     // Initialize character counter
     if (this.characterCounter) {
       this.characterCounter.textContent = '0'
+    }
+
+    // Initialize session sidebar - append to the rightbar element
+    if (rightbarElement) {
+      this.sessionSidebar = new SessionSidebar(rightbarElement)
+      this.sessionSidebar.setOnSessionSelect((sessionId) => {
+        void this.loadSession(sessionId)
+      })
+      this.sessionSidebar.setOnNewSession(() => {
+        void this.startNewSession()
+      })
+
+      const sessionsBtn = this.container.querySelector('#rightbar-header-sessions') as HTMLButtonElement
+      sessionsBtn?.addEventListener('click', () => {
+        if (this.sessionSidebar) {
+          this.sessionSidebar.toggle()
+        }
+      })
     }
   }
 
@@ -746,6 +1051,11 @@ export class RightBar {
   }
 
   private async doSend(message: string): Promise<void> {
+    // Create or reuse empty session if this is the first message
+    if (!this.currentSessionId && this.isInitialized) {
+      await this.createNewSession()
+    }
+
     this.addMessage('user', message)
     this.sendButton.disabled = true
     this.lastFailedMessage = null
@@ -764,29 +1074,43 @@ export class RightBar {
       return
     }
 
-    try {
-      const contextMessage = aiService.buildContextMessage(message)
-      const response = await aiService.callDeepSeekAPI(this.messages, contextMessage)
-      this.isLoading = false
-      this.addMessage('assistant', response)
-    } catch (err: unknown) {
-      this.isLoading = false
-      this.lastFailedMessage = message
-      const errorMsg = err instanceof Error ? err.message : 'Failed to get response'
-      this.addMessage(
-        'assistant',
-        `❌ **Error**\n\n${errorMsg}\n\nPlease check your API key and internet connection.`
-      )
-      console.error('[RightBar] API Error:', err)
-    } finally {
-      this.sendButton.disabled = false
-      this.chatInput.focus()
-    }
+    // Use setTimeout to ensure AI response doesn't block main thread
+    // This allows Monaco editor to remain responsive during AI processing
+    setTimeout(async () => {
+      try {
+        const contextMessage = await aiService.buildContextMessage(message)
+        const response = await aiService.callDeepSeekAPI(this.messages, contextMessage)
+        
+        // Use requestAnimationFrame for smooth UI updates
+        requestAnimationFrame(() => {
+          this.isLoading = false
+          this.addMessage('assistant', response)
+          this.sendButton.disabled = false
+          this.chatInput.focus()
+        })
+      } catch (err: unknown) {
+        requestAnimationFrame(() => {
+          this.isLoading = false
+          this.lastFailedMessage = message
+          const errorMsg = err instanceof Error ? err.message : 'Failed to get response'
+          this.addMessage(
+            'assistant',
+            `❌ **Error**\n\n${errorMsg}\n\nPlease check your API key and internet connection.`
+          )
+          this.sendButton.disabled = false
+          this.chatInput.focus()
+        })
+        console.error('[RightBar] API Error:', err)
+      }
+    }, 0)
   }
 
   private addMessage(role: 'user' | 'assistant', content: string): void {
     this.messages.push({ role, content, timestamp: Date.now() })
     this.renderMessages()
+    
+    // Auto-save session after adding message
+    void this.autoSaveSession()
   }
 
   private formatContent(text: string, isAssistant: boolean): string {
@@ -825,6 +1149,7 @@ export class RightBar {
       .map((msg) => {
         const isError = msg.role === 'assistant' && msg.content.startsWith('❌')
         const content = this.formatContent(msg.content, msg.role === 'assistant')
+        const avatar = Avatar.createHTML(msg.role as 'user' | 'assistant', 20)
         const actions =
           msg.role === 'assistant'
             ? `<div class="rightbar__message-actions">
@@ -834,8 +1159,11 @@ export class RightBar {
             : ''
         return `
         <div class="rightbar__message rightbar__message--${msg.role}">
-          <div class="rightbar__message-content">${content}</div>
-          ${actions}
+          ${avatar}
+          <div class="rightbar__message-body">
+            <div class="rightbar__message-content">${content}</div>
+            ${actions}
+          </div>
         </div>
       `
       })
