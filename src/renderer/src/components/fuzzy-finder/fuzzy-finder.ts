@@ -1,5 +1,6 @@
 import { state } from '../../core/state'
-import { codicons, getFileIcon } from '../../utils/codicons'
+import { codicons } from '../../utils/codicons'
+import getFileIcon from '../../utils/fileIconMappers'
 import './fuzzy-finder.css'
 
 export interface Command {
@@ -315,7 +316,7 @@ export class FuzzyFinder {
     } else {
       this.list.innerHTML = this.visibleItems.map((item, index) => {
         const isSelected = index === this.selectedIndex ? 'is-selected' : ''
-        const icon = item.type === 'folder' ? codicons.folder : getFileIcon(item.title || '')
+        const icon = item.type === 'folder' ? codicons.folder : getFileIcon(item.title || '', 'markdown')
         const noteType = item.type === 'note' ? this.getNoteType(item.title || '') : ''
         const title = this.highlight(item.title || '', this.query)
         const path = this.highlight(item.path ? item.path.replace(/\\/g, '/') : '', this.query)

@@ -21,6 +21,8 @@ export class SettingsView {
   private vaultCallbacks?: VaultSettingsCallbacks
   private activeSection: string = 'editor'
   private recentVaults: VaultInfo[] = []
+  private searchQuery: string = ''
+  private searchTimeout?: number
 
   constructor(containerId: string) {
     this.container = document.getElementById(containerId) as HTMLElement
@@ -52,6 +54,8 @@ export class SettingsView {
     return ''
   }
 
+
+  // create the settings view HTML ->tab
   private render(): void {
     this.container.innerHTML = `
       <div class="settings-view">
@@ -59,6 +63,9 @@ export class SettingsView {
           <div class="settings-view__sidebar-title">Settings</div>
           <button class="settings-view__sidebar-item ${this.activeSection === 'editor' ? 'is-active' : ''}" data-section-tab="editor">
             ${codicons.edit} Editor
+          </button>
+          <button class="settings-view__sidebar-item ${this.activeSection === 'editor-options' ? 'is-active' : ''}" data-section-tab="editor-options">
+            ${codicons.settingsGear} Editor Options
           </button>
           <button class="settings-view__sidebar-item ${this.activeSection === 'appearance' ? 'is-active' : ''}" data-section-tab="appearance">
             ${codicons.paintbrush} Appearance
@@ -75,10 +82,16 @@ export class SettingsView {
         </aside>
 
         <div class="settings-view__content">
-          <header class="settings-view__header">
-            <h1 class="settings-view__title">Settings</h1>
-            <p class="settings-view__subtitle">Configure your workspace and editor experience.</p>
-          </header>
+
+          <!-- Search Bar -->
+          <div class="settings-search">
+            <input
+              type="text"
+              class="settings-search__input"
+              placeholder="Search settings..."
+              value="${this.searchQuery}"
+            />
+          </div>
 
           <!-- Editor Section -->
           <div class="settings-view__section ${this.activeSection === 'editor' ? 'is-active' : ''}" data-section="editor">
@@ -86,9 +99,12 @@ export class SettingsView {
                 <h2 class="settings-view__section-title">Editor</h2>
             </div>
 
-            <div class="settings-field">
-              <label class="settings-field__label">Font Size</label>
-              <p class="settings-field__hint">Controls the font size in pixels.</p>
+            <!-- Font Size -->
+            <div class="settings-field" data-search="font size controls the editor font size px">
+              <div class="settings-field__info">
+                <label class="settings-field__label">Font Size</label>
+                <p class="settings-field__hint">Controls the editor font size (px).</p>
+              </div>
               <div class="settings-field__control">
                 <input
                   type="number"
@@ -101,46 +117,105 @@ export class SettingsView {
               </div>
             </div>
 
-            <div class="settings-field">
-              <label class="settings-field__label">Line Numbers</label>
-              <p class="settings-field__hint">Show or hide line numbers in the editor gutter.</p>
-              <label class="settings-toggle">
+            <!-- Caret Width -->
+            <div class="settings-field" data-search="caret width set the max width for the editor caret">
+              <div class="settings-field__info">
+                <label class="settings-field__label">Caret Width</label>
+                <p class="settings-field__hint">Set the max width for the editor caret.</p>
+              </div>
+              <div class="settings-field__control">
                 <input
-                  type="checkbox"
-                  data-setting="lineNumbers"
-                  ${state.settings?.lineNumbers ? 'checked' : ''}
+                  type="number"
+                  class="settings-input"
+                  data-setting="caretMaxWidth"
+                  min="1"
+                  max="10"
+                  value="${state.settings?.caretMaxWidth ?? 2}"
                 />
-                <span class="settings-toggle__slider"></span>
-                <span class="settings-toggle__label">Enable line numbers</span>
-              </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Editor Options Section -->
+          <div class="settings-view__section ${this.activeSection === 'editor-options' ? 'is-active' : ''}" data-section="editor-options">
+            <div class="settings-view__section-header">
+                <h2 class="settings-view__section-title">Editor Options</h2>
             </div>
 
-            <div class="settings-field">
-              <label class="settings-field__label">Word Wrap</label>
-              <p class="settings-field__hint">Wrap long lines to fit the editor width.</p>
-              <label class="settings-toggle">
-                <input
-                  type="checkbox"
-                  data-setting="wordWrap"
-                  ${state.settings?.wordWrap ? 'checked' : ''}
-                />
-                <span class="settings-toggle__slider"></span>
-                <span class="settings-toggle__label">Enable word wrap</span>
-              </label>
+            <!-- Caret Toggle -->
+            <div class="settings-field" data-search="caret show or hide the editor caret">
+              <div class="settings-field__info">
+                <label class="settings-field__label">Caret</label>
+                <p class="settings-field__hint">Show or hide the editor caret.</p>
+              </div>
+              <div class="settings-field__control">
+                <label class="settings-toggle">
+                  <input
+                    type="checkbox"
+                    data-setting="caretEnabled"
+                    ${state.settings?.caretEnabled ? 'checked' : ''}
+                  />
+                  <span class="settings-toggle__slider"></span>
+                  <span class="settings-toggle__label">Show caret</span>
+                </label>
+              </div>
             </div>
 
-            <div class="settings-field">
-              <label class="settings-field__label">Minimap</label>
-              <p class="settings-field__hint">Controls whether the minimap is shown.</p>
-              <label class="settings-toggle">
-                <input
-                  type="checkbox"
-                  data-setting="minimap"
-                  ${state.settings?.minimap ? 'checked' : ''}
-                />
-                <span class="settings-toggle__slider"></span>
-                <span class="settings-toggle__label">Show minimap</span>
-              </label>
+            <!-- Line Numbers -->
+            <div class="settings-field" data-search="line numbers show or hide the line numbers in the gutter">
+              <div class="settings-field__info">
+                <label class="settings-field__label">Line Numbers</label>
+                <p class="settings-field__hint">Show or hide the line numbers in the gutter.</p>
+              </div>
+              <div class="settings-field__control">
+                <label class="settings-toggle">
+                  <input
+                    type="checkbox"
+                    data-setting="lineNumbers"
+                    ${state.settings?.lineNumbers ? 'checked' : ''}
+                  />
+                  <span class="settings-toggle__slider"></span>
+                  <span class="settings-toggle__label">Enable line numbers</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- Word Wrap -->
+            <div class="settings-field" data-search="word wrap wrap long lines to fit the editor width">
+              <div class="settings-field__info">
+                <label class="settings-field__label">Word Wrap</label>
+                <p class="settings-field__hint">Wrap long lines to fit the editor width.</p>
+              </div>
+              <div class="settings-field__control">
+                <label class="settings-toggle">
+                  <input
+                    type="checkbox"
+                    data-setting="wordWrap"
+                    ${state.settings?.wordWrap ? 'checked' : ''}
+                  />
+                  <span class="settings-toggle__slider"></span>
+                  <span class="settings-toggle__label">Enable word wrap</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- Minimap -->
+            <div class="settings-field" data-search="minimap show the minimap for quick navigation">
+              <div class="settings-field__info">
+                <label class="settings-field__label">Minimap</label>
+                <p class="settings-field__hint">Show the minimap for quick navigation.</p>
+              </div>
+              <div class="settings-field__control">
+                <label class="settings-toggle">
+                  <input
+                    type="checkbox"
+                    data-setting="minimap"
+                    ${state.settings?.minimap ? 'checked' : ''}
+                  />
+                  <span class="settings-toggle__slider"></span>
+                  <span class="settings-toggle__label">Show minimap</span>
+                </label>
+              </div>
             </div>
           </div>
 
@@ -151,8 +226,10 @@ export class SettingsView {
             </div>
 
             <div class="settings-field">
-              <label class="settings-field__label">Color Theme</label>
-              <p class="settings-field__hint">Select your preferred color scheme for the entire application.</p>
+              <div class="settings-field__info">
+                <label class="settings-field__label">Color Theme</label>
+                <p class="settings-field__hint">Select your preferred color scheme for the entire application.</p>
+              </div>
               <div class="settings-field__control">
                 <select class="settings-input" data-setting="theme">
                   ${Object.values(themes).map(t => `
@@ -170,22 +247,28 @@ export class SettingsView {
             </div>
 
             <div class="settings-field">
-              <label class="settings-field__label">Auto Save</label>
-              <p class="settings-field__hint">Automatically save your notes as you type.</p>
-              <label class="settings-toggle">
-                <input
-                  type="checkbox"
-                  data-setting="autoSave"
-                  ${state.settings?.autoSave ? 'checked' : ''}
-                />
-                <span class="settings-toggle__slider"></span>
-                <span class="settings-toggle__label">Enable Auto Save</span>
-              </label>
+              <div class="settings-field__info">
+                <label class="settings-field__label">Auto Save</label>
+                <p class="settings-field__hint">Automatically save your notes as you type.</p>
+              </div>
+              <div class="settings-field__control">
+                <label class="settings-toggle">
+                  <input
+                    type="checkbox"
+                    data-setting="autoSave"
+                    ${state.settings?.autoSave ? 'checked' : ''}
+                  />
+                  <span class="settings-toggle__slider"></span>
+                  <span class="settings-toggle__label">Enable Auto Save</span>
+                </label>
+              </div>
             </div>
 
             <div class="settings-field">
-              <label class="settings-field__label">Auto Save Delay</label>
-              <p class="settings-field__hint">Millisecond delay after your last keystroke before saving.</p>
+              <div class="settings-field__info">
+                <label class="settings-field__label">Auto Save Delay</label>
+                <p class="settings-field__hint">Millisecond delay after your last keystroke before saving.</p>
+              </div>
               <div class="settings-field__control">
                 <input
                   type="number"
@@ -200,8 +283,10 @@ export class SettingsView {
             </div>
 
             <div class="settings-field">
-              <label class="settings-field__label">DeepSeek API Key</label>
-              <p class="settings-field__hint">Your DeepSeek API key for AI chat functionality. Get one at <a href="https://platform.deepseek.com" target="_blank" style="color: var(--primary);">platform.deepseek.com</a></p>
+              <div class="settings-field__info">
+                <label class="settings-field__label">DeepSeek API Key</label>
+                <p class="settings-field__hint">Your DeepSeek API key for AI chat functionality. Get one at <a href="https://platform.deepseek.com" target="_blank" style="color: var(--primary);">platform.deepseek.com</a></p>
+              </div>
               <div class="settings-field__control">
                 <input
                   type="password"
@@ -221,9 +306,11 @@ export class SettingsView {
             </div>
 
             <div class="settings-field">
-              <label class="settings-field__label">Current Vault</label>
-              <p class="settings-field__hint">The folder where your notes are stored.</p>
-              <div class="settings-field__control">
+              <div class="settings-field__info">
+                <label class="settings-field__label">Current Vault</label>
+                <p class="settings-field__hint">The folder where your notes are stored.</p>
+              </div>
+              <div class="settings-field__control" style="grid-column: 1 / -1;">
                 <div class="settings-vault-path">
                   <div class="settings-vault-path__display" id="settings-vault-path-display">
                     ${state.vaultPath || 'No vault selected'}
@@ -236,8 +323,10 @@ export class SettingsView {
             </div>
 
             <div class="settings-field">
-              <label class="settings-field__label">Change Vault</label>
-              <p class="settings-field__hint">Select a different folder for your notes.</p>
+              <div class="settings-field__info">
+                <label class="settings-field__label">Change Vault</label>
+                <p class="settings-field__hint">Select a different folder for your notes.</p>
+              </div>
               <div class="settings-field__control">
                 <button class="settings-button settings-button--primary" id="settings-vault-change">
                   ${codicons.newFolder} Change Vault Folder
@@ -246,9 +335,11 @@ export class SettingsView {
             </div>
 
             <div class="settings-field">
-              <label class="settings-field__label">Recent Vaults</label>
-              <p class="settings-field__hint">Quickly switch between recently used vaults.</p>
-              <div class="settings-field__control">
+              <div class="settings-field__info">
+                <label class="settings-field__label">Recent Vaults</label>
+                <p class="settings-field__hint">Quickly switch between recently used vaults.</p>
+              </div>
+              <div class="settings-field__control" style="grid-column: 1 / -1;">
                 <div class="settings-vault-list" id="settings-vault-list">
                   <div class="settings-vault-list__loading">Loading recent vaults...</div>
                 </div>
@@ -263,8 +354,10 @@ export class SettingsView {
             </div>
 
             <div class="settings-field">
-              <label class="settings-field__label">GitHub Personal Access Token</label>
-              <p class="settings-field__hint">Your GitHub token for Gist access. Create one at <a href="https://github.com/settings/tokens" target="_blank">github.com/settings/tokens</a></p>
+              <div class="settings-field__info">
+                <label class="settings-field__label">GitHub Personal Access Token</label>
+                <p class="settings-field__hint">Your GitHub token for Gist access. Create one at <a href="https://github.com/settings/tokens" target="_blank">github.com/settings/tokens</a></p>
+              </div>
               <div class="settings-field__control">
                 <input
                   type="password"
@@ -280,8 +373,10 @@ export class SettingsView {
             </div>
 
             <div class="settings-field">
-              <label class="settings-field__label">Gist ID</label>
-              <p class="settings-field__hint">The Gist ID where your backup is stored (auto-filled after first backup).</p>
+              <div class="settings-field__info">
+                <label class="settings-field__label">Gist ID</label>
+                <p class="settings-field__hint">The Gist ID where your backup is stored (auto-filled after first backup).</p>
+              </div>
               <div class="settings-field__control">
                 <input
                   type="text"
@@ -295,8 +390,10 @@ export class SettingsView {
             </div>
 
             <div class="settings-field">
-              <label class="settings-field__label">Sync Actions</label>
-              <p class="settings-field__hint">Backup your entire vault to GitHub Gist or restore from a previous backup.</p>
+              <div class="settings-field__info">
+                <label class="settings-field__label">Sync Actions</label>
+                <p class="settings-field__hint">Backup your entire vault to GitHub Gist or restore from a previous backup.</p>
+              </div>
               <div class="settings-field__control">
                 <div style="display: flex; gap: 8px; flex-wrap: wrap;">
                   <button class="settings-button settings-button--primary" id="settings-sync-backup">
@@ -317,9 +414,24 @@ export class SettingsView {
     if (this.activeSection === 'vault') {
       void this.loadRecentVaults()
     }
+    this.filterSettings()
   }
 
   private attachEvents(): void {
+    // Search input with debouncing
+    const searchInput = this.container.querySelector('.settings-search__input') as HTMLInputElement
+    searchInput?.addEventListener('input', (e) => {
+      this.searchQuery = (e.target as HTMLInputElement).value.toLowerCase()
+      // Clear previous timeout
+      if (this.searchTimeout) {
+        clearTimeout(this.searchTimeout)
+      }
+      // Debounce for 150ms
+      this.searchTimeout = window.setTimeout(() => {
+        this.filterSettings()
+      }, 150)
+    })
+
     // Tab switching
     this.container.querySelectorAll('[data-section-tab]').forEach(tab => {
         tab.addEventListener('click', () => {
@@ -345,7 +457,13 @@ export class SettingsView {
             if (el instanceof HTMLInputElement && el.type === 'checkbox') {
                 value = el.checked
             } else if (el instanceof HTMLInputElement && el.type === 'number') {
-                value = parseInt(el.value) || 0
+          value = parseInt(el.value) || 0
+          // Clamp caret width to allowed range when present
+          if (setting === 'caretMaxWidth') {
+            if (value < 1) value = 1
+            if (value > 10) value = 10
+            el.value = String(value)
+          }
             } else {
                 value = el.value
             }
@@ -573,10 +691,16 @@ export class SettingsView {
     })
   }
 
-  private escapeHtml(text: string): string {
-    const div = document.createElement('div')
-    div.textContent = text
-    return div.innerHTML
+  private filterSettings(): void {
+    const fields = this.container.querySelectorAll('.settings-field') as NodeListOf<HTMLElement>
+    // Use requestAnimationFrame for smooth UI updates
+    requestAnimationFrame(() => {
+      fields.forEach(field => {
+        const searchText = field.dataset.search || ''
+        const matches = this.searchQuery === '' || searchText.toLowerCase().includes(this.searchQuery)
+        field.style.display = matches ? '' : 'none'
+      })
+    })
   }
 
   updateVaultPath(): void {

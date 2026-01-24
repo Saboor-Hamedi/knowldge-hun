@@ -121,6 +121,7 @@ export class SettingsPanel {
                 <span class="settings-field__checkbox-label">Show minimap</span>
               </label>
             </div>
+            
           </div>
 
           <!-- Appearance Tab -->
@@ -134,6 +135,34 @@ export class SettingsPanel {
                   <option value="${theme.id}">${theme.name}</option>
                 `).join('')}
               </select>
+            </div>
+
+            <div class="settings-field">
+              <label class="settings-field__label">Caret</label>
+              <label class="settings-field__checkbox">
+                <input
+                  type="checkbox"
+                  class="settings-field__checkbox-input"
+                  data-setting="caretEnabled"
+                />
+                <span class="settings-field__checkbox-label">Show caret</span>
+              </label>
+
+              <div style="margin-top:8px;">
+                <label class="settings-field__label">Max Caret Width</label>
+                <div class="settings-field__input-group">
+                  <input
+                    type="number"
+                    class="settings-field__input"
+                    data-setting="caretMaxWidth"
+                    min="1"
+                    max="10"
+                    value="2"
+                  />
+                  <span class="settings-field__unit">px</span>
+                </div>
+                <p class="settings-field__hint">Range: 1-10px</p>
+              </div>
             </div>
 
             <div class="settings-info">
@@ -281,6 +310,12 @@ export class SettingsPanel {
       value = input.checked
     } else if (input.type === 'number') {
       value = parseInt(input.value) || 0
+      // Clamp caret width to allowed range
+      if (setting === 'caretMaxWidth') {
+        if (value < 1) value = 1
+        if (value > 10) value = 10
+        input.value = String(value)
+      }
     } else {
       value = input.value
     }

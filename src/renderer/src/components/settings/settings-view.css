@@ -84,27 +84,30 @@
   min-height: 0;
 }
 
-.settings-view__header {
-  margin-bottom: 16px;
-  border-bottom: 1px solid var(--border-subtle);
-  padding-bottom: 12px;
+.settings-search {
+  margin-bottom: 24px;
 }
 
-.settings-view__title {
-  font-size: 20px;
-  font-weight: 700;
-  margin: 0 0 6px 0;
-  letter-spacing: -0.01em;
-  background: linear-gradient(to right, var(--text-strong), var(--primary));
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
+.settings-search__input {
+  width: 100%;
+  padding: 8px 12px;
+  background: var(--panel-strong);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-strong);
+  font-family: inherit;
+  font-size: 13px;
+  transition: border-color 0.2s ease;
 }
 
-.settings-view__subtitle {
+.settings-search__input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(127, 167, 255, 0.2);
+}
+
+.settings-search__input::placeholder {
   color: var(--text-muted);
-  font-size: 12px;
-  font-weight: 500;
 }
 
 .settings-view__section {
@@ -134,26 +137,36 @@
 }
 
 .settings-field {
+    display: grid;
+    grid-template-columns: 1fr 160px;
+    gap: 16px;
+    align-items: start;
     margin-bottom: 24px;
+}
+
+.settings-field__info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
 }
 
 .settings-field__label {
     display: block;
     font-size: 12px;
     font-weight: 600;
-    margin-bottom: 4px;
+    margin-bottom: 0;
     color: var(--text-strong);
 }
 
 .settings-field__hint {
     font-size: 11px;
     color: var(--text-muted);
-    margin-bottom: 10px;
+    margin-bottom: 0;
     line-height: 1.4;
 }
 
 .settings-field__control {
-    max-width: 400px;
+    /* max-width removed for grid layout */
 }
 
 .settings-input {
@@ -171,6 +184,13 @@
     outline: none;
     border-color: var(--primary);
     box-shadow: 0 0 0 2px rgba(127, 167, 255, 0.2);
+}
+
+/* Ensure numeric inputs have a consistent, compact width */
+.settings-input[type="number"] {
+  width: 96px;
+  min-width: 72px;
+  max-width: 100%;
 }
 
 .settings-toggle {

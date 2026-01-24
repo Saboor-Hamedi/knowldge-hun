@@ -1,8 +1,9 @@
 import { state } from '../../core/state'
 import type { NoteMeta, FolderItem } from '../../core/types'
-import { getFolderIcon, getFileIcon, codicons } from '../../utils/codicons'
+import { getFolderIcon, codicons } from '../../utils/codicons'
 import { sortTreeItems } from '../../utils/tree-utils'
 import { contextMenu } from '../contextmenu/contextmenu'
+import getFileIcon from '../../utils/fileIconMappers'
 import './sidebar-tree.css'
 
 export class SidebarTree {
@@ -526,7 +527,7 @@ export class SidebarTree {
 
     const icon = document.createElement('span')
     icon.className = 'tree-item__icon sidebar__icon'
-    icon.innerHTML = getFileIcon(note.title)
+    icon.innerHTML = getFileIcon(note.title, 'markdown')
     // Add note type for CSS styling
     const noteType = this.getNoteType(note.title)
     if (noteType) {

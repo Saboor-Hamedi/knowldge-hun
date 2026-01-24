@@ -336,7 +336,7 @@
 /* Make cursor highly visible with primary color */
 .monaco-editor .cursors-layer .cursor {
     background: var(--primary) !important;
-    width: 2px !important;
+    width: var(--app-caret-width, 2px) !important;
     box-shadow: none !important;
     border: none !important;
     opacity: 1 !important;
@@ -356,6 +356,16 @@
     opacity: 1 !important;
     border: none !important;
     box-shadow: none !important;
+}
+
+/* When caret is disabled via settings, hide cursors cleanly */
+.caret-disabled .cursors-layer .cursor,
+.caret-disabled .cursors-layer .cursor-solid,
+.caret-disabled .cursors-layer .cursor-block,
+.caret-disabled .cursors-layer .cursor-line-thin,
+.caret-disabled .cursors-layer .cursor-line-thick {
+    opacity: 0 !important;
+    width: 0 !important;
 }
 
 .editor-empty {

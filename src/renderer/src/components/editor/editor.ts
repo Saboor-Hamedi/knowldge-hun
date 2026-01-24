@@ -623,6 +623,11 @@ export class EditorComponent {
         this.togglePreview()
       })
 
+      // Override Ctrl+I to toggle right sidebar
+      this.editor.addCommand(this.monacoInstance.KeyMod.CtrlCmd | this.monacoInstance.KeyCode.KeyI, () => {
+        window.dispatchEvent(new CustomEvent('toggle-right-sidebar'))
+      })
+
       this.shortcutsAttached = true
     }
   }
@@ -662,6 +667,15 @@ export class EditorComponent {
   }
 
   applySettings(settings: AppSettings): void {
+    // Apply caret settings via CSS (can be done before editor is created)
+    const caretWidth = Math.max(1, Math.min(10, settings.caretMaxWidth || 2))
+    document.documentElement.style.setProperty('--app-caret-width', `${caretWidth}px`)
+    if (!settings.caretEnabled) {
+      this.editorHost?.classList.add('caret-disabled')
+    } else {
+      this.editorHost?.classList.remove('caret-disabled')
+    }
+
     if (!this.editor) return
 
     // Save focus state and cursor position before applying theme
@@ -748,6 +762,20 @@ export class EditorComponent {
 
     this.editor.updateOptions(options)
 
+    // Apply caret styling (width and enabled/disabled)
+    try {
+      const caretWidth = Math.max(1, Math.min(10, settings.caretMaxWidth ?? 2))
+      if (this.editorHost) {
+        this.editorHost.style.setProperty('--app-caret-width', `${caretWidth}px`)
+        if (settings.caretEnabled === false) {
+          this.editorHost.classList.add('caret-disabled')
+        } else {
+          this.editorHost.classList.remove('caret-disabled')
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to apply caret settings', e)
+    }
     // Restore focus and cursor position after theme change
     if (hadFocus && position) {
       // Use multiple timeouts to ensure Monaco has fully rendered

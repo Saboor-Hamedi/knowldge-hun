@@ -8,7 +8,7 @@ const WELCOME_HTML = `
     <div class="rightbar__welcome-icon">✨</div>
     <p class="rightbar__welcome-title">AI Chat</p>
     <p class="rightbar__welcome-text">Ask about your notes, get summaries, or brainstorm ideas. I have context from your current note.</p>
-    <p class="rightbar__welcome-hint">Ctrl+Shift+I to toggle · Drag the left edge to resize</p>
+    <p class="rightbar__welcome-hint">Ctrl+I to toggle · Drag the left edge to resize</p>
   </div>
 `
 
@@ -46,7 +46,10 @@ export class RightBar {
     this.attachEvents()
   }
 
-  setEditorContext(getEditorContent: () => string | null, getActiveNoteInfo: () => { title: string; id: string } | null): void {
+  setEditorContext(
+    getEditorContent: () => string | null,
+    getActiveNoteInfo: () => { title: string; id: string } | null
+  ): void {
     aiService.setEditorContext({ getEditorContent, getActiveNoteInfo })
   }
 
@@ -56,7 +59,7 @@ export class RightBar {
         <div class="rightbar__resize-handle" id="rightbar-resize-handle"></div>
         <div class="rightbar__header">
           <h3 class="rightbar__title">AI Chat</h3>
-          <button class="rightbar__header-close" id="rightbar-header-close" title="Close (Ctrl+Shift+I)" aria-label="Close panel">
+          <button class="rightbar__header-close" id="rightbar-header-close" title="Close (Ctrl+I)" aria-label="Close panel">
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>
           </button>
         </div>
@@ -107,7 +110,10 @@ export class RightBar {
     })
 
     this.inputWrapper.addEventListener('click', (e) => {
-      if (e.target === this.inputWrapper || (e.target as HTMLElement).closest('.rightbar__chat-input-container')) {
+      if (
+        e.target === this.inputWrapper ||
+        (e.target as HTMLElement).closest('.rightbar__chat-input-container')
+      ) {
         this.chatInput.focus()
       }
     })
@@ -130,7 +136,10 @@ export class RightBar {
             const prev = btn.textContent
             btn.textContent = 'Copied'
             btn.disabled = true
-            setTimeout(() => { btn.textContent = prev; btn.disabled = false }, 1500)
+            setTimeout(() => {
+              btn.textContent = prev
+              btn.disabled = false
+            }, 1500)
           })
         }
       } else if (action === 'retry' && this.lastFailedMessage) {
@@ -147,7 +156,10 @@ export class RightBar {
     this.startX = e.clientX
     const shell = document.querySelector('.vscode-shell') as HTMLElement
     if (shell) {
-      const currentWidth = parseInt(getComputedStyle(shell).getPropertyValue('--right-panel-width') || '270', 10)
+      const currentWidth = parseInt(
+        getComputedStyle(shell).getPropertyValue('--right-panel-width') || '270',
+        10
+      )
       this.startWidth = currentWidth
     }
     document.addEventListener('mousemove', this.handleResizeMove)
@@ -173,7 +185,10 @@ export class RightBar {
     document.body.style.userSelect = ''
     const shell = document.querySelector('.vscode-shell') as HTMLElement
     if (shell) {
-      const w = parseInt(getComputedStyle(shell).getPropertyValue('--right-panel-width') || '270', 10)
+      const w = parseInt(
+        getComputedStyle(shell).getPropertyValue('--right-panel-width') || '270',
+        10
+      )
       if (w > 0) void window.api.updateSettings({ rightPanelWidth: w })
     }
   }
@@ -202,7 +217,10 @@ export class RightBar {
     if (!apiKey) {
       this.isLoading = false
       this.sendButton.disabled = false
-      this.addMessage('assistant', '🔑 **API Key Required**\n\nAdd your DeepSeek API key in **Settings → Behavior → DeepSeek API Key**.\n\nGet your key at [platform.deepseek.com](https://platform.deepseek.com)')
+      this.addMessage(
+        'assistant',
+        '🔑 **API Key Required**\n\nAdd your DeepSeek API key in **Settings → Behavior → DeepSeek API Key**.\n\nGet your key at [platform.deepseek.com](https://platform.deepseek.com)'
+      )
       this.chatInput.focus()
       return
     }
@@ -216,7 +234,10 @@ export class RightBar {
       this.isLoading = false
       this.lastFailedMessage = message
       const errorMsg = err instanceof Error ? err.message : 'Failed to get response'
-      this.addMessage('assistant', `❌ **Error**\n\n${errorMsg}\n\nPlease check your API key and internet connection.`)
+      this.addMessage(
+        'assistant',
+        `❌ **Error**\n\n${errorMsg}\n\nPlease check your API key and internet connection.`
+      )
       console.error('[RightBar] API Error:', err)
     } finally {
       this.sendButton.disabled = false
@@ -261,22 +282,25 @@ export class RightBar {
       return
     }
 
-    let html = this.messages.map((msg) => {
-      const isError = msg.role === 'assistant' && msg.content.startsWith('❌')
-      const content = this.formatContent(msg.content, msg.role === 'assistant')
-      const actions = msg.role === 'assistant'
-        ? `<div class="rightbar__message-actions">
+    let html = this.messages
+      .map((msg) => {
+        const isError = msg.role === 'assistant' && msg.content.startsWith('❌')
+        const content = this.formatContent(msg.content, msg.role === 'assistant')
+        const actions =
+          msg.role === 'assistant'
+            ? `<div class="rightbar__message-actions">
              <button type="button" class="rightbar__message-action" data-action="copy" title="Copy">Copy</button>
              ${isError && this.lastFailedMessage ? '<button type="button" class="rightbar__message-action rightbar__message-action--retry" data-action="retry" title="Retry">Retry</button>' : ''}
            </div>`
-        : ''
-      return `
+            : ''
+        return `
         <div class="rightbar__message rightbar__message--${msg.role}">
           <div class="rightbar__message-content">${content}</div>
           ${actions}
         </div>
       `
-    }).join('')
+      })
+      .join('')
 
     if (this.isLoading) html += TYPING_HTML
 
@@ -290,7 +314,10 @@ export class RightBar {
     this.render()
     this.attachEvents()
     if (wasEmpty && !aiService.getApiKey()) {
-      this.addMessage('assistant', '👋 **Welcome!** Add your DeepSeek API key in **Settings → Behavior → DeepSeek API Key**. Get it at [platform.deepseek.com](https://platform.deepseek.com)')
+      this.addMessage(
+        'assistant',
+        '👋 **Welcome!** Add your DeepSeek API key in **Settings → Behavior → DeepSeek API Key**. Get it at [platform.deepseek.com](https://platform.deepseek.com)'
+      )
     }
   }
 }

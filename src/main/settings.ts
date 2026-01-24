@@ -26,6 +26,9 @@ export type Settings = {
   gistId?: string
   rightPanelWidth?: number
   rightPanelVisible?: boolean
+  // Caret settings
+  caretEnabled?: boolean
+  caretMaxWidth?: number
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -36,6 +39,9 @@ export const DEFAULT_SETTINGS: Settings = {
   lineNumbers: true,
   wordWrap: true,
   minimap: false,
+  // sensible defaults for caret
+  caretEnabled: true,
+  caretMaxWidth: 2,
   recentVaults: [],
   expandedFolders: []
 }
@@ -61,6 +67,12 @@ export function loadSettings(): Settings {
 
     if (!merged.recentVaults) merged.recentVaults = []
     if (!merged.expandedFolders) merged.expandedFolders = []
+
+    // Validate caret settings
+    if (merged.caretEnabled === undefined) merged.caretEnabled = DEFAULT_SETTINGS.caretEnabled
+    if (merged.caretMaxWidth && (merged.caretMaxWidth < 1 || merged.caretMaxWidth > 10)) {
+      merged.caretMaxWidth = DEFAULT_SETTINGS.caretMaxWidth
+    }
 
     return merged
   } catch (error) {

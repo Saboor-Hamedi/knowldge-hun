@@ -214,6 +214,8 @@
   justify-content: center;
   margin-left: 4px;
   margin-right: 6px;
+  font-size: 12px;
+  line-height: 1;
 }
 
 .sidebar__icon svg {
@@ -405,6 +407,8 @@
 /* File items coloring - VS Code style with colorful icons */
 .tree-item--note .tree-item__icon {
   opacity: 1;
+  font-size: 12px;
+  line-height: 1;
 }
 
 /* Markdown files - blue */

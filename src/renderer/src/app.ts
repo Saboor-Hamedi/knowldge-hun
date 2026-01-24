@@ -1,6 +1,12 @@
 import { state } from './core/state'
 import type { NotePayload, NoteMeta, TreeItem, AppSettings } from './core/types'
-import { sortNotes, timeAgo, extractWikiLinks, extractTags, estimateReadTime } from './utils/helpers'
+import {
+  sortNotes,
+  timeAgo,
+  extractWikiLinks,
+  extractTags,
+  estimateReadTime
+} from './utils/helpers'
 import { sortTreeRecursive } from './utils/tree-utils'
 import { keyboardManager } from './core/keyboardManager'
 import { modalManager } from './components/modal/modal'
@@ -47,7 +53,8 @@ function buildTree(items: NoteMeta[]): TreeItem[] {
   // 2. Process all items and attach to parents
   items.forEach((item) => {
     const type = item.type || 'note'
-    const treeItem: TreeItem = type === 'folder' ? folderMap.get(item.id)! : { ...item, type, children: [] }
+    const treeItem: TreeItem =
+      type === 'folder' ? folderMap.get(item.id)! : { ...item, type, children: [] }
 
     const parentPath = (item.path || '').replace(/\\/g, '/')
 
@@ -66,28 +73,33 @@ function buildTree(items: NoteMeta[]): TreeItem[] {
 }
 
 class App {
-    private wireUpdateEvents(): void {
-      window.electron?.ipcRenderer?.on?.('update:available', () => {
-        this.statusBar.setStatus('Update available. Downloading...')
-      })
-      window.electron?.ipcRenderer?.on?.('update:not-available', () => {
-        this.statusBar.setStatus('No update available.')
-      })
-      window.electron?.ipcRenderer?.on?.('update:progress', (_event, progressObj) => {
-        const percent = progressObj.percent ? progressObj.percent.toFixed(1) : ''
-        this.statusBar.setStatus(`Downloading update... ${percent}%`)
-      })
-      window.electron?.ipcRenderer?.on?.('update:downloaded', () => {
-        this.statusBar.setStatus('Update downloaded. Restarting...')
-      })
-      window.electron?.ipcRenderer?.on?.('update:error', (_event, errMsg) => {
-        this.statusBar.setStatus(`Update error: ${errMsg}`)
-      })
-    }
+  private wireUpdateEvents(): void {
+    window.electron?.ipcRenderer?.on?.('update:available', () => {
+      this.statusBar.setStatus('Update available. Downloading...')
+    })
+    window.electron?.ipcRenderer?.on?.('update:not-available', () => {
+      this.statusBar.setStatus('No update available.')
+    })
+    window.electron?.ipcRenderer?.on?.('update:progress', (_event, progressObj) => {
+      const percent = progressObj.percent ? progressObj.percent.toFixed(1) : ''
+      this.statusBar.setStatus(`Downloading update... ${percent}%`)
+    })
+    window.electron?.ipcRenderer?.on?.('update:downloaded', () => {
+      this.statusBar.setStatus('Update downloaded. Restarting...')
+    })
+    window.electron?.ipcRenderer?.on?.('update:error', (_event, errMsg) => {
+      this.statusBar.setStatus(`Update error: ${errMsg}`)
+    })
+  }
 
   public showDetailsModal(): void {
     const content = this.editor.getValue()
-    const words = content.trim() ? content.trim().split(/\s+/).filter((w: string) => w).length : 0
+    const words = content.trim()
+      ? content
+          .trim()
+          .split(/\s+/)
+          .filter((w: string) => w).length
+      : 0
     const chars = content.length
     const lines = content.split('\n').length
     const readTime = estimateReadTime(content)
@@ -95,14 +107,32 @@ class App {
     const tags = extractTags(content).length
     const currentNoteId = state.activeId
     if (currentNoteId) {
-      const note = state.notes.find(n => n.id === currentNoteId)
+      const note = state.notes.find((n) => n.id === currentNoteId)
       if (note) {
-        const created = (note.createdAt && note.createdAt > 0) ? timeAgo(note.createdAt) : '-'
+        const created = note.createdAt && note.createdAt > 0 ? timeAgo(note.createdAt) : '-'
         const modified = timeAgo(note.updatedAt)
-        detailsModal.show({ words, chars, lines, readTime: `${readTime} min`, wikiLinks, tags, created, modified })
+        detailsModal.show({
+          words,
+          chars,
+          lines,
+          readTime: `${readTime} min`,
+          wikiLinks,
+          tags,
+          created,
+          modified
+        })
       }
     } else {
-      detailsModal.show({ words: 0, chars: 0, lines: 0, readTime: '-', wikiLinks: 0, tags: 0, created: '-', modified: '-' })
+      detailsModal.show({
+        words: 0,
+        chars: 0,
+        lines: 0,
+        readTime: '-',
+        wikiLinks: 0,
+        tags: 0,
+        created: '-',
+        modified: '-'
+      })
     }
   }
 
@@ -114,7 +144,10 @@ class App {
     const isVisible = rightPanel.style.display !== 'none'
     if (isVisible) {
       // Before closing, save the current width if it's > 0 and save visibility state
-      const currentWidth = parseInt(getComputedStyle(shell).getPropertyValue('--right-panel-width') || '270', 10)
+      const currentWidth = parseInt(
+        getComputedStyle(shell).getPropertyValue('--right-panel-width') || '270',
+        10
+      )
       if (currentWidth > 0) {
         void window.api.updateSettings({ rightPanelWidth: currentWidth, rightPanelVisible: false })
       } else {
@@ -204,6 +237,11 @@ class App {
       const note = state.notes.find((n) => n.id === activeId)
       if (!note) return
       void this.deleteItems([{ id: activeId, type: 'note', path: note.path }])
+    })
+
+    // Listen for toggle right sidebar event from editor
+    window.addEventListener('toggle-right-sidebar', () => {
+      void this.toggleRightSidebar()
     })
   }
 
@@ -311,7 +349,9 @@ class App {
       this.openNote(id, path)
     }) as EventListener)
 
-    window.addEventListener('knowledge-hub:toggle-right-sidebar', () => { void this.toggleRightSidebar() })
+    window.addEventListener('knowledge-hub:toggle-right-sidebar', () => {
+      void this.toggleRightSidebar()
+    })
 
     // Fuzzy Finder
     this.fuzzyFinder.setSelectHandler(async (id, path, type, isFinal) => {
@@ -351,7 +391,9 @@ class App {
           }
           const statusBarEl = document.getElementById('statusBar')
           if (statusBarEl) {
-            statusBarEl.dispatchEvent(new CustomEvent('sync-action', { detail: { action: 'backup' }, bubbles: true }))
+            statusBarEl.dispatchEvent(
+              new CustomEvent('sync-action', { detail: { action: 'backup' }, bubbles: true })
+            )
           }
         }
       },
@@ -373,7 +415,9 @@ class App {
           }
           const statusBarEl = document.getElementById('statusBar')
           if (statusBarEl) {
-            statusBarEl.dispatchEvent(new CustomEvent('sync-action', { detail: { action: 'restore' }, bubbles: true }))
+            statusBarEl.dispatchEvent(
+              new CustomEvent('sync-action', { detail: { action: 'restore' }, bubbles: true })
+            )
           }
         }
       }
@@ -398,14 +442,19 @@ class App {
         if (tab) await this.openNote(tab.id, tab.path)
       }
     })
-    this.tabBar.setTabCloseHandler((id) => void this.tabHandlers.closeTab(
-      id,
-      false,
-      async (id, path) => { await window.api.deleteNote(id, path) },
-      () => this.refreshNotes(),
-      (id, path) => this.openNote(id, path),
-      () => this.editor.showEmpty()
-    ))
+    this.tabBar.setTabCloseHandler(
+      (id) =>
+        void this.tabHandlers.closeTab(
+          id,
+          false,
+          async (id, path) => {
+            await window.api.deleteNote(id, path)
+          },
+          () => this.refreshNotes(),
+          (id, path) => this.openNote(id, path),
+          () => this.editor.showEmpty()
+        )
+    )
     this.tabBar.setTabContextMenuHandler((id, e) => {
       this.tabHandlers.handleTabContextMenu(
         id,
@@ -428,8 +477,8 @@ class App {
       if (state.settings) {
         state.settings = { ...state.settings, ...newSettings }
         if (state.settings) {
-        this.editor.applySettings(state.settings)
-      }
+          this.editor.applySettings(state.settings)
+        }
         void window.api.updateSettings(newSettings as Partial<AppSettings>)
         this.statusBar.setStatus('Settings auto-saved')
 
@@ -472,7 +521,7 @@ class App {
       () => this.editor.getValue(),
       () => {
         if (state.activeId && state.activeId !== 'settings') {
-          const note = state.notes.find(n => n.id === state.activeId)
+          const note = state.notes.find((n) => n.id === state.activeId)
           if (note) {
             return { title: note.title, id: note.id }
           }
@@ -483,7 +532,6 @@ class App {
   }
 
   // ... registerGlobalShortcuts, registerVaultChangeListener ...
-
 
   private async closeOtherTabs(id: string): Promise<void> {
     await this.tabHandlers.closeOtherTabs(id, (id, force) => this.closeTab(id, force))
@@ -497,15 +545,15 @@ class App {
 
   // Updated persistWorkspace
   private async persistWorkspace(): Promise<void> {
-      try {
-          await window.api.updateSettings({
-              openTabs: state.openTabs.map(t => ({ id: t.id, path: t.path })),
-              activeId: state.activeId,
-              pinnedTabs: Array.from(state.pinnedTabs)
-          } as any)
-      } catch (e) {
-          console.error('Failed to persist workspace', e)
-      }
+    try {
+      await window.api.updateSettings({
+        openTabs: state.openTabs.map((t) => ({ id: t.id, path: t.path })),
+        activeId: state.activeId,
+        pinnedTabs: Array.from(state.pinnedTabs)
+      } as any)
+    } catch (e) {
+      console.error('Failed to persist workspace', e)
+    }
   }
 
   // Updated initSettings
@@ -518,7 +566,7 @@ class App {
       }
 
       if (state.settings.pinnedTabs) {
-          state.pinnedTabs = new Set(state.settings.pinnedTabs)
+        state.pinnedTabs = new Set(state.settings.pinnedTabs)
       }
 
       if (state.settings.theme) {
@@ -526,9 +574,14 @@ class App {
       }
 
       // Restore active view first
-      if (state.settings?.activeView && ['notes', 'search', 'settings'].includes(state.settings.activeView)) {
+      if (
+        state.settings?.activeView &&
+        ['notes', 'search', 'settings'].includes(state.settings.activeView)
+      ) {
         setTimeout(() => {
-          this.activityBar.setActiveView(state.settings!.activeView as 'notes' | 'search' | 'settings')
+          this.activityBar.setActiveView(
+            state.settings!.activeView as 'notes' | 'search' | 'settings'
+          )
           // Restore sidebar visibility AFTER active view is set (with additional delay to ensure view change handler completes)
           setTimeout(() => {
             const settings = state.settings
@@ -581,7 +634,9 @@ class App {
     await this.tabHandlers.closeTab(
       id,
       force,
-      async (id, path) => { await window.api.deleteNote(id, path) },
+      async (id, path) => {
+        await window.api.deleteNote(id, path)
+      },
       () => this.refreshNotes(),
       (id, path) => this.openNote(id, path),
       () => this.editor.showEmpty()
@@ -593,13 +648,10 @@ class App {
       void this.saveExpandedFolders()
     })
 
-    window.addEventListener(
-      'status',
-      ((event: CustomEvent) => {
-        const message = (event.detail && (event.detail.message as string)) || ''
-        if (message) this.statusBar.setStatus(message)
-      }) as EventListener
-    )
+    window.addEventListener('status', ((event: CustomEvent) => {
+      const message = (event.detail && (event.detail.message as string)) || ''
+      if (message) this.statusBar.setStatus(message)
+    }) as EventListener)
 
     window.addEventListener('item-rename', (async (event: CustomEvent) => {
       const { id, type, newTitle } = event.detail
@@ -608,85 +660,85 @@ class App {
       state.newlyCreatedIds.delete(id)
 
       if (id === newTitle || !newTitle.trim()) {
-          this.statusBar.setStatus('Rename finished')
-          await this.refreshNotes()
-          return
+        this.statusBar.setStatus('Rename finished')
+        await this.refreshNotes()
+        return
       }
 
       try {
-          // If the folder/note with same name already exists, show error clearly
-          if (type === 'folder') {
-              await this.renameFolder(id, newTitle)
-          } else {
-              await this.renameNote(id, newTitle)
-          }
+        // If the folder/note with same name already exists, show error clearly
+        if (type === 'folder') {
+          await this.renameFolder(id, newTitle)
+        } else {
+          await this.renameNote(id, newTitle)
+        }
       } catch (err: any) {
-          let message = (err as Error).message || ''
+        let message = (err as Error).message || ''
 
-          if (message.includes('already exists') || message.includes('EEXIST')) {
-              message = `Name "${newTitle}" already taken`
-              notificationManager.show(message, 'error', { title: 'Duplicate Name' })
-          } else if (message.includes('EPERM')) {
-              message = 'Permission denied (file in use?)'
-              notificationManager.show(message, 'error', { title: 'Rename Failed' })
-          } else {
-             notificationManager.show(message, 'error', { title: 'Error' })
-          }
+        if (message.includes('already exists') || message.includes('EEXIST')) {
+          message = `Name "${newTitle}" already taken`
+          notificationManager.show(message, 'error', { title: 'Duplicate Name' })
+        } else if (message.includes('EPERM')) {
+          message = 'Permission denied (file in use?)'
+          notificationManager.show(message, 'error', { title: 'Rename Failed' })
+        } else {
+          notificationManager.show(message, 'error', { title: 'Error' })
+        }
 
-          this.statusBar.setStatus(`⚠️ ${message}`)
+        this.statusBar.setStatus(`⚠️ ${message}`)
 
-          // Vital: Refresh to revert the UI change (the optimistic rename)
-          await this.refreshNotes()
+        // Vital: Refresh to revert the UI change (the optimistic rename)
+        await this.refreshNotes()
       }
     }) as unknown as EventListener)
   }
 
-    private async renameFolder(id: string, newName: string): Promise<void> {
-      const oldPath = id
+  private async renameFolder(id: string, newName: string): Promise<void> {
+    const oldPath = id
 
-      const result = await window.api.renameFolder(oldPath, newName)
-      const actualNewPath = result.path
+    const result = await window.api.renameFolder(oldPath, newName)
+    const actualNewPath = result.path
 
-      // Update expandedFolders to prevent collapse
-      if (state.expandedFolders.has(oldPath)) {
-          state.expandedFolders.delete(oldPath)
-          state.expandedFolders.add(actualNewPath)
+    // Update expandedFolders to prevent collapse
+    if (state.expandedFolders.has(oldPath)) {
+      state.expandedFolders.delete(oldPath)
+      state.expandedFolders.add(actualNewPath)
+    }
+
+    // Update any open tabs that might be inside this folder
+    let activeChanged = false
+    state.openTabs = state.openTabs.map((tab) => {
+      if (tab.path === oldPath || tab.path?.startsWith(oldPath + '/')) {
+        const newTabPath = tab.path.replace(oldPath, actualNewPath)
+        // Note IDs are path-based, so they also need updating
+        const newId = tab.id.startsWith(oldPath) ? tab.id.replace(oldPath, actualNewPath) : tab.id
+
+        if (state.activeId === tab.id) {
+          state.activeId = newId
+          activeChanged = true
+        }
+
+        if (state.pinnedTabs.has(tab.id)) {
+          state.pinnedTabs.delete(tab.id)
+          state.pinnedTabs.add(newId)
+        }
+
+        return { ...tab, id: newId, path: newTabPath }
       }
+      return tab
+    })
 
-      // Update any open tabs that might be inside this folder
-      let activeChanged = false
-      state.openTabs = state.openTabs.map(tab => {
-          if (tab.path === oldPath || tab.path?.startsWith(oldPath + '/')) {
-              const newTabPath = tab.path.replace(oldPath, actualNewPath)
-              // Note IDs are path-based, so they also need updating
-              const newId = tab.id.startsWith(oldPath) ? tab.id.replace(oldPath, actualNewPath) : tab.id
+    this.statusBar.setStatus(`Renamed folder to ${newName}`)
+    await this.saveExpandedFolders()
 
-              if (state.activeId === tab.id) {
-                  state.activeId = newId
-                  activeChanged = true
-              }
+    // If active note was in the renamed folder, we might need to re-open or update editor state
+    if (activeChanged) {
+      // Force update editor? usually openNote handles it if we called it,
+      // but here we just updated state.
+      // We relies on refreshNotes to re-render tree, but editor content is fine (same file).
+    }
 
-              if (state.pinnedTabs.has(tab.id)) {
-                  state.pinnedTabs.delete(tab.id)
-                  state.pinnedTabs.add(newId)
-              }
-
-              return { ...tab, id: newId, path: newTabPath }
-          }
-          return tab
-      })
-
-      this.statusBar.setStatus(`Renamed folder to ${newName}`)
-      await this.saveExpandedFolders()
-
-      // If active note was in the renamed folder, we might need to re-open or update editor state
-      if (activeChanged) {
-        // Force update editor? usually openNote handles it if we called it,
-        // but here we just updated state.
-        // We relies on refreshNotes to re-render tree, but editor content is fine (same file).
-      }
-
-      await this.refreshNotes()
+    await this.refreshNotes()
   }
 
   private async saveExpandedFolders(): Promise<void> {
@@ -700,124 +752,125 @@ class App {
   }
 
   private handleEditorContextMenu(e: MouseEvent): void {
-      e.preventDefault()
+    e.preventDefault()
 
-      contextMenu.show(e.clientX, e.clientY, [
-          {
-                label: 'Cut',
-                keybinding: 'Ctrl+X',
-                onClick: () => {
-                    this.editor.focus()
-                    this.editor.triggerAction('editor.action.clipboardCutAction')
-                }
-          },
-          {
-                label: 'Copy',
-                keybinding: 'Ctrl+C',
-                onClick: () => {
-                    this.editor.focus()
-                    this.editor.triggerAction('editor.action.clipboardCopyAction')
-                }
-          },
-          {
-                label: 'Paste',
-                keybinding: 'Ctrl+V',
-                onClick: () => {
-                    this.editor.focus()
-                    this.editor.triggerAction('editor.action.clipboardPasteAction')
-                }
-          },
-          { separator: true },
-          {
-                label: 'Smart Paste',
-                onClick: () => {
-                    this.editor.focus()
-                    // Logic for smart paste: this is a placeholder for future AI/Sanitize features
-                    this.editor.triggerAction('editor.action.clipboardPasteAction')
-                }
-          },
-          {
-                label: 'Insert Data',
-                onClick: () => {
-                    const date = new Date().toLocaleDateString()
-                    const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                    this.editor.insertAtCursor(`${date} ${time}`)
-                }
-          },
-          { separator: true },
-          {
-                label: 'Delete',
-                onClick: () => {
-                    this.editor.focus()
-                    this.editor.triggerAction('editor.action.deleteLines')
-                }
-          },
-          {
-                label: 'Select All',
-                keybinding: 'Ctrl+A',
-                onClick: () => {
-                    this.editor.focus()
-                    this.editor.triggerAction('editor.action.selectAll')
-                }
-          },
-          { separator: true },
-          {
-                label: 'Open Preview',
-                keybinding: 'Ctrl+\\',
-                onClick: () => {
-                    void this.previewHandlers.openPreviewTab()
-                }
-          },
-          {
-                label: 'Details',
-                keybinding: 'Ctrl+Shift+I',
-                onClick: () => {
-                    this.showDetailsModal()
-                }
-          },
-          { separator: true },
-          {
-                label: 'Knowledge Graph',
-                keybinding: 'Alt+G',
-                onClick: () => this.graphView.open()
-          }
-      ])
+    contextMenu.show(e.clientX, e.clientY, [
+      {
+        label: 'Cut',
+        keybinding: 'Ctrl+X',
+        onClick: () => {
+          this.editor.focus()
+          this.editor.triggerAction('editor.action.clipboardCutAction')
+        }
+      },
+      {
+        label: 'Copy',
+        keybinding: 'Ctrl+C',
+        onClick: () => {
+          this.editor.focus()
+          this.editor.triggerAction('editor.action.clipboardCopyAction')
+        }
+      },
+      {
+        label: 'Paste',
+        keybinding: 'Ctrl+V',
+        onClick: () => {
+          this.editor.focus()
+          this.editor.triggerAction('editor.action.clipboardPasteAction')
+        }
+      },
+      { separator: true },
+      {
+        label: 'Smart Paste',
+        onClick: () => {
+          this.editor.focus()
+          // Logic for smart paste: this is a placeholder for future AI/Sanitize features
+          this.editor.triggerAction('editor.action.clipboardPasteAction')
+        }
+      },
+      {
+        label: 'Insert Data',
+        onClick: () => {
+          const date = new Date().toLocaleDateString()
+          const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          this.editor.insertAtCursor(`${date} ${time}`)
+        }
+      },
+      { separator: true },
+      {
+        label: 'Delete',
+        onClick: () => {
+          this.editor.focus()
+          this.editor.triggerAction('editor.action.deleteLines')
+        }
+      },
+      {
+        label: 'Select All',
+        keybinding: 'Ctrl+A',
+        onClick: () => {
+          this.editor.focus()
+          this.editor.triggerAction('editor.action.selectAll')
+        }
+      },
+      { separator: true },
+      {
+        label: 'Open Preview',
+        keybinding: 'Ctrl+\\',
+        onClick: () => {
+          void this.previewHandlers.openPreviewTab()
+        }
+      },
+      {
+        label: 'Details',
+        keybinding: 'Ctrl+I',
+        onClick: () => {
+          this.showDetailsModal()
+        }
+      },
+      { separator: true },
+      {
+        label: 'Knowledge Graph',
+        keybinding: 'Alt+G',
+        onClick: () => this.graphView.open()
+      }
+    ])
   }
-
 
   private registerGlobalShortcuts(): void {
     keyboardManager.register({
-       key: 'Alt+g',
-       scope: 'global',
-       description: 'Open Knowledge Graph',
-       handler: () => {
-           this.graphView.open()
-       }
+      key: 'Alt+g',
+      scope: 'global',
+      description: 'Open Knowledge Graph',
+      handler: () => {
+        this.graphView.open()
+      }
     })
 
     keyboardManager.register({
-       key: 'Control+p',
-       scope: 'global',
-       description: 'Quick Open',
-       handler: () => {
-           this.fuzzyFinder.toggle('notes')
-       }
+      key: 'Control+p',
+      scope: 'global',
+      description: 'Quick Open',
+      handler: () => {
+        this.fuzzyFinder.toggle('notes')
+      }
     })
 
     keyboardManager.register({
-       key: 'Control+Shift+p',
-       scope: 'global',
-       description: 'Command Palette',
-       handler: () => {
-           this.fuzzyFinder.toggle('commands')
-       }
+      key: 'Control+Shift+p',
+      scope: 'global',
+      description: 'Command Palette',
+      handler: () => {
+        this.fuzzyFinder.toggle('commands')
+      }
     })
 
     keyboardManager.register({
-       key: 'Control+Shift+i',
-       scope: 'global',
-       description: 'Toggle Right Sidebar',
-       handler: () => { void this.toggleRightSidebar() }
+      key: 'Control+i',
+      scope: 'global',
+      description: 'Toggle Right Sidebar',
+      handler: () => {
+        void this.toggleRightSidebar()
+      }
     })
 
     keyboardManager.register({
@@ -855,9 +908,9 @@ class App {
         this.editor.manualSave()
 
         // If the note is new/untitled, prompt for rename after saving content
-        const note = state.notes.find(n => n.id === state.activeId)
+        const note = state.notes.find((n) => n.id === state.activeId)
         if (note && note.title === 'Untitled note') {
-            void this.promptRenameActiveNote()
+          void this.promptRenameActiveNote()
         }
       }
     })
@@ -910,7 +963,7 @@ class App {
     await this.initVault()
 
     if (state.settings?.openTabs && state.settings.openTabs.length > 0) {
-        state.openTabs = [...state.settings.openTabs] as any
+      state.openTabs = [...state.settings.openTabs] as any
     }
 
     await this.refreshNotes()
@@ -920,18 +973,19 @@ class App {
       this.statusBar.setStatus('Restoring workspace...')
       const toOpen = state.settings?.activeId || state.openTabs[0].id
       console.log(`[App] Restoring tab: ${toOpen}`)
-      const noteToOpen = state.notes.find(n => n.id === toOpen) ||
-                         state.notes.find(n => n.id === state.openTabs[0].id)
+      const noteToOpen =
+        state.notes.find((n) => n.id === toOpen) ||
+        state.notes.find((n) => n.id === state.openTabs[0].id)
 
       if (noteToOpen) {
-          await this.openNote(noteToOpen.id, noteToOpen.path)
-      } else if (toOpen === 'settings') { // Handle settings tab restore
-          await this.openSettings()
-      }
-      else {
-          console.warn(`[App] Failed to find note to restore: ${toOpen}. Showing first.`)
-          if (state.notes.length > 0) await this.openNote(state.notes[0].id)
-          else this.editor.showEmpty()
+        await this.openNote(noteToOpen.id, noteToOpen.path)
+      } else if (toOpen === 'settings') {
+        // Handle settings tab restore
+        await this.openSettings()
+      } else {
+        console.warn(`[App] Failed to find note to restore: ${toOpen}. Showing first.`)
+        if (state.notes.length > 0) await this.openNote(state.notes[0].id)
+        else this.editor.showEmpty()
       }
     } else if (state.notes.length > 0) {
       console.log(`[App] No tabs. Opening first note: ${state.notes[0].id}`)
@@ -949,14 +1003,18 @@ class App {
     document.body.classList.remove('is-loading')
 
     // Global context menu suppression to prevent browser default appearing over custom menus
-    window.addEventListener('contextmenu', (e) => {
+    window.addEventListener(
+      'contextmenu',
+      (e) => {
         const target = e.target as HTMLElement
         if (target.closest('.vscode-shell')) {
-            // If we don't handle it specifically, we still want to block the browser's ugly menu
-            // Our components (sidebar, editor, tabs) handle their own and call e.preventDefault()
-            // This is a safety net.
+          // If we don't handle it specifically, we still want to block the browser's ugly menu
+          // Our components (sidebar, editor, tabs) handle their own and call e.preventDefault()
+          // This is a safety net.
         }
-    }, true)
+      },
+      true
+    )
   }
 
   private async initVault(): Promise<void> {
@@ -1054,7 +1112,9 @@ class App {
 
     if (state.notes.length > 0) {
       await this.openNote(state.notes[0].id)
-      this.statusBar.setStatus(`Loaded ${state.notes.length} note${state.notes.length === 1 ? '' : 's'}`)
+      this.statusBar.setStatus(
+        `Loaded ${state.notes.length} note${state.notes.length === 1 ? '' : 's'}`
+      )
     } else {
       state.activeId = ''
       this.editor.showEmpty()
@@ -1079,11 +1139,11 @@ class App {
 
     // Ensure "Settings" tab exists
     tabService.ensureTab({
-        id: 'settings',
-        title: 'Settings',
-        updatedAt: 0,
-        path: undefined,
-        type: undefined
+      id: 'settings',
+      title: 'Settings',
+      updatedAt: 0,
+      path: undefined,
+      type: undefined
     })
 
     this.tabBar.render()
@@ -1093,31 +1153,31 @@ class App {
   }
 
   private updateViewVisibility(): void {
-      const editorCont = document.getElementById('editorContainer')
-      const settingsHost = document.getElementById('settingsHost')
+    const editorCont = document.getElementById('editorContainer')
+    const settingsHost = document.getElementById('settingsHost')
 
-      if (state.activeId === 'settings') {
-          if (editorCont) editorCont.style.display = 'none'
-          if (settingsHost) settingsHost.style.display = 'flex'
-      } else {
-          if (editorCont) editorCont.style.display = 'flex'
-          if (settingsHost) settingsHost.style.display = 'none'
-          this.editor.layout() // Recalculate layout when coming back
-      }
+    if (state.activeId === 'settings') {
+      if (editorCont) editorCont.style.display = 'none'
+      if (settingsHost) settingsHost.style.display = 'flex'
+    } else {
+      if (editorCont) editorCont.style.display = 'flex'
+      if (settingsHost) settingsHost.style.display = 'none'
+      this.editor.layout() // Recalculate layout when coming back
+    }
   }
 
   private async refreshNotes(): Promise<void> {
     const rawNotes = await window.api.listNotes()
     state.tree = buildTree(rawNotes)
     // Keep state.notes as flat list of notes (excluding folders) for search/fuzz
-    state.notes = rawNotes.filter(n => n.type !== 'folder')
+    state.notes = rawNotes.filter((n) => n.type !== 'folder')
 
     sortNotes(state.notes)
 
     // Clean up expandedFolders - remove folders that no longer exist
     const allFolderIds = new Set<string>()
     const collectFolderIds = (items: TreeItem[]): void => {
-      items.forEach(item => {
+      items.forEach((item) => {
         if (item.type === 'folder') {
           allFolderIds.add(item.id)
           if (item.children) {
@@ -1130,7 +1190,7 @@ class App {
 
     // Remove deleted folders from expandedFolders
     const beforeSize = state.expandedFolders.size
-    state.expandedFolders.forEach(id => {
+    state.expandedFolders.forEach((id) => {
       if (!allFolderIds.has(id)) {
         state.expandedFolders.delete(id)
       }
@@ -1143,10 +1203,10 @@ class App {
 
     // Ensure active note metadata is fresh
     if (state.activeId && state.activeId !== 'settings') {
-        const found = state.notes.find(n => n.id === state.activeId)
-        if (!found) {
-             // Note might have been deleted or moved outside?
-        }
+      const found = state.notes.find((n) => n.id === state.activeId)
+      if (!found) {
+        // Note might have been deleted or moved outside?
+      }
     }
 
     // Sync tabs
@@ -1162,7 +1222,7 @@ class App {
 
     // Ensure parent folder is expanded
     if (path) {
-        state.expandedFolders.add(path)
+      state.expandedFolders.add(path)
     }
 
     await this.refreshNotes()
@@ -1172,31 +1232,39 @@ class App {
 
     // Start rename in sidebar
     setTimeout(() => {
-        this.sidebar.startRename(meta.id)
+      this.sidebar.startRename(meta.id)
     }, 100)
   }
 
-  private async openNote(id: string, path?: string, focusTarget: 'editor' | 'sidebar' | 'none' = 'editor'): Promise<void> {
+  private async openNote(
+    id: string,
+    path?: string,
+    focusTarget: 'editor' | 'sidebar' | 'none' = 'editor'
+  ): Promise<void> {
     // We no longer automatically hide the sidebar on mobile here.
     // The user can explicitly close it or we can close it when they focus the editor.
 
     const note = await window.api.loadNote(id, path)
     if (!note) {
       // Try to refresh notes and check again before warning
-      await this.refreshNotes();
+      await this.refreshNotes()
       // Check for both id and path match
-      const refreshed = state.notes.find(n => n.id === id || n.path === path);
+      const refreshed = state.notes.find((n) => n.id === id || n.path === path)
       if (refreshed) {
         // Note is now found after refresh, open it
-        await this.openNote(refreshed.id, refreshed.path, focusTarget);
-        return;
+        await this.openNote(refreshed.id, refreshed.path, focusTarget)
+        return
       }
       // Only show notification if truly missing
       console.warn(`[App] Note ${id} not found at ${path}. Refreshing...`)
-      notificationManager.show(`Note not found after rename or move. Please check your vault.`, 'warning', { title: 'Note Missing' })
+      notificationManager.show(
+        `Note not found after rename or move. Please check your vault.`,
+        'warning',
+        { title: 'Note Missing' }
+      )
       this.statusBar.setStatus('Note missing on disk')
       if (state.activeId === id || !state.activeId) {
-          this.editor.showEmpty()
+        this.editor.showEmpty()
       }
       return
     }
@@ -1205,7 +1273,7 @@ class App {
     state.lastSavedAt = note.updatedAt
 
     if (focusTarget !== 'none') {
-        tabService.ensureTab(note)
+      tabService.ensureTab(note)
     }
 
     // If switching from preview tab, make sure editor is visible
@@ -1240,7 +1308,6 @@ class App {
     void this.persistWorkspace()
   }
 
-
   private revealPathInSidebar(path?: string, isFolder = false): boolean {
     if (!path) return false
 
@@ -1249,22 +1316,22 @@ class App {
     let changed = false
 
     parts.forEach((part, index) => {
-        if (!part) return
-        currentPath = currentPath ? `${currentPath}-${part}` : part
+      if (!part) return
+      currentPath = currentPath ? `${currentPath}-${part}` : part
 
-        if (index < parts.length - 1 || isFolder) {
-            const folderId = currentPath
-            if (!state.expandedFolders.has(folderId)) {
-                state.expandedFolders.add(folderId)
-                changed = true
-            }
+      if (index < parts.length - 1 || isFolder) {
+        const folderId = currentPath
+        if (!state.expandedFolders.has(folderId)) {
+          state.expandedFolders.add(folderId)
+          changed = true
         }
+      }
     })
 
     if (changed) {
-        void this.saveExpandedFolders()
-        this.sidebar.renderTree(this.sidebar.getSearchValue())
-        return true
+      void this.saveExpandedFolders()
+      this.sidebar.renderTree(this.sidebar.getSearchValue())
+      return true
     }
 
     return false
@@ -1287,7 +1354,7 @@ class App {
     sortNotes(state.notes)
     tabService.ensureTab(meta)
     // Update existing tab if it exists
-    const tabIndex = state.openTabs.findIndex(t => t.id === meta.id)
+    const tabIndex = state.openTabs.findIndex((t) => t.id === meta.id)
     if (tabIndex >= 0) {
       state.openTabs[tabIndex] = meta
     }
@@ -1298,7 +1365,10 @@ class App {
     this.statusBar.setStatus('Autosaved')
     this.statusBar.setMeta(`📁 ${state.vaultPath || ''}`)
   }
-  private showDeleteConfirmationModal(items: { id: string, type: 'note' | 'folder', path?: string }[], onConfirm: () => Promise<void>): void {
+  private showDeleteConfirmationModal(
+    items: { id: string; type: 'note' | 'folder'; path?: string }[],
+    onConfirm: () => Promise<void>
+  ): void {
     if (items.length === 0) return
 
     const count = items.length
@@ -1322,40 +1392,42 @@ class App {
     })
   }
 
-  private async deleteItems(items: { id: string, type: 'note' | 'folder', path?: string }[]): Promise<void> {
+  private async deleteItems(
+    items: { id: string; type: 'note' | 'folder'; path?: string }[]
+  ): Promise<void> {
     this.showDeleteConfirmationModal(items, async () => {
       this.statusBar.setStatus(`Deleting ${items.length} items...`)
 
       try {
-          const result = await noteService.deleteItems(items)
+        const result = await noteService.deleteItems(items)
 
-          if (result.success) {
-            this.statusBar.setStatus(`${items.length} items deleted`)
-            window.dispatchEvent(new CustomEvent('vault-changed'))
+        if (result.success) {
+          this.statusBar.setStatus(`${items.length} items deleted`)
+          window.dispatchEvent(new CustomEvent('vault-changed'))
 
-            // If the active note was deleted, switch
-            const ancoraActive = state.openTabs.find(t => t.id === state.activeId)
-            if (!ancoraActive) {
-                const nextTab = tabService.findNextTabToOpen()
-                if (nextTab) {
-                  await this.openNote(nextTab.id, nextTab.path)
-                } else {
-                  state.activeId = ''
-                  this.editor.showEmpty()
-                }
-            }
-          } else {
-            this.statusBar.setStatus('Some items could not be deleted')
-            if (result.errors.length > 0) {
-              console.error('Delete errors:', result.errors)
+          // If the active note was deleted, switch
+          const ancoraActive = state.openTabs.find((t) => t.id === state.activeId)
+          if (!ancoraActive) {
+            const nextTab = tabService.findNextTabToOpen()
+            if (nextTab) {
+              await this.openNote(nextTab.id, nextTab.path)
+            } else {
+              state.activeId = ''
+              this.editor.showEmpty()
             }
           }
-
-          await this.refreshNotes()
-      } catch (error) {
-          console.error('Bulk delete failed', error)
+        } else {
           this.statusBar.setStatus('Some items could not be deleted')
-          await this.refreshNotes()
+          if (result.errors.length > 0) {
+            console.error('Delete errors:', result.errors)
+          }
+        }
+
+        await this.refreshNotes()
+      } catch (error) {
+        console.error('Bulk delete failed', error)
+        this.statusBar.setStatus('Some items could not be deleted')
+        await this.refreshNotes()
       }
     })
   }
@@ -1366,69 +1438,69 @@ class App {
 
   private async handleNoteMove(id: string, fromPath?: string, toPath?: string): Promise<void> {
     try {
-        const newMeta = await window.api.moveNote(id, fromPath, toPath)
+      const newMeta = await window.api.moveNote(id, fromPath, toPath)
 
-        // Update tabs and active state
-        let updatedTabs = false
-        state.openTabs = state.openTabs.map(tab => {
-            if (tab.id === id) {
-                updatedTabs = true
-                return { ...newMeta }
-            }
-            return tab
-        })
-
-        if (state.activeId === id) {
-            state.activeId = newMeta.id
+      // Update tabs and active state
+      let updatedTabs = false
+      state.openTabs = state.openTabs.map((tab) => {
+        if (tab.id === id) {
+          updatedTabs = true
+          return { ...newMeta }
         }
+        return tab
+      })
 
-        if (state.pinnedTabs.has(id)) {
-            state.pinnedTabs.delete(id)
-            state.pinnedTabs.add(newMeta.id)
-        }
+      if (state.activeId === id) {
+        state.activeId = newMeta.id
+      }
 
-        if (updatedTabs) {
-            this.tabBar.render()
-        }
+      if (state.pinnedTabs.has(id)) {
+        state.pinnedTabs.delete(id)
+        state.pinnedTabs.add(newMeta.id)
+      }
 
-        await this.refreshNotes()
+      if (updatedTabs) {
+        this.tabBar.render()
+      }
+
+      await this.refreshNotes()
     } catch (error) {
-        console.error('Note move failed:', error)
-        this.statusBar.setStatus('Move failed')
+      console.error('Note move failed:', error)
+      this.statusBar.setStatus('Move failed')
     }
   }
 
   private async handleFolderMove(sourcePath: string, targetPath: string): Promise<void> {
     try {
-        await noteService.moveFolder(sourcePath, targetPath)
-        this.tabBar.render()
-        await this.refreshNotes()
+      await noteService.moveFolder(sourcePath, targetPath)
+      this.tabBar.render()
+      await this.refreshNotes()
     } catch (error) {
-        console.error('Folder move failed:', error)
-        this.statusBar.setStatus('Move failed')
+      console.error('Folder move failed:', error)
+      this.statusBar.setStatus('Move failed')
     }
   }
 
   private async createFolder(parentPath?: string): Promise<void> {
     try {
-        const result = await window.api.createFolder('New Folder', parentPath)
-        state.newlyCreatedIds.add(result.path)
+      const result = await window.api.createFolder('New Folder', parentPath)
+      state.newlyCreatedIds.add(result.path)
 
-        if (parentPath) {
-            state.expandedFolders.add(parentPath)
-        }
+      if (parentPath) {
+        state.expandedFolders.add(parentPath)
+      }
 
-        await this.refreshNotes()
-        this.statusBar.setStatus(`Created folder "${result.name}"`)
+      await this.refreshNotes()
+      this.statusBar.setStatus(`Created folder "${result.name}"`)
 
-        // Start rename in sidebar
-        setTimeout(() => {
-            this.sidebar.startRename(result.path)
-        }, 100)
+      // Start rename in sidebar
+      setTimeout(() => {
+        this.sidebar.startRename(result.path)
+      }, 100)
     } catch (error) {
-        const message = (error as Error).message || 'Unknown error'
-        this.statusBar.setStatus(`Failed: ${message}`)
-        console.error('Folder creation failed:', error)
+      const message = (error as Error).message || 'Unknown error'
+      this.statusBar.setStatus(`Failed: ${message}`)
+      console.error('Folder creation failed:', error)
     }
   }
 
@@ -1485,57 +1557,57 @@ class App {
     const isActive = state.activeId === noteId
     let notePath: string | undefined
 
-    const existing = state.notes.find(n => n.id === noteId);
+    const existing = state.notes.find((n) => n.id === noteId)
     if (existing) {
-        notePath = existing.path;
+      notePath = existing.path
     }
 
     const newId = newTitle.trim().replace(/[<>:"/\\|?*]/g, '-')
-    if (noteId === newId) return;
+    if (noteId === newId) return
 
     state.newlyCreatedIds.delete(noteId) // Rename counts as interacting
 
     try {
-        // 1. Rename on disk (changes ID) - noteService handles tab/state updates
-        const newMeta = await noteService.renameNote(noteId, newId, notePath)
-        const actualNewId = newMeta.id
+      // 1. Rename on disk (changes ID) - noteService handles tab/state updates
+      const newMeta = await noteService.renameNote(noteId, newId, notePath)
+      const actualNewId = newMeta.id
 
-        // 4. Update activeId if needed (noteService already updated tabs)
-        if (isActive) {
-            tabService.setActiveTab(actualNewId)
-        }
+      // 4. Update activeId if needed (noteService already updated tabs)
+      if (isActive) {
+        tabService.setActiveTab(actualNewId)
+      }
 
-        // 5. Refresh from disk
-        await this.refreshNotes()
+      // 5. Refresh from disk
+      await this.refreshNotes()
 
-        // 6. Re-open to ensure editor is synced with new ID
-        if (isActive) {
-             state.isDirty = false
-             // Verify note exists before opening
-             const refreshedNote = state.notes.find(n => n.id === actualNewId)
-             if (refreshedNote) {
-               await this.openNote(actualNewId, refreshedNote.path)
-             } else {
-               // If still not found, try loading directly
-               const loadedNote = await window.api.loadNote(actualNewId, newMeta.path)
-               if (loadedNote) {
-                 await this.openNote(actualNewId, loadedNote.path)
-               } else {
-                 console.error(`[App] Failed to open renamed note: ${actualNewId}`)
-                 this.statusBar.setStatus('Note renamed but could not be reopened')
-               }
-             }
+      // 6. Re-open to ensure editor is synced with new ID
+      if (isActive) {
+        state.isDirty = false
+        // Verify note exists before opening
+        const refreshedNote = state.notes.find((n) => n.id === actualNewId)
+        if (refreshedNote) {
+          await this.openNote(actualNewId, refreshedNote.path)
         } else {
-             this.tabBar.render()
+          // If still not found, try loading directly
+          const loadedNote = await window.api.loadNote(actualNewId, newMeta.path)
+          if (loadedNote) {
+            await this.openNote(actualNewId, loadedNote.path)
+          } else {
+            console.error(`[App] Failed to open renamed note: ${actualNewId}`)
+            this.statusBar.setStatus('Note renamed but could not be reopened')
+          }
         }
+      } else {
+        this.tabBar.render()
+      }
 
-        this.statusBar.setStatus(`Renamed to "${newTitle}"`)
-        void this.persistWorkspace()
+      this.statusBar.setStatus(`Renamed to "${newTitle}"`)
+      void this.persistWorkspace()
     } catch (error) {
-        // We propagate the error so callers can handle specific UI reverts.
-        // We set a status here as a fallback for callers that don't handle it explicitly.
-        this.statusBar.setStatus(`Rename failed: ${(error as Error).message}`)
-        throw error
+      // We propagate the error so callers can handle specific UI reverts.
+      // We set a status here as a fallback for callers that don't handle it explicitly.
+      this.statusBar.setStatus(`Rename failed: ${(error as Error).message}`)
+      throw error
     }
   }
 
@@ -1597,26 +1669,27 @@ class App {
 
   private async openDroppedFile(filePath: string): Promise<void> {
     // Check if file is already inside the vault
-    const isInternal = state.vaultPath && filePath.toLowerCase().startsWith(state.vaultPath.toLowerCase())
+    const isInternal =
+      state.vaultPath && filePath.toLowerCase().startsWith(state.vaultPath.toLowerCase())
 
     // If it's an internal .md file, just open it
     if (isInternal && filePath.toLowerCase().endsWith('.md')) {
-         const name = filePath.split(/[/\\]/).pop() || ''
-         const id = name.replace(/\.[^.]+$/, '') // Remove extension
+      const name = filePath.split(/[/\\]/).pop() || ''
+      const id = name.replace(/\.[^.]+$/, '') // Remove extension
 
-         // Try to find exact note
-         let note = state.notes.find(n => n.id === id)
+      // Try to find exact note
+      let note = state.notes.find((n) => n.id === id)
 
-         // If not found, force refresh in case it was just added externally
-         if (!note) {
-             await this.refreshNotes()
-             note = state.notes.find(n => n.id === id)
-         }
+      // If not found, force refresh in case it was just added externally
+      if (!note) {
+        await this.refreshNotes()
+        note = state.notes.find((n) => n.id === id)
+      }
 
-         if (note) {
-             void this.openNote(note.id, note.path)
-             return
-         }
+      if (note) {
+        void this.openNote(note.id, note.path)
+        return
+      }
     }
 
     // If it's internal but NOT .md (e.g. .txt), we allow it to proceed to importNote
@@ -1678,9 +1751,9 @@ class App {
           notificationManager.show('Backing up vault...', 'info')
           const vaultData = await window.api.listNotes()
           const notes = await Promise.all(
-            vaultData.filter(n => n.type !== 'folder').map(n => window.api.loadNote(n.id))
+            vaultData.filter((n) => n.type !== 'folder').map((n) => window.api.loadNote(n.id))
           )
-          const allNotes = notes.filter(n => n !== null)
+          const allNotes = notes.filter((n) => n !== null)
           const result = await window.api.syncBackup(token, gistId, allNotes)
           if (result.success) {
             notificationManager.show(result.message, 'success')
@@ -1732,11 +1805,13 @@ class App {
     // Process each note from backup
     for (const backupNote of notes) {
       try {
-        const folderPath = backupNote.path ? backupNote.path.split('/').slice(0, -1).join('/') : undefined
+        const folderPath = backupNote.path
+          ? backupNote.path.split('/').slice(0, -1).join('/')
+          : undefined
         const noteTitle = backupNote.title || backupNote.id
 
         // Check if note already exists by ID
-        const existingNote = state.notes.find(n => n.id === backupNote.id)
+        const existingNote = state.notes.find((n) => n.id === backupNote.id)
 
         if (existingNote) {
           // Note exists - always update from backup to restore content
@@ -1759,7 +1834,9 @@ class App {
               if (!createdFolders.has(nextPath)) {
                 try {
                   // Check if folder already exists in state
-                  const folderExists = state.notes.some(n => n.type === 'folder' && n.path === nextPath)
+                  const folderExists = state.notes.some(
+                    (n) => n.type === 'folder' && n.path === nextPath
+                  )
                   if (!folderExists) {
                     await window.api.createFolder(folderName, currentPath || undefined)
                   }
@@ -1796,10 +1873,10 @@ class App {
     await this.refreshNotes()
     // Force sidebar to re-render with all notes
     this.sidebar.renderTree(this.sidebar.getSearchValue())
-    
+
     // Refresh editor state to prevent freezing
     if (state.activeId) {
-      const activeNote = state.notes.find(n => n.id === state.activeId)
+      const activeNote = state.notes.find((n) => n.id === state.activeId)
       if (activeNote) {
         const noteData = await window.api.loadNote(activeNote.id)
         if (noteData) {
@@ -1807,7 +1884,7 @@ class App {
         }
       }
     }
-    
+
     // Ensure editor is enabled and responsive
     setTimeout(() => {
       if (this.editor) {

@@ -58,4 +58,7 @@ export type AppSettings = {
   gistId?: string
   rightPanelWidth?: number
   rightPanelVisible?: boolean
+  // Caret settings
+  caretEnabled?: boolean
+  caretMaxWidth?: number
 }
