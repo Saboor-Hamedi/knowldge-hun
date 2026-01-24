@@ -387,11 +387,11 @@
   display: flex;
   flex-direction: column;
   background: var(--panel);
-  border: 1px solid var(--border);
+  border: none;
   border-radius: 10px;
   margin: 10px;
-  overflow: hidden;
-  transition: border-color 150ms ease, box-shadow 150ms ease;
+  overflow: visible;
+  transition: box-shadow 150ms ease;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
   min-width: 0;
   width: calc(100% - 20px);
@@ -399,16 +399,48 @@
   box-sizing: border-box;
 }
 
+.rightbar__chat-input-wrapper-inner {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
 .rightbar__chat-input-container:focus-within {
-  border-color: var(--primary);
-  box-shadow: 0 0 0 2px rgba(127, 167, 255, 0.15);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+/* Mention styling inside contenteditable */
+.rightbar__mention {
+  display: inline-block;
+  padding: 2px 6px;
+  margin: 0 2px;
+  background: var(--primary);
+  color: #0b1220;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+  cursor: default;
+  user-select: none;
+  vertical-align: baseline;
+}
+
+/* Typing mention highlight (while user is typing @notename) */
+.rightbar__mention-typing {
+  display: inline;
+  background: rgba(127, 167, 255, 0.2);
+  color: var(--text-strong);
+  border-radius: 3px;
+  padding: 1px 2px;
+  font-weight: 500;
 }
 
 .rightbar__chat-input {
   width: 100%;
   background: transparent;
   border: none;
-  padding: 10px 44px 10px 10px;
+  padding: 10px 10px 10px 10px;
   color: var(--text-strong);
   font-size: 13px;
   font-family: inherit;
@@ -419,10 +451,18 @@
   overflow-y: auto;
   outline: none;
   box-sizing: border-box;
+  white-space: pre-wrap;
+  word-wrap: break-word;
 }
 
-.rightbar__chat-input::placeholder {
+.rightbar__chat-input:focus {
+  outline: none;
+}
+
+.rightbar__chat-input:empty:before {
+  content: attr(data-placeholder);
   color: var(--text-soft);
+  pointer-events: none;
 }
 
 .rightbar__chat-input:disabled {
@@ -430,14 +470,93 @@
   cursor: not-allowed;
 }
 
-.rightbar__chat-footer {
+.rightbar__chat-autocomplete {
+  display: none;
   position: absolute;
-  bottom: 6px;
-  right: 6px;
+  bottom: 100%;
+  left: 0;
+  right: 0;
+  margin-bottom: 4px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  max-height: 240px;
+  overflow-y: auto;
+  z-index: 1000;
+  padding: 4px;
+}
+
+.rightbar__autocomplete-item {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 120ms ease;
+  gap: 2px;
+}
+
+.rightbar__autocomplete-item:hover,
+.rightbar__autocomplete-item.is-selected {
+  background: var(--panel-strong);
+}
+
+.rightbar__autocomplete-item-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-strong);
+  line-height: 1.4;
+}
+
+.rightbar__autocomplete-item-path {
+  font-size: 11px;
+  color: var(--text-soft);
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rightbar__chat-footer {
   display: flex;
   align-items: center;
-  gap: 4px;
+  justify-content: space-between;
+  padding: 6px 8px;
+  border-top: 1px solid var(--border);
+  background: var(--panel-strong);
+  gap: 8px;
   pointer-events: none;
+  flex-shrink: 0;
+}
+
+.rightbar__chat-footer-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.rightbar__chat-hint {
+  font-size: 11px;
+  color: var(--text-soft);
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.rightbar__chat-counter {
+  font-size: 11px;
+  color: var(--text-soft);
+  opacity: 0.9;
+  pointer-events: none;
+  font-variant-numeric: tabular-nums;
+  min-width: 40px;
+  text-align: right;
+  display: inline-flex;
+  align-items: center;
+  margin-left: 12px;
 }
 
 .rightbar__chat-send {
@@ -456,6 +575,7 @@
   flex-shrink: 0;
   pointer-events: auto;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  position: relative;
 }
 
 .rightbar__chat-send:hover:not(:disabled) {
