@@ -412,10 +412,11 @@ export class EditorComponent {
         // Double check inside the lock
         if (this.editor) return
 
+        const isLight = state.settings?.theme === 'light' || state.settings?.theme === 'github-light'
         this.editor = monaco.editor.create(this.editorHost, {
           value: '',
           language: 'markdown',
-          theme: 'vs-dark',
+          theme: isLight ? 'vs' : 'vs-dark',
           automaticLayout: true,
           minimap: { enabled: false },
           wordWrap: 'on',

@@ -1,3 +1,32 @@
+import {
+  createElement,
+  Folder,
+  FolderOpen,
+  FolderPlus,
+  FolderGit2,
+  FolderCode,
+  FolderCog,
+  FolderCheck,
+  FolderArchive,
+  FolderRoot,
+  FolderDot
+} from 'lucide'
+
+/**
+ * Helper to create Lucide icon SVG string
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function lucideIcon(IconComponent: any, size: number = 16, strokeWidth: number = 1.5): string {
+  const svgElement = createElement(IconComponent, {
+    width: size,
+    height: size,
+    'stroke-width': strokeWidth,
+    stroke: 'currentColor',
+    fill: 'none'
+  })
+  return svgElement.outerHTML
+}
+
 /**
  * VS Code Codicon system
  * SVG-based icons matching VS Code's icon set
@@ -39,37 +68,24 @@ export const codicons = {
     '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M13 2H3l-1 1v11l1 1h10l1-1V3l-1-1zM3 3h10v2H3V3zm10 11H3V6h10v8zM4 7h2v2H4V7zm3 0h2v2H7V7zm3 0h2v2h-2V7zm-6 4h2v2H4v-2zm3 0h2v2H7v-2zm3 0h2v2h-2v-2z" fill-rule="evenodd" clip-rule="evenodd"/></svg>',
   pin: '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M11.5 2H4.5l-.5.5v3l-1.5 4L2 10v4l.5.5H6v2.5l2-1.5 2 1.5V14.5h3.5l.5-.5V10l-.5-.5-1.5-4V2.5l-.5-.5z"/></svg>',
 
-  // Folders - Clean Lucide-style outline icons
-  folder:
-    '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h16z"/></svg>',
-  folderOpened:
-    '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 14 1.45-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6a2 2 0 0 1-1.94 1.5H4a2 2 0 0 1-2-2V5c0-1.1.9-2 2-2h3.93a2 2 0 0 1 1.66.9l.82 1.2a2 2 0 0 0 1.66.9H18a2 2 0 0 1 2 2v2"/></svg>',
-  newFolder:
-    '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 10v6"/><path d="M9 13h6"/><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h16z"/></svg>',
+  // Folders - Using Lucide icons
+  folder: lucideIcon(Folder),
+  folderOpened: lucideIcon(FolderOpen),
+  newFolder: lucideIcon(FolderPlus),
   // Outline versions for action buttons
-  folderOpenedOutline:
-    '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 14 1.45-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.55 6a2 2 0 0 1-1.94 1.5H4a2 2 0 0 1-2-2V5c0-1.1.9-2 2-2h3.93a2 2 0 0 1 1.66.9l.82 1.2a2 2 0 0 0 1.66.9H18a2 2 0 0 1 2 2v2"/></svg>',
-  newFolderOutline:
-    '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 10v6"/><path d="M9 13h6"/><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h16z"/></svg>',
+  folderOpenedOutline: lucideIcon(FolderOpen),
+  newFolderOutline: lucideIcon(FolderPlus),
 
-  // Folder types (semantic) - Lucide-style with inner icons
-  folderRoot:
-    '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h16z"/><circle cx="12" cy="13" r="2"/></svg>',
-  folderSrc:
-    '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h16z"/><path d="m10 11-2 2 2 2"/><path d="m14 15 2-2-2-2"/></svg>',
-  folderConfig:
-    '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h16z"/><circle cx="12" cy="13" r="1.5"/><path d="M12 10v1m0 4v1m-2.6-4.5.9.5m3.4 2 .9.5m-5.2 0 .9-.5m3.4-2 .9-.5"/></svg>',
-  folderTest:
-    '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h16z"/><path d="m9 14 2 2 4-4"/></svg>',
-  folderSettings:
-    '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h16z"/><circle cx="12" cy="13" r="2"/><path d="M12 9v2m0 4v2"/></svg>',
-  folderPublic:
-    '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h16z"/><circle cx="12" cy="13" r="2"/><path d="M12 11v-1m0 6v-1"/></svg>',
-  folderLib:
-    '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h16z"/><path d="M9 11v5m3-5v5m3-5v5"/></svg>',
-  // GitHub folder
-  folderGit:
-    '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h16z"/><circle cx="12" cy="12" r="3"/><path d="M12 15v2"/><path d="M9.5 14.5l-1 1.5"/><path d="M14.5 14.5l1 1.5"/></svg>',
+  // Folder types (semantic) - Lucide folder variants
+  folderRoot: lucideIcon(FolderRoot),
+  folderSrc: lucideIcon(FolderCode),
+  folderConfig: lucideIcon(FolderCog),
+  folderTest: lucideIcon(FolderCheck),
+  folderSettings: lucideIcon(FolderCog),
+  folderPublic: lucideIcon(FolderDot),
+  folderLib: lucideIcon(FolderArchive),
+  // Git/GitHub folder - use FolderGit2 for better visibility
+  folderGit: lucideIcon(FolderGit2),
 
   // Activity bar - Simple, clean outline icons
   // Files/Explorer - clean file icon

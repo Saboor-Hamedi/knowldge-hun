@@ -9,6 +9,8 @@ import {
   Folder,
   FolderCode,
   FolderOpen,
+  FolderGit,
+  FolderGit2,
   Database,
   Key,
   Lock,
@@ -69,9 +71,23 @@ import {
   CloudLightning,
   Sun,
   Wind,
-  Thermometer
+  Thermometer,
+  FileDigit,
+  createElement
 } from 'lucide'
 import { GitBranch, Cloud, Activity, Cpu, Archive, Monitor } from 'lucide'
+
+// Create actual SVG icons for git-related files
+const createLucideSvg = (IconComponent: any, size: number = 16): string => {
+  const svgElement = createElement(IconComponent, {
+    width: size,
+    height: size,
+    'stroke-width': 1.5,
+    stroke: 'currentColor',
+    fill: 'none'
+  })
+  return svgElement.outerHTML
+}
 
 /**
  * File Icon Mapper
@@ -79,9 +95,18 @@ import { GitBranch, Cloud, Activity, Cpu, Archive, Monitor } from 'lucide'
  * Used for displaying contextual icons in the sidebar file explorer
  */
 
-// Map Lucide icons to emojis for HTML display
-// Using a function to map icon references to emoji strings
+// Special marker for icons that should render as SVG
+const SVG_ICON_MARKER = '__SVG__'
+
+// Map Lucide icons to emojis or SVG for HTML display
 const getIconEmoji = (icon: any): string => {
+  // Git-related icons - return actual SVG icons
+  if (icon === Github) return SVG_ICON_MARKER + 'github'
+  if (icon === FolderGit || icon === FolderGit2) return SVG_ICON_MARKER + 'folderGit'
+  if (icon === GitBranch) return SVG_ICON_MARKER + 'gitBranch'
+  if (icon === FileDigit) return SVG_ICON_MARKER + 'fileDigit'
+  if (icon === FileX) return SVG_ICON_MARKER + 'fileX'
+
   // Map icon references to their emoji equivalents
   if (icon === Settings || icon === Cog) return '⚙️'
   if (icon === FileJson || icon === FileCode || icon === File || icon === FileText) return '📄'
@@ -107,7 +132,6 @@ const getIconEmoji = (icon: any): string => {
   if (icon === ShoppingBag) return '🛍️'
   if (icon === Brain) return '🧠'
   if (icon === BarChart3 || icon === LayoutDashboard) return '📊'
-  if (icon === Github) return '🚫' // Git ignore files (red circle)
   if (icon === Twitter) return '🐦'
   if (icon === Facebook) return '📘'
   if (icon === Instagram) return '📷'
@@ -142,12 +166,38 @@ const getIconEmoji = (icon: any): string => {
   if (icon === Sun) return '☀️'
   if (icon === Wind) return '💨'
   if (icon === Thermometer) return '🌡️'
-  if (icon === GitBranch) return '🌿'
   if (icon === Cloud) return '☁️'
   if (icon === Activity) return '📈'
 
   // Default fallback for markdown files
   return '📝'
+}
+
+// Get actual SVG for special icons
+const getSvgIcon = (iconName: string): string => {
+  switch (iconName) {
+    case 'github':
+      return createLucideSvg(Github, 14)
+    case 'folderGit':
+      return createLucideSvg(FolderGit2, 14)
+    case 'gitBranch':
+      return createLucideSvg(GitBranch, 14)
+    case 'fileDigit':
+      return createLucideSvg(FileDigit, 14)
+    case 'fileX':
+      return createLucideSvg(FileX, 14)
+    default:
+      return '📝'
+  }
+}
+
+// Process icon result - convert SVG markers to actual SVG
+const processIconResult = (result: string): string => {
+  if (result.startsWith(SVG_ICON_MARKER)) {
+    const iconName = result.substring(SVG_ICON_MARKER.length)
+    return getSvgIcon(iconName)
+  }
+  return result
 }
 
 // --- Country Flag Emoji Support (High Performance) ---
@@ -247,13 +297,6 @@ const EXTRA_EMOJIS = {
 const EmojiIcon = (emoji, size = 16, className = 'item-icon') =>
   `<span class="${className}" style="font-size: ${size}px;">${emoji}</span>`
 
-// For Lucide icons, we'll return a placeholder for now, but ideally create SVG
-const LucideIconHtml = (Icon, iconColor, size, className) => {
-  // This is a simplified version - in practice, you'd need to get the SVG path from the icon
-  // For now, return a colored square or use a generic icon
-  return `<span class="${className || ''}" style="color: ${iconColor}; font-size: ${size}px; display: inline-flex; align-items: center; justify-content: center;">📄</span>`
-}
-
 const getFileIcon = (title, language) => {
   const titleLower = (title || '').toLowerCase().trim()
   const lang = (language || 'markdown').toLowerCase()
@@ -294,11 +337,13 @@ const getFileIcon = (title, language) => {
     'prettier.config.js': Cog,
     '.prettierrc': Cog,
     '.eslintrc': Cog,
-    '.gitignore': Github,
-    gitignore: Github,
-    '.gitattributes': Github,
+    '.gitignore': FileX,
+    gitignore: FileX,
+    '.gitattributes': GitBranch,
     '.github': Github,
     github: Github,
+    '.gitlab': FolderGit,
+    gitlab: FolderGit,
     dockerfile: Terminal,
     '.dockerignore': File,
     'docker-compose.yml': Terminal,
@@ -495,7 +540,7 @@ const getFileIcon = (title, language) => {
   // Check exact matches first (full filename)
   if (exactMatches[titleLower]) {
     const Icon = exactMatches[titleLower]
-    return getIconEmoji(Icon)
+    return processIconResult(getIconEmoji(Icon))
   }
 
   // Check base name (without .md extension) for exact matches
@@ -505,7 +550,7 @@ const getFileIcon = (title, language) => {
     if (EXTRA_EMOJIS[baseName]) return EXTRA_EMOJIS[baseName]
     if (exactMatches[baseName]) {
       const Icon = exactMatches[baseName]
-      return getIconEmoji(Icon)
+      return processIconResult(getIconEmoji(Icon))
     }
   }
 
@@ -565,8 +610,10 @@ const getFileIcon = (title, language) => {
     { pattern: /package/, icon: Package },
     { pattern: /release|dist|bundle/, icon: Archive },
     { pattern: /docker/, icon: Terminal },
-    { pattern: /^\.git/, icon: Github },
-    { pattern: /gitignore/, icon: Github },
+    { pattern: /gitignore/, icon: FileX },
+    { pattern: /^\.github/, icon: Github },
+    { pattern: /^\.gitlab/, icon: FolderGit },
+    { pattern: /gitlab/, icon: FolderGit },
     { pattern: /^\.docker/, icon: Terminal },
     { pattern: /security/, icon: Shield },
     { pattern: /secret/, icon: Lock },
@@ -621,7 +668,7 @@ const getFileIcon = (title, language) => {
   // Check patterns on full filename first
   for (const { pattern, icon } of patternMatches) {
     if (pattern.test(titleLower)) {
-      return getIconEmoji(icon)
+      return processIconResult(getIconEmoji(icon))
     }
   }
 
@@ -629,7 +676,7 @@ const getFileIcon = (title, language) => {
   if (baseName !== titleLower) {
     for (const { pattern, icon } of patternMatches) {
       if (pattern.test(baseName)) {
-        return getIconEmoji(icon)
+        return processIconResult(getIconEmoji(icon))
       }
     }
   }
@@ -740,7 +787,7 @@ const getFileIcon = (title, language) => {
   }
 
   if (extension && extensionMap[extension]) {
-    return getIconEmoji(extensionMap[extension])
+    return processIconResult(getIconEmoji(extensionMap[extension]))
   }
 
   // Language-based fallback
@@ -780,17 +827,17 @@ const getFileIcon = (title, language) => {
   }
 
   if (languageMap[lang]) {
-    return getIconEmoji(languageMap[lang])
+    return processIconResult(getIconEmoji(languageMap[lang]))
   }
 
   // Default fallback: ensure anything the user types has a relevant code/file icon
-  return getIconEmoji(Hash)
+  return processIconResult(getIconEmoji(Hash))
 }
 
 /**
  * Get icon color based on icon type
  */
-const getIconColor = (iconType, title) => {
+const getIconColor = (_iconType, title) => {
   const titleLower = (title || '').toLowerCase()
 
   // Love/Personal icons

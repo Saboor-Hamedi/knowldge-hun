@@ -436,8 +436,8 @@ export class AIService {
 
     // Get current note context
     if (this.editorContext) {
-      const noteInfo = this.editorContext.getActiveNoteInfo?.()
-      const editorContent = this.editorContext.getEditorContent?.()
+    const noteInfo = this.editorContext.getActiveNoteInfo?.()
+    const editorContent = this.editorContext.getEditorContent?.()
 
       if (noteInfo) {
         context += `Current note: "${noteInfo.title}" (ID: ${noteInfo.id})\n`

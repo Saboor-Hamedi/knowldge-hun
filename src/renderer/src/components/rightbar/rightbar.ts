@@ -477,8 +477,8 @@ export class RightBar {
           <div class="rightbar__chat-input-container" id="rightbar-chat-input-container">
             <div class="rightbar__chat-input-area">
               <div
-                class="rightbar__chat-input"
-                id="rightbar-chat-input"
+              class="rightbar__chat-input"
+              id="rightbar-chat-input"
                 contenteditable="true"
                 data-placeholder="Ask anything... @note to reference"
                 role="textbox"
@@ -494,8 +494,8 @@ export class RightBar {
                     <span class="rightbar__mode-label">Balanced</span>
                     <svg class="rightbar__mode-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                       <path d="M6 9l6 6 6-6"/>
-                    </svg>
-                  </button>
+                </svg>
+              </button>
                   <div class="rightbar__mode-dropdown" id="rightbar-mode-dropdown">
                     ${CHAT_MODES.map(
                       (mode) => `
@@ -504,7 +504,7 @@ export class RightBar {
                         <div class="rightbar__mode-option-info">
                           <span class="rightbar__mode-option-label">${mode.label}</span>
                           <span class="rightbar__mode-option-desc">${mode.description}</span>
-                        </div>
+            </div>
                       </button>
                     `
                     ).join('')}
@@ -1809,7 +1809,7 @@ export class RightBar {
 
     // Only add user message if not regenerating (where message already exists)
     if (!skipAddingUserMessage) {
-      this.addMessage('user', message)
+    this.addMessage('user', message)
     }
     this.sendButton.disabled = true
     this.lastFailedMessage = null
@@ -1898,14 +1898,14 @@ export class RightBar {
 
         // Use requestAnimationFrame for smooth UI updates
         requestAnimationFrame(() => {
-          this.isLoading = false
+      this.isLoading = false
           this.renderMessages()
           this.sendButton.disabled = false
           this.chatInput.focus()
           // Auto-save after streaming completes
           void this.autoSaveSession()
         })
-      } catch (err: unknown) {
+    } catch (err: unknown) {
         // Remove placeholder message on error
         if (this.streamingMessageIndex !== null) {
           this.messages.splice(this.streamingMessageIndex, 1)
@@ -1913,15 +1913,15 @@ export class RightBar {
         }
 
         requestAnimationFrame(() => {
-          this.isLoading = false
-          this.lastFailedMessage = message
-          const errorMsg = err instanceof Error ? err.message : 'Failed to get response'
-          this.addMessage(
-            'assistant',
-            `❌ **Error**\n\n${errorMsg}\n\nPlease check your API key and internet connection.`
-          )
-          this.sendButton.disabled = false
-          this.chatInput.focus()
+      this.isLoading = false
+      this.lastFailedMessage = message
+      const errorMsg = err instanceof Error ? err.message : 'Failed to get response'
+      this.addMessage(
+        'assistant',
+        `❌ **Error**\n\n${errorMsg}\n\nPlease check your API key and internet connection.`
+      )
+      this.sendButton.disabled = false
+      this.chatInput.focus()
         })
         console.error('[RightBar] API Error:', err)
       }

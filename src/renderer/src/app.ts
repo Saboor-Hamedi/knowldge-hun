@@ -1253,7 +1253,11 @@ class App {
         { title: 'Note Not Found' }
       )
       this.statusBar.setStatus('Note missing on disk')
-      if (state.activeId === id || !state.activeId) {
+      // Remove the missing tab from open tabs
+      state.openTabs = state.openTabs.filter((tab) => tab.id !== id)
+      this.tabBar.render()
+      if (state.activeId === id) {
+        state.activeId = ''
         this.editor.showEmpty()
       }
       return

@@ -20,7 +20,12 @@ export class FuzzyFinder {
   private backdrop: HTMLElement | null = null
   private selectedIndex = 0
   private visibleItems: any[] = []
-  private onSelect?: (id: string, path?: string, type?: string, isFinal?: boolean) => Promise<void> | void
+  private onSelect?: (
+    id: string,
+    path?: string,
+    type?: string,
+    isFinal?: boolean
+  ) => Promise<void> | void
   private mode: 'notes' | 'commands' = 'notes'
   private commands: Command[] = []
 
@@ -30,9 +35,9 @@ export class FuzzyFinder {
 
     // Global Esc listener as safety
     window.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && this.isOpen) {
-            this.close()
-        }
+      if (e.key === 'Escape' && this.isOpen) {
+        this.close()
+      }
     })
   }
 
@@ -44,7 +49,9 @@ export class FuzzyFinder {
     this.commands.push(...commands)
   }
 
-  setSelectHandler(handler: (id: string, path?: string, type?: string, isFinal?: boolean) => Promise<void> | void): void {
+  setSelectHandler(
+    handler: (id: string, path?: string, type?: string, isFinal?: boolean) => Promise<void> | void
+  ): void {
     this.onSelect = handler
   }
 
@@ -80,7 +87,8 @@ export class FuzzyFinder {
 
   private updateModeUI(): void {
     if (this.input) {
-      this.input.placeholder = this.mode === 'commands' ? 'Type a command name...' : 'Type filename to search...'
+      this.input.placeholder =
+        this.mode === 'commands' ? 'Type a command name...' : 'Type filename to search...'
       this.input.focus()
     }
     const iconEl = this.modal?.querySelector('.fuzzy-icon')
@@ -148,8 +156,8 @@ export class FuzzyFinder {
 
     // Global key listener handles navigation regardless of focus
     if (!this.globalKeyListenerAttached) {
-        window.addEventListener('keydown', (e) => void this.handleGlobalKey(e))
-        this.globalKeyListenerAttached = true
+      window.addEventListener('keydown', (e) => void this.handleGlobalKey(e))
+      this.globalKeyListenerAttached = true
     }
   }
 
@@ -177,7 +185,8 @@ export class FuzzyFinder {
       if (this.visibleItems.length > 0) {
         e.preventDefault()
         e.stopPropagation()
-        this.selectedIndex = (this.selectedIndex - 1 + this.visibleItems.length) % this.visibleItems.length
+        this.selectedIndex =
+          (this.selectedIndex - 1 + this.visibleItems.length) % this.visibleItems.length
         this.renderList()
         this.scrollToSelected()
       }
@@ -186,37 +195,45 @@ export class FuzzyFinder {
       e.stopPropagation()
       const item = this.visibleItems[this.selectedIndex]
       if (item) {
+        // Always close first for immediate feedback
+        this.close()
+
         if (this.mode === 'commands') {
           const command = item as Command
           await command.handler()
-          this.close()
         } else {
-          // Only call onSelect for notes, not commands
-          if (item.id && item.type !== 'command') {
+          // Call onSelect for notes
+          if (item.id) {
             await this.onSelect?.(item.id, item.path, item.type, true)
-            this.close()
           }
         }
       }
     } else {
-        // For other keys, ensure input is focused so user can type
-        if (this.input && document.activeElement !== this.input && e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
-             this.input.focus()
-        }
+      // For other keys, ensure input is focused so user can type
+      if (
+        this.input &&
+        document.activeElement !== this.input &&
+        e.key.length === 1 &&
+        !e.ctrlKey &&
+        !e.metaKey &&
+        !e.altKey
+      ) {
+        this.input.focus()
+      }
     }
   }
 
   private scrollToSelected(): void {
-      const selectedEl = this.list?.children[this.selectedIndex] as HTMLElement
-      if (selectedEl) {
-          selectedEl.scrollIntoView({ block: 'nearest' })
-      }
+    const selectedEl = this.list?.children[this.selectedIndex] as HTMLElement
+    if (selectedEl) {
+      selectedEl.scrollIntoView({ block: 'nearest' })
+    }
   }
 
   private highlight(text: string, query: string): string {
-    if (!query) return text;
-    const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-    return text.replace(regex, '<span class="fuzzy-match">$1</span>');
+    if (!query) return text
+    const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi')
+    return text.replace(regex, '<span class="fuzzy-match">$1</span>')
   }
 
   private filter(query: string): void {
@@ -230,36 +247,36 @@ export class FuzzyFinder {
     // 1. Collect only notes (files)
     const allItems: any[] = []
 
-    // Add notes
-    state.notes.forEach(n => allItems.push({ ...n, type: 'note' }))
+    // Add notes - ensure type is always 'note' by putting it after spread
+    state.notes.forEach((n) => allItems.push({ ...n, type: 'note' }))
 
     // FOLDERS REMOVED from search results as per request ("only allow files two show up")
 
     let matches: any[] = []
 
     if (!term) {
-        // Show recent 5 notes on empty query
-        matches = [...allItems].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).slice(0, 5)
+      // Show recent 5 notes on empty query
+      matches = [...allItems].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).slice(0, 5)
     } else {
-        matches = allItems.filter(n => {
-           const title = (n.title || '').toLowerCase()
-           const path = (n.path || '').toLowerCase()
-           return title.includes(term) || path.includes(term)
-        })
+      matches = allItems.filter((n) => {
+        const title = (n.title || '').toLowerCase()
+        const path = (n.path || '').toLowerCase()
+        return title.includes(term) || path.includes(term)
+      })
 
-        // 2. Sort by relevance
-        matches.sort((a, b) => {
-            const aTitle = (a.title || '').toLowerCase()
-            const bTitle = (b.title || '').toLowerCase()
-            const aStarts = aTitle.startsWith(term)
-            const bStarts = bTitle.startsWith(term)
+      // 2. Sort by relevance
+      matches.sort((a, b) => {
+        const aTitle = (a.title || '').toLowerCase()
+        const bTitle = (b.title || '').toLowerCase()
+        const aStarts = aTitle.startsWith(term)
+        const bStarts = bTitle.startsWith(term)
 
-            if (aStarts && !bStarts) return -1
-            if (!aStarts && bStarts) return 1
-            return 0
-        })
+        if (aStarts && !bStarts) return -1
+        if (!aStarts && bStarts) return 1
+        return 0
+      })
 
-        matches = matches.slice(0, 50)
+      matches = matches.slice(0, 50)
     }
 
     this.visibleItems = matches
@@ -275,10 +292,11 @@ export class FuzzyFinder {
     if (!term) {
       matches = [...this.commands]
     } else {
-      matches = this.commands.filter(cmd =>
-        cmd.label.toLowerCase().includes(term) ||
-        cmd.description?.toLowerCase().includes(term) ||
-        cmd.id.toLowerCase().includes(term)
+      matches = this.commands.filter(
+        (cmd) =>
+          cmd.label.toLowerCase().includes(term) ||
+          cmd.description?.toLowerCase().includes(term) ||
+          cmd.id.toLowerCase().includes(term)
       )
     }
 
@@ -299,11 +317,12 @@ export class FuzzyFinder {
     }
 
     if (this.mode === 'commands') {
-      this.list.innerHTML = this.visibleItems.map((item, index) => {
-        const isSelected = index === this.selectedIndex ? 'is-selected' : ''
-        const command = item as Command
-        const label = this.highlightMatch(command.label, this.query)
-        return `
+      this.list.innerHTML = this.visibleItems
+        .map((item, index) => {
+          const isSelected = index === this.selectedIndex ? 'is-selected' : ''
+          const command = item as Command
+          const label = this.highlightMatch(command.label, this.query)
+          return `
           <div class="fuzzy-item ${isSelected}" data-index="${index}">
             <div class="fuzzy-item__content">
               <div class="fuzzy-item__label">${label}</div>
@@ -312,16 +331,19 @@ export class FuzzyFinder {
             ${command.icon ? `<div class="fuzzy-item__icon">${command.icon}</div>` : ''}
           </div>
         `
-      }).join('')
+        })
+        .join('')
     } else {
-      this.list.innerHTML = this.visibleItems.map((item, index) => {
-        const isSelected = index === this.selectedIndex ? 'is-selected' : ''
-        const icon = item.type === 'folder' ? codicons.folder : getFileIcon(item.title || '', 'markdown')
-        const noteType = item.type === 'note' ? this.getNoteType(item.title || '') : ''
-        const title = this.highlight(item.title || '', this.query)
-        const path = this.highlight(item.path ? item.path.replace(/\\/g, '/') : '', this.query)
+      this.list.innerHTML = this.visibleItems
+        .map((item, index) => {
+          const isSelected = index === this.selectedIndex ? 'is-selected' : ''
+          const icon =
+            item.type === 'folder' ? codicons.folder : getFileIcon(item.title || '', 'markdown')
+          const noteType = item.type === 'note' ? this.getNoteType(item.title || '') : ''
+          const title = this.highlight(item.title || '', this.query)
+          const path = this.highlight(item.path ? item.path.replace(/\\/g, '/') : '', this.query)
 
-        return `
+          return `
           <div class="fuzzy-item ${isSelected}" data-index="${index}" ${noteType ? `data-note-type="${noteType}"` : ''}>
             <div class="fuzzy-item__main">
               <div class="fuzzy-item__icon" ${noteType ? `data-note-type="${noteType}"` : ''}>${icon}</div>
@@ -330,7 +352,8 @@ export class FuzzyFinder {
             </div>
           </div>
         `
-      }).join('')
+        })
+        .join('')
     }
 
     // Click and hover selection
@@ -341,16 +364,17 @@ export class FuzzyFinder {
         this.selectedIndex = idx
         const item = this.visibleItems[idx]
         if (!item) return
-        
+
+        // Always close first for immediate feedback
+        this.close()
+
         if (this.mode === 'commands') {
           const command = item as Command
           void command.handler()
-          this.close()
         } else {
-          // Only call onSelect for notes, not commands
-          if (item.id && item.type !== 'command') {
+          // Call onSelect for notes
+          if (item.id) {
             this.onSelect?.(item.id, item.path, item.type, true)
-            this.close()
           }
         }
       })
@@ -399,7 +423,12 @@ export class FuzzyFinder {
       // e.g., "template.html" -> "template.html.md"
       return 'html'
     }
-    if (name.includes('.css') || name.includes('.scss') || name.includes('.sass') || name.includes('.less')) {
+    if (
+      name.includes('.css') ||
+      name.includes('.scss') ||
+      name.includes('.sass') ||
+      name.includes('.less')
+    ) {
       // e.g., "styles.css" -> "styles.css.md"
       return 'css'
     }

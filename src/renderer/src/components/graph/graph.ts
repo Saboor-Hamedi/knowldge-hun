@@ -53,12 +53,12 @@ export class GraphView {
     this.modal.className = 'graph-modal'
     this.render()
     this.container.appendChild(this.modal)
-
+    
     // Bind Escape key
     window.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && this.modal.classList.contains('is-visible')) {
-        this.close()
-      }
+        if (e.key === 'Escape' && this.modal.classList.contains('is-visible')) {
+            this.close()
+        }
     })
   }
 
@@ -115,29 +115,29 @@ export class GraphView {
   close(): void {
     this.modal.classList.remove('is-visible')
     if (this.simulation) {
-      this.simulation.stop()
+        this.simulation.stop()
     }
   }
 
   private async initGraph(): Promise<void> {
     const canvas = this.modal.querySelector('#graph-canvas') as HTMLElement
     if (!canvas) return
-
+    
     // Clear previous
     canvas.innerHTML = ''
     this.hideTooltip()
-
+    
     // Check for API availability
     if (!window.api.getGraph) {
       this.showError('Graph API not found. Please restart the application.')
-      return
+        return
     }
 
     try {
       // Fetch data
-      const graphData = await window.api.getGraph()
-      const allNotes = state.notes
-
+        const graphData = await window.api.getGraph()
+        const allNotes = state.notes
+        
       if (!graphData || !allNotes) {
         this.showError('No notes found in vault.')
         return
@@ -185,10 +185,10 @@ export class GraphView {
       // Update stats
       this.updateStats()
     } catch (e) {
-      console.error('Failed to load graph data', e)
+        console.error('Failed to load graph data', e)
       this.showError('Failed to load graph data.')
     }
-  }
+    }
 
   private initD3(canvas: HTMLElement): void {
     const width = canvas.clientWidth
@@ -198,8 +198,8 @@ export class GraphView {
     this.svg = d3
       .select(canvas)
       .append('svg')
-      .attr('width', width)
-      .attr('height', height)
+        .attr('width', width)
+        .attr('height', height)
       .attr('class', 'graph-svg')
 
     // Add defs for gradients/filters
@@ -282,7 +282,7 @@ export class GraphView {
           .distance((d) => (d.bidirectional ? 80 : 120))
       )
       .force('charge', d3.forceManyBody<GraphNode>().strength(this.forceStrength))
-      .force('center', d3.forceCenter(width / 2, height / 2))
+        .force('center', d3.forceCenter(width / 2, height / 2))
       .force(
         'collision',
         d3.forceCollide<GraphNode>().radius((d) => getNodeRadius(d) + 10)
@@ -628,8 +628,8 @@ export class GraphView {
 
     // Normal mode - open note
     const note = state.notes.find((n) => n.id === node.id)
-    if (note) {
-      this.close()
+        if (note) {
+            this.close()
       window.dispatchEvent(
         new CustomEvent('knowledge-hub:open-note', {
           detail: { id: node.id, path: note.path }

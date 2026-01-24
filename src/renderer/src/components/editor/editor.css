@@ -54,8 +54,7 @@
 /* Ensure all monaco widgets are on top and visible */
 .monaco-editor-hover,
 .monaco-editor-hover-content,
-.suggest-widget,
-.monaco-editor .suggest-widget,
+.monaco-editor,
 .monaco-hover,
 .monaco-hover-content,
 .monaco-list.list_id_1, /* Often the suggest list ID */
@@ -77,67 +76,6 @@
     overflow-y: auto !important;
 }
 
-/* Modern suggest widget - positioned correctly, modern styling */
-.suggest-widget {
-    background: var(--panel-strong) !important;
-    border: 1px solid var(--border) !important;
-    border-radius: 8px !important;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3), 0 2px 8px rgba(0, 0, 0, 0.2) !important;
-    backdrop-filter: blur(12px) !important;
-    padding: 4px !important;
-    max-width: 500px !important;
-    min-width: 300px !important;
-    position: fixed !important;
-    /* Move closer to cursor */
-    transform: translateY(2px) !important;
-    margin-left: 0px !important;
-}
-
-.suggest-widget .monaco-list {
-    background: transparent !important;
-}
-
-.suggest-widget .monaco-list .monaco-list-row {
-    border-radius: 4px !important;
-    margin: 2px 0 !important;
-    padding: 0 8px !important;
-    color: var(--text-strong) !important;
-}
-
-.suggest-widget .monaco-list .monaco-list-row.selected {
-    background: var(--selection) !important;
-    color: var(--text-strong) !important;
-}
-
-.suggest-widget .monaco-list .monaco-list-row:hover:not(.selected) {
-    background: var(--hover) !important;
-}
-
-.suggest-widget .monaco-list .monaco-list-row .monaco-icon-label {
-    color: var(--text-strong) !important;
-}
-
-.suggest-widget .monaco-list .monaco-list-row .monaco-icon-label .monaco-icon-label-description-container {
-    color: var(--text-soft) !important;
-}
-
-.suggest-details {
-    display: none !important;
-}
-
-.monaco-hover-content,
-.suggest-widget-content {
-    background: transparent !important;
-}
-
-/* Fix suggest widget positioning - should appear near cursor, not on right sidebar */
-.monaco-editor .suggest-widget {
-    position: fixed !important;
-    z-index: 10000 !important;
-    /* Move closer to cursor */
-    transform: translateY(2px) !important;
-    margin-left: 0px !important;
-}
 
 /* Improved WikiLink hover preview */
 .monaco-hover .hover-contents {
@@ -377,4 +315,51 @@
   color: #ff6b6b !important;
   font-weight: bold !important;
   text-decoration: none !important;
+}
+
+
+/* Modern suggest widget - positioned correctly, modern styling */
+/* 1. Force the container row to be transparent so the highlight shows through */
+.monaco-editor .suggest-widget .monaco-list-row,
+.monaco-editor .suggest-widget .monaco-list-row .contents {
+    background-color: transparent !important;
+}
+
+/* 2. Target the specific child elements that often inherit 'black' backgrounds */
+.monaco-editor .suggest-widget .monaco-list-row .main,
+.monaco-editor .suggest-widget .monaco-list-row .details,
+.monaco-editor .suggest-widget .monaco-list-row .label-name,
+.monaco-editor .suggest-widget .monaco-list-row .monaco-icon-label {
+    background-color: transparent !important;
+}
+
+/* 3. Ensure the selection highlight itself is opaque enough to be seen */
+.monaco-editor .suggest-widget .monaco-list-row.focused {
+    background-color: #007acc !important; /* Classic VS Code Blue */
+    color: white !important;
+}
+
+/* 4. Fix for line-height issues that sometimes misalign the highlight */
+.monaco-editor .suggest-widget .monaco-list-row * {
+    line-height: normal !important;
+}
+
+.suggest-details {
+    background: transparent !important;
+    display: block !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 8px !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3), 0 2px 8px rgba(0, 0, 0, 0.2) !important;
+    backdrop-filter: blur(12px) !important;
+    padding: 12px !important;
+    max-width: 400px !important;
+    max-height: 300px !important;
+    overflow-y: auto !important;
+    color: var(--text-strong) !important;
+    font-size: 13px !important;
+    line-height: 1.5 !important;
+    position: absolute !important;
+    z-index: 10001 !important;
+    margin-left: 8px !important;
+    top: 0 !important;
 }
