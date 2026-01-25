@@ -2,6 +2,7 @@ import { state } from '../../core/state'
 import type { AppSettings } from '../../core/types'
 import { codicons } from '../../utils/codicons'
 import { themes } from '../../core/themes'
+import { renderShortcutItems } from '../../utils/shortcutUtils'
 import './settings-panel.css'
 
 export class SettingsPanel {
@@ -36,6 +37,7 @@ export class SettingsPanel {
     this.currentSettings = {}
   }
 
+  // No need for a custom renderShortcuts here anymore
   private render(): void {
     this.container.innerHTML = `
       <div class="settings-panel__overlay"></div>
@@ -59,6 +61,9 @@ export class SettingsPanel {
             </button>
             <button class="settings-panel__tab" data-tab="behavior">
               ${codicons.settingsGear} <span>Behavior</span>
+            </button>
+            <button class="settings-panel__tab" data-tab="shortcuts">
+              ${codicons.keyboard} <span>Shortcuts</span>
             </button>
           </div>
         </div>
@@ -131,9 +136,13 @@ export class SettingsPanel {
             <div class="settings-field">
               <label class="settings-field__label">Theme</label>
               <select class="settings-field__input" data-setting="theme">
-                ${Object.values(themes).map(theme => `
+                ${Object.values(themes)
+                  .map(
+                    (theme) => `
                   <option value="${theme.id}">${theme.name}</option>
-                `).join('')}
+                `
+                  )
+                  .join('')}
               </select>
             </div>
 
@@ -204,6 +213,14 @@ export class SettingsPanel {
               <p class="settings-field__hint">Range: 300-5000ms. Delay after typing before auto-saving</p>
             </div>
           </div>
+
+          <!-- Shortcuts Tab -->
+          <div class="settings-panel__section" data-section="shortcuts">
+            <h3 class="settings-panel__section-title">Keyboard Shortcuts</h3>
+            <div class="settings-shortcuts">
+              ${renderShortcutItems()}
+            </div>
+          </div>
         </div>
 
         <div class="settings-panel__footer">
@@ -233,13 +250,13 @@ export class SettingsPanel {
       if (!setting) return
 
       const value = state.settings?.[setting as keyof AppSettings]
-      
+
       if ((input as HTMLInputElement).type === 'checkbox') {
-        (input as HTMLInputElement).checked = Boolean(value)
+        ;(input as HTMLInputElement).checked = Boolean(value)
       } else if ((input as HTMLInputElement).type === 'number') {
-        (input as HTMLInputElement).value = String(value || 0)
+        ;(input as HTMLInputElement).value = String(value || 0)
       } else {
-        (input as HTMLInputElement).value = String(value || '')
+        ;(input as HTMLInputElement).value = String(value || '')
       }
     })
   }
@@ -252,21 +269,35 @@ export class SettingsPanel {
 
     // Input changes
     this.container.querySelectorAll('[data-setting]').forEach((input) => {
-      input.addEventListener('change', (e) => this.handleSettingChange(e.target as HTMLInputElement))
+      input.addEventListener('change', (e) =>
+        this.handleSettingChange(e.target as HTMLInputElement)
+      )
       input.addEventListener('input', (e) => this.handleSettingChange(e.target as HTMLInputElement))
     })
 
     // Action buttons
-    this.container.querySelector('[data-action="close"]')?.addEventListener('click', () => this.close())
-    this.container.querySelector('[data-action="cancel"]')?.addEventListener('click', () => this.close())
-    this.container.querySelector('[data-action="save"]')?.addEventListener('click', () => this.save())
-    this.container.querySelector('[data-action="reset"]')?.addEventListener('click', () => this.reset())
+    this.container
+      .querySelector('[data-action="close"]')
+      ?.addEventListener('click', () => this.close())
+    this.container
+      .querySelector('[data-action="cancel"]')
+      ?.addEventListener('click', () => this.close())
+    this.container
+      .querySelector('[data-action="save"]')
+      ?.addEventListener('click', () => this.save())
+    this.container
+      .querySelector('[data-action="reset"]')
+      ?.addEventListener('click', () => this.reset())
 
     // Close button in header
-    this.container.querySelector('.settings-panel__close')?.addEventListener('click', () => this.close())
+    this.container
+      .querySelector('.settings-panel__close')
+      ?.addEventListener('click', () => this.close())
 
     // Close on overlay click
-    this.container.querySelector('.settings-panel__overlay')?.addEventListener('click', () => this.close())
+    this.container
+      .querySelector('.settings-panel__overlay')
+      ?.addEventListener('click', () => this.close())
 
     // Prevent close on content click
     this.container.querySelector('.settings-panel__content')?.addEventListener('click', (e) => {

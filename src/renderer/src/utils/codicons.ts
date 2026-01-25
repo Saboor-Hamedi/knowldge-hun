@@ -9,7 +9,8 @@ import {
   FolderCheck,
   FolderArchive,
   FolderRoot,
-  FolderDot
+  FolderDot,
+  Keyboard
 } from 'lucide'
 
 /**
@@ -108,7 +109,8 @@ export const codicons = {
     '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path fill-rule="evenodd" clip-rule="evenodd" d="M8 1a7 7 0 100 14A7 7 0 008 1zM4 8a.5.5 0 01.5-.5h7a.5.5 0 010 1h-7A.5.5 0 014 8z"/></svg>',
   warning:
     '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1L1 14h14L8 1z"/></svg>',
-  info: '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path fill-rule="evenodd" clip-rule="evenodd" d="M8 1.5a6.5 6.5 0 100 13 6.5 6.5 0 000-13zM8 4a1 1 0 100-2 1 1 0 000 2zm.75 3.5a.75.75 0 00-1.5 0v4a.75.75 0 001.5 0v-4z"/></svg>'
+  info: '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path fill-rule="evenodd" clip-rule="evenodd" d="M8 1.5a6.5 6.5 0 100 13 6.5 6.5 0 000-13zM8 4a1 1 0 100-2 1 1 0 000 2zm.75 3.5a.75.75 0 00-1.5 0v4a.75.75 0 001.5 0v-4z"/></svg>',
+  keyboard: lucideIcon(Keyboard)
 }
 
 // Folder type detector based on folder name

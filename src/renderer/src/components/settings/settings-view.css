@@ -536,15 +536,68 @@
   opacity: 0.5;
 }
 
-/* Mobile Friendly */
-@media (max-width: 900px) {
-    .settings-view {
-        grid-template-columns: 1fr;
-    }
-    .settings-view__sidebar {
-        display: none;
-    }
-    .settings-view__content {
-        padding: 24px;
-    }
+/* Shortcuts Styles */
+.settings-shortcuts {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.shortcut-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  background: rgba(127, 167, 255, 0.02);
+  border-radius: 8px;
+  border: 1px solid rgba(127, 167, 255, 0.05);
+  transition: all 120ms ease;
+  cursor: default;
+}
+
+.shortcut-item:hover {
+  background: rgba(127, 167, 255, 0.05);
+  border-color: rgba(127, 167, 255, 0.15);
+}
+
+.shortcut-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-width: 75%;
+}
+
+.shortcut-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-strong);
+}
+
+.shortcut-description {
+  font-size: 11px;
+  color: var(--text-soft);
+  opacity: 0.7;
+}
+
+.shortcut-keys {
+  display: flex;
+  gap: 5px;
+  flex-shrink: 0;
+}
+
+.shortcut-key {
+  padding: 4px 8px;
+  background: #1a1a1a;
+  border: none;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  font-family: var(--font-mono, monospace);
+  color: #fff;
+  min-width: 24px;
+  text-align: center;
+  transition: all 150ms ease;
+  user-select: none;
+  box-shadow: none;
 }

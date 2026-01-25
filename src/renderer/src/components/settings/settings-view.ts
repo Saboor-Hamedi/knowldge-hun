@@ -6,6 +6,7 @@ import { vaultService } from '../../services/vaultService'
 import type { VaultInfo } from '../../services/vaultService'
 import { notificationManager } from '../notification/notification'
 import { createElement, CloudUpload, CloudDownload } from 'lucide'
+import { renderShortcutItems } from '../../utils/shortcutUtils'
 import './settings-view.css'
 
 export interface VaultSettingsCallbacks {
@@ -77,6 +78,9 @@ export class SettingsView {
           </button>
           <button class="settings-view__sidebar-item ${this.activeSection === 'sync' ? 'is-active' : ''}" data-section-tab="sync">
             ${this.createLucideIcon(CloudUpload, 16)} Sync
+          </button>
+          <button class="settings-view__sidebar-item ${this.activeSection === 'shortcuts' ? 'is-active' : ''}" data-section-tab="shortcuts">
+            ${codicons.keyboard} Shortcuts
           </button>
         </aside>
 
@@ -407,6 +411,16 @@ export class SettingsView {
                   </button>
                 </div>
               </div>
+            </div>
+          </div>
+
+          <!-- Shortcuts Section -->
+          <div class="settings-view__section ${this.activeSection === 'shortcuts' ? 'is-active' : ''}" data-section="shortcuts">
+            <div class="settings-view__section-header">
+              <h2 class="settings-view__section-title">Keyboard Shortcuts</h2>
+            </div>
+            <div class="settings-shortcuts">
+              ${renderShortcutItems()}
             </div>
           </div>
 
