@@ -102,6 +102,7 @@ export class FuzzyFinder {
     if (!this.isOpen || !this.modal) return
     this.isOpen = false
     this.modal.classList.remove('is-open')
+    if (this.input) this.input.value = ''
     if (this.backdrop) {
       this.backdrop.remove()
       this.backdrop = null

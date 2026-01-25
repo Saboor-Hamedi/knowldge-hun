@@ -1,6 +1,6 @@
 import { join, basename, relative, dirname, normalize } from 'path'
 import { readFile, writeFile, rm, rename, stat, readdir, mkdir, copyFile } from 'fs/promises'
-import { existsSync } from 'fs'
+import { existsSync, readdirSync } from 'fs'
 import { watch } from 'chokidar'
 import type { FSWatcher } from 'chokidar'
 import { BrowserWindow } from 'electron'
@@ -70,7 +70,9 @@ export class VaultManager {
     const entries = await readdir(dir, { withFileTypes: true })
     for (const entry of entries) {
       const fullPath = join(dir, entry.name)
-      if (entry.name.startsWith('.')) continue // Skip hidden
+
+      // Skip hidden directories, but allow hidden files that are notes
+      if (entry.isDirectory() && entry.name.startsWith('.')) continue
 
       if (entry.isDirectory()) {
         const relPath = relative(this.rootPath, fullPath)
@@ -86,6 +88,29 @@ export class VaultManager {
   private isNoteFile(filename: string): boolean {
     const lower = filename.toLowerCase()
     return NOTE_EXTENSIONS.some((ext) => lower.endsWith(ext))
+  }
+
+  private hasConflictingFile(targetDir: string, baseId: string): boolean {
+    // Check if there are any files (including dotfiles) with the same base name
+    try {
+      const entries = readdirSync(targetDir, { withFileTypes: true })
+      for (const entry of entries) {
+        if (!entry.isFile()) continue
+
+        const entryName = entry.name
+        const entryBaseName = entryName.includes('.')
+          ? entryName.substring(0, entryName.lastIndexOf('.'))
+          : entryName
+
+        if (entryBaseName === baseId) {
+          return true
+        }
+      }
+      return false
+    } catch {
+      // If we can't read the directory, assume no conflict
+      return false
+    }
   }
 
   private async indexFile(fullPath: string) {
@@ -145,7 +170,11 @@ export class VaultManager {
     if (this.watcher) await this.watcher.close()
 
     this.watcher = watch(this.rootPath, {
-      ignored: /(^|[\/\\])\../, // ignore hidden files
+      ignored: (path: string) => {
+        const basename = path.split(/[\\/]/).pop() || ''
+        // Ignore hidden files unless they are markdown files
+        return basename.startsWith('.') && !basename.toLowerCase().endsWith('.md')
+      },
       persistent: true,
       ignoreInitial: true
     })
@@ -334,12 +363,16 @@ export class VaultManager {
 
     const targetDir = folderPath ? join(this.rootPath, folderPath) : this.rootPath
 
+    // Ensure target directory exists
+    await mkdir(targetDir, { recursive: true })
+
     let finalId = baseId
     let filename = `${finalId}.md`
     let fullPath = join(targetDir, filename)
     let counter = 1
 
-    while (existsSync(fullPath)) {
+    // Check for both .md files and other files with same base name (including dotfiles)
+    while (existsSync(fullPath) || this.hasConflictingFile(targetDir, finalId)) {
       finalId = `${baseId} ${counter}`
       filename = `${finalId}.md`
       fullPath = join(targetDir, filename)

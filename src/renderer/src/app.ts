@@ -1231,6 +1231,8 @@ class App {
     path?: string,
     focusTarget: 'editor' | 'sidebar' | 'none' = 'editor'
   ): Promise<void> {
+    // Switch to notes view when opening a note from fuzzy finder
+    this.activityBar.setActiveView('notes')
     // We no longer automatically hide the sidebar on mobile here.
     // The user can explicitly close it or we can close it when they focus the editor.
 
@@ -1253,11 +1255,7 @@ class App {
         { title: 'Note Not Found' }
       )
       this.statusBar.setStatus('Note missing on disk')
-      // Remove the missing tab from open tabs
-      state.openTabs = state.openTabs.filter((tab) => tab.id !== id)
-      this.tabBar.render()
-      if (state.activeId === id) {
-        state.activeId = ''
+      if (state.activeId === id || !state.activeId) {
         this.editor.showEmpty()
       }
       return
