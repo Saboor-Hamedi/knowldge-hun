@@ -179,6 +179,7 @@ class App {
   private wikiLinkService!: WikiLinkService
   private previewHandlers!: PreviewHandlers
   private vaultPicker!: VaultPicker
+  private pendingPersist?: number
 
   constructor() {
     this.activityBar = new ActivityBar('activityBar')
@@ -242,6 +243,22 @@ class App {
     // Listen for toggle right sidebar event from editor
     window.addEventListener('toggle-right-sidebar', () => {
       void this.toggleRightSidebar()
+    })
+
+    this.editor.setCursorPositionChangeHandler(() => this.schedulePersist())
+
+    // Emergency save on reload/close
+    window.addEventListener('beforeunload', () => {
+      // Force immediate save of everything
+      const settings = {
+        openTabs: state.openTabs.map((t) => ({ id: t.id, path: t.path })),
+        activeId: state.activeId,
+        pinnedTabs: Array.from(state.pinnedTabs),
+        cursorPositions: Object.fromEntries(state.cursorPositions)
+      }
+      // Note: In some environments, we might need a synchronous IPC here,
+      // but usually window.api.updateSettings (via electron) works if not too large.
+      void window.api.updateSettings(settings as any)
     })
   }
 
@@ -543,13 +560,25 @@ class App {
 
   // ...
 
+  private schedulePersist(): void {
+    if (this.pendingPersist) window.clearTimeout(this.pendingPersist)
+    // Debounce window/workspace persistence (300ms - faster for reload safety)
+    this.pendingPersist = window.setTimeout(() => void this.persistWorkspace(), 300)
+  }
+
   // Updated persistWorkspace
   private async persistWorkspace(): Promise<void> {
     try {
+      if (this.pendingPersist) {
+        window.clearTimeout(this.pendingPersist)
+        this.pendingPersist = undefined
+      }
+
       await window.api.updateSettings({
-        openTabs: state.openTabs.map((t) => ({ id: t.id, path: t.path })),
+        openTabs: state.openTabs.map((t) => ({ id: t.id, path: t.path, title: t.title })),
         activeId: state.activeId,
-        pinnedTabs: Array.from(state.pinnedTabs)
+        pinnedTabs: Array.from(state.pinnedTabs),
+        cursorPositions: Object.fromEntries(state.cursorPositions)
       } as any)
     } catch (e) {
       console.error('Failed to persist workspace', e)
@@ -567,6 +596,10 @@ class App {
 
       if (state.settings.pinnedTabs) {
         state.pinnedTabs = new Set(state.settings.pinnedTabs)
+      }
+
+      if (state.settings.cursorPositions) {
+        state.cursorPositions = new Map(Object.entries(state.settings.cursorPositions))
       }
 
       if (state.settings.theme) {
@@ -905,6 +938,8 @@ class App {
       scope: 'global',
       description: 'Save current note',
       handler: () => {
+        const isNote = state.notes.some((n) => n.id === state.activeId)
+        if (!state.activeId || state.activeId === 'settings' || !isNote) return
         this.editor.manualSave()
 
         // If the note is new/untitled, prompt for rename after saving content
@@ -962,7 +997,10 @@ class App {
     await this.initVault()
 
     if (state.settings?.openTabs && state.settings.openTabs.length > 0) {
-      state.openTabs = [...state.settings.openTabs] as any
+      state.openTabs = state.settings.openTabs.map((t: any) => ({
+        ...t,
+        title: t.id === 'settings' ? 'Settings' : t.title || 'Untitled'
+      }))
     }
 
     await this.refreshNotes()
@@ -970,18 +1008,21 @@ class App {
     if (state.openTabs.length > 0) {
       this.statusBar.setStatus('Restoring workspace...')
       const toOpen = state.settings?.activeId || state.openTabs[0].id
-      const noteToOpen =
-        state.notes.find((n) => n.id === toOpen) ||
-        state.notes.find((n) => n.id === state.openTabs[0].id)
 
-      if (noteToOpen) {
-        await this.openNote(noteToOpen.id, noteToOpen.path)
-      } else if (toOpen === 'settings') {
-        // Handle settings tab restore
+      if (toOpen === 'settings') {
         await this.openSettings()
       } else {
-        if (state.notes.length > 0) await this.openNote(state.notes[0].id)
-        else this.editor.showEmpty()
+        const noteToOpen =
+          state.notes.find((n) => n.id === toOpen) ||
+          state.notes.find((n) => n.id === state.openTabs[0].id)
+
+        if (noteToOpen) {
+          await this.openNote(noteToOpen.id, noteToOpen.path)
+        } else if (state.notes.length > 0) {
+          await this.openNote(state.notes[0].id)
+        } else {
+          this.editor.showEmpty()
+        }
       }
     } else if (state.notes.length > 0) {
       await this.openNote(state.notes[0].id)

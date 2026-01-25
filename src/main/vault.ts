@@ -333,14 +333,14 @@ export class VaultManager {
     let meta = this.notes.get(id)
     if (!meta) {
       // Try to find the file if not indexed
-      const filename = `${basename(id)}.md`
-      const fullPath = join(this.rootPath, '', filename) // assume root for now
+      // Since ID is the relative path without extension, we can reconstruct the path
+      const fullPath = join(this.rootPath, `${id}.md`)
       if (existsSync(fullPath)) {
         await this.indexFile(fullPath)
         meta = this.notes.get(id)
       }
       if (!meta) {
-        throw new Error('Note not found')
+        throw new Error(`Note not found: ${id}`)
       }
     }
 

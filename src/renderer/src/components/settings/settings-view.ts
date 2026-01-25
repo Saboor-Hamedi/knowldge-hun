@@ -54,7 +54,6 @@ export class SettingsView {
     return ''
   }
 
-
   // create the settings view HTML ->tab
   private render(): void {
     this.container.innerHTML = `
@@ -232,9 +231,13 @@ export class SettingsView {
               </div>
               <div class="settings-field__control">
                 <select class="settings-input" data-setting="theme">
-                  ${Object.values(themes).map(t => `
+                  ${Object.values(themes)
+                    .map(
+                      (t) => `
                     <option value="${t.id}" ${state.settings?.theme === t.id ? 'selected' : ''}>${t.name}</option>
-                  `).join('')}
+                  `
+                    )
+                    .join('')}
                 </select>
               </div>
             </div>
@@ -433,30 +436,30 @@ export class SettingsView {
     })
 
     // Tab switching
-    this.container.querySelectorAll('[data-section-tab]').forEach(tab => {
-        tab.addEventListener('click', () => {
-            const section = (tab as HTMLElement).dataset.sectionTab
-            if (section) {
-                this.activeSection = section
-                this.render()
-                if (section === 'vault') {
-                  void this.loadRecentVaults()
-                }
-            }
-        })
+    this.container.querySelectorAll('[data-section-tab]').forEach((tab) => {
+      tab.addEventListener('click', () => {
+        const section = (tab as HTMLElement).dataset.sectionTab
+        if (section) {
+          this.activeSection = section
+          this.render()
+          if (section === 'vault') {
+            void this.loadRecentVaults()
+          }
+        }
+      })
     })
 
     // Setting changes
-    this.container.querySelectorAll('[data-setting]').forEach(input => {
-        input.addEventListener('change', (e) => {
-            const el = e.target as HTMLInputElement | HTMLSelectElement
-            const setting = el.dataset.setting as keyof AppSettings
-            if (!setting) return
+    this.container.querySelectorAll('[data-setting]').forEach((input) => {
+      input.addEventListener('change', (e) => {
+        const el = e.target as HTMLInputElement | HTMLSelectElement
+        const setting = el.dataset.setting as keyof AppSettings
+        if (!setting) return
 
-            let value: any
-            if (el instanceof HTMLInputElement && el.type === 'checkbox') {
-                value = el.checked
-            } else if (el instanceof HTMLInputElement && el.type === 'number') {
+        let value: any
+        if (el instanceof HTMLInputElement && el.type === 'checkbox') {
+          value = el.checked
+        } else if (el instanceof HTMLInputElement && el.type === 'number') {
           value = parseInt(el.value) || 0
           // Clamp caret width to allowed range when present
           if (setting === 'caretMaxWidth') {
@@ -464,12 +467,12 @@ export class SettingsView {
             if (value > 10) value = 10
             el.value = String(value)
           }
-            } else {
-                value = el.value
-            }
+        } else {
+          value = el.value
+        }
 
-            this.onSettingChange?.({ [setting]: value })
-        })
+        this.onSettingChange?.({ [setting]: value })
+      })
     })
 
     // Vault actions
@@ -490,7 +493,9 @@ export class SettingsView {
     // Sync actions
     const testTokenBtn = this.container.querySelector('#settings-sync-test-token')
     testTokenBtn?.addEventListener('click', async () => {
-      const tokenInput = this.container.querySelector('[data-setting="gistToken"]') as HTMLInputElement
+      const tokenInput = this.container.querySelector(
+        '[data-setting="gistToken"]'
+      ) as HTMLInputElement
       const token = tokenInput?.value || ''
       if (!token) {
         notificationManager.show('Please enter a GitHub token first', 'warning')
@@ -515,7 +520,9 @@ export class SettingsView {
 
     const backupBtn = this.container.querySelector('#settings-sync-backup')
     backupBtn?.addEventListener('click', async () => {
-      const tokenInput = this.container.querySelector('[data-setting="gistToken"]') as HTMLInputElement
+      const tokenInput = this.container.querySelector(
+        '[data-setting="gistToken"]'
+      ) as HTMLInputElement
       const token = tokenInput?.value || ''
       if (!token) {
         notificationManager.show('Please enter a GitHub token first', 'warning')
@@ -525,8 +532,10 @@ export class SettingsView {
       backupBtn.setAttribute('disabled', 'true')
       try {
         const vaultData = await window.api.listNotes()
-        const notes = await Promise.all(vaultData.filter(n => n.type !== 'folder').map(n => window.api.loadNote(n.id)))
-        const allNotes = notes.filter(n => n !== null)
+        const notes = await Promise.all(
+          vaultData.filter((n) => n.type !== 'folder').map((n) => window.api.loadNote(n.id))
+        )
+        const allNotes = notes.filter((n) => n !== null)
         const gistId = (state.settings as any)?.gistId
         const result = await window.api.syncBackup(token, gistId, allNotes)
         if (result.success) {
@@ -547,7 +556,9 @@ export class SettingsView {
 
     const restoreBtn = this.container.querySelector('#settings-sync-restore')
     restoreBtn?.addEventListener('click', async () => {
-      const tokenInput = this.container.querySelector('[data-setting="gistToken"]') as HTMLInputElement
+      const tokenInput = this.container.querySelector(
+        '[data-setting="gistToken"]'
+      ) as HTMLInputElement
       const token = tokenInput?.value || ''
       const gistId = (state.settings as any)?.gistId
       if (!token) {
@@ -567,7 +578,9 @@ export class SettingsView {
         const result = await window.api.syncRestore(token, gistId)
         if (result.success && result.data) {
           // Trigger restore via custom event that app.ts listens to
-          window.dispatchEvent(new CustomEvent('restore-vault', { detail: { backupData: result.data } }))
+          window.dispatchEvent(
+            new CustomEvent('restore-vault', { detail: { backupData: result.data } })
+          )
           notificationManager.show('Vault restored successfully', 'success')
         } else {
           notificationManager.show(result.message, 'error')
@@ -590,7 +603,8 @@ export class SettingsView {
       this.renderVaultList(listEl)
     } catch (error) {
       console.error('[SettingsView] Failed to load recent vaults:', error)
-      listEl.innerHTML = '<div class="settings-vault-list__error">Failed to load recent vaults</div>'
+      listEl.innerHTML =
+        '<div class="settings-vault-list__error">Failed to load recent vaults</div>'
     }
   }
 
@@ -600,24 +614,29 @@ export class SettingsView {
       return
     }
 
-    container.innerHTML = this.recentVaults.map(vault => {
-      const statusIcon = vault.exists
-        ? '<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="8" r="6" fill="#10b981"/><path d="M6 8l2 2 4-4" stroke="white" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>'
-        : '<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="8" r="6" fill="#ef4444"/><path d="M6 6l4 4M10 6l-4 4" stroke="white" stroke-width="1.5" stroke-linecap="round"/></svg>'
-      const statusClass = vault.exists ? '' : 'settings-vault-item--missing'
-      const isCurrent = vault.path === state.vaultPath
-      const vaultIcon = isCurrent ? codicons.folderRoot : codicons.folder
+    container.innerHTML = this.recentVaults
+      .map((vault) => {
+        const statusIcon = vault.exists
+          ? '<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="8" r="6" fill="#10b981"/><path d="M6 8l2 2 4-4" stroke="white" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+          : '<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="8" r="6" fill="#ef4444"/><path d="M6 6l4 4M10 6l-4 4" stroke="white" stroke-width="1.5" stroke-linecap="round"/></svg>'
+        const statusClass = vault.exists ? '' : 'settings-vault-item--missing'
+        const isCurrent = vault.path === state.vaultPath
+        const vaultIcon = isCurrent ? codicons.folderRoot : codicons.folder
 
-      return `
+        return `
         <div class="settings-vault-item ${statusClass} ${isCurrent ? 'settings-vault-item--current' : ''}" data-vault-path="${this.escapeHtml(vault.path)}">
           <div class="settings-vault-item__header">
             <div class="settings-vault-item__icon">${vaultIcon}</div>
             <div class="settings-vault-item__status">${statusIcon}</div>
-            ${!isCurrent ? `
+            ${
+              !isCurrent
+                ? `
               <button class="settings-vault-item__delete" data-action="delete" data-path="${this.escapeHtml(vault.path)}" title="Remove from recent vaults">
                 ${codicons.trash}
               </button>
-            ` : ''}
+            `
+                : ''
+            }
           </div>
           <div class="settings-vault-item__body">
             <div class="settings-vault-item__name">
@@ -627,22 +646,27 @@ export class SettingsView {
             <div class="settings-vault-item__path">${this.escapeHtml(vault.path)}</div>
           </div>
           <div class="settings-vault-item__footer">
-            ${vault.exists ? `
+            ${
+              vault.exists
+                ? `
               <button class="settings-vault-item__action" data-action="select" data-path="${this.escapeHtml(vault.path)}">
                 Open
               </button>
-            ` : `
+            `
+                : `
               <button class="settings-vault-item__action" data-action="locate" data-path="${this.escapeHtml(vault.path)}">
                 Locate
               </button>
-            `}
+            `
+            }
           </div>
         </div>
       `
-    }).join('')
+      })
+      .join('')
 
     // Attach click handlers
-    container.querySelectorAll('[data-action="select"]').forEach(btn => {
+    container.querySelectorAll('[data-action="select"]').forEach((btn) => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation()
         const path = (e.currentTarget as HTMLElement).dataset.path
@@ -653,7 +677,7 @@ export class SettingsView {
     })
 
     // Attach locate handlers for missing vaults
-    container.querySelectorAll('[data-action="locate"]').forEach(btn => {
+    container.querySelectorAll('[data-action="locate"]').forEach((btn) => {
       btn.addEventListener('click', async (e) => {
         e.stopPropagation()
         const path = (e.currentTarget as HTMLElement).dataset.path
@@ -675,7 +699,7 @@ export class SettingsView {
     })
 
     // Attach delete handlers
-    container.querySelectorAll('[data-action="delete"]').forEach(btn => {
+    container.querySelectorAll('[data-action="delete"]').forEach((btn) => {
       btn.addEventListener('click', async (e) => {
         e.stopPropagation()
         const path = (e.currentTarget as HTMLElement).dataset.path
@@ -695,9 +719,10 @@ export class SettingsView {
     const fields = this.container.querySelectorAll('.settings-field') as NodeListOf<HTMLElement>
     // Use requestAnimationFrame for smooth UI updates
     requestAnimationFrame(() => {
-      fields.forEach(field => {
+      fields.forEach((field) => {
         const searchText = field.dataset.search || ''
-        const matches = this.searchQuery === '' || searchText.toLowerCase().includes(this.searchQuery)
+        const matches =
+          this.searchQuery === '' || searchText.toLowerCase().includes(this.searchQuery)
         field.style.display = matches ? '' : 'none'
       })
     })

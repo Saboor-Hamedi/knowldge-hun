@@ -56,7 +56,9 @@ export class EditorComponent {
   private onLinkClick?: (target: string) => void
   private onGetHoverContent?: (target: string) => Promise<string | null>
   private onContextMenu?: (e: MouseEvent) => void
+  private onCursorPositionChange?: () => void
   private decorations: string[] = []
+  private cachedSettings: AppSettings | null = null
   private providers: { dispose: () => void }[] = []
   private initPromise: Promise<void> | null = null
   private onTabClose?: () => void
@@ -108,6 +110,10 @@ export class EditorComponent {
 
   setTabCloseHandler(handler: () => void): void {
     this.onTabClose = handler
+  }
+
+  setCursorPositionChangeHandler(handler: () => void): void {
+    this.onCursorPositionChange = handler
   }
 
   setDropHandler(handler: (path: string, isFile: boolean) => void): void {
@@ -309,6 +315,30 @@ export class EditorComponent {
     this.updatePreview()
     this.updateDecorations()
     this.updateHashtagDecorations()
+
+    // Restore cursor position if saved
+    if (state.cursorPositions.has(payload.id)) {
+      const pos = state.cursorPositions.get(payload.id)!
+      setTimeout(() => {
+        if (this.editor && state.activeId === payload.id) {
+          // Force both cursor and selection to the same point
+          const selection = new this.monacoInstance!.Selection(
+            pos.lineNumber,
+            pos.column,
+            pos.lineNumber,
+            pos.column
+          )
+          this.editor.setSelection(selection)
+          this.editor.revealPositionInCenterIfOutsideViewport(pos)
+          this.editor.focus()
+
+          // Secondary insurance for scroll position
+          if (pos.lineNumber > 5) {
+            this.editor.revealLineInCenterIfOutsideViewport(pos.lineNumber)
+          }
+        }
+      }, 150) // Reliable delay for Monaco rendering
+    }
   }
 
   private updatePreview(): void {
@@ -412,18 +442,19 @@ export class EditorComponent {
         // Double check inside the lock
         if (this.editor) return
 
-        const isLight = state.settings?.theme === 'light' || state.settings?.theme === 'github-light'
+        const isLight =
+          state.settings?.theme === 'light' || state.settings?.theme === 'github-light'
         this.editor = monaco.editor.create(this.editorHost, {
           value: '',
           language: 'markdown',
           theme: isLight ? 'vs' : 'vs-dark',
           automaticLayout: true,
-          minimap: { enabled: false },
-          wordWrap: 'on',
-          fontSize: 14,
+          minimap: { enabled: this.cachedSettings?.minimap ?? false },
+          wordWrap: this.cachedSettings?.wordWrap ? 'on' : 'off',
+          fontSize: this.cachedSettings?.fontSize ?? 14,
           padding: { top: 12, bottom: 12 },
           renderWhitespace: 'selection',
-          lineNumbers: 'on',
+          lineNumbers: this.cachedSettings?.lineNumbers !== false ? 'on' : 'off',
           glyphMargin: false, // Ensure no extra icons in the gutter
           folding: false, // Disable the "checkbox" symbols for folding
           scrollBeyondLastLine: false,
@@ -458,6 +489,18 @@ export class EditorComponent {
           this.updateHashtagDecorations()
           if (state.applyingRemote) return
           this.markDirty()
+        })
+
+        this.editor.onDidChangeCursorPosition((e) => {
+          if (state.activeId && state.activeId !== 'settings') {
+            state.cursorPositions.set(state.activeId, {
+              lineNumber: e.position.lineNumber,
+              column: e.position.column
+            })
+            if (this.onCursorPositionChange) {
+              this.onCursorPositionChange()
+            }
+          }
         })
 
         // Register WikiLink Providers
@@ -569,7 +612,14 @@ export class EditorComponent {
   }
 
   private triggerSave(): void {
-    if (!state.activeId || !this.editor || !this.onSave) {
+    const isNote = state.notes.some((n) => n.id === state.activeId)
+    if (
+      !state.activeId ||
+      state.activeId === 'settings' ||
+      !isNote ||
+      !this.editor ||
+      !this.onSave
+    ) {
       return
     }
 
@@ -674,6 +724,9 @@ export class EditorComponent {
   }
 
   applySettings(settings: AppSettings): void {
+    // Cache settings for when the editor is created
+    this.cachedSettings = settings
+
     // Apply caret settings via CSS (can be done before editor is created)
     const caretWidth = Math.max(1, Math.min(10, settings.caretMaxWidth || 2))
     document.documentElement.style.setProperty('--app-caret-width', `${caretWidth}px`)

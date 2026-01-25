@@ -29,6 +29,7 @@ export type Settings = {
   // Caret settings
   caretEnabled?: boolean
   caretMaxWidth?: number
+  cursorPositions?: Record<string, { lineNumber: number; column: number }>
 }
 
 export const DEFAULT_SETTINGS: Settings = {

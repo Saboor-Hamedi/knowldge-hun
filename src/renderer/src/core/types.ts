@@ -33,6 +33,7 @@ export type AppState = {
   pinnedTabs: Set<string>
   newlyCreatedIds: Set<string>
   selectedIds: Set<string>
+  cursorPositions: Map<string, { lineNumber: number; column: number }>
 }
 
 export type AppSettings = {
@@ -61,4 +62,5 @@ export type AppSettings = {
   // Caret settings
   caretEnabled?: boolean
   caretMaxWidth?: number
+  cursorPositions?: Record<string, { lineNumber: number; column: number }>
 }
