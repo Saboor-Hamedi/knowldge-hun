@@ -76,7 +76,23 @@ export class RagService {
     const id = crypto.randomUUID()
 
     return new Promise<T>((resolve, reject) => {
-      this.jobs.set(id, { resolve, reject })
+      const timeout = setTimeout(() => {
+        if (this.jobs.has(id)) {
+          this.jobs.delete(id)
+          reject(new Error('RAG Worker timed out'))
+        }
+      }, 120000)
+
+      this.jobs.set(id, {
+        resolve: (val) => {
+          clearTimeout(timeout)
+          resolve(val)
+        },
+        reject: (err) => {
+          clearTimeout(timeout)
+          reject(err)
+        }
+      })
       this.worker!.postMessage({ id, type, payload })
     })
   }
@@ -135,6 +151,10 @@ export class RagService {
     } catch (err) {
       console.error(`[RagService] Failed to delete note ${noteId}:`, err)
     }
+  }
+
+  async getStats(): Promise<{ count: number; modelLoaded: boolean; dbName: string }> {
+    return this.dispatch('debug', {})
   }
 }
 

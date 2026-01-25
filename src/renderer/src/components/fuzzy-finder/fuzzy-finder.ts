@@ -362,7 +362,7 @@ export class FuzzyFinder {
     // Click and hover selection
     const items = this.list.querySelectorAll('.fuzzy-item')
     items.forEach((el, index) => {
-      el.addEventListener('mousedown', (e) => {
+      el.addEventListener('mousedown', async (e) => {
         e.preventDefault() // Prevent input blur before selection
         e.stopPropagation()
         const idx = parseInt((el as HTMLElement).dataset.index || String(index))
@@ -375,11 +375,11 @@ export class FuzzyFinder {
 
         if (this.mode === 'commands') {
           const command = item as Command
-          void command.handler()
+          await command.handler()
         } else {
           // Call onSelect for notes
           if (item.id) {
-            this.onSelect?.(item.id, item.path, item.type, true)
+            await this.onSelect?.(item.id, item.path, item.type, true)
           }
         }
       })

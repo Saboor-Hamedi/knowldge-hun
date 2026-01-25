@@ -11,6 +11,17 @@ if (container) {
     <div class="window-header__brand">
       <span class="window-header__title">Knowledge Hub</span>
     </div>
+    <div class="window-header__ai-status" id="ai-status-indicator" style="display: none;">
+      <div class="ai-status-icon">
+        <svg class="ai-status-spinner" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+        </svg>
+        <svg class="ai-status-check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display: none;">
+          <path d="M20 6L9 17l-5-5"/>
+        </svg>
+      </div>
+      <div class="ai-status-tooltip">Initializing AI...</div>
+    </div>
     <div class="window-header__actions">
       <button class="wh-btn wh-chat" id="window-header-chat" title="Open AI Chat" aria-label="Open AI Chat">
         <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">

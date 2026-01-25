@@ -14,6 +14,13 @@ export const shortcuts: Shortcut[] = [
     search: 'graph visual map alt+g'
   },
   {
+    title: 'Hub Console',
+    desc: 'Toggle Intelligence Terminal',
+    keys: ['Ctrl', 'J'],
+    search: 'console terminal intelligence ctrl+j',
+    highlight: true
+  },
+  {
     title: 'Find in Note',
     desc: 'Search text within the active note',
     keys: ['Ctrl', 'F'],

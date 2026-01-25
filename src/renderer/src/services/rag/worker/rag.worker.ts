@@ -1,31 +1,3 @@
-/**
- * PROBATIVE FETCH INTERCEPTOR
- */
-const originalFetch = self.fetch
-;(self as any).fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
-  const url = typeof input === 'string' ? input : (input as any).url || input.toString()
-
-  // Force absolute HF URLs for any model requests
-  if (!url.startsWith('https://') || url.includes('localhost') || url.includes('127.0.0.1')) {
-    const filename = url.split('/').pop()?.split('?')[0] || ''
-    if (filename.includes('.') && !filename.endsWith('.js')) {
-      const targetUrl = `https://huggingface.co/Xenova/all-MiniLM-L6-v2/resolve/main/${filename}`
-      return originalFetch(targetUrl, init)
-    }
-  }
-
-  const response = await originalFetch(input, init)
-  const contentType = response.headers.get('content-type') || ''
-
-  if (contentType.includes('text/html')) {
-    const filename = url.split('/').pop()?.split('?')[0] || ''
-    const fallbackUrl = `https://huggingface.co/Xenova/all-MiniLM-L6-v2/resolve/main/${filename}`
-    return originalFetch(fallbackUrl, init)
-  }
-
-  return response
-}
-
 import { VectorDB } from './vector-db'
 import * as Transformers from '@xenova/transformers'
 import type { RagWorkerJob } from './rag.worker.types'
@@ -34,6 +6,7 @@ const env = (Transformers as any).env || (Transformers as any).default?.env || (
 if (env) {
   env.allowLocalModels = false
   env.allowRemoteModels = true
+  env.useBrowserCache = false
   env.remoteHost = 'https://huggingface.co'
   env.remotePrefix = 'models/'
 }
@@ -41,22 +14,35 @@ if (env) {
 const db = new VectorDB()
 let extractor: any = null
 
+let initPromise: Promise<void> | null = null
+
 async function initModel(): Promise<void> {
   if (extractor) return
-  try {
-    console.log('[RagWorker] Pipeline loading...')
-    extractor = await (Transformers as any).pipeline(
-      'feature-extraction',
-      'Xenova/all-MiniLM-L6-v2',
-      {
-        quantized: false
-      }
-    )
-    console.log('[RagWorker] Pipeline ready')
-  } catch (err: any) {
-    console.error('[RagWorker] Init error:', err)
-    throw err
+
+  if (initPromise) {
+    return initPromise
   }
+
+  initPromise = (async () => {
+    try {
+      console.log('[RagWorker] Pipeline loading...')
+      extractor = await (Transformers as any).pipeline(
+        'feature-extraction',
+        'Xenova/all-MiniLM-L6-v2',
+        {
+          quantized: false
+        }
+      )
+      console.log('[RagWorker] Pipeline ready')
+    } catch (err: any) {
+      console.error('[RagWorker] Init error:', err)
+      // Reset promise so we can retry later
+      initPromise = null
+      throw err
+    }
+  })()
+
+  return initPromise
 }
 
 // Basic cosine similarity function for vector comparison
@@ -144,6 +130,28 @@ ctx.addEventListener('message', async (event: MessageEvent<RagWorkerJob>) => {
         const { id } = payload
         await db.delete(id)
         result = { deleted: true, id }
+        break
+      }
+
+      case 'debug': {
+        await db.connect()
+        let lastError: string | undefined
+        // Try to verify/kickstart model if not loaded
+        if (!extractor) {
+          try {
+            await initModel()
+          } catch (e: any) {
+            lastError = e.message || String(e)
+          }
+        }
+
+        const count = await db.count()
+        result = {
+          count,
+          modelLoaded: !!extractor,
+          dbName: 'knowledge-hub-vectors',
+          lastError
+        }
         break
       }
 

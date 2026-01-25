@@ -146,14 +146,12 @@ export class AIService {
 
   private async initRag(): Promise<void> {
     try {
-      // TEMPORARILY DISABLED: RAG initialization is causing SyntaxError in dev mode
-      // The app will use TF-IDF fallback for note searching instead
-      // TODO: Re-enable once Transformers.js loading is fixed
-      console.log('[AIService] RAG disabled - using TF-IDF fallback for note search')
-      // await ragService.configureProvider('local')
-      // await ragService.init()
+      console.log('[AIService] Initializing RAG service...')
+      await ragService.configureProvider('local')
+      await ragService.init()
+      console.log('[AIService] RAG service initialized successfully')
     } catch (err) {
-      console.warn('[AIService] Failed to init RAG:', err)
+      console.warn('[AIService] Failed to init RAG, falling back to TF-IDF:', err)
     }
   }
 
@@ -796,7 +794,7 @@ export class AIService {
                 fullText += delta
                 onChunk(delta)
               }
-            } catch (e) {
+            } catch {
               // Skip invalid JSON
             }
           }

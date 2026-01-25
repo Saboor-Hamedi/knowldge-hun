@@ -23,6 +23,7 @@ import { contextMenu } from './components/contextmenu/contextmenu'
 import { ThemeModal } from './components/theme-modal/theme-modal'
 import { DocumentationModal } from './components/documentation/documentation'
 import { FuzzyFinder } from './components/fuzzy-finder/fuzzy-finder'
+import { ConsoleComponent } from './components/console/console'
 import { GraphView } from './components/graph/graph'
 import { themeManager } from './core/themeManager'
 import { ErrorHandler } from './utils/error-handler'
@@ -36,6 +37,7 @@ import { PreviewHandlers } from './handlers/previewHandlers'
 import { vaultService } from './services/vaultService'
 import { VaultPicker } from './components/vault-picker/vault-picker'
 import { ragService } from './services/rag/ragService'
+import { aiStatusManager } from './core/aiStatusManager'
 
 function buildTree(items: NoteMeta[]): TreeItem[] {
   const root: TreeItem[] = []
@@ -182,6 +184,7 @@ class App {
   private wikiLinkService!: WikiLinkService
   private previewHandlers!: PreviewHandlers
   private vaultPicker!: VaultPicker
+  private hubConsole: ConsoleComponent
   private pendingPersist?: number
 
   constructor() {
@@ -220,6 +223,7 @@ class App {
       persistWorkspace: () => this.persistWorkspace()
     })
     this.vaultPicker = new VaultPicker('app')
+    this.hubConsole = new ConsoleComponent('consoleHost')
     this.vaultPicker.setCallbacks({
       onVaultSelected: (path) => this.handleVaultSelected(path),
       onVaultLocated: (originalPath, newPath) => this.handleVaultLocated(originalPath, newPath),
@@ -247,6 +251,11 @@ class App {
     // Listen for toggle right sidebar event from editor
     window.addEventListener('toggle-right-sidebar', () => {
       void this.toggleRightSidebar()
+    })
+
+    // Listen for toggle hub console event from editor
+    window.addEventListener('toggle-hub-console', () => {
+      this.hubConsole.toggle()
     })
 
     this.editor.setCursorPositionChangeHandler(() => this.schedulePersist())
@@ -1055,10 +1064,38 @@ class App {
     })
 
     keyboardManager.register({
+      key: 'Control+j',
+      scope: 'global',
+      description: 'Toggle HUB Console',
+      handler: () => {
+        this.hubConsole.toggle()
+      }
+    })
+
+    this.registerConsoleCommands()
+
+    keyboardManager.register({
+      key: 'Control+j',
+      scope: 'global',
+      description: 'Toggle HUB Console',
+      handler: () => {
+        this.hubConsole.toggle()
+      }
+    })
+
+    this.registerConsoleCommands()
+
+    keyboardManager.register({
       key: 'Escape',
       scope: 'global',
       description: 'Close active UI elements',
       handler: () => {
+        // 0. Close Console if open
+        if ((this.hubConsole as any).isOpen) {
+          this.hubConsole.setVisible(false)
+          return true
+        }
+
         // 1. Close Fuzzy Finder if open
         if (this.fuzzyFinder && (this.fuzzyFinder as any).isOpen) {
           this.fuzzyFinder.close()
@@ -1083,6 +1120,178 @@ class App {
     })
   }
 
+  private registerConsoleCommands(): void {
+    this.hubConsole.registerCommand({
+      name: 'help',
+      description: 'List all available commands',
+      action: () => {
+        this.hubConsole.log('Available Commands:', 'system')
+        this.hubConsole.log('-------------------', 'system')
+        this.hubConsole.log('help          - List all available commands')
+        this.hubConsole.log('open <id>     - Open a note by its ID or title')
+        this.hubConsole.log('find <query>  - Perform a semantic search across your vault')
+        this.hubConsole.log('stats         - Show vault statistics')
+        this.hubConsole.log('clear         - Clear the console output')
+        this.hubConsole.log('close         - Close the console')
+        this.hubConsole.log('debug-rag     - Show RAG engine internals')
+        this.hubConsole.log('index-vault   - Force re-index of all notes')
+      }
+    })
+
+    this.hubConsole.registerCommand({
+      name: 'index-vault',
+      description: 'Force re-index of all notes',
+      action: async () => {
+        this.hubConsole.log('Starting full vault re-indexing...', 'system')
+
+        // Filter to only markdown files
+        const notesToIndex = state.notes.filter((note) => {
+          return note.title.endsWith('.md') || !note.title.includes('.')
+        })
+
+        const count = notesToIndex.length
+        this.hubConsole.log(`Found ${count} markdown notes to index.`)
+
+        let successCount = 0
+        for (const note of notesToIndex) {
+          try {
+            const content = await window.api.loadNote(note.id)
+            if (content && content.content.trim()) {
+              await ragService.indexNote(note.id, content.content, {
+                title: note.title,
+                path: note.path
+              })
+              successCount++
+              if (successCount % 5 === 0) {
+                this.hubConsole.log(`Indexed ${successCount}/${count}...`)
+              }
+            }
+          } catch {
+            this.hubConsole.log(`Failed to index ${note.title}`, 'error')
+          }
+        }
+        this.hubConsole.log(
+          `Indexing complete. Successfully indexed ${successCount}/${count} notes.`,
+          'system'
+        )
+      }
+    })
+
+    this.hubConsole.registerCommand({
+      name: 'debug-rag',
+      description: 'Show RAG engine status',
+      action: async () => {
+        this.hubConsole.log('Checking RAG engine status...', 'system')
+        try {
+          const stats = await ragService.getStats()
+          this.hubConsole.log('RAG Engine Status:', 'system')
+          this.hubConsole.log(`- Database: ${stats.dbName}`)
+          this.hubConsole.log(`- Indexed Documents: ${stats.count}`)
+          this.hubConsole.log(`- Model Loaded: ${stats.modelLoaded ? 'Yes' : 'No'}`)
+          if ((stats as any).lastError) {
+            this.hubConsole.log(`- Init Error: ${(stats as any).lastError}`, 'error')
+          }
+        } catch (err) {
+          this.hubConsole.log(`Status check failed: ${(err as Error).message}`, 'error')
+        }
+      }
+    })
+
+    this.hubConsole.registerCommand({
+      name: 'open',
+      description: 'Open a note',
+      usage: 'open <title-or-id>',
+      action: async (args) => {
+        if (args.length === 0) {
+          throw new Error('Usage: open <title-or-id>')
+        }
+        const query = args.join(' ').toLowerCase()
+        const note = state.notes.find(
+          (n) => n.title.toLowerCase() === query || n.id.toLowerCase() === query
+        )
+
+        if (note) {
+          await this.openNote(note.id, note.path)
+          this.hubConsole.log(`Opened note: "${note.title}"`)
+        } else {
+          this.hubConsole.log(`Note not found: "${args.join(' ')}"`, 'error')
+        }
+      }
+    })
+
+    this.hubConsole.registerCommand({
+      name: 'find',
+      description: 'Semantic search',
+      usage: 'find <query>',
+      action: async (args) => {
+        if (args.length === 0) {
+          throw new Error('Usage: find <query>')
+        }
+        const query = args.join(' ')
+        this.hubConsole.log(`Searching for: "${query}"...`, 'system')
+
+        try {
+          const results = await ragService.search(query, 3)
+          if (results && results.length > 0) {
+            this.hubConsole.log(`Top ${results.length} relevant results:`, 'system')
+            results.forEach((res, i) => {
+              this.hubConsole.log(
+                `${i + 1}. ${res.metadata.title} (Score: ${(res.score * 100).toFixed(1)}%)`
+              )
+            })
+          } else {
+            this.hubConsole.log('No relevant matches found.', 'system')
+          }
+        } catch (err) {
+          this.hubConsole.log('Search failed. Using fallback...', 'error')
+          // Basic title search fallback
+          const matches = state.notes.filter((n) =>
+            n.title.toLowerCase().includes(query.toLowerCase())
+          )
+          if (matches.length > 0) {
+            this.hubConsole.log('Found title matches:', 'system')
+            matches.slice(0, 3).forEach((n) => this.hubConsole.log(`- ${n.title}`))
+          } else {
+            this.hubConsole.log('No matches found.', 'system')
+          }
+        }
+      }
+    })
+
+    this.hubConsole.registerCommand({
+      name: 'stats',
+      description: 'Vault stats',
+      action: () => {
+        const totalNotes = state.notes.length
+        const totalTabs = state.openTabs.length
+        const activeNote = state.notes.find((n) => n.id === state.activeId)
+
+        this.hubConsole.log('Vault Statistics:', 'system')
+        this.hubConsole.log(`Total Notes: ${totalNotes}`)
+        this.hubConsole.log(`Open Tabs: ${totalTabs}`)
+        this.hubConsole.log(`Active Note: ${activeNote?.title || 'None'}`)
+        this.hubConsole.log(`Vault Path: ${state.vaultPath || 'Unknown'}`)
+      }
+    })
+
+    this.hubConsole.registerCommand({
+      name: 'clear',
+      description: 'Clear console',
+      action: () => {
+        const body = document.querySelector('.hub-console__body')
+        if (body) body.innerHTML = ''
+      }
+    })
+
+    this.hubConsole.registerCommand({
+      name: 'close',
+      description: 'Close console',
+      action: () => {
+        this.hubConsole.setVisible(false)
+      }
+    })
+  }
+
   async init(): Promise<void> {
     this.statusBar.setStatus('Initializing...')
     await this.initSettings()
@@ -1096,6 +1305,13 @@ class App {
     }
 
     await this.refreshNotes()
+
+    // Initialize RAG and index vault in background
+    if (state.vaultPath && state.notes.length > 0) {
+      this.statusBar.setStatus('Initializing AI...')
+      await ragService.init()
+      this.backgroundIndexVault().catch((err) => console.error('Background indexing failed:', err))
+    }
 
     if (state.openTabs.length > 0) {
       this.statusBar.setStatus('Restoring workspace...')
@@ -1249,7 +1465,57 @@ class App {
     this.statusBar.setMeta(`📁 ${path}`)
 
     // Update settings view if it's open
+    // Update settings view if it's open
     this.settingsView.updateVaultPath()
+
+    // Initialize RAG for the new vault
+    this.statusBar.setStatus('Initializing AI...')
+    await ragService.init()
+
+    // Background index all notes
+    this.backgroundIndexVault().catch((err) => console.error('Background indexing failed:', err))
+  }
+
+  private async backgroundIndexVault(): Promise<void> {
+    const notesToIndex = state.notes.filter((note) => {
+      // Only index markdown files
+      return note.title.endsWith('.md') || !note.title.includes('.')
+    })
+
+    let indexedCount = 0
+    const total = notesToIndex.length
+
+    aiStatusManager.show(`Indexing notes... 0/${total}`)
+
+    for (const note of notesToIndex) {
+      try {
+        const content = await window.api.loadNote(note.id)
+        if (content && content.content.trim()) {
+          await ragService.indexNote(note.id, content.content, {
+            title: note.title,
+            path: note.path
+          })
+          indexedCount++
+
+          // Update progress every 5 notes or on last note
+          if (indexedCount % 5 === 0 || indexedCount === total) {
+            aiStatusManager.updateProgress(indexedCount, total)
+          }
+        }
+      } catch (e) {
+        console.warn(`[RAG] Failed to index note ${note.title}:`, e)
+        // Continue with other notes
+      }
+    }
+
+    console.log(`[RAG] Background indexed ${indexedCount}/${total} notes`)
+
+    if (indexedCount > 0) {
+      aiStatusManager.setReady(`AI Ready (${indexedCount} notes indexed)`)
+      this.statusBar.setStatus('AI Intelligence Ready')
+    } else {
+      aiStatusManager.hide()
+    }
   }
 
   private async handleVaultLocated(_originalPath: string, newPath: string): Promise<void> {

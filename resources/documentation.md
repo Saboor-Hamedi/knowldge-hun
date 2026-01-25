@@ -74,6 +74,30 @@ KnowledgeHub is split into three distinct layers to ensure that heavy AI computa
 
 ---
 
+## 💻 Hub Intelligence Console
+
+The **HUB Console** provides a direct command-line interface into your vault, allowing for keyboard-centric navigation and advanced querying without leaving your flow state.
+
+**Access**: `Ctrl + J` (or `Ctrl + Shift + J`)
+
+**Comparison with Other Tools:**
+
+- **Quick Open (`Ctrl + P`)**: Best for simple fuzzy finding when you know the filename.
+- **HUB Console (`Ctrl + J`)**: Best for **semantic actions**, analyzing vault statistics, and running complex queries that go beyond filename matching.
+
+### ⚡ Console Commands
+
+| Command            | Action                                                                       | Example                     |
+| :----------------- | :--------------------------------------------------------------------------- | :-------------------------- |
+| **`help`**         | data dump of all available commands                                          | `help`                      |
+| **`open <query>`** | Intelligent open. Finds notes by ID or Title.                                | `open architecture`         |
+| **`find <query>`** | **Semantic RAG Search**. Use natural language to find meaning-related notes. | `find memory leak patterns` |
+| **`stats`**        | Displays vault telemetry (Note count, Tab count, Vault Path).                | `stats`                     |
+| **`clear`**        | Wipes the console history for a clean slate.                                 | `clear`                     |
+| **`close`**        | Hides the console panel.                                                     | `close`                     |
+
+---
+
 ## 🏗️ Core Pillars
 
 - **The Data Layer**: Standard `.md` files ensure your research is human-readable, portable, and perpetual. No proprietary formats.

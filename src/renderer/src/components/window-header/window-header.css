@@ -91,3 +91,75 @@
   height: 20px;
   object-fit: contain;
 }
+
+/* AI Status Indicator */
+.window-header__ai-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 12px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: rgba(127, 167, 255, 0.1);
+  position: relative;
+  -webkit-app-region: no-drag;
+  cursor: help;
+  transition: all 0.2s ease;
+}
+
+.window-header__ai-status:hover {
+  background: rgba(127, 167, 255, 0.15);
+}
+
+.window-header__ai-status.ready {
+  background: rgba(76, 175, 80, 0.1);
+}
+
+.window-header__ai-status.ready:hover {
+  background: rgba(76, 175, 80, 0.15);
+}
+
+.ai-status-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+}
+
+.ai-status-spinner {
+  color: rgba(127, 167, 255, 0.9);
+  animation: spin 2s linear infinite;
+}
+
+.ai-status-check {
+  color: rgba(76, 175, 80, 1);
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.ai-status-tooltip {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  opacity: 0;
+  max-width: 0;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.window-header__ai-status:hover .ai-status-tooltip {
+  opacity: 1;
+  max-width: 200px;
+}
+
+.window-header__ai-status.ready .ai-status-tooltip {
+  color: rgba(76, 175, 80, 0.9);
+}

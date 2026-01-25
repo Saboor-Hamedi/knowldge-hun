@@ -688,6 +688,14 @@ export class EditorComponent {
         }
       )
 
+      // Add Ctrl+J to toggle HUB console (prevent Monaco from consuming it)
+      this.editor.addCommand(
+        this.monacoInstance.KeyMod.CtrlCmd | this.monacoInstance.KeyCode.KeyJ,
+        () => {
+          window.dispatchEvent(new CustomEvent('toggle-hub-console'))
+        }
+      )
+
       // Add Ctrl+Shift+\ to toggle documentation modal
       this.editor.addCommand(
         this.monacoInstance.KeyMod.CtrlCmd |
