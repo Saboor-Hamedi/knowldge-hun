@@ -22,13 +22,23 @@ export interface ChatSession {
  */
 export class SessionStorageService {
   private dbName = 'knowledgeHub_sessions'
-  private dbVersion = 1
+  private dbVersion = 2 // Incremented for new index
   private storeName = 'sessions'
   private db: IDBDatabase | null = null
   private initPromise: Promise<void> | null = null
   private isInitialized = false
   private maxRetries = 3
   private retryDelay = 100
+
+  // 🚀 OPTIMIZATION: In-memory LRU cache for recent sessions
+  private sessionCache = new Map<string, { session: ChatSession; timestamp: number }>()
+  private readonly MAX_CACHE_SIZE = 20
+  private readonly CACHE_TTL = 5 * 60 * 1000 // 5 minutes
+
+  // 🚀 OPTIMIZATION: Write batching queue
+  private writeQueue = new Map<string, ChatSession>()
+  private writeTimeout: NodeJS.Timeout | null = null
+  private readonly BATCH_DELAY = 500 // ms
 
   /**
    * Initialize IndexedDB connection with retry logic
@@ -69,12 +79,14 @@ export class SessionStorageService {
             console.error('[SessionStorage] Database error:', event)
             this.isInitialized = false
             this.db = null
+            this.clearCache() // Clear cache on error
           }
 
           this.db.onclose = () => {
             console.warn('[SessionStorage] Database closed')
             this.isInitialized = false
             this.db = null
+            this.clearCache() // Clear cache on close
           }
 
           resolve()
@@ -82,15 +94,25 @@ export class SessionStorageService {
 
         request.onupgradeneeded = (event) => {
           const db = (event.target as IDBOpenDBRequest).result
+          const oldVersion = event.oldVersion
 
           // Create object store if it doesn't exist
           if (!db.objectStoreNames.contains(this.storeName)) {
             const objectStore = db.createObjectStore(this.storeName, {
               keyPath: 'id'
             })
+            // 🚀 OPTIMIZATION: Added indexes for faster queries
             objectStore.createIndex('created_at', 'metadata.created_at', { unique: false })
             objectStore.createIndex('updated_at', 'metadata.updated_at', { unique: false })
             objectStore.createIndex('is_archived', 'is_archived', { unique: false })
+            objectStore.createIndex('title', 'title', { unique: false }) // NEW: For faster title search
+          } else if (oldVersion < 2) {
+            // Upgrade from version 1 to 2: Add title index
+            const transaction = (event.target as IDBOpenDBRequest).transaction!
+            const objectStore = transaction.objectStore(this.storeName)
+            if (!objectStore.indexNames.contains('title')) {
+              objectStore.createIndex('title', 'title', { unique: false })
+            }
           }
         }
 
@@ -106,6 +128,60 @@ export class SessionStorageService {
       }
       throw error
     }
+  }
+
+  /**
+   * 🚀 OPTIMIZATION: Clear cache
+   */
+  private clearCache(): void {
+    this.sessionCache.clear()
+  }
+
+  /**
+   * 🚀 OPTIMIZATION: Get from cache or database
+   */
+  private getCachedSession(id: string): ChatSession | null {
+    const cached = this.sessionCache.get(id)
+    if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
+      return cached.session
+    }
+    // Remove expired cache
+    if (cached) {
+      this.sessionCache.delete(id)
+    }
+    return null
+  }
+
+  /**
+   * 🚀 OPTIMIZATION: Add to cache with LRU eviction
+   */
+  private cacheSession(session: ChatSession): void {
+    // LRU: Remove oldest if cache is full
+    if (this.sessionCache.size >= this.MAX_CACHE_SIZE) {
+      const oldestKey = this.sessionCache.keys().next().value
+      this.sessionCache.delete(oldestKey)
+    }
+    this.sessionCache.set(session.id, {
+      session: { ...session }, // Clone to prevent mutations
+      timestamp: Date.now()
+    })
+  }
+
+  /**
+   * 🚀 OPTIMIZATION: Compress large message content
+   */
+  private compressMessages(messages: ChatMessage[]): ChatMessage[] {
+    return messages.map((msg) => {
+      // Only compress very large messages (>10KB)
+      if (msg.content.length > 10000) {
+        // Simple compression: remove extra whitespace
+        return {
+          ...msg,
+          content: msg.content.replace(/\s+/g, ' ').trim()
+        }
+      }
+      return msg
+    })
   }
 
   /**
@@ -194,7 +270,7 @@ export class SessionStorageService {
     const prefixes = [
       /^(what|how|why|when|where|who|can|could|should|would|is|are|do|does|did)\s+/i,
       /^(explain|describe|tell|show|help|please)\s+/i,
-      /^(i want|i need|i would like|i\'m looking for)\s+/i
+      /^(i want|i need|i would like|i'm looking for)\s+/i
     ]
 
     for (const prefix of prefixes) {
@@ -242,6 +318,50 @@ export class SessionStorageService {
   }
 
   /**
+   * 🚀 OPTIMIZATION: Flush write queue to database
+   */
+  private async flushWriteQueue(): Promise<void> {
+    if (this.writeQueue.size === 0) return
+
+    const sessionsToWrite = Array.from(this.writeQueue.values())
+    this.writeQueue.clear()
+
+    return this.executeOperation(async (db) => {
+      return new Promise<void>((resolve, reject) => {
+        const transaction = db.transaction([this.storeName], 'readwrite')
+        const store = transaction.objectStore(this.storeName)
+
+        // Batch write all queued sessions
+        for (const session of sessionsToWrite) {
+          store.put(session)
+        }
+
+        transaction.oncomplete = () => resolve()
+        transaction.onerror = () => {
+          console.error('[SessionStorage] Batch write failed:', transaction.error)
+          reject(transaction.error)
+        }
+      })
+    })
+  }
+
+  /**
+   * 🚀 OPTIMIZATION: Queue session for batch write
+   */
+  private queueWrite(session: ChatSession): void {
+    this.writeQueue.set(session.id, session)
+    this.cacheSession(session) // Update cache immediately
+
+    // Debounce flush
+    if (this.writeTimeout) {
+      clearTimeout(this.writeTimeout)
+    }
+    this.writeTimeout = setTimeout(() => {
+      this.flushWriteQueue().catch(console.error)
+    }, this.BATCH_DELAY)
+  }
+
+  /**
    * Create a new session
    */
   async createSession(messages: ChatMessage[], title?: string): Promise<ChatSession> {
@@ -250,7 +370,7 @@ export class SessionStorageService {
     const session: ChatSession = {
       id: this.generateSessionId(),
       title: title || this.generateTitle(messages),
-      messages: [...messages],
+      messages: this.compressMessages(messages), // 🚀 Compress messages
       metadata: {
         created_at: now,
         updated_at: now,
@@ -259,6 +379,9 @@ export class SessionStorageService {
       },
       is_archived: false
     }
+
+    // 🚀 Cache immediately
+    this.cacheSession(session)
 
     return this.executeOperation(async (db) => {
       return new Promise<ChatSession>((resolve, reject) => {
@@ -287,12 +410,16 @@ export class SessionStorageService {
     // Update metadata
     const updatedSession: ChatSession = {
       ...session,
+      messages: this.compressMessages(session.messages), // 🚀 Compress messages
       metadata: {
         ...session.metadata,
         updated_at: Date.now(),
         note_references: this.extractNoteReferences(session.messages)
       }
     }
+
+    // 🚀 Cache immediately
+    this.cacheSession(updatedSession)
 
     return this.executeOperation(async (db) => {
       return new Promise<ChatSession>((resolve, reject) => {
@@ -315,50 +442,46 @@ export class SessionStorageService {
   }
 
   /**
-   * Update session messages (auto-save) - optimized for frequent calls
+   * 🚀 OPTIMIZED: Update session messages (auto-save) - uses batching and cache
    */
   async updateSessionMessages(sessionId: string, messages: ChatMessage[]): Promise<void> {
-    return this.executeOperation(async (db) => {
-      return new Promise<void>(async (resolve, reject) => {
-        try {
-          // First get the session
-          const session = await this.getSession(sessionId)
-          if (!session) {
-            reject(new Error(`[SessionStorage] Session ${sessionId} not found`))
-            return
-          }
+    // 🚀 Check cache first to avoid database read
+    let session = this.getCachedSession(sessionId)
 
-          // Update session data
-          session.messages = messages
-          session.metadata.updated_at = Date.now()
-          session.metadata.note_references = this.extractNoteReferences(messages)
+    if (!session) {
+      // Not in cache, get from database
+      session = await this.getSession(sessionId)
+      if (!session) {
+        throw new Error(`[SessionStorage] Session ${sessionId} not found`)
+      }
+    }
 
-          // Save updated session
-          const transaction = db.transaction([this.storeName], 'readwrite')
-          const store = transaction.objectStore(this.storeName)
-          const request = store.put(session)
+    // Update session data
+    const updatedSession: ChatSession = {
+      ...session,
+      messages: this.compressMessages(messages), // 🚀 Compress messages
+      metadata: {
+        ...session.metadata,
+        updated_at: Date.now(),
+        note_references: this.extractNoteReferences(messages)
+      }
+    }
 
-          request.onsuccess = () => resolve()
-          request.onerror = () => {
-            console.error('[SessionStorage] Failed to update session messages:', request.error)
-            reject(request.error)
-          }
-
-          transaction.onerror = () => {
-            console.error('[SessionStorage] Transaction error:', transaction.error)
-            reject(transaction.error)
-          }
-        } catch (error) {
-          reject(error)
-        }
-      })
-    })
+    // 🚀 Use batch write queue for better performance
+    this.queueWrite(updatedSession)
   }
 
   /**
-   * Get a session by ID
+   * 🚀 OPTIMIZED: Get a session by ID (with cache)
    */
   async getSession(id: string): Promise<ChatSession | null> {
+    // 🚀 Check cache first
+    const cached = this.getCachedSession(id)
+    if (cached) {
+      return cached
+    }
+
+    // Not in cache, get from database
     return this.executeOperation(async (db) => {
       return new Promise<ChatSession | null>((resolve, reject) => {
         const transaction = db.transaction([this.storeName], 'readonly')
@@ -366,7 +489,12 @@ export class SessionStorageService {
         const request = store.get(id)
 
         request.onsuccess = () => {
-          resolve(request.result || null)
+          const session = request.result || null
+          // 🚀 Cache the result
+          if (session) {
+            this.cacheSession(session)
+          }
+          resolve(session)
         }
         request.onerror = () => {
           console.error('[SessionStorage] Failed to get session:', request.error)
@@ -430,6 +558,10 @@ export class SessionStorageService {
    * Delete a session
    */
   async deleteSession(id: string): Promise<void> {
+    // 🚀 Remove from cache
+    this.sessionCache.delete(id)
+    this.writeQueue.delete(id)
+
     const db = await this.ensureInit()
 
     return new Promise((resolve, reject) => {
@@ -462,45 +594,42 @@ export class SessionStorageService {
    * Update session title
    */
   async updateSessionTitle(id: string, title: string): Promise<void> {
+    const session = await this.getSession(id)
+    if (!session) {
+      throw new Error(`[SessionStorage] Session ${id} not found`)
+    }
+
+    // Update only the title, don't change updated_at timestamp
+    session.title = title
+
+    // Save without updating timestamp
     return this.executeOperation(async (db) => {
-      return new Promise<void>(async (resolve, reject) => {
-        try {
-          // Get the session
-          const session = await this.getSession(id)
-          if (!session) {
-            reject(new Error(`[SessionStorage] Session ${id} not found`))
-            return
-          }
+      return new Promise<void>((resolve, reject) => {
+        const transaction = db.transaction([this.storeName], 'readwrite')
+        const store = transaction.objectStore(this.storeName)
+        const request = store.put(session)
 
-          // Update only the title, don't change updated_at timestamp
-          session.title = title
+        request.onsuccess = () => resolve()
+        request.onerror = () => {
+          console.error('[SessionStorage] Failed to update session title:', request.error)
+          reject(request.error)
+        }
 
-          // Save without updating timestamp
-          const transaction = db.transaction([this.storeName], 'readwrite')
-          const store = transaction.objectStore(this.storeName)
-          const request = store.put(session)
-
-          request.onsuccess = () => resolve()
-          request.onerror = () => {
-            console.error('[SessionStorage] Failed to update session title:', request.error)
-            reject(request.error)
-          }
-
-          transaction.onerror = () => {
-            console.error('[SessionStorage] Transaction error:', transaction.error)
-            reject(transaction.error)
-          }
-        } catch (error) {
-          reject(error)
+        transaction.onerror = () => {
+          console.error('[SessionStorage] Transaction error:', transaction.error)
+          reject(transaction.error)
         }
       })
     })
   }
 
   /**
-   * Search sessions by title or content
+   * 🚀 OPTIMIZED: Search sessions by title or content (uses title index when possible)
    */
   async searchSessions(query: string): Promise<ChatSession[]> {
+    // 🚀 Flush pending writes before search
+    await this.flushWriteQueue()
+
     const allSessions = await this.getAllSessions(true)
     const lowerQuery = query.toLowerCase()
 

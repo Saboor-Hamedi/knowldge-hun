@@ -1273,8 +1273,14 @@ class App {
     path?: string,
     focusTarget: 'editor' | 'sidebar' | 'none' = 'editor'
   ): Promise<void> {
-    // Switch to notes view when opening a note from fuzzy finder
-    this.activityBar.setActiveView('notes')
+    // Only switch to notes view if sidebar is already visible
+    // This prevents auto-opening sidebar when switching tabs
+    const shell = document.querySelector('.vscode-shell')
+    const isSidebarVisible = shell && !shell.classList.contains('sidebar-hidden')
+
+    if (isSidebarVisible) {
+      this.activityBar.setActiveView('notes')
+    }
     // We no longer automatically hide the sidebar on mobile here.
     // The user can explicitly close it or we can close it when they focus the editor.
 
