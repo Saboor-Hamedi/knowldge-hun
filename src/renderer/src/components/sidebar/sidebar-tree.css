@@ -513,8 +513,21 @@
   font-size: 13px;
 }
 
+
 /* Footer */
 .sidebar__footer {
   border-top: 1px solid var(--border);
   min-height: 0px;
+}
+
+/* bolb for save dirty save */
+.tree-item__dirty-dot {
+  width: 8px;
+  height: 8px;
+  background-color: #cca700; /* Yellowish */
+  border-radius: 50%;
+  margin-left: 6px;
+  flex-shrink: 0;
+  display: inline-block;
+  vertical-align: middle;
 }

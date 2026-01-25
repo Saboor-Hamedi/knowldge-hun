@@ -511,6 +511,7 @@ class App {
     this.editor.setContentChangeHandler(() => {
       this.statusBar.setStatus('Unsaved changes')
       this.tabBar.render()
+      this.sidebar.updateDirtyState()
     })
 
     this.editor.setSaveHandler((payload) => void this.saveNote(payload))
@@ -1330,6 +1331,7 @@ class App {
 
     // Always update sidebar selection to match active note
     this.sidebar.updateSelection(id)
+    this.sidebar.updateDirtyState()
 
     if (focusTarget === 'sidebar') {
       this.sidebar.scrollToActive(true)
@@ -1375,6 +1377,7 @@ class App {
   private async saveNote(payload: NotePayload): Promise<void> {
     if (!state.activeId) return
 
+    this.statusBar.setStatus('Saving...')
     const meta = await window.api.saveNote(payload)
     state.newlyCreatedIds.delete(payload.id) // It's no longer "untouched"
     state.lastSavedAt = meta.updatedAt

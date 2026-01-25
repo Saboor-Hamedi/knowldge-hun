@@ -62,11 +62,11 @@ export class TabBar {
       }
 
       const button = document.createElement('button')
-      button.className = `tab${tab.id === state.activeId ? ' is-active' : ''}${isPinned ? ' is-pinned' : ''}`
+      const isDirty = state.isDirty && tab.id === state.activeId
+      button.className = `tab${tab.id === state.activeId ? ' is-active' : ''}${isPinned ? ' is-pinned' : ''}${isDirty ? ' is-dirty' : ''}`
       button.dataset.id = tab.id
       button.dataset.ext = ext
 
-      const dirtyPrefix = state.isDirty && tab.id === state.activeId ? '● ' : ''
       if (isPinned) button.title = `${tab.title} (Pinned)`
 
       const icon = document.createElement('span')
@@ -87,7 +87,7 @@ export class TabBar {
 
       const label = document.createElement('span')
       label.className = 'tab__label'
-      label.textContent = `${dirtyPrefix}${tab.title}`
+      label.textContent = tab.title
 
       button.appendChild(icon)
       button.appendChild(label)

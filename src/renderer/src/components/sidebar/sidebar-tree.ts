@@ -610,6 +610,8 @@ export class SidebarTree {
       el.dataset.noteType = noteType
     }
 
+    const isDirty = state.isDirty && state.activeId === note.id
+
     const label = document.createElement('span')
     label.className = 'tree-item__label'
     label.textContent = note.title
@@ -619,6 +621,13 @@ export class SidebarTree {
     el.appendChild(spacer)
     el.appendChild(icon)
     el.appendChild(label)
+
+    if (isDirty) {
+      const dot = document.createElement('span')
+      dot.className = 'tree-item__dirty-dot'
+      el.appendChild(dot)
+    }
+
     container.appendChild(el)
   }
 
@@ -1599,6 +1608,29 @@ export class SidebarTree {
       activeItem.scrollIntoView({ block: 'nearest', behavior: 'auto' })
       if (shouldFocus) activeItem.focus()
     }
+  }
+
+  updateDirtyState(): void {
+    this.bodyEl.querySelectorAll('.tree-item--note').forEach((el) => {
+      const item = el as HTMLElement
+      const id = item.dataset.id
+      if (!id) return
+
+      const isDirty = state.isDirty && state.activeId === id
+
+      let dot = item.querySelector('.tree-item__dirty-dot')
+      if (isDirty) {
+        if (!dot) {
+          dot = document.createElement('span')
+          dot.className = 'tree-item__dirty-dot'
+          item.appendChild(dot)
+        }
+      } else {
+        if (dot) {
+          dot.remove()
+        }
+      }
+    })
   }
 
   getSearchValue(): string {

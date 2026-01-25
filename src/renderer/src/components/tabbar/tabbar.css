@@ -179,6 +179,25 @@
     color 100ms ease;
   flex-shrink: 0;
   margin-left: 4px;
+  position: relative;
+}
+
+.tab.is-dirty:not(:hover) .tab__close svg {
+  display: none;
+}
+
+.tab.is-dirty:not(:hover) .tab__close::after {
+  content: '';
+  width: 8px;
+  height: 8px;
+  background-color: #cca700; /* Yellowish */
+  border-radius: 50%;
+  display: block;
+}
+
+/* Ensure close button area is visible when dirty even if not hovered, but it will show as a dot */
+.tab.is-dirty .tab__close {
+  opacity: 1;
 }
 
 .tab:hover .tab__close {

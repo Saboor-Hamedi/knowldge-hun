@@ -6,16 +6,20 @@
     <!-- https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://api.deepseek.com"
+      content="default-src 'self'; script-src 'self' blob:; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://api.deepseek.com https://api.github.com"
     />
 
     <link href="./assets/layout.css" type="text/css" rel="stylesheet" />
-    <link href="./src/components/window-header/window-header.css" type="text/css" rel="stylesheet" />
+    <link
+      href="./src/components/window-header/window-header.css"
+      type="text/css"
+      rel="stylesheet"
+    />
   </head>
 
   <body class="is-loading">
     <div id="loadingOverlay" class="loading-overlay">
-       <div class="loading-spinner"></div>
+      <div class="loading-spinner"></div>
     </div>
     <div id="app" class="vscode-shell">
       <script type="module" src="./src/window-header-init.ts"></script>
@@ -25,15 +29,13 @@
       <main class="main">
         <header id="tabBar" class="tabbar" aria-label="Open notes"></header>
         <section id="editorContainer" class="editor-container"></section>
-        <section id="settingsHost" class="settings-host" style="display: none;"></section>
+        <section id="settingsHost" class="settings-host" style="display: none"></section>
       </main>
 
       <aside id="rightPanel" class="right-panel"></aside>
 
       <footer id="statusBar" class="statusbar"></footer>
     </div>
-
-
 
     <script type="module" src="./src/app.ts"></script>
   </body>

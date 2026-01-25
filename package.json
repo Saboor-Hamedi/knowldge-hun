@@ -1,6 +1,6 @@
 {
   "name": "knowledgehub",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "private": true,
   "description": "A minimal Electron application with TypeScript",
   "main": "./out/main/index.js",
