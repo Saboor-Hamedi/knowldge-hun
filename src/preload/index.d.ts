@@ -95,6 +95,7 @@ type NoteApi = {
   getAppIcon: () => Promise<string>
   getAppVersion: () => Promise<string>
   getDocumentation: () => Promise<string>
+  getUsername: () => Promise<string>
   onVaultChanged: (callback: (data: any) => void) => () => void
   onNoteOpened: (callback: (id: string) => void) => void
 }

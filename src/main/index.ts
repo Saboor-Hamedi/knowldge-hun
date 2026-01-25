@@ -4,6 +4,7 @@ import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
 import { join, basename, dirname } from 'path'
 import { writeFile, mkdir, readFile } from 'fs/promises'
 import { existsSync, mkdirSync, cpSync, readdirSync } from 'fs'
+import { userInfo } from 'os'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { version } from '../../package.json'
 import icon from '../../resources/icon.ico?asset'
@@ -653,6 +654,14 @@ app.whenReady().then(async () => {
     } catch (e) {
       console.error('Failed to read documentation', e)
       return '# Documentation Not Found'
+    }
+  })
+
+  ipcMain.handle('system:getUsername', () => {
+    try {
+      return userInfo().username
+    } catch {
+      return 'user'
     }
   })
 

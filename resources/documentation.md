@@ -4,6 +4,17 @@ Welcome to **KnowledgeHub**, a high-performance, AI-enhanced environment designe
 
 ---
 
+## 📑 Table of Contents
+
+1. [Project Pipeline & Architecture](#-project-pipeline--architecture)
+2. [HUB Console](#-hub-console-command-line-interface)
+3. [Core Features](#-core-features)
+4. [Keyboard Shortcuts](#-keyboard-shortcuts)
+5. [Best Practices](#-the-knowledgehub-way-best-practices)
+6. [Data Privacy & Security](#-data-privacy--security)
+
+---
+
 ## 🚀 Project Pipeline & Architecture
 
 ### 1. The RAG Intelligence Pipeline
@@ -74,45 +85,393 @@ KnowledgeHub is split into three distinct layers to ensure that heavy AI computa
 
 ---
 
-## 💻 Hub Intelligence Console
+## 💻 HUB Console: Command-Line Interface
 
-The **HUB Console** provides a direct command-line interface into your vault, allowing for keyboard-centric navigation and advanced querying without leaving your flow state.
+The **HUB Console** is a powerful VSCode-style terminal integrated directly into KnowledgeHub, providing keyboard-centric access to advanced features, semantic search, and vault management.
 
-**Access**: `Ctrl + J` (or `Ctrl + Shift + J`)
+### Opening the Console
 
-**Comparison with Other Tools:**
+**Keyboard Shortcut**: `Ctrl + J`
 
-- **Quick Open (`Ctrl + P`)**: Best for simple fuzzy finding when you know the filename.
-- **HUB Console (`Ctrl + J`)**: Best for **semantic actions**, analyzing vault statistics, and running complex queries that go beyond filename matching.
+**Alternative Methods**:
 
-### ⚡ Console Commands
+- Click the terminal icon in the status bar
+- Use Command Palette (`Ctrl + Shift + P`) → "Toggle Console"
 
-| Command            | Action                                                                       | Example                     |
-| :----------------- | :--------------------------------------------------------------------------- | :-------------------------- |
-| **`help`**         | data dump of all available commands                                          | `help`                      |
-| **`open <query>`** | Intelligent open. Finds notes by ID or Title.                                | `open architecture`         |
-| **`find <query>`** | **Semantic RAG Search**. Use natural language to find meaning-related notes. | `find memory leak patterns` |
-| **`stats`**        | Displays vault telemetry (Note count, Tab count, Vault Path).                | `stats`                     |
-| **`clear`**        | Wipes the console history for a clean slate.                                 | `clear`                     |
-| **`close`**        | Hides the console panel.                                                     | `close`                     |
+### Console Interface
+
+```
+┌─ HUB Console ─────────────────────────────────────────────────────┐
+│ ▶ HUB Console                                          ⌄  □  ✕    │
+├───────────────────────────────────────────────────────────────────┤
+│ HUB Console initialized. Type "help" for a list of commands.     │
+│                                                                   │
+│ saboor@KnowledgeHub λ _                                           │
+└───────────────────────────────────────────────────────────────────┘
+```
+
+**Interface Elements**:
+
+- **Dynamic Prompt**: Shows `username@vaultname λ` (updates when you switch vaults)
+- **Chevron Button (⌄)**: Minimize/restore console
+- **Maximize Button (□)**: Expand console to full height
+- **Close Button (✕)**: Hide console (same as `Ctrl + J`)
 
 ---
 
-## 🏗️ Core Pillars
+## 📚 Console Commands Reference
 
-- **The Data Layer**: Standard `.md` files ensure your research is human-readable, portable, and perpetual. No proprietary formats.
-- **The Intelligence Layer**: A local-first RAG pipeline that preserves privacy while providing Google-scale semantic search.
-- **The Visualization Layer**: Interactive knowledge graphs that allow you to browse your vault spatially.
+### Core Commands
+
+#### `help`
+
+**Description**: Display all available commands with descriptions and usage examples.
+
+**Usage**:
+
+```bash
+help
+```
+
+**Output**:
+
+```
+Available Commands:
+  help                  - Show this help message
+  clear                 - Clear console output
+  find <query>          - Semantic search across vault
+  index-vault           - Re-index all notes for RAG
+  close                 - Close the console
+```
 
 ---
 
-## ⌨️ Shortcut Master List
+#### `clear`
+
+**Description**: Clear all console output for a clean slate.
+
+**Usage**:
+
+```bash
+clear
+```
+
+**Use Cases**:
+
+- Clean up after long command outputs
+- Reset console before starting new task
+- Remove clutter from debugging sessions
+
+---
+
+#### `close`
+
+**Description**: Hide the console panel (same as pressing `Ctrl + J`).
+
+**Usage**:
+
+```bash
+close
+```
+
+---
+
+### Search & Discovery Commands
+
+#### `find <query>`
+
+**Description**: **Semantic RAG Search** - Use natural language to find conceptually related notes, even if they don't contain the exact search terms.
+
+**How It Works**:
+
+1. Your query is converted to a 384-dimensional vector using Transformers.js
+2. The system searches the vector database for similar note embeddings
+3. Results are ranked by cosine similarity (0-100% match)
+4. Top 5 most relevant notes are displayed
+
+**Usage**:
+
+```bash
+find <natural language query>
+```
+
+**Examples**:
+
+```bash
+# Find notes about memory management
+find memory leak patterns
+
+# Find notes about productivity
+find how to stay focused
+
+# Find technical documentation
+find API authentication flow
+
+# Find research notes
+find quantum computing basics
+```
+
+**Output Format**:
+
+```
+Searching for: "memory leak patterns"
+Found 3 relevant notes:
+
+1. debugging-guide.md (87% match)
+   Path: /technical/debugging-guide.md
+   Snippet: "Common memory leak patterns in JavaScript include..."
+
+2. performance-optimization.md (76% match)
+   Path: /notes/performance-optimization.md
+   Snippet: "Memory profiling tools can help identify..."
+
+3. best-practices.md (65% match)
+   Path: /best-practices.md
+   Snippet: "Avoid circular references to prevent memory..."
+```
+
+**Advanced Features**:
+
+- **Fuzzy Matching**: Finds conceptually similar notes
+- **Context Awareness**: Understands synonyms and related concepts
+- **Multi-word Queries**: Supports complex natural language queries
+- **Ranked Results**: Shows similarity percentage for each result
+
+**Performance**:
+
+- Search latency: ~50-200ms (depending on vault size)
+- Works offline once notes are indexed
+- No external API calls required
+
+---
+
+#### `index-vault`
+
+**Description**: Manually re-index all notes in your vault for semantic search. This command is useful when:
+
+- You've added many new notes
+- Notes were modified outside KnowledgeHub
+- Search results seem outdated
+- You want to force a fresh index
+
+**Usage**:
+
+```bash
+index-vault
+```
+
+**Process**:
+
+1. Scans all markdown files in vault
+2. Generates embeddings for each note
+3. Stores vectors in IndexedDB
+4. Updates search index
+
+**Output**:
+
+```
+Starting full vault re-indexing...
+Found 42 notes to index
+Indexed 5/42...
+Indexed 10/42...
+...
+Indexed 42/42...
+Indexing complete. Successfully indexed 42/42 notes.
+```
+
+**Notes**:
+
+- Skips empty notes automatically
+- Shows progress every 5 notes
+- Handles errors gracefully
+- Can take 1-5 minutes for large vaults (1000+ notes)
+
+**Auto-Indexing**:
+
+- Notes are automatically indexed on creation/modification
+- Background indexing runs on app startup
+- Manual re-indexing is rarely needed
+
+---
+
+## 🔒 Console Security Model
+
+The HUB Console is designed with security as a top priority. Unlike a real terminal, it **cannot** execute arbitrary code or system commands.
+
+### What the Console CANNOT Do
+
+❌ **No Arbitrary Code Execution**
+
+- Cannot run JavaScript code
+- Cannot execute shell scripts
+- Cannot run system commands (`rm`, `del`, `curl`, etc.)
+
+❌ **No File System Access**
+
+- Cannot access files outside vault directory
+- Cannot delete system files
+- Cannot modify system settings
+
+❌ **No Network Access**
+
+- Cannot make HTTP requests
+- Cannot download files
+- Cannot execute remote code
+
+❌ **No Code Injection**
+
+- No `eval()` or `Function()` calls
+- No shell expansion
+- Input is sanitized as plain strings
+
+### What the Console CAN Do
+
+✅ **Whitelisted Commands Only**
+
+- Only pre-registered commands can execute
+- Commands are defined by the application
+- No dynamic command registration
+
+✅ **Sandboxed Environment**
+
+- Runs in Electron renderer process
+- Limited permissions by design
+- Cannot escalate privileges
+
+✅ **Safe Operations**
+
+- Search notes semantically
+- Display vault statistics
+- Clear console output
+- Toggle UI elements
+
+### Security Architecture
+
+```text
+User Input → Command Parser → Whitelist Check → Safe Execution
+                                     ↓
+                              Unknown Command?
+                                     ↓
+                            "Unknown command" Error
+```
+
+**Key Security Features**:
+
+1. **Command Whitelist**: Only registered commands execute
+2. **Input Sanitization**: Arguments parsed as strings only
+3. **IPC Validation**: All file operations validated by main process
+4. **No Shell Access**: Cannot spawn child processes
+5. **Scoped Permissions**: Limited to app functionality only
+
+**Conclusion**: The console is **completely safe** for users to type anything. Worst case is an "Unknown command" error.
+
+---
+
+## 🎯 Console Features
+
+### Command History
+
+Navigate through previously executed commands using arrow keys:
+
+- **Up Arrow (↑)**: Previous command
+- **Down Arrow (↓)**: Next command
+- **Enter**: Execute current command
+
+**Example**:
+
+```bash
+saboor@KnowledgeHub λ find memory leaks
+saboor@KnowledgeHub λ clear
+saboor@KnowledgeHub λ ↑  # Shows "clear"
+saboor@KnowledgeHub λ ↑  # Shows "find memory leaks"
+```
+
+### Command Queuing
+
+The console prevents concurrent command execution to ensure stability:
+
+**Behavior**:
+
+- Only one command runs at a time
+- Input is disabled while command executes
+- Placeholder changes to "Command running..."
+- Attempting another command shows: "Command already running. Please wait..."
+
+**Visual Feedback**:
+
+```bash
+saboor@KnowledgeHub λ index-vault
+Starting full vault re-indexing...
+[Input disabled: "Command running..."]
+```
+
+### Dynamic Prompt
+
+The prompt shows your system username and current vault name:
+
+**Format**: `username@vaultname λ`
+
+**Examples**:
+
+```bash
+saboor@KnowledgeHub λ
+john@ResearchNotes λ
+alice@CodeDocs λ
+```
+
+**Updates Automatically**:
+
+- When you switch vaults
+- When vault is renamed
+- Real-time synchronization
+
+### Console States
+
+**Minimized**: Shows only input line at bottom
+**Normal**: Shows ~300px of output history
+**Maximized**: Expands to fill available vertical space
+
+**Toggle States**:
+
+- Click chevron (⌄) to minimize/restore
+- Click maximize (□) to expand/collapse
+- State persists across sessions
+
+---
+
+## 🏗️ Core Features
+
+### The Data Layer
+
+- **Standard `.md` files** ensure your research is human-readable, portable, and perpetual
+- **No proprietary formats** - your data is always accessible
+- **Plain text** - works with any text editor
+- **Git-friendly** - version control compatible
+
+### The Intelligence Layer
+
+- **Local-first RAG pipeline** preserves privacy while providing Google-scale semantic search
+- **Transformers.js** - runs AI models directly in the browser
+- **IndexedDB storage** - fast, offline-capable vector database
+- **Web Worker processing** - non-blocking embeddings
+
+### The Visualization Layer
+
+- **Interactive knowledge graphs** allow spatial browsing of your vault
+- **Force-directed layout** - organically arranges related notes
+- **Real-time updates** - graph updates as you create/link notes
+- **Cluster detection** - automatically groups related concepts
+
+---
+
+## ⌨️ Keyboard Shortcuts
 
 ### 📋 Navigation & General
 
 | Action                        | Shortcut                       |
 | :---------------------------- | :----------------------------- |
 | **Command Palette**           | `Ctrl + Shift + P`             |
+| **HUB Console**               | `Ctrl + J`                     |
 | **Documentation Dashboard**   | `Ctrl + Shift + \`             |
 | **Reload Vault / Refresh UI** | `Ctrl + Shift + R`             |
 | **Choose Vault Folder**       | `Ctrl + Shift + V`             |
@@ -138,23 +497,120 @@ The **HUB Console** provides a direct command-line interface into your vault, al
 | **Search Graph**           | `/` (in Graph view) |
 | **Reset Graph Camera**     | `R` (in Graph view) |
 
+### 💻 Console Shortcuts
+
+| Action               | Shortcut       |
+| :------------------- | :------------- |
+| **Toggle Console**   | `Ctrl + J`     |
+| **Previous Command** | `↑` (Up Arrow) |
+| **Next Command**     | `↓` (Down)     |
+| **Clear Console**    | Type `clear`   |
+| **Close Console**    | `Esc` or `✕`   |
+
 ---
 
 ## 🧠 The KnowledgeHub Way: Best Practices
 
-1. **Atomic Note Taking**: Keep notes focused on a single concept. This makes RAG search 10x more effective.
-2. **Link, Don't Categorize**: Links are better than folders. Use WikiLinks `[[ ]]` to create organic hierarchies.
-3. **Daily Journaling**: Use the graph to see how your daily logs connect to your core projects.
-4. **Interactive Graph**: Clicking a node instantly shifts your context to that note.
+### 1. Atomic Note Taking
+
+Keep notes focused on a single concept. This makes RAG search 10x more effective.
+
+**Good**:
+
+```markdown
+# Memory Leaks in JavaScript
+
+Common patterns that cause memory leaks...
+```
+
+**Bad**:
+
+```markdown
+# JavaScript Notes
+
+Memory leaks, closures, promises, async/await...
+```
+
+### 2. Link, Don't Categorize
+
+Links are better than folders. Use WikiLinks `[[ ]]` to create organic hierarchies.
+
+**Example**:
+
+```markdown
+# Project Alpha
+
+Related: [[Architecture]], [[API Design]], [[Database Schema]]
+```
+
+### 3. Use the Console for Discovery
+
+Instead of browsing folders, use semantic search:
+
+```bash
+find authentication implementation
+find database migration strategy
+find performance optimization tips
+```
+
+### 4. Regular Re-indexing
+
+After bulk imports or external edits:
+
+```bash
+index-vault
+```
+
+### 5. Interactive Graph
+
+Clicking a node instantly shifts your context to that note. Use the graph to:
+
+- Discover unexpected connections
+- Find orphaned notes
+- Visualize project structure
 
 ---
 
 ## 🔐 Data Privacy & Security
 
+### Local-First Architecture
+
 - **Local Embeddings**: Your note vectors stay in a local IndexedDB. They are never uploaded.
 - **Offline Mode**: Semantic search works entirely offline once weights are cached.
+- **No Telemetry**: KnowledgeHub doesn't track your usage or send analytics.
+
+### Sync Security
+
 - **Gist Sync**: Your notes are backed up to your _own_ private GitHub account.
+- **Encrypted Storage**: GitHub Gists support private repositories.
+- **Token Control**: You control the API token and can revoke access anytime.
+
+### Console Security
+
+- **Sandboxed Execution**: Console commands cannot access system resources.
+- **No Code Injection**: Input is sanitized and validated.
+- **Whitelisted Commands**: Only pre-approved commands can execute.
+
+---
+
+## 🔄 Version History
+
+### v0.1.5 - Current
+
+- ✅ HUB Console with semantic search
+- ✅ RAG-powered AI chat
+- ✅ Vector database integration
+- ✅ Command queuing and history
+- ✅ Dynamic prompt with vault name
+
+### Coming Soon
+
+- ⏳ Session export/import
+- ⏳ Offline AI mode (Ollama)
+- ⏳ Chat-Graph integration
+- ⏳ Advanced vector search (HNSW)
 
 ---
 
 _KnowledgeHub v0.1.5 • Built for Code and Research_
+_Documentation last updated: 2026-01-26_

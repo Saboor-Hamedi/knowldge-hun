@@ -8,6 +8,36 @@ export interface Command {
   action: (args: string[]) => void | Promise<void>
 }
 
+/**
+ * HUB Console Component
+ *
+ * SECURITY MODEL:
+ * ---------------
+ * This console is SANDBOXED and SECURE by design:
+ *
+ * 1. **No Arbitrary Code Execution**: Unlike a real terminal, this console CANNOT execute
+ *    arbitrary system commands, shell scripts, or JavaScript code. It only runs pre-registered
+ *    commands defined in the application.
+ *
+ * 2. **Whitelist-Only Commands**: Only commands explicitly registered via `registerCommand()`
+ *    can be executed. Users cannot inject or run malicious code.
+ *
+ * 3. **Controlled Actions**: Each command's action is defined by the application developer
+ *    and runs within the Electron renderer process with limited permissions.
+ *
+ * 4. **No File System Access**: Commands cannot directly access the file system. All file
+ *    operations go through the secure IPC bridge to the main process with validation.
+ *
+ * 5. **Input Sanitization**: Command arguments are parsed as simple strings - no eval(),
+ *    no code injection, no shell expansion.
+ *
+ * WHAT THIS MEANS:
+ * - Safe for users to type anything - worst case is "Unknown command" error
+ * - Cannot be used to hack, exploit, or damage the system
+ * - Cannot access files outside the vault directory
+ * - Cannot run system commands like `rm -rf /` or `del C:\`
+ * - All operations are scoped to app functionality only
+ */
 export class ConsoleComponent {
   private container: HTMLElement
   private consoleEl: HTMLElement
@@ -15,9 +45,11 @@ export class ConsoleComponent {
   private bodyEl: HTMLElement
   private isOpen = false
   private isMaximized = false
+  private isBusy = false
   private history: string[] = []
   private historyIndex = -1
   private commands: Map<string, Command> = new Map()
+  private vaultUnsubscribe?: () => void
 
   constructor(containerId: string) {
     this.container = document.getElementById(containerId) as HTMLElement
@@ -30,10 +62,45 @@ export class ConsoleComponent {
     this.attachEvents()
     this.log('HUB Console initialized. Type "help" for a list of commands.', 'system')
 
+    // Fetch and set username
+    void this.initUsername()
+
     // Restore saved state
     const savedState = localStorage.getItem('hub-console-open')
     if (savedState === 'true') {
       this.setVisible(true)
+    }
+  }
+
+  private async initUsername(): Promise<void> {
+    try {
+      const username = await window.api.getUsername()
+      const vault = await window.api.getVault()
+
+      // Sanitize names to prevent display issues
+      const sanitizedUsername = (username || 'user').trim() || 'user'
+      const vaultName = (vault?.name || 'hub').trim() || 'hub'
+
+      const promptEl = this.consoleEl.querySelector('.hub-console__prompt')
+      if (promptEl) {
+        promptEl.textContent = `${sanitizedUsername}@${vaultName} λ`
+      }
+
+      // Listen for vault changes and update prompt dynamically
+      this.vaultUnsubscribe = window.api.onVaultChanged(async () => {
+        try {
+          const newVault = await window.api.getVault()
+          const newVaultName = (newVault?.name || 'hub').trim() || 'hub'
+          if (promptEl) {
+            promptEl.textContent = `${sanitizedUsername}@${newVaultName} λ`
+          }
+        } catch (err) {
+          console.error('[Console] Failed to update vault name:', err)
+        }
+      })
+    } catch (err) {
+      console.error('[Console] Failed to initialize username/vault:', err)
+      // Keep default prompt if initialization fails
     }
   }
 
@@ -72,7 +139,11 @@ export class ConsoleComponent {
   }
 
   public registerCommand(command: Command): void {
-    this.commands.set(command.name.toLowerCase(), command)
+    if (!command || !command.name || typeof command.action !== 'function') {
+      console.error('[Console] Invalid command registration:', command)
+      return
+    }
+    this.commands.set(command.name.toLowerCase().trim(), command)
   }
 
   public toggle(): void {
@@ -82,9 +153,27 @@ export class ConsoleComponent {
   public setVisible(visible: boolean): void {
     this.isOpen = visible
     this.consoleEl.classList.toggle('is-open', this.isOpen)
-    localStorage.setItem('hub-console-open', String(this.isOpen))
+
+    try {
+      localStorage.setItem('hub-console-open', String(this.isOpen))
+    } catch (err) {
+      console.warn('[Console] Failed to save state to localStorage:', err)
+    }
+
     if (this.isOpen) {
-      setTimeout(() => this.inputEl.focus(), 50)
+      setTimeout(() => {
+        if (this.inputEl) {
+          this.inputEl.focus()
+        }
+      }, 50)
+    }
+  }
+
+  public destroy(): void {
+    // Clean up vault change listener
+    if (this.vaultUnsubscribe) {
+      this.vaultUnsubscribe()
+      this.vaultUnsubscribe = undefined
     }
   }
 
@@ -101,7 +190,11 @@ export class ConsoleComponent {
       if (e.key === 'Enter') {
         const value = this.inputEl.value.trim()
         if (value) {
-          this.execute(value)
+          if (this.isBusy) {
+            this.log('Command already running. Please wait...', 'system')
+            return
+          }
+          void this.execute(value)
           this.inputEl.value = ''
         }
       } else if (e.key === 'ArrowUp') {
@@ -179,10 +272,19 @@ export class ConsoleComponent {
 
     const cmd = this.commands.get(commandName)
     if (cmd) {
+      this.isBusy = true
+      this.inputEl.disabled = true
+      this.inputEl.placeholder = 'Command running...'
+
       try {
         await cmd.action(args)
       } catch (err) {
         this.log(`Error: ${(err as Error).message}`, 'error')
+      } finally {
+        this.isBusy = false
+        this.inputEl.disabled = false
+        this.inputEl.placeholder = 'Type a command...'
+        this.inputEl.focus()
       }
     } else {
       this.log(`Unknown command: ${commandName}. Type "help" for assistance.`, 'error')

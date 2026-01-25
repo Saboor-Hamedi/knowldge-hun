@@ -146,6 +146,12 @@
   - ✅ Relevant snippet extraction
   - ✅ Note citations in responses
   - ✅ Context assembly with limits
+  - ✅ **Semantic Search** (Transformers.js embeddings)
+  - ✅ **Vector Database** (IndexedDB-based storage)
+  - ✅ **Web Worker Processing** (Non-blocking embeddings)
+  - ✅ **Cosine Similarity Search** (Efficient retrieval)
+  - ✅ **Auto-indexing** (Notes indexed on startup)
+  - ✅ **Manual Re-indexing** (Console command)
 - ✅ Streaming responses
 - ✅ Message feedback (thumbs up/down)
 - ✅ Editor context integration
@@ -224,6 +230,16 @@
 - ✅ Theme modal (theme selector)
 - ✅ Vault picker (vault selection)
 - ✅ Update modal (auto-update UI)
+- ✅ **HUB Console** (VSCode-style terminal):
+  - ✅ Toggle with Ctrl+J
+  - ✅ Command execution (help, clear, find, index-vault)
+  - ✅ Command history (arrow keys)
+  - ✅ Auto-complete
+  - ✅ Maximize/minimize controls
+  - ✅ Dynamic prompt (username@vault λ)
+  - ✅ Semantic search integration
+  - ✅ Command queuing (prevents concurrent execution)
+  - ✅ Sandboxed security model
 
 #### **Auto-Update**
 
@@ -801,16 +817,17 @@ User Query:
 ### Phase 2 (Enhanced Features)
 
 1. ✅ **Web Worker Infrastructure** (Non-blocking RAG foundation)
-2. ⬜ **IndexedDB Vector Store** (Local embeddings storage)
-3. ⬜ **Local Embeddings** (Transformers.js integration)
-4. ⬜ **Offline AI Mode** (Ollama integration)
-5. ⬜ **Chat-Graph Integration** (Visual RAG)
-
-6. ✅ Session search and filtering
-7. ✅ Note citation display
-8. ✅ Autocomplete for note references
-9. ✅ Conversation history retrieval
-10. ⏳ Session export/import
+2. ✅ **IndexedDB Vector Store** (Local embeddings storage)
+3. ✅ **Local Embeddings** (Transformers.js integration)
+4. ✅ **Semantic Search** (Cosine similarity retrieval)
+5. ✅ **HUB Console** (Command-line interface)
+6. ⬜ **Offline AI Mode** (Ollama integration)
+7. ⬜ **Chat-Graph Integration** (Visual RAG)
+8. ✅ Session search and filtering
+9. ✅ Note citation display
+10. ✅ Autocomplete for note references
+11. ✅ Conversation history retrieval
+12. ⏳ Session export/import
 
 ### Phase 3 (Advanced Features)
 
