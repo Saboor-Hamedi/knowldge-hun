@@ -435,6 +435,19 @@ export class SettingsView {
       }, 150)
     })
 
+    searchInput?.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        if (searchInput.value) {
+          searchInput.value = ''
+          this.searchQuery = ''
+          this.filterSettings()
+          e.stopPropagation()
+        } else {
+          searchInput.blur()
+        }
+      }
+    })
+
     // Tab switching
     this.container.querySelectorAll('[data-section-tab]').forEach((tab) => {
       tab.addEventListener('click', () => {

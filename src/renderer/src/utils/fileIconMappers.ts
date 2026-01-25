@@ -354,6 +354,8 @@ const getFileIcon = (title, language) => {
     country: Globe2,
     when: Clock,
     plan: Notebook,
+    roadmap: Milestone,
+    'roadmap.md': Milestone,
     research: FileSearch,
     study: FileSearch,
 
@@ -473,7 +475,7 @@ const getFileIcon = (title, language) => {
 
     // Proposal & Purpose Patterns
     { pattern: /proposal/, icon: FileSignature },
-    { pattern: /purpose/, icon: Milestone },
+    { pattern: /purpose|roadmap/, icon: Milestone },
 
     // Transport & Nature Patterns
     { pattern: /car|vehicle|driving/, icon: Car },
@@ -711,7 +713,9 @@ const getIconColor = (icon: any, title: string = '', extension: string = ''): st
   if (['command', 'cmd'].some((name) => titleLower.includes(name))) {
     return '#22c55e' // Command Green
   }
-  if (['research', 'study', 'docs', 'readme'].some((name) => titleLower.includes(name))) {
+  if (
+    ['research', 'study', 'docs', 'readme', 'roadmap'].some((name) => titleLower.includes(name))
+  ) {
     return '#10b981' // Documentation Teal
   }
 

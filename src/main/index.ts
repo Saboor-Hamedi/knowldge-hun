@@ -190,7 +190,9 @@ app.whenReady().then(async () => {
   electronApp.setAppUserModelId('com.electron')
 
   app.on('browser-window-created', (_, window) => {
-    optimizer.watchWindowShortcuts(window)
+    if (is.dev) {
+      optimizer.watchWindowShortcuts(window)
+    }
   })
 
   ipcMain.handle('notes:list', async () => vault.getNotes())

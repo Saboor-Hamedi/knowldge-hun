@@ -119,6 +119,7 @@ export class Modal {
       const closeBtn = document.createElement('button')
       closeBtn.className = 'modal__close'
       closeBtn.setAttribute('aria-label', 'Close modal')
+      closeBtn.innerHTML = '&times;'
       headerHost.appendChild(closeBtn)
       this.modal.appendChild(headerHost)
     } else if (this.config.title) {

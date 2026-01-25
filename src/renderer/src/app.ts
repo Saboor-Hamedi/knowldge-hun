@@ -882,11 +882,31 @@ class App {
     })
 
     keyboardManager.register({
+      key: 'Control+f',
+      scope: 'global',
+      description: 'Find in note',
+      handler: () => {
+        this.editor.focus()
+        this.editor.triggerAction('actions.find')
+        return true
+      }
+    })
+
+    keyboardManager.register({
       key: 'Control+p',
       scope: 'global',
       description: 'Quick Open',
       handler: () => {
         this.fuzzyFinder.toggle('notes')
+      }
+    })
+
+    keyboardManager.register({
+      key: 'Control+Shift+f',
+      scope: 'global',
+      description: 'Global search',
+      handler: () => {
+        this.activityBar.setActiveView('search')
       }
     })
 
@@ -998,6 +1018,34 @@ class App {
       description: 'Select theme',
       handler: () => {
         this.themeModal.toggle()
+      }
+    })
+
+    keyboardManager.register({
+      key: 'Escape',
+      scope: 'global',
+      description: 'Close active UI elements',
+      handler: () => {
+        // 1. Close Fuzzy Finder if open
+        if (this.fuzzyFinder && (this.fuzzyFinder as any).isOpen) {
+          this.fuzzyFinder.close()
+          return true
+        }
+
+        // 3. Close active preview tab
+        if (state.activeId && state.activeId.startsWith('preview-')) {
+          void this.closeTab(state.activeId)
+          return true
+        }
+
+        // 4. Close any open modals
+        if (modalManager.getCurrent()) {
+          modalManager.close()
+          return true
+        }
+
+        // If nothing was handled, return false to let the event bubble (e.g., to Monaco)
+        return false
       }
     })
   }
@@ -1569,7 +1617,7 @@ class App {
     const header = this.createModalHeader('Rename Note')
     modalManager.open({
       customHeader: header,
-      size: 'sm',
+      size: 'md',
       inputs: [
         {
           name: 'noteTitle',
@@ -1601,8 +1649,8 @@ class App {
   private createModalHeader(title: string): HTMLElement {
     const header = document.createElement('div')
     header.style.cssText = 'display: flex; align-items: center; gap: 8px; flex: 1;'
-    const titleEl = document.createElement('span')
-    titleEl.style.cssText = 'font-size: 16px; font-weight: 700; color: var(--text-strong);'
+    const titleEl = document.createElement('h2')
+    titleEl.className = 'modal__title'
     titleEl.textContent = title
     header.appendChild(titleEl)
     return header

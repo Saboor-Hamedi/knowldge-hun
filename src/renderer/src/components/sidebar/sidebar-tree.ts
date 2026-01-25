@@ -203,6 +203,14 @@ export class SidebarTree {
           resultsList.dispatchEvent(new KeyboardEvent('keydown', e))
           e.preventDefault()
         }
+        if (e.key === 'Escape') {
+          // If query is present, clear it first, otherwise allow global handler to switch view
+          if (input.value) {
+            input.value = ''
+            input.dispatchEvent(new Event('input'))
+            e.stopPropagation() // Handle clearing here, let second Esc close view
+          }
+        }
       })
 
       input.addEventListener('input', async () => {
@@ -653,6 +661,18 @@ export class SidebarTree {
     // Search
     this.searchEl.addEventListener('input', () => {
       this.renderTree(this.searchEl.value)
+    })
+
+    this.searchEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        if (this.searchEl.value) {
+          this.searchEl.value = ''
+          this.renderTree('')
+          e.stopPropagation()
+        } else {
+          this.searchEl.blur()
+        }
+      }
     })
 
     // Tree item click

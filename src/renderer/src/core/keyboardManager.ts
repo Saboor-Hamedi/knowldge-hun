@@ -5,7 +5,7 @@
 
 export interface KeyBinding {
   key: string // e.g., 'Control+r', 'Cmd+s', 'Escape'
-  handler: (event: KeyboardEvent) => void
+  handler: (event: KeyboardEvent) => void | boolean
   scope?: string // 'global' (default) or custom scope
   description?: string
 }
@@ -69,11 +69,7 @@ export class KeyboardManager {
    * Normalize key notation (Ctrl vs Control, Cmd vs Meta)
    */
   private normalizeKey(key: string): string {
-    return key
-      .toLowerCase()
-      .replace(/ctrl/g, 'control')
-      .replace(/cmd/g, 'meta')
-      .replace(/\s+/g, '')
+    return key.toLowerCase().replace(/ctrl/g, 'control').replace(/cmd/g, 'meta').replace(/\s+/g, '')
   }
 
   /**
@@ -108,8 +104,11 @@ export class KeyboardManager {
         const binding = this.bindings.get(id)
 
         if (binding) {
-          event.preventDefault()
-          binding.handler(event)
+          const processed = binding.handler(event)
+          // If the handler explicitly returns false, don't prevent default
+          if (processed !== false) {
+            event.preventDefault()
+          }
           return
         }
       }

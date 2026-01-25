@@ -698,11 +698,6 @@ export class EditorComponent {
         }
       )
 
-      // Add Escape to close modals
-      this.editor.addCommand(this.monacoInstance.KeyCode.Escape, () => {
-        window.dispatchEvent(new CustomEvent('close-theme-modal'))
-      })
-
       this.shortcutsAttached = true
     }
   }
@@ -742,6 +737,10 @@ export class EditorComponent {
       // Ctrl+Shift+, to toggle theme modal
       event.preventDefault()
       window.dispatchEvent(new CustomEvent('toggle-theme-modal'))
+    } else if (key === 'escape' && this.isPreviewMode) {
+      // Escape to close preview mode
+      event.preventDefault()
+      this.togglePreview()
     }
   }
 
