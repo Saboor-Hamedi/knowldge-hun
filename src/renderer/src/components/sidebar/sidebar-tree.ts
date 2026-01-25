@@ -243,7 +243,7 @@ export class SidebarTree {
                 return text.replace(
                   new RegExp(safeQ, 'gi'),
                   (m) =>
-                    `<mark style=\"background:#31405c;color:#fff;padding:0 2px;border-radius:2px;\">${m}</mark>`
+                    `<mark style=\"background:var(--selection);color:var(--text-strong);padding:0 2px;border-radius:2px;\">${m}</mark>`
                 )
               } catch {
                 return text
@@ -262,7 +262,7 @@ export class SidebarTree {
                   tagHtml = tagMatch
                     .map((tag) =>
                       n.content.toLowerCase().includes(tag.toLowerCase())
-                        ? `<mark style=\"background:#cca700;color:#222;padding:0 2px;border-radius:2px;\">${tag}</mark>`
+                        ? `<mark style=\"background:var(--primary);color:var(--bg);padding:0 2px;border-radius:2px;\">${tag}</mark>`
                         : ''
                     )
                     .join(' ')
@@ -279,7 +279,7 @@ export class SidebarTree {
           }
         } catch (e) {
           results.innerHTML =
-            '<div style="text-align:center;margin-top:20px;color:#f48771;">Search failed</div>'
+            '<div style="text-align:center;margin-top:20px;color:var(--danger);">Search failed</div>'
         }
       })
       // Open note on click/enter

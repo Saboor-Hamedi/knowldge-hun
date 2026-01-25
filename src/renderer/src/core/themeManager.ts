@@ -5,6 +5,7 @@ export class ThemeManager {
 
   constructor() {
     this.currentTheme = themes.dark // Default
+    this.applyTheme()
   }
 
   setTheme(themeId: string): void {
@@ -15,7 +16,7 @@ export class ThemeManager {
     } else {
       this.currentTheme = theme
     }
-    
+
     this.applyTheme()
   }
 
@@ -26,7 +27,7 @@ export class ThemeManager {
     Object.entries(colors).forEach(([property, value]) => {
       root.style.setProperty(property, value)
     })
-    
+
     // Set a data-theme attribute on body for specific overrides if needed
     document.body.setAttribute('data-theme', this.currentTheme.id)
   }

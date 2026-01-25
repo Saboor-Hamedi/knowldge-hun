@@ -12,6 +12,12 @@
   --danger: #f48771;
   --status: #0e639c;
   --shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+  
+  /* Fallback selection and hover colors to prevent reddish browser defaults */
+  --selection: #569cd640;
+  --hover: #7fa7ff1f;
+  --border-subtle: rgba(255, 255, 255, 0.05);
+  --text-muted: #9da5b4;
 }
 
 *,
@@ -36,3 +42,5 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+/* Remove global selection overrides that interfere with Monaco */

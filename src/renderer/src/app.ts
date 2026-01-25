@@ -531,6 +531,7 @@ class App {
     this.editor.attachKeyboardShortcuts()
 
     this.themeModal.setThemeChangeHandler((themeId) => {
+      themeManager.setTheme(themeId)
       this.editor.applySettings({ ...state.settings, theme: themeId })
     })
 

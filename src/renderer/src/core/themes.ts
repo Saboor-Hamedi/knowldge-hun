@@ -44,8 +44,8 @@ export const themes: Record<string, Theme> = {
       '--primary-strong': '#4fc1ff',
       '--danger': '#f48771',
       '--status': '#0e639c',
-      '--hover': 'rgba(127, 167, 255, 0.12)',
-      '--selection': 'rgba(86, 156, 214, 0.25)'
+      '--hover': '#7fa7ff1f',
+      '--selection': '#569cd640'
     }
   },
   light: {
@@ -67,8 +67,8 @@ export const themes: Record<string, Theme> = {
       '--primary-strong': '#005cc5',
       '--danger': '#d73a49',
       '--status': '#0366d6',
-      '--hover': 'rgba(3, 102, 214, 0.08)',
-      '--selection': 'rgba(3, 102, 214, 0.15)'
+      '--hover': '#0342d614',
+      '--selection': '#0342d626'
     }
   },
   githubDark: {
@@ -90,8 +90,8 @@ export const themes: Record<string, Theme> = {
       '--primary-strong': '#79c0ff',
       '--danger': '#f85149',
       '--status': '#1f6feb',
-      '--hover': 'rgba(177, 186, 196, 0.12)',
-      '--selection': 'rgba(56, 139, 253, 0.15)'
+      '--hover': '#b1bac41f',
+      '--selection': '#388bfd26'
     }
   },
   midnight: {
@@ -113,8 +113,8 @@ export const themes: Record<string, Theme> = {
       '--primary-strong': '#d7b7fd',
       '--danger': '#cf6679',
       '--status': '#3700b3',
-      '--hover': 'rgba(187, 134, 252, 0.12)',
-      '--selection': 'rgba(187, 134, 252, 0.25)'
+      '--hover': '#bb86fc1f',
+      '--selection': '#bb86fc40'
     }
   },
   oceanic: {
@@ -136,8 +136,8 @@ export const themes: Record<string, Theme> = {
       '--primary-strong': '#7fffd4',
       '--danger': '#ff6b6b',
       '--status': '#008b8b',
-      '--hover': 'rgba(64, 224, 208, 0.12)',
-      '--selection': 'rgba(64, 224, 208, 0.25)'
+      '--hover': '#40e0d01f',
+      '--selection': '#40e0d040'
     }
   },
   forest: {
@@ -159,8 +159,8 @@ export const themes: Record<string, Theme> = {
       '--primary-strong': '#98fb98',
       '--danger': '#ff7f7f',
       '--status': '#2e8b57',
-      '--hover': 'rgba(144, 238, 144, 0.12)',
-      '--selection': 'rgba(144, 238, 144, 0.25)'
+      '--hover': '#90ee901f',
+      '--selection': '#90ee9040'
     }
   },
   synthwave: {
@@ -182,8 +182,8 @@ export const themes: Record<string, Theme> = {
       '--primary-strong': '#ff2a6d',
       '--danger': '#fe4450',
       '--status': '#72f1b8',
-      '--hover': 'rgba(255, 126, 219, 0.15)',
-      '--selection': 'rgba(255, 126, 219, 0.3)'
+      '--hover': '#ff7edb26',
+      '--selection': '#ff7edb4d'
     }
   },
   nord: {
@@ -205,8 +205,8 @@ export const themes: Record<string, Theme> = {
       '--primary-strong': '#8fbcbb',
       '--danger': '#bf616a',
       '--status': '#5e81ac',
-      '--hover': 'rgba(136, 192, 208, 0.12)',
-      '--selection': 'rgba(136, 192, 208, 0.25)'
+      '--hover': '#88c0d01f',
+      '--selection': '#88c0d040'
     }
   },
   dracula: {
@@ -228,8 +228,8 @@ export const themes: Record<string, Theme> = {
       '--primary-strong': '#ff79c6',
       '--danger': '#ff5555',
       '--status': '#8be9fd',
-      '--hover': 'rgba(189, 147, 249, 0.12)',
-      '--selection': 'rgba(189, 147, 249, 0.25)'
+      '--hover': '#bd93f91f',
+      '--selection': '#bd93f940'
     }
   },
   monokai: {
@@ -251,8 +251,8 @@ export const themes: Record<string, Theme> = {
       '--primary-strong': '#a6e22e',
       '--danger': '#f92672',
       '--status': '#fd971f',
-      '--hover': 'rgba(102, 217, 239, 0.12)',
-      '--selection': 'rgba(102, 217, 239, 0.25)'
+      '--hover': '#66d9ef1f',
+      '--selection': '#66d9ef40'
     }
   }
 }

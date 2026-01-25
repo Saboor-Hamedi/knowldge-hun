@@ -559,7 +559,10 @@ export class EditorComponent {
           }
         })
 
-        // ... (paste handler)
+        // Apply cached settings immediately after creation
+        if (this.cachedSettings) {
+          this.applySettings(this.cachedSettings)
+        }
       } finally {
         this.initPromise = null
       }
@@ -786,7 +789,7 @@ export class EditorComponent {
     if (settings.theme) {
       const theme = themes[settings.theme]
       if (theme) {
-        const isLight = settings.theme === 'light' || settings.theme === 'github-light'
+        const isLight = settings.theme === 'light'
         const base = isLight ? 'vs' : 'vs-dark'
 
         // Use a unique name for the theme to ensure Monaco registers it as a switch
@@ -803,21 +806,11 @@ export class EditorComponent {
             'editor.lineHighlightBackground': theme.colors['--hover'],
             'editor.selectionBackground': theme.colors['--selection'],
             'editorCursor.foreground': theme.colors['--primary'],
-            'editorCursor.background': 'transparent',
-            'editorCursor.backgroundUnfocused': 'transparent',
             'editorLineNumber.foreground': theme.colors['--muted'],
             'editorIndentGuide.background': theme.colors['--border-subtle'],
             'editorIndentGuide.activeBackground': theme.colors['--border'],
             'editorWidget.background': theme.colors['--panel-strong'],
-            'editorWidget.border': theme.colors['--border'],
-            'list.activeSelectionBackground': theme.colors['--selection'],
-            'list.activeSelectionForeground': theme.colors['--text-strong'],
-            'list.hoverBackground': theme.colors['--hover'],
-            'list.hoverForeground': theme.colors['--text-strong'],
-            'list.focusBackground': theme.colors['--selection'],
-            'list.focusForeground': theme.colors['--text-strong'],
-            'list.inactiveSelectionBackground': theme.colors['--selection'],
-            'list.inactiveSelectionForeground': theme.colors['--text-strong']
+            'editorWidget.border': theme.colors['--border']
           }
         })
         this.monacoInstance?.editor.setTheme(monacoThemeId)

@@ -159,7 +159,9 @@ export class SessionStorageService {
     // LRU: Remove oldest if cache is full
     if (this.sessionCache.size >= this.MAX_CACHE_SIZE) {
       const oldestKey = this.sessionCache.keys().next().value
-      this.sessionCache.delete(oldestKey)
+      if (oldestKey !== undefined) {
+        this.sessionCache.delete(oldestKey)
+      }
     }
     this.sessionCache.set(session.id, {
       session: { ...session }, // Clone to prevent mutations
