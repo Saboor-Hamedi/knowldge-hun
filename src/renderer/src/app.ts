@@ -1165,9 +1165,16 @@ class App {
               if (successCount % 5 === 0) {
                 this.hubConsole.log(`Indexed ${successCount}/${count}...`)
               }
+            } else {
+              this.hubConsole.log(`Skipped empty note: ${note.title}`, 'system')
             }
-          } catch {
-            this.hubConsole.log(`Failed to index ${note.title}`, 'error')
+          } catch (e) {
+            const errorMsg = (e as Error).message
+            if (errorMsg.includes('No vector or content')) {
+              this.hubConsole.log(`Skipped empty note: ${note.title}`, 'system')
+            } else {
+              this.hubConsole.log(`Failed to index ${note.title}`, 'error')
+            }
           }
         }
         this.hubConsole.log(
@@ -1501,9 +1508,17 @@ class App {
           if (indexedCount % 5 === 0 || indexedCount === total) {
             aiStatusManager.updateProgress(indexedCount, total)
           }
+        } else {
+          // Skip empty notes silently
+          console.log(`[RAG] Skipping empty note: ${note.title}`)
         }
       } catch (e) {
-        console.warn(`[RAG] Failed to index note ${note.title}:`, e)
+        const errorMsg = (e as Error).message
+        if (errorMsg.includes('No vector or content')) {
+          console.log(`[RAG] Skipped empty note: ${note.title}`)
+        } else {
+          console.warn(`[RAG] Failed to index note ${note.title}:`, e)
+        }
         // Continue with other notes
       }
     }
