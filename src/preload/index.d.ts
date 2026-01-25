@@ -81,8 +81,15 @@ type NoteApi = {
   getSettings: () => Promise<AppSettings>
   updateSettings: (updates: Partial<AppSettings>) => Promise<AppSettings>
   resetSettings: () => Promise<AppSettings>
-  syncBackup: (token: string, gistId: string | undefined, vaultData: any) => Promise<{ success: boolean; message: string; gistId?: string }>
-  syncRestore: (token: string, gistId: string) => Promise<{ success: boolean; message: string; data?: any }>
+  syncBackup: (
+    token: string,
+    gistId: string | undefined,
+    vaultData: any
+  ) => Promise<{ success: boolean; message: string; gistId?: string }>
+  syncRestore: (
+    token: string,
+    gistId: string
+  ) => Promise<{ success: boolean; message: string; data?: any }>
   syncTestToken: (token: string) => Promise<{ valid: boolean; message: string }>
   window: WindowApi
   onVaultChanged: (callback: (data: any) => void) => () => void

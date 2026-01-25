@@ -3,7 +3,7 @@ import type { NoteMeta, TreeItem } from '../core/types'
 
 export function sortTreeItems<T extends NoteMeta>(items: T[]): T[] {
   const newlyCreatedIds = state.newlyCreatedIds
-  
+
   return [...items].sort((a, b) => {
     // 1. Folders first
     const aIsFolder = a.type === 'folder' || 'children' in a
@@ -31,7 +31,7 @@ export function sortTreeRecursive(list: TreeItem[]): void {
   // Actually, let's make it more robust
   list.sort((a, b) => {
     if (a.type !== b.type) return a.type === 'folder' ? -1 : 1
-    
+
     const newlyCreatedIds = state.newlyCreatedIds
     const aNew = newlyCreatedIds.has(a.id)
     const bNew = newlyCreatedIds.has(b.id)
@@ -39,8 +39,8 @@ export function sortTreeRecursive(list: TreeItem[]): void {
     if (!aNew && bNew) return -1
     return (a.title || '').localeCompare(b.title || '')
   })
-  
-  list.forEach(i => {
+
+  list.forEach((i) => {
     if (i.children && i.children.length > 0) {
       sortTreeRecursive(i.children)
     }

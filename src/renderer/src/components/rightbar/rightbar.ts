@@ -18,7 +18,8 @@ import {
   Trash2,
   Settings,
   Info,
-  Archive
+  Archive,
+  Plus
 } from 'lucide'
 import './rightbar.css'
 import './ai-menu.css'
@@ -92,6 +93,16 @@ export class RightBar {
   private chatInput!: HTMLElement
   private sendButton!: HTMLButtonElement
   private inputWrapper!: HTMLElement
+  private characterCounter!: HTMLElement
+  private modeButton!: HTMLElement
+  private modeDropdown!: HTMLElement
+  private abortController: AbortController | null = null
+  private slashCommands = [
+    { command: '/clear', description: 'Clear current conversation', icon: Trash2 },
+    { command: '/new', description: 'Start a new chat session', icon: Plus },
+    { command: '/help', description: 'Show available commands', icon: Info },
+    { command: '/export', description: 'Export conversation', icon: Download }
+  ]
   private resizeHandle!: HTMLElement
   private messages: ChatMessage[] = []
   private isResizing = false
@@ -104,7 +115,6 @@ export class RightBar {
   private autocompleteItems: HTMLElement[] = []
   private selectedAutocompleteIndex = -1
   private allNotes: Array<{ id: string; title: string; path?: string }> = []
-  private characterCounter!: HTMLElement
   private typingTimeout: number | null = null
   private currentSessionId: string | null = null
   private saveTimeout: number | null = null
@@ -112,8 +122,6 @@ export class RightBar {
   private messageFeedback: Map<number, 'thumbs-up' | 'thumbs-down' | null> = new Map() // Track feedback per message index
   private streamingMessageIndex: number | null = null // Track which message is currently streaming
   private aiMenu!: AIMenu
-  private modeDropdown!: HTMLElement
-  private modeButton!: HTMLElement
   private sessionSidebar!: SessionSidebar
 
   constructor(containerId: string) {
@@ -487,38 +495,45 @@ export class RightBar {
                 aria-multiline="true"
               ></div>
               <div class="rightbar__chat-autocomplete" id="rightbar-chat-autocomplete"></div>
+              <div class="rightbar__mode-dropdown" id="rightbar-mode-dropdown">
+                ${CHAT_MODES.map(
+                  (mode) => `
+                  <button class="rightbar__mode-option ${mode.id === 'balanced' ? 'is-active' : ''}" data-mode="${mode.id}">
+                    <span class="rightbar__mode-option-icon">${mode.icon}</span>
+                    <div class="rightbar__mode-option-info">
+                      <span class="rightbar__mode-option-label">${mode.label}</span>
+                      <span class="rightbar__mode-option-desc">${mode.description}</span>
+                    </div>
+                  </button>
+                `
+                ).join('')}
+              </div>
             </div>
             <div class="rightbar__chat-footer">
               <div class="rightbar__chat-footer-left">
-                <div class="rightbar__mode-selector">
-                  <button class="rightbar__mode-button" id="rightbar-mode-button" type="button" title="Select AI mode">
-                    <span class="rightbar__mode-icon">⚖️</span>
-                    <span class="rightbar__mode-label">Balanced</span>
-                    <svg class="rightbar__mode-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <path d="M6 9l6 6 6-6"/>
-                </svg>
-              </button>
-                  <div class="rightbar__mode-dropdown" id="rightbar-mode-dropdown">
-                    ${CHAT_MODES.map(
-                      (mode) => `
-                      <button class="rightbar__mode-option ${mode.id === 'balanced' ? 'is-active' : ''}" data-mode="${mode.id}">
-                        <span class="rightbar__mode-option-icon">${mode.icon}</span>
-                        <div class="rightbar__mode-option-info">
-                          <span class="rightbar__mode-option-label">${mode.label}</span>
-                          <span class="rightbar__mode-option-desc">${mode.description}</span>
-            </div>
-                      </button>
-                    `
-                    ).join('')}
+                  <div class="rightbar__mode-selector">
+                    <button class="rightbar__mode-button" id="rightbar-mode-button" type="button" title="Select AI mode">
+                      <span class="rightbar__mode-icon">⚖️</span>
+                      <span class="rightbar__mode-label">Balanced</span>
+                      <svg class="rightbar__mode-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M6 9l6 6 6-6"/>
+                      </svg>
+                    </button>
                   </div>
-                </div>
                 <span class="rightbar__chat-counter" id="rightbar-chat-counter">0</span>
               </div>
-              <button class="rightbar__chat-send" id="rightbar-chat-send" type="button" title="Send (Enter)">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M22 2L11 13"/><path d="M22 2L15 22L11 13L2 9L22 2Z"/>
-                </svg>
-              </button>
+              <div class="rightbar__chat-actions">
+                <button class="rightbar__chat-send" id="rightbar-chat-send" type="button" title="Send (Enter)">
+                  <svg class="rightbar__send-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M22 2L11 13"/><path d="M22 2L15 22L11 13L2 9L22 2Z"/>
+                  </svg>
+                </button>
+                <button class="rightbar__chat-stop" id="rightbar-chat-stop" type="button" title="Stop generating" style="display: none;">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                    <rect x="4" y="4" width="16" height="16" rx="2" />
+                  </svg>
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -580,6 +595,10 @@ export class RightBar {
         void this.handleMenuAction(itemId)
       })
       this.updateMenuItems()
+
+      // Add stop button listener
+      const stopBtn = this.container.querySelector('#rightbar-chat-stop') as HTMLButtonElement
+      stopBtn?.addEventListener('click', () => this.stopGeneration())
     }
   }
 
@@ -631,9 +650,9 @@ export class RightBar {
       // Remove highlight immediately when typing to avoid interference
       this.removeTypingHighlight()
 
-      // Handle mention input with a small delay to avoid interfering with typing
+      // Handle mention/command input with a small delay to avoid interfering with typing
       this.typingTimeout = window.setTimeout(() => {
-        this.handleNoteReferenceInput()
+        this.handleInputTrigger()
         this.updateNoteReferencesInContent()
       }, 100) // Short delay to let browser process input first
     })
@@ -1324,6 +1343,30 @@ export class RightBar {
     this.chatInput.style.height = `${Math.min(this.chatInput.scrollHeight, 200)}px`
   }
 
+  private stopGeneration(): void {
+    if (this.abortController) {
+      this.abortController.abort()
+      this.abortController = null
+      this.isLoading = false
+      this.streamingMessageIndex = null
+      this.updateGenerationUI(false)
+      this.renderMessages()
+    }
+  }
+
+  private updateGenerationUI(loading: boolean): void {
+    const sendBtn = this.container.querySelector('#rightbar-chat-send') as HTMLElement
+    const stopBtn = this.container.querySelector('#rightbar-chat-stop') as HTMLElement
+
+    if (loading) {
+      if (sendBtn) sendBtn.style.display = 'none'
+      if (stopBtn) stopBtn.style.display = 'flex'
+    } else {
+      if (sendBtn) sendBtn.style.display = 'flex'
+      if (stopBtn) stopBtn.style.display = 'none'
+    }
+  }
+
   private initModeSelector(): void {
     if (!this.modeButton || !this.modeDropdown) return
 
@@ -1337,13 +1380,12 @@ export class RightBar {
       const isOpen = this.modeDropdown.classList.contains('is-open')
 
       if (!isOpen) {
-        // Position dropdown above button using fixed positioning
-        const rect = this.modeButton.getBoundingClientRect()
-        this.modeDropdown.style.left = `${rect.left}px`
-        this.modeDropdown.style.bottom = `${window.innerHeight - rect.top + 6}px`
+        // Dropdown positioning is handled by CSS (absolute positioning)
+        // No manual calculation needed
+        this.modeDropdown.classList.add('is-open')
+      } else {
+        this.modeDropdown.classList.remove('is-open')
       }
-
-      this.modeDropdown.classList.toggle('is-open')
     })
 
     // Handle mode selection
@@ -1427,7 +1469,7 @@ export class RightBar {
     this.autoResizeTextarea()
   }
 
-  private handleNoteReferenceInput(): void {
+  private handleInputTrigger(): void {
     const selection = window.getSelection()
     if (!selection || selection.rangeCount === 0) {
       this.hideAutocomplete()
@@ -1443,34 +1485,59 @@ export class RightBar {
     rangeClone.setEnd(range.endContainer, range.endOffset)
     const textBeforeCursor = rangeClone.toString()
 
-    // Find the last @ character before cursor
+    // Find the last trigger character (@ or /) before cursor
     const lastAtIndex = textBeforeCursor.lastIndexOf('@')
+    const lastSlashIndex = textBeforeCursor.lastIndexOf('/')
 
-    if (lastAtIndex === -1) {
+    // Determine which trigger is valid and closer to cursor
+    let triggerChar = ''
+    let triggerIndex = -1
+
+    if (lastAtIndex > lastSlashIndex) {
+      triggerChar = '@'
+      triggerIndex = lastAtIndex
+    } else if (lastSlashIndex > lastAtIndex) {
+      triggerChar = '/'
+      triggerIndex = lastSlashIndex
+    }
+
+    if (triggerIndex === -1) {
       this.hideAutocomplete()
       this.removeTypingHighlight()
       return
     }
 
-    // Check if there's a space or newline after the @
-    const afterAt = textBeforeCursor.substring(lastAtIndex + 1)
-    if (afterAt.match(/[\s\n]/)) {
+    // Check if there's a space or newline after the trigger (unless it's start of line)
+    // Also ensure / is at the start of a line or only whitespace before it
+    if (triggerChar === '/') {
+      const beforeTrigger = textBeforeCursor.substring(0, triggerIndex)
+      if (beforeTrigger.trim().length > 0) {
+        // Slash command must be at start of line
+        this.hideAutocomplete()
+        this.removeTypingHighlight()
+        return
+      }
+    }
+
+    // Check if there's a space or newline after the trigger
+    const afterTrigger = textBeforeCursor.substring(triggerIndex + 1)
+    if (afterTrigger.match(/[\s\n]/)) {
       this.hideAutocomplete()
       this.removeTypingHighlight()
       return
     }
 
-    // Get the query (text after @)
-    const query = afterAt.toLowerCase().trim()
+    // Get the query (text after trigger)
+    const query = afterTrigger.toLowerCase().trim()
 
     // Show autocomplete
-    this.showAutocomplete(lastAtIndex, query, range)
+    this.showAutocomplete(triggerIndex, query, range, triggerChar)
 
     // Highlight the typing mention with proper cursor preservation
     if (query.length > 0) {
       // Use requestAnimationFrame to ensure highlighting happens after browser processes input
       requestAnimationFrame(() => {
-        this.highlightTypingMention(lastAtIndex, query.length, range)
+        this.highlightTypingMention(triggerIndex, query.length, range)
       })
     } else {
       this.removeTypingHighlight()
@@ -1635,15 +1702,29 @@ export class RightBar {
     }
   }
 
-  private showAutocomplete(atIndex: number, query: string, range: Range): void {
-    const filteredNotes = this.allNotes
-      .filter((note) => {
-        const titleLower = note.title.toLowerCase()
-        return titleLower.includes(query) || titleLower.startsWith(query)
-      })
-      .slice(0, 8) // Limit to 8 results
+  private showAutocomplete(
+    atIndex: number,
+    query: string,
+    range: Range,
+    triggerChar: string = '@'
+  ): void {
+    let items: any[] = []
 
-    if (filteredNotes.length === 0) {
+    if (triggerChar === '@') {
+      items = this.allNotes
+        .filter((note) => {
+          const titleLower = note.title.toLowerCase()
+          return titleLower.includes(query) || titleLower.startsWith(query)
+        })
+        .slice(0, 8)
+    } else if (triggerChar === '/') {
+      items = this.slashCommands.filter((cmd) => {
+        const cmdName = cmd.command.toLowerCase().substring(1) // remove /
+        return cmdName.startsWith(query) || cmdName.includes(query)
+      })
+    }
+
+    if (items.length === 0) {
       this.hideAutocomplete()
       return
     }
@@ -1652,18 +1733,35 @@ export class RightBar {
     this.selectedAutocompleteIndex = -1
 
     // Store context for selection
-    ;(this.autocompleteDropdown as any).__context = { atIndex, range, query }
+    ;(this.autocompleteDropdown as any).__context = { atIndex, range, query, triggerChar }
 
-    const html = filteredNotes
-      .map((note, index) => {
-        const displayTitle = note.title
-        const displayPath = note.path ? `/${note.path}` : ''
-        return `
-        <div class="rightbar__autocomplete-item" data-index="${index}" data-note-id="${note.id}" data-note-title="${this.escapeHtml(note.title)}">
-          <span class="rightbar__autocomplete-item-title">${this.escapeHtml(displayTitle)}</span>
-          ${displayPath ? `<span class="rightbar__autocomplete-item-path">${this.escapeHtml(displayPath)}</span>` : ''}
+    const html = items
+      .map((item, index) => {
+        if (triggerChar === '@') {
+          // Note item
+          const note = item
+          const displayTitle = note.title
+          const displayPath = note.path ? `/${note.path}` : ''
+          return `
+        <div class="rightbar__autocomplete-item ${index === 0 ? 'is-selected' : ''}" data-index="${index}" data-note-id="${note.id}" data-note-title="${displayTitle}" data-type="note">
+          <div class="rightbar__autocomplete-item-title">${this.escapeHtml(displayTitle)}</div>
+          ${displayPath ? `<div class="rightbar__autocomplete-item-path">${this.escapeHtml(displayPath)}</div>` : ''}
         </div>
       `
+        } else {
+          // Command item
+          const cmd = item
+          const iconHtml = this.createLucideIcon(cmd.icon, 13, 1.5)
+          return `
+        <div class="rightbar__autocomplete-item ${index === 0 ? 'is-selected' : ''}" data-index="${index}" data-command="${cmd.command}" data-type="command">
+          <div class="rightbar__autocomplete-item-row" style="display: flex; align-items: center; gap: 8px;">
+            <div class="rightbar__autocomplete-item-icon" style="display: flex;">${iconHtml}</div>
+            <div class="rightbar__autocomplete-item-title">${this.escapeHtml(cmd.command)}</div>
+          </div>
+          <div class="rightbar__autocomplete-item-path">${this.escapeHtml(cmd.description)}</div>
+        </div>
+      `
+        }
       })
       .join('')
 
@@ -1704,13 +1802,25 @@ export class RightBar {
     }
 
     const item = this.autocompleteItems[this.selectedAutocompleteIndex]
-    const noteTitle = item.dataset.noteTitle || ''
-    const noteId = item.dataset.noteId || ''
-
-    if (!noteTitle) return
+    const type = item.dataset.type || 'note'
 
     const context = (this.autocompleteDropdown as any).__context
     if (!context) return
+
+    let contentToInsert = ''
+    let isMention = false
+
+    if (type === 'note') {
+      const noteTitle = item.dataset.noteTitle || ''
+      if (!noteTitle) return
+      contentToInsert = noteTitle
+      isMention = true
+    } else if (type === 'command') {
+      const command = item.dataset.command || ''
+      if (!command) return
+      contentToInsert = command // Use full command like /clear
+      isMention = false
+    }
 
     const { atIndex } = context
 
@@ -1748,7 +1858,7 @@ export class RightBar {
       const nodeText = node.textContent || ''
       const nodeLength = nodeText.length
 
-      // Find start (@ position)
+      // Find start (trigger position)
       if (!startNode && currentPos <= atIndex && atIndex < currentPos + nodeLength) {
         startNode = node
         startOffset = atIndex - currentPos
@@ -1769,39 +1879,59 @@ export class RightBar {
       replaceRange.setEnd(endNode, endOffset)
       replaceRange.deleteContents()
 
-      // Create mention span
-      const mentionSpan = document.createElement('span')
-      mentionSpan.className = 'rightbar__mention'
-      mentionSpan.dataset.noteId = noteId
-      mentionSpan.dataset.noteTitle = noteTitle
-      mentionSpan.contentEditable = 'false'
-      mentionSpan.textContent = `@${noteTitle}`
-
       // Remove any existing typing highlight
       this.removeTypingHighlight()
 
-      // Store cursor position before manipulation
-      const selection = window.getSelection()
-      if (!selection || selection.rangeCount === 0) return
+      if (isMention) {
+        // Create mention span
+        const mentionSpan = document.createElement('span')
+        mentionSpan.className = 'rightbar__mention'
+        // mentionSpan.dataset.noteId = noteId // We don't have noteId here for commands, but for notes
+        // Wait, noteId variable was removed?
+        // Ah, I need to get noteId for mentions again.
+        if (type === 'note') {
+          const id = item.dataset.noteId || ''
+          mentionSpan.dataset.noteId = id
+          mentionSpan.dataset.noteTitle = contentToInsert
+        }
 
-      const cursorBefore = selection.getRangeAt(0).cloneRange()
-      cursorBefore.selectNodeContents(this.chatInput)
-      cursorBefore.setEnd(selection.getRangeAt(0).endContainer, selection.getRangeAt(0).endOffset)
+        mentionSpan.contentEditable = 'false'
+        mentionSpan.textContent = `@${contentToInsert}`
 
-      replaceRange.insertNode(mentionSpan)
+        replaceRange.insertNode(mentionSpan)
 
-      // Add a space after the mention for better cursor behavior
-      const space = document.createTextNode(' ')
-      mentionSpan.after(space)
+        // Add a space after the mention
+        const space = document.createTextNode(' ')
+        mentionSpan.after(space)
 
-      // Position caret right after the space
-      const newRange = document.createRange()
-      newRange.setStartAfter(space)
-      newRange.setEndAfter(space)
+        // Position caret
+        const newRange = document.createRange()
+        newRange.setStartAfter(space)
+        newRange.setEndAfter(space)
+        if (selection) {
+          selection.removeAllRanges()
+          selection.addRange(newRange)
+        }
+      } else {
+        // Command insertion (plain text)
+        // contentToInsert contains the full command e.g. "/clear"
+        const textNode = document.createTextNode(contentToInsert) // Command text
+        replaceRange.insertNode(textNode)
 
-      if (selection) {
-        selection.removeAllRanges()
-        selection.addRange(newRange)
+        // Add space?
+        // Usually yes so user can type args if any
+        // All current commands don't take args but good practice?
+        // Actually /new, /clear, /export don't take args.
+        // /help doesn't.
+        // Let's just put cursor after.
+
+        const newRange = document.createRange()
+        newRange.setStartAfter(textNode)
+        newRange.setEndAfter(textNode)
+        if (selection) {
+          selection.removeAllRanges()
+          selection.addRange(newRange)
+        }
       }
     }
 
@@ -1834,6 +1964,33 @@ export class RightBar {
     const text = this.getPlainText().trim()
     if (!text) return
 
+    // Handle slash commands
+    if (text.startsWith('/')) {
+      const command = text.split(' ')[0].toLowerCase()
+      switch (command) {
+        case '/clear':
+          this.chatInput.innerHTML = ''
+          void this.clearConversation()
+          return
+        case '/new':
+          this.chatInput.innerHTML = ''
+          void this.startNewSession()
+          return
+        case '/help':
+          this.addMessage(
+            'assistant',
+            `**Available Commands:**\n\n` +
+              this.slashCommands.map((c) => `- \`${c.command}\`: ${c.description}`).join('\n')
+          )
+          this.chatInput.innerHTML = ''
+          return
+        case '/export':
+          this.chatInput.innerHTML = ''
+          void this.exportSession()
+          return
+      }
+    }
+
     // Clear the contenteditable
     this.chatInput.innerHTML = ''
     this.chatInput.textContent = ''
@@ -1856,12 +2013,18 @@ export class RightBar {
     this.sendButton.disabled = true
     this.lastFailedMessage = null
     this.isLoading = true
+    this.updateGenerationUI(true)
     this.renderMessages()
+
+    // Initialize AbortController for this request
+    this.abortController = new AbortController()
 
     const apiKey = aiService.getApiKey()
     if (!apiKey) {
       this.isLoading = false
+      this.updateGenerationUI(false)
       this.sendButton.disabled = false
+      this.abortController = null
       this.addMessage(
         'assistant',
         '🔑 **API Key Required**\n\nAdd your DeepSeek API key in **Settings → Behavior → DeepSeek API Key**.\n\nGet your key at [platform.deepseek.com](https://platform.deepseek.com)'
@@ -1928,7 +2091,8 @@ export class RightBar {
                 })
               }
             }
-          }
+          },
+          this.abortController?.signal
         )
 
         // Final update with complete message
@@ -1937,10 +2101,12 @@ export class RightBar {
         }
 
         this.streamingMessageIndex = null
+        this.abortController = null
 
         // Use requestAnimationFrame for smooth UI updates
         requestAnimationFrame(() => {
           this.isLoading = false
+          this.updateGenerationUI(false)
           this.renderMessages()
           this.sendButton.disabled = false
           this.chatInput.focus()
@@ -1948,6 +2114,7 @@ export class RightBar {
           void this.autoSaveSession()
         })
       } catch (err: unknown) {
+        this.abortController = null
         // Remove placeholder message on error
         if (this.streamingMessageIndex !== null) {
           this.messages.splice(this.streamingMessageIndex, 1)
@@ -1956,12 +2123,28 @@ export class RightBar {
 
         requestAnimationFrame(() => {
           this.isLoading = false
+          this.updateGenerationUI(false)
           this.lastFailedMessage = message
-          const errorMsg = err instanceof Error ? err.message : 'Failed to get response'
-          this.addMessage(
-            'assistant',
-            `❌ **Error**\n\n${errorMsg}\n\nPlease check your API key and internet connection.`
-          )
+          const isCancelled = err instanceof Error && err.message === 'Request cancelled'
+          const errorMsg = isCancelled
+            ? 'Generation stopped.'
+            : err instanceof Error
+              ? err.message
+              : 'Failed to get response'
+
+          if (!isCancelled) {
+            this.addMessage(
+              'assistant',
+              `❌ **Error**\n\n${errorMsg}\n\nPlease check your API key and internet connection.`
+            )
+          } else {
+            // If cancelled, we don't necessarily need to add an error message,
+            // but we might want to keep what was already streamed.
+            // The placeholder is already removed in the catch block if we want to discard it,
+            // or we can keep the partial response.
+            // Let's keep the partial response if any content was received.
+          }
+
           this.sendButton.disabled = false
           this.chatInput.focus()
         })

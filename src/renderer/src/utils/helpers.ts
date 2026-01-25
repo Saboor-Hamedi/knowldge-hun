@@ -29,10 +29,7 @@ export function sortNotes(notes: NoteMeta[]): void {
   notes.sort((a, b) => b.updatedAt - a.updatedAt)
 }
 
-export function syncTabsWithNotes(
-  openTabs: NoteMeta[],
-  notes: NoteMeta[]
-): NoteMeta[] {
+export function syncTabsWithNotes(openTabs: NoteMeta[], notes: NoteMeta[]): NoteMeta[] {
   const map = new Map(notes.map((note) => [note.id, note]))
   return openTabs
     .map((tab) => map.get(tab.id) ?? tab)
@@ -127,7 +124,7 @@ export function estimateReadTime(content: string, wordsPerMinute: number = 200):
     .replace(/~~([^~]+)~~/g, '$1') // Remove strikethrough
     .trim()
 
-  const words = cleanContent.split(/\s+/).filter(word => word.length > 0)
+  const words = cleanContent.split(/\s+/).filter((word) => word.length > 0)
   const minutes = Math.ceil(words.length / wordsPerMinute)
   return Math.max(1, minutes) // At least 1 minute
 }

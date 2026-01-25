@@ -17,7 +17,9 @@
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
-  transition: opacity 0.25s ease, visibility 0.25s ease;
+  transition:
+    opacity 0.25s ease,
+    visibility 0.25s ease;
 }
 
 .graph-modal.is-visible {
@@ -119,7 +121,9 @@
   color: var(--text-strong);
   font-size: 11px;
   outline: none;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
 }
 
 .graph-controls__search-input:focus {
@@ -140,7 +144,9 @@
   display: flex;
   opacity: 0.5;
   border-radius: 3px;
-  transition: opacity 0.15s, background 0.15s;
+  transition:
+    opacity 0.15s,
+    background 0.15s;
 }
 
 .graph-controls__search-clear:hover {
@@ -170,7 +176,10 @@
   color: var(--text);
   font-size: 11px;
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    color 0.15s;
 }
 
 .graph-controls__filter-btn svg,
@@ -276,7 +285,7 @@
   background: var(--panel-strong);
 }
 
-.graph-controls__dropdown-item input[type="checkbox"] {
+.graph-controls__dropdown-item input[type='checkbox'] {
   accent-color: var(--primary);
 }
 
@@ -359,7 +368,10 @@
   stroke: var(--text-soft);
   stroke-opacity: 0.35;
   stroke-width: 1px;
-  transition: stroke 0.2s, stroke-opacity 0.2s, stroke-width 0.2s;
+  transition:
+    stroke 0.2s,
+    stroke-opacity 0.2s,
+    stroke-width 0.2s;
 }
 
 .link--bidirectional {
@@ -390,7 +402,11 @@
 .node circle {
   stroke: var(--panel);
   stroke-width: 2px;
-  transition: fill 0.2s, stroke 0.2s, r 0.2s, filter 0.2s;
+  transition:
+    fill 0.2s,
+    stroke 0.2s,
+    r 0.2s,
+    filter 0.2s;
 }
 
 .node:hover circle {
@@ -428,11 +444,13 @@
   font-size: 11px;
   fill: var(--text);
   pointer-events: none;
-  text-shadow: 
+  text-shadow:
     0 0 3px var(--bg),
     0 0 6px var(--bg),
     1px 1px 2px var(--bg);
-  transition: fill 0.2s, font-size 0.2s;
+  transition:
+    fill 0.2s,
+    font-size 0.2s;
 }
 
 .node:hover .node__label {
@@ -461,7 +479,9 @@
   pointer-events: none;
   opacity: 0;
   visibility: hidden;
-  transition: opacity 0.15s, visibility 0.15s;
+  transition:
+    opacity 0.15s,
+    visibility 0.15s;
 }
 
 .graph-modal__tooltip.is-visible {
@@ -768,13 +788,13 @@
   flex-shrink: 0;
 }
 
-.graph-controls__export-dropdown .graph-controls__dropdown-item[data-export="svg"]::before {
+.graph-controls__export-dropdown .graph-controls__dropdown-item[data-export='svg']::before {
   content: 'SVG';
   background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
   color: #fff;
 }
 
-.graph-controls__export-dropdown .graph-controls__dropdown-item[data-export="png"]::before {
+.graph-controls__export-dropdown .graph-controls__dropdown-item[data-export='png']::before {
   content: 'PNG';
   background: linear-gradient(135deg, #22c55e 0%, #10b981 100%);
   color: #fff;

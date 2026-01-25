@@ -187,13 +187,23 @@ export class GraphControls {
     `
 
     // Get references
-    this.searchInput = this.container.querySelector('.graph-controls__search-input') as HTMLInputElement
-    this.tagsDropdown = this.container.querySelector('.graph-controls__tags-dropdown') as HTMLElement
-    this.foldersDropdown = this.container.querySelector('.graph-controls__folders-dropdown') as HTMLElement
-    this.depthSlider = this.container.querySelector('.graph-controls__depth-slider') as HTMLInputElement
+    this.searchInput = this.container.querySelector(
+      '.graph-controls__search-input'
+    ) as HTMLInputElement
+    this.tagsDropdown = this.container.querySelector(
+      '.graph-controls__tags-dropdown'
+    ) as HTMLElement
+    this.foldersDropdown = this.container.querySelector(
+      '.graph-controls__folders-dropdown'
+    ) as HTMLElement
+    this.depthSlider = this.container.querySelector(
+      '.graph-controls__depth-slider'
+    ) as HTMLInputElement
 
     // Add search icon
-    const searchIconContainer = this.container.querySelector('.graph-controls__search-icon') as HTMLElement
+    const searchIconContainer = this.container.querySelector(
+      '.graph-controls__search-icon'
+    ) as HTMLElement
     searchIconContainer.appendChild(createElement(Search, { size: 12, 'stroke-width': 1.5 }))
 
     this.attachEvents()
@@ -276,7 +286,9 @@ export class GraphControls {
           this.filters.localGraphEnabled = !this.filters.localGraphEnabled
           btn.classList.toggle('is-active', this.filters.localGraphEnabled)
           // Show/hide depth slider
-          const depthLabel = this.container.querySelector('.graph-controls__depth-label') as HTMLElement
+          const depthLabel = this.container.querySelector(
+            '.graph-controls__depth-label'
+          ) as HTMLElement
           if (depthLabel) {
             depthLabel.style.display = this.filters.localGraphEnabled ? 'flex' : 'none'
           }
@@ -345,7 +357,8 @@ export class GraphControls {
     if (!this.tagsDropdown) return
 
     if (this.availableTags.length === 0) {
-      this.tagsDropdown.innerHTML = '<div class="graph-controls__dropdown-empty">No tags found</div>'
+      this.tagsDropdown.innerHTML =
+        '<div class="graph-controls__dropdown-empty">No tags found</div>'
       return
     }
 
@@ -355,17 +368,21 @@ export class GraphControls {
         <button class="graph-controls__dropdown-clear">Clear</button>
       </div>
       <div class="graph-controls__dropdown-list">
-        ${this.availableTags.map(tag => `
+        ${this.availableTags
+          .map(
+            (tag) => `
           <label class="graph-controls__dropdown-item">
             <input type="checkbox" value="${tag}" ${this.filters.selectedTags.includes(tag) ? 'checked' : ''} />
             <span>#${tag}</span>
           </label>
-        `).join('')}
+        `
+          )
+          .join('')}
       </div>
     `
 
     // Attach events
-    this.tagsDropdown.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+    this.tagsDropdown.querySelectorAll('input[type="checkbox"]').forEach((checkbox) => {
       checkbox.addEventListener('change', (e) => {
         e.stopPropagation()
         const tag = (checkbox as HTMLInputElement).value
@@ -374,27 +391,30 @@ export class GraphControls {
             this.filters.selectedTags.push(tag)
           }
         } else {
-          this.filters.selectedTags = this.filters.selectedTags.filter(t => t !== tag)
+          this.filters.selectedTags = this.filters.selectedTags.filter((t) => t !== tag)
         }
         this.updateFilterCount('tags', this.filters.selectedTags.length)
         this.options.onFilterChange({ ...this.filters })
       })
     })
 
-    this.tagsDropdown.querySelector('.graph-controls__dropdown-clear')?.addEventListener('click', (e) => {
-      e.stopPropagation()
-      this.filters.selectedTags = []
-      this.updateTagsDropdown()
-      this.updateFilterCount('tags', 0)
-      this.options.onFilterChange({ ...this.filters })
-    })
+    this.tagsDropdown
+      .querySelector('.graph-controls__dropdown-clear')
+      ?.addEventListener('click', (e) => {
+        e.stopPropagation()
+        this.filters.selectedTags = []
+        this.updateTagsDropdown()
+        this.updateFilterCount('tags', 0)
+        this.options.onFilterChange({ ...this.filters })
+      })
   }
 
   private updateFoldersDropdown(): void {
     if (!this.foldersDropdown) return
 
     if (this.availableFolders.length === 0) {
-      this.foldersDropdown.innerHTML = '<div class="graph-controls__dropdown-empty">No folders found</div>'
+      this.foldersDropdown.innerHTML =
+        '<div class="graph-controls__dropdown-empty">No folders found</div>'
       return
     }
 
@@ -404,17 +424,21 @@ export class GraphControls {
         <button class="graph-controls__dropdown-clear">Clear</button>
       </div>
       <div class="graph-controls__dropdown-list">
-        ${this.availableFolders.map(folder => `
+        ${this.availableFolders
+          .map(
+            (folder) => `
           <label class="graph-controls__dropdown-item">
             <input type="checkbox" value="${folder}" ${this.filters.selectedFolders.includes(folder) ? 'checked' : ''} />
             <span>${folder === 'root' ? '/ (root)' : folder}</span>
           </label>
-        `).join('')}
+        `
+          )
+          .join('')}
       </div>
     `
 
     // Attach events
-    this.foldersDropdown.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+    this.foldersDropdown.querySelectorAll('input[type="checkbox"]').forEach((checkbox) => {
       checkbox.addEventListener('change', (e) => {
         e.stopPropagation()
         const folder = (checkbox as HTMLInputElement).value
@@ -423,20 +447,22 @@ export class GraphControls {
             this.filters.selectedFolders.push(folder)
           }
         } else {
-          this.filters.selectedFolders = this.filters.selectedFolders.filter(f => f !== folder)
+          this.filters.selectedFolders = this.filters.selectedFolders.filter((f) => f !== folder)
         }
         this.updateFilterCount('folders', this.filters.selectedFolders.length)
         this.options.onFilterChange({ ...this.filters })
       })
     })
 
-    this.foldersDropdown.querySelector('.graph-controls__dropdown-clear')?.addEventListener('click', (e) => {
-      e.stopPropagation()
-      this.filters.selectedFolders = []
-      this.updateFoldersDropdown()
-      this.updateFilterCount('folders', 0)
-      this.options.onFilterChange({ ...this.filters })
-    })
+    this.foldersDropdown
+      .querySelector('.graph-controls__dropdown-clear')
+      ?.addEventListener('click', (e) => {
+        e.stopPropagation()
+        this.filters.selectedFolders = []
+        this.updateFoldersDropdown()
+        this.updateFilterCount('folders', 0)
+        this.options.onFilterChange({ ...this.filters })
+      })
   }
 
   private updateFilterCount(type: 'tags' | 'folders', count: number): void {

@@ -38,7 +38,12 @@ export class PreviewComponent {
   private md: MarkdownIt
   private onWikiLinkClick?: (target: string) => void
 
-  private createLucideIcon(IconComponent: any, size: number = 16, strokeWidth: number = 1.5, color?: string): string {
+  private createLucideIcon(
+    IconComponent: any,
+    size: number = 16,
+    strokeWidth: number = 1.5,
+    color?: string
+  ): SVGElement | null {
     // Use Lucide's createElement to create SVG element
     const svgElement = createElement(IconComponent, {
       size: size,
@@ -46,12 +51,7 @@ export class PreviewComponent {
       stroke: color || 'currentColor',
       color: color || 'currentColor'
     })
-    // Convert SVGElement to string
-    if (svgElement && svgElement.outerHTML) {
-      return svgElement.outerHTML
-    }
-    // Fallback if icon doesn't render properly
-    return ''
+    return svgElement instanceof SVGElement ? svgElement : null
   }
 
   constructor(containerId: string) {
@@ -77,7 +77,10 @@ export class PreviewComponent {
         // Try to highlight
         if (hljs.getLanguage(normalizedLang)) {
           try {
-            const highlighted = hljs.highlight(str, { language: normalizedLang, ignoreIllegals: true })
+            const highlighted = hljs.highlight(str, {
+              language: normalizedLang,
+              ignoreIllegals: true
+            })
             return `<pre class="hljs"><code class="language-${normalizedLang}">${highlighted.value}</code></pre>`
           } catch (err) {
             console.warn(`[Preview] Highlighting failed for language: ${normalizedLang}`, err)
@@ -94,8 +97,8 @@ export class PreviewComponent {
       const max = state.posMax
       const start = state.pos
 
-      if (state.src.charCodeAt(start) !== 0x5B /* [ */) return false
-      if (state.src.charCodeAt(start + 1) !== 0x5B /* [ */) return false
+      if (state.src.charCodeAt(start) !== 0x5b /* [ */) return false
+      if (state.src.charCodeAt(start + 1) !== 0x5b /* [ */) return false
 
       let pos = start + 2
       let labelStart = pos
@@ -103,8 +106,8 @@ export class PreviewComponent {
 
       // Find the closing ]]
       while (pos < max) {
-        if (state.src.charCodeAt(pos) === 0x5D /* ] */) {
-          if (state.src.charCodeAt(pos + 1) === 0x5D /* ] */) {
+        if (state.src.charCodeAt(pos) === 0x5d /* ] */) {
+          if (state.src.charCodeAt(pos + 1) === 0x5d /* ] */) {
             labelEnd = pos
             pos += 2
             break
@@ -224,7 +227,12 @@ export class PreviewComponent {
     previewContent.querySelectorAll('img').forEach((img) => {
       const imgElement = img as HTMLImageElement
       const src = imgElement.getAttribute('src')
-      if (src && !src.startsWith('http://') && !src.startsWith('https://') && !src.startsWith('file://')) {
+      if (
+        src &&
+        !src.startsWith('http://') &&
+        !src.startsWith('https://') &&
+        !src.startsWith('file://')
+      ) {
         const resolvedPath = this.resolveImagePath(src)
         imgElement.src = resolvedPath
         // Handle image load errors
@@ -265,7 +273,8 @@ export class PreviewComponent {
       // Copy button with Lucide icons
       const copyButton = document.createElement('button')
       copyButton.className = 'code-copy-button'
-      copyButton.innerHTML = this.createLucideIcon(Copy, 16, 1.5)
+      const copyIcon = this.createLucideIcon(Copy, 16, 1.5)
+      if (copyIcon) copyButton.appendChild(copyIcon)
       copyButton.title = 'Copy code'
 
       copyButton.addEventListener('click', async () => {
@@ -275,11 +284,13 @@ export class PreviewComponent {
           try {
             await navigator.clipboard.writeText(text)
             // Show green checkmark using Lucide Check icon
-            copyButton.innerHTML = this.createLucideIcon(Check, 16, 2, '#22c55e')
+            const checkIcon = this.createLucideIcon(Check, 16, 2, '#22c55e')
+            if (checkIcon) copyButton.replaceChildren(checkIcon)
             copyButton.title = 'Copied!'
             copyButton.classList.add('copied')
             setTimeout(() => {
-              copyButton.innerHTML = this.createLucideIcon(Copy, 16, 1.5)
+              const resetIcon = this.createLucideIcon(Copy, 16, 1.5)
+              if (resetIcon) copyButton.replaceChildren(resetIcon)
               copyButton.title = 'Copy code'
               copyButton.classList.remove('copied')
             }, 2000)

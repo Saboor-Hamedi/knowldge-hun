@@ -12,7 +12,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: color 0.15s, background 0.15s;
+  transition:
+    color 0.15s,
+    background 0.15s;
   position: relative;
 }
 
@@ -37,12 +39,14 @@
   position: absolute;
   top: calc(100% + 4px);
   right: 0;
-  min-width: 200px;
-  max-width: 300px;
+  min-width: 180px;
+  max-width: 260px;
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 6px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(0, 0, 0, 0.1);
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.2),
+    0 0 0 1px rgba(0, 0, 0, 0.1);
   display: none;
   flex-direction: column;
   overflow: hidden;
@@ -67,7 +71,9 @@
   cursor: pointer;
   font-size: 12px;
   text-align: left;
-  transition: background 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    color 0.15s;
   width: 100%;
   font-family: inherit;
   outline: none;
@@ -114,7 +120,7 @@
 }
 
 .rightbar__ai-menu-shortcut {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--text-soft);
   font-family: ui-monospace, 'Cascadia Code', 'SF Mono', Consolas, monospace;
   margin-left: auto;

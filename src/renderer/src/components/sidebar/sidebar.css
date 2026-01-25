@@ -59,7 +59,9 @@
   padding: 4px 8px;
   border-bottom: 1px solid var(--border);
   cursor: pointer;
-  transition: background 120ms ease, border-color 120ms ease;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease;
   display: grid;
   grid-template-columns: 18px 1fr;
   align-items: center;

@@ -30,12 +30,12 @@ export class SessionSidebar {
     } else {
       this.container = container
     }
-    
+
     if (!this.container) {
       console.error('[SessionSidebar] Container not found')
       return
     }
-    
+
     this.render()
     this.attachEvents()
     void this.loadSessions()
@@ -59,9 +59,9 @@ export class SessionSidebar {
       console.error('[SessionSidebar] Sidebar element not found')
       return
     }
-    
+
     this.isVisible = !this.isVisible
-    
+
     if (this.isVisible) {
       this.sidebarElement.classList.add('rightbar__session-sidebar--visible')
       this.sidebarElement.style.width = `${this.sidebarWidth}px`
@@ -112,7 +112,7 @@ export class SessionSidebar {
       console.error('[SessionSidebar] Cannot render: container is null')
       return
     }
-    
+
     // Load saved width from localStorage
     const savedWidth = localStorage.getItem('knowledgeHub_sessionSidebarWidth')
     if (savedWidth) {
@@ -163,10 +163,16 @@ export class SessionSidebar {
     `
     this.container.insertAdjacentHTML('beforeend', sidebarHTML)
     this.sidebarElement = this.container.querySelector('#rightbar-session-sidebar') as HTMLElement
-    this.sessionsList = this.container.querySelector('#rightbar-session-sidebar-list') as HTMLElement
-    this.searchInput = this.container.querySelector('#rightbar-session-sidebar-search') as HTMLInputElement
-    this.resizeHandle = this.container.querySelector('#rightbar-session-sidebar-resize') as HTMLElement
-    
+    this.sessionsList = this.container.querySelector(
+      '#rightbar-session-sidebar-list'
+    ) as HTMLElement
+    this.searchInput = this.container.querySelector(
+      '#rightbar-session-sidebar-search'
+    ) as HTMLInputElement
+    this.resizeHandle = this.container.querySelector(
+      '#rightbar-session-sidebar-resize'
+    ) as HTMLElement
+
     if (!this.sidebarElement) {
       console.error('[SessionSidebar] Failed to find sidebar element after render')
     }
@@ -175,7 +181,12 @@ export class SessionSidebar {
     }
   }
 
-  private createLucideIcon(IconComponent: any, size: number = 14, strokeWidth: number = 1.5, color?: string): string {
+  private createLucideIcon(
+    IconComponent: any,
+    size: number = 14,
+    strokeWidth: number = 1.5,
+    color?: string
+  ): string {
     const svgElement = createElement(IconComponent, {
       size: size,
       'stroke-width': strokeWidth,
@@ -217,7 +228,7 @@ export class SessionSidebar {
       this.searchInput.addEventListener('input', (e) => {
         const query = (e.target as HTMLInputElement).value.toLowerCase().trim()
         this.searchQuery = query
-        
+
         // Debounce search
         if (searchTimeout) clearTimeout(searchTimeout)
         searchTimeout = window.setTimeout(() => {
@@ -241,8 +252,8 @@ export class SessionSidebar {
     try {
       // Load both regular and archived sessions
       const allSessionsIncludingArchived = await sessionStorageService.getAllSessions(true)
-      this.allSessions = allSessionsIncludingArchived.filter(s => !s.is_archived)
-      this.archivedSessions = allSessionsIncludingArchived.filter(s => s.is_archived)
+      this.allSessions = allSessionsIncludingArchived.filter((s) => !s.is_archived)
+      this.archivedSessions = allSessionsIncludingArchived.filter((s) => s.is_archived)
       this.filterAndRenderSessions()
     } catch (error) {
       console.error('[SessionSidebar] Failed to load sessions:', error)
@@ -255,11 +266,11 @@ export class SessionSidebar {
   private filterAndRenderSessions(): void {
     // Choose which sessions to display based on archive toggle
     const sessionsToFilter = this.showArchived ? this.archivedSessions : this.allSessions
-    
+
     if (this.searchQuery) {
-      const filtered = sessionsToFilter.filter(session => {
+      const filtered = sessionsToFilter.filter((session) => {
         const titleMatch = session.title.toLowerCase().includes(this.searchQuery)
-        const contentMatch = session.messages.some(msg => 
+        const contentMatch = session.messages.some((msg) =>
           msg.content.toLowerCase().includes(this.searchQuery)
         )
         return titleMatch || contentMatch
@@ -272,8 +283,8 @@ export class SessionSidebar {
 
   private renderSessions(sessions: ChatSession[], isArchived: boolean = false): void {
     if (sessions.length === 0) {
-      const emptyMessage = isArchived 
-        ? 'No archived sessions.' 
+      const emptyMessage = isArchived
+        ? 'No archived sessions.'
         : 'No sessions yet. Start a conversation!'
       this.sessionsList.innerHTML = `
         <div class="rightbar__session-sidebar-empty">${emptyMessage}</div>
@@ -281,13 +292,15 @@ export class SessionSidebar {
       return
     }
 
-    const sessionsHTML = sessions.map(session => {
-      const isActive = session.id === this.currentSessionId
-      const date = new Date(session.metadata.updated_at)
-      const timeAgo = this.formatTimeAgo(date)
-      
-      // Different actions for archived vs regular sessions
-      const actionsHTML = isArchived ? `
+    const sessionsHTML = sessions
+      .map((session) => {
+        const isActive = session.id === this.currentSessionId
+        const date = new Date(session.metadata.updated_at)
+        const timeAgo = this.formatTimeAgo(date)
+
+        // Different actions for archived vs regular sessions
+        const actionsHTML = isArchived
+          ? `
         <button class="rightbar__session-item-unarchive" 
                 data-session-id="${session.id}" 
                 title="Restore session"
@@ -302,7 +315,8 @@ export class SessionSidebar {
             <path d="M3 6h10M5 6v8a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2V6M8 4V2M8 4h4M8 4H4"/>
           </svg>
         </button>
-      ` : `
+      `
+          : `
         <button class="rightbar__session-item-rename" 
                 data-session-id="${session.id}" 
                 title="Rename session"
@@ -320,8 +334,8 @@ export class SessionSidebar {
           </svg>
         </button>
       `
-      
-      return `
+
+        return `
         <div class="rightbar__session-item ${isActive ? 'rightbar__session-item--active' : ''} ${isArchived ? 'rightbar__session-item--archived' : ''}" 
              data-session-id="${session.id}">
           <div class="rightbar__session-item-content">
@@ -338,18 +352,21 @@ export class SessionSidebar {
           </div>
         </div>
       `
-    }).join('')
+      })
+      .join('')
 
     this.sessionsList.innerHTML = sessionsHTML
 
     // Handle session item clicks
-    this.sessionsList.querySelectorAll('.rightbar__session-item').forEach(item => {
+    this.sessionsList.querySelectorAll('.rightbar__session-item').forEach((item) => {
       const sessionId = (item as HTMLElement).dataset.sessionId
       if (sessionId) {
         item.addEventListener('click', (e) => {
           // Don't trigger if clicking on action buttons
-          if ((e.target as HTMLElement).closest('.rightbar__session-item-delete') ||
-              (e.target as HTMLElement).closest('.rightbar__session-item-rename')) {
+          if (
+            (e.target as HTMLElement).closest('.rightbar__session-item-delete') ||
+            (e.target as HTMLElement).closest('.rightbar__session-item-rename')
+          ) {
             return
           }
           if (this.onSessionSelect) {
@@ -360,7 +377,7 @@ export class SessionSidebar {
     })
 
     // Handle rename buttons
-    this.sessionsList.querySelectorAll('.rightbar__session-item-rename').forEach(btn => {
+    this.sessionsList.querySelectorAll('.rightbar__session-item-rename').forEach((btn) => {
       btn.addEventListener('click', async (e) => {
         e.stopPropagation()
         const sessionId = (btn as HTMLElement).dataset.sessionId
@@ -371,15 +388,17 @@ export class SessionSidebar {
     })
 
     // Handle delete buttons
-    this.sessionsList.querySelectorAll('.rightbar__session-item-delete').forEach(btn => {
+    this.sessionsList.querySelectorAll('.rightbar__session-item-delete').forEach((btn) => {
       btn.addEventListener('click', async (e) => {
         e.stopPropagation()
         const sessionId = (btn as HTMLElement).dataset.sessionId
         if (sessionId) {
           // Find session title for better UX
           const sessionItem = btn.closest('.rightbar__session-item') as HTMLElement
-          const sessionTitle = sessionItem?.querySelector('.rightbar__session-item-title')?.textContent || 'this session'
-          
+          const sessionTitle =
+            sessionItem?.querySelector('.rightbar__session-item-title')?.textContent ||
+            'this session'
+
           modalManager.open({
             title: 'Delete Session',
             content: `Are you sure you want to delete "${sessionTitle}"? This action cannot be undone.`,
@@ -399,9 +418,7 @@ export class SessionSidebar {
                       title: 'Error',
                       content: 'Failed to delete session. Please try again.',
                       size: 'sm',
-                      buttons: [
-                        { label: 'OK', variant: 'primary', onClick: (m) => m.close() }
-                      ]
+                      buttons: [{ label: 'OK', variant: 'primary', onClick: (m) => m.close() }]
                     })
                   }
                 }
@@ -414,7 +431,7 @@ export class SessionSidebar {
     })
 
     // Handle unarchive buttons (for archived sessions)
-    this.sessionsList.querySelectorAll('.rightbar__session-item-unarchive').forEach(btn => {
+    this.sessionsList.querySelectorAll('.rightbar__session-item-unarchive').forEach((btn) => {
       btn.addEventListener('click', async (e) => {
         e.stopPropagation()
         const sessionId = (btn as HTMLElement).dataset.sessionId
@@ -435,7 +452,9 @@ export class SessionSidebar {
       const session = await sessionStorageService.getSession(sessionId)
       if (!session) return
 
-      const item = this.sessionsList.querySelector(`[data-session-id="${sessionId}"]`) as HTMLElement
+      const item = this.sessionsList.querySelector(
+        `[data-session-id="${sessionId}"]`
+      ) as HTMLElement
       if (!item) return
 
       const titleElement = item.querySelector('.rightbar__session-item-title') as HTMLElement
@@ -460,7 +479,7 @@ export class SessionSidebar {
 
       const finishRename = async () => {
         const newTitle = input.value.trim()
-        
+
         if (newTitle && newTitle !== currentTitle) {
           try {
             await sessionStorageService.updateSessionTitle(sessionId, newTitle)
@@ -494,7 +513,7 @@ export class SessionSidebar {
   }
 
   private updateActiveSession(): void {
-    this.sessionsList.querySelectorAll('.rightbar__session-item').forEach(item => {
+    this.sessionsList.querySelectorAll('.rightbar__session-item').forEach((item) => {
       const sessionId = (item as HTMLElement).dataset.sessionId
       if (sessionId === this.currentSessionId) {
         item.classList.add('rightbar__session-item--active')
@@ -515,7 +534,7 @@ export class SessionSidebar {
     if (diffMins < 60) return `${diffMins}m ago`
     if (diffHours < 24) return `${diffHours}h ago`
     if (diffDays < 7) return `${diffDays}d ago`
-    
+
     return date.toLocaleDateString()
   }
 

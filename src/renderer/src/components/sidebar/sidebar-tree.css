@@ -161,7 +161,7 @@
   user-select: none;
   position: relative;
   outline: none;
-  transition: 
+  transition:
     background 150ms cubic-bezier(0.4, 0, 0.2, 1),
     border-color 150ms cubic-bezier(0.4, 0, 0.2, 1),
     transform 150ms cubic-bezier(0.4, 0, 0.2, 1);
@@ -545,7 +545,6 @@
   font-size: 13px;
 }
 
-
 /* Footer */
 .sidebar__footer {
   border-top: 1px solid var(--border);
@@ -566,14 +565,14 @@
 }
 
 @keyframes pulse {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 1;
   }
   50% {
     opacity: 0.6;
   }
 }
-
 
 /* Search result selection */
 .search-result-item.selected {

@@ -17,7 +17,6 @@ export interface SyncResult {
 }
 
 export class GistSyncService {
-
   /**
    * Validates GitHub token format
    */

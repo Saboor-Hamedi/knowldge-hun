@@ -56,7 +56,9 @@ if (container) {
   const maxBtn = header.querySelector('.wh-max') as HTMLButtonElement | null
   const closeBtn = header.querySelector('.wh-close') as HTMLButtonElement | null
 
-  minBtn?.addEventListener('click', () => { void window.api.window.minimize() })
+  minBtn?.addEventListener('click', () => {
+    void window.api.window.minimize()
+  })
 
   const updateMax = async (): Promise<void> => {
     const isMax = await window.api.window.isMaximized()
@@ -74,6 +76,8 @@ if (container) {
     await updateMax()
   })
 
-  closeBtn?.addEventListener('click', () => { void window.api.window.close() })
+  closeBtn?.addEventListener('click', () => {
+    void window.api.window.close()
+  })
   void updateMax()
 }

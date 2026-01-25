@@ -434,8 +434,8 @@ export class AIService {
 
     // Get current note context
     if (this.editorContext) {
-    const noteInfo = this.editorContext.getActiveNoteInfo?.()
-    const editorContent = this.editorContext.getEditorContent?.()
+      const noteInfo = this.editorContext.getActiveNoteInfo?.()
+      const editorContent = this.editorContext.getEditorContent?.()
 
       if (noteInfo) {
         context += `Current note: "${noteInfo.title}" (ID: ${noteInfo.id})\n`
@@ -603,12 +603,14 @@ export class AIService {
    * @param messages - Chat messages array
    * @param contextMessage - Context-aware user message
    * @param onChunk - Callback for each chunk received
+   * @param signal - Optional AbortSignal for cancellation
    * @returns Full response text
    */
   async callDeepSeekAPIStream(
     messages: ChatMessage[],
     contextMessage: string | { context: string; citations: NoteCitation[] },
-    onChunk: (chunk: string) => void
+    onChunk: (chunk: string) => void,
+    signal?: AbortSignal
   ): Promise<string> {
     // Handle both old string format and new object format for backward compatibility
     const context = typeof contextMessage === 'string' ? contextMessage : contextMessage.context
@@ -648,7 +650,8 @@ export class AIService {
           temperature: modeConfig.temperature,
           max_tokens: 2000,
           stream: true
-        })
+        }),
+        signal // Pass the abort signal
       })
 
       if (!response.ok) {
@@ -711,6 +714,9 @@ export class AIService {
 
       return fullText
     } catch (err: any) {
+      if (err.name === 'AbortError') {
+        throw new Error('Request cancelled')
+      }
       if (err.name === 'TypeError' && err.message.includes('fetch')) {
         throw new Error(
           'Network error: Unable to connect to DeepSeek API. Please check your internet connection.'

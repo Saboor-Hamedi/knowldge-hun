@@ -120,13 +120,15 @@ export class StatusBar {
       }
     }
 
-    menuItems.forEach(item => {
+    menuItems.forEach((item) => {
       item.addEventListener('click', (e) => {
         e.stopPropagation()
         e.preventDefault()
         const action = (item as HTMLElement).dataset.action
         if (action === 'backup' || action === 'restore') {
-          this.container.dispatchEvent(new CustomEvent('sync-action', { detail: { action }, bubbles: true }))
+          this.container.dispatchEvent(
+            new CustomEvent('sync-action', { detail: { action }, bubbles: true })
+          )
         }
         syncMenu.classList.remove('is-open')
       })

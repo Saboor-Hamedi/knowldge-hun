@@ -19,7 +19,7 @@ export class TabService {
   }
 
   closeTab(id: string): void {
-    state.openTabs = state.openTabs.filter(t => t.id !== id)
+    state.openTabs = state.openTabs.filter((t) => t.id !== id)
     state.pinnedTabs.delete(id)
 
     if (state.activeId === id) {
@@ -28,8 +28,8 @@ export class TabService {
   }
 
   closeTabs(ids: string[]): void {
-    state.openTabs = state.openTabs.filter(t => !ids.includes(t.id))
-    ids.forEach(id => state.pinnedTabs.delete(id))
+    state.openTabs = state.openTabs.filter((t) => !ids.includes(t.id))
+    ids.forEach((id) => state.pinnedTabs.delete(id))
 
     if (ids.includes(state.activeId)) {
       state.activeId = ''

@@ -144,7 +144,7 @@ export class VaultService {
     try {
       const settings = await window.api.getSettings()
       const recentPaths = (settings as AppSettings).recentVaults || []
-      const filtered = recentPaths.filter(p => p !== path)
+      const filtered = recentPaths.filter((p) => p !== path)
       await window.api.updateSettings({ recentVaults: filtered })
     } catch (error) {
       console.error('[VaultService] Failed to remove recent vault:', error)

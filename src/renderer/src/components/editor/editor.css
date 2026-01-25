@@ -65,141 +65,140 @@
 /* Force hover contrast and visibility */
 .monaco-hover,
 .monaco-editor-hover {
-    background: var(--panel-strong) !important;
-    color: var(--text-strong) !important;
-    border: 1px solid var(--border) !important;
-    box-shadow: var(--shadow) !important;
-    padding: 6px !important;
-    border-radius: 4px !important;
-    max-width: 450px !important;
-    max-height: 350px !important;
-    overflow-y: auto !important;
+  background: var(--panel-strong) !important;
+  color: var(--text-strong) !important;
+  border: 1px solid var(--border) !important;
+  box-shadow: var(--shadow) !important;
+  padding: 6px !important;
+  border-radius: 4px !important;
+  max-width: 450px !important;
+  max-height: 350px !important;
+  overflow-y: auto !important;
 }
-
 
 /* Improved WikiLink hover preview */
 .monaco-hover .hover-contents {
-    max-width: 500px !important;
-    max-height: 400px !important;
-    overflow-y: auto !important;
-    padding: 12px !important;
+  max-width: 500px !important;
+  max-height: 400px !important;
+  overflow-y: auto !important;
+  padding: 12px !important;
 }
 
 .monaco-hover .hover-contents .markdown-hover {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif !important;
-    line-height: 1.6 !important;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif !important;
+  line-height: 1.6 !important;
 }
 
 .monaco-hover .hover-contents .markdown-hover h3,
 .monaco-hover .hover-contents .markdown-hover strong {
-    margin: 0 0 8px 0 !important;
-    font-size: 14px !important;
-    font-weight: 600 !important;
-    color: var(--text-strong) !important;
-    display: block !important;
+  margin: 0 0 8px 0 !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  color: var(--text-strong) !important;
+  display: block !important;
 }
 
 .monaco-hover .hover-contents .monaco-editor {
-    background: var(--panel-strong) !important;
-    border: 1px solid var(--border) !important;
-    border-radius: 4px !important;
-    margin: 8px 0 !important;
-    max-height: 250px !important;
-    overflow: hidden !important;
+  background: var(--panel-strong) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 4px !important;
+  margin: 8px 0 !important;
+  max-height: 250px !important;
+  overflow: hidden !important;
 }
 
 /* Inline Completion (Ghost Text) Styling - Remove inner background/color layers */
 .monaco-editor .inline-suggest-decoration {
-    color: var(--muted) !important;
-    font-style: italic !important;
-    opacity: 0.6 !important;
-    background: transparent !important;
+  color: var(--muted) !important;
+  font-style: italic !important;
+  opacity: 0.6 !important;
+  background: transparent !important;
 }
 
 .monaco-editor .inline-suggest-decoration .suggest-preview-text {
-    color: var(--muted) !important;
-    opacity: 0.7 !important;
-    background: transparent !important;
+  color: var(--muted) !important;
+  opacity: 0.7 !important;
+  background: transparent !important;
 }
 
 /* Make inline suggestions more subtle and positioned correctly - remove all background layers */
 .monaco-editor .suggest-preview-text {
-    color: rgba(127, 167, 255, 0.5) !important;
-    font-style: italic !important;
-    background: transparent !important;
+  color: rgba(127, 167, 255, 0.5) !important;
+  font-style: italic !important;
+  background: transparent !important;
 }
 
 /* Remove any inner background from inline suggestion decorations */
 .monaco-editor .inline-suggest-decoration * {
-    background: transparent !important;
-    background-color: transparent !important;
+  background: transparent !important;
+  background-color: transparent !important;
 }
 
 /* Remove background from inline suggestion container and all related elements */
 .monaco-editor .inline-suggest-decoration-container {
-    background: transparent !important;
-    background-color: transparent !important;
+  background: transparent !important;
+  background-color: transparent !important;
 }
 
 .monaco-editor .inline-suggest-decoration .monaco-editor-background {
-    background: transparent !important;
-    background-color: transparent !important;
+  background: transparent !important;
+  background-color: transparent !important;
 }
 
 /* Remove any box/border styling that might create a "layer" appearance */
 .monaco-editor .inline-suggest-decoration {
-    border: none !important;
-    box-shadow: none !important;
-    outline: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
 }
 
 .monaco-hover .hover-contents .monaco-editor .view-lines {
-    padding: 8px !important;
+  padding: 8px !important;
 }
 
 .monaco-hover .hover-contents .monaco-editor .margin {
-    display: none !important;
+  display: none !important;
 }
 
 .monaco-hover .hover-contents .monaco-editor .monaco-scrollable-element {
-    overflow: hidden !important;
+  overflow: hidden !important;
 }
 
 .monaco-hover .hover-contents code {
-    background: var(--panel-strong) !important;
-    padding: 2px 6px !important;
-    border-radius: 3px !important;
-    font-size: 12px !important;
-    font-family: 'Fira Code', 'Consolas', monospace !important;
+  background: var(--panel-strong) !important;
+  padding: 2px 6px !important;
+  border-radius: 3px !important;
+  font-size: 12px !important;
+  font-family: 'Fira Code', 'Consolas', monospace !important;
 }
 
 .monaco-hover .hover-contents pre {
-    background: var(--panel-strong) !important;
-    border: 1px solid var(--border) !important;
-    border-radius: 4px !important;
-    padding: 12px !important;
-    margin: 8px 0 !important;
-    overflow-x: auto !important;
-    max-height: 250px !important;
-    overflow-y: auto !important;
+  background: var(--panel-strong) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 4px !important;
+  padding: 12px !important;
+  margin: 8px 0 !important;
+  overflow-x: auto !important;
+  max-height: 250px !important;
+  overflow-y: auto !important;
 }
 
 .monaco-hover .hover-contents pre code {
-    background: transparent !important;
-    padding: 0 !important;
-    font-size: 12px !important;
-    line-height: 1.5 !important;
-    color: var(--text-soft) !important;
-    white-space: pre-wrap !important;
-    word-wrap: break-word !important;
+  background: transparent !important;
+  padding: 0 !important;
+  font-size: 12px !important;
+  line-height: 1.5 !important;
+  color: var(--text-soft) !important;
+  white-space: pre-wrap !important;
+  word-wrap: break-word !important;
 }
 
 .monaco-hover .hover-contents em {
-    font-size: 11px !important;
-    color: var(--text-soft) !important;
-    font-style: italic !important;
-    margin-top: 8px !important;
-    display: block !important;
+  font-size: 11px !important;
+  color: var(--text-soft) !important;
+  font-style: italic !important;
+  margin-top: 8px !important;
+  display: block !important;
 }
 
 /* Try to ensure they are not clipped */
@@ -217,7 +216,9 @@
   text-align: center;
   line-height: 1.6;
   position: relative;
-  transition: background 200ms ease, color 200ms ease;
+  transition:
+    background 200ms ease,
+    color 200ms ease;
 }
 
 .editor-empty.drag-over {
@@ -244,45 +245,45 @@
 .monaco-editor .mtk9, /* Often used for markdown headers/symbols */
 .monaco-editor .mtk15,
 .monaco-editor .mtk20 {
-    opacity: 0.35;
-    transition: opacity 0.2s ease;
+  opacity: 0.35;
+  transition: opacity 0.2s ease;
 }
 
 /* Bring back full opacity on the current line for editing clarity */
 .monaco-editor .view-line:hover .mtk9,
 .monaco-editor .view-line:hover .mtk15,
 .monaco-editor .view-line:hover .mtk20 {
-    opacity: 0.8 !important;
+  opacity: 0.8 !important;
 }
 
 /* Ensure the cursor line is always clear */
 .monaco-editor .current-line ~ .view-line .mtk9 {
-    opacity: 0.35;
+  opacity: 0.35;
 }
 /* Monaco doesn't have a simple way to target 'not current line' in pure CSS without complex selectors,
    but we can at least fade them globally for that 'clean' look. */
 
 /* Modern cursor styling - visible and clean */
 .monaco-editor .current-line {
-    background: transparent !important;
+  background: transparent !important;
 }
 
 .monaco-editor .view-line {
-    background: transparent !important;
+  background: transparent !important;
 }
 
 /* Make cursor highly visible with primary color */
 .monaco-editor .cursors-layer .cursor {
-    background: var(--primary) !important;
-    width: var(--app-caret-width, 2px) !important;
-    box-shadow: none !important;
-    border: none !important;
-    opacity: 1 !important;
+  background: var(--primary) !important;
+  width: var(--app-caret-width, 2px) !important;
+  box-shadow: none !important;
+  border: none !important;
+  opacity: 1 !important;
 }
 
 .monaco-editor .cursors-layer .cursor::before,
 .monaco-editor .cursors-layer .cursor::after {
-    display: none !important;
+  display: none !important;
 }
 
 /* Ensure all cursor variants are visible */
@@ -290,10 +291,10 @@
 .monaco-editor .cursors-layer .cursor-block,
 .monaco-editor .cursors-layer .cursor-line-thin,
 .monaco-editor .cursors-layer .cursor-line-thick {
-    background: var(--primary) !important;
-    opacity: 1 !important;
-    border: none !important;
-    box-shadow: none !important;
+  background: var(--primary) !important;
+  opacity: 1 !important;
+  border: none !important;
+  box-shadow: none !important;
 }
 
 /* When caret is disabled via settings, hide cursors cleanly */
@@ -302,12 +303,12 @@
 .caret-disabled .cursors-layer .cursor-block,
 .caret-disabled .cursors-layer .cursor-line-thin,
 .caret-disabled .cursors-layer .cursor-line-thick {
-    opacity: 0 !important;
-    width: 0 !important;
+  opacity: 0 !important;
+  width: 0 !important;
 }
 
 .editor-empty {
-    opacity: 0.6;
+  opacity: 0.6;
 }
 
 /* Hashtag highlighting */
@@ -317,12 +318,11 @@
   text-decoration: none !important;
 }
 
-
 /* Modern suggest widget - positioned correctly, modern styling */
 /* 1. Force the container row to be transparent so the highlight shows through */
 .monaco-editor .suggest-widget .monaco-list-row,
 .monaco-editor .suggest-widget .monaco-list-row .contents {
-    background-color: transparent !important;
+  background-color: transparent !important;
 }
 
 /* 2. Target the specific child elements that often inherit 'black' backgrounds */
@@ -330,36 +330,38 @@
 .monaco-editor .suggest-widget .monaco-list-row .details,
 .monaco-editor .suggest-widget .monaco-list-row .label-name,
 .monaco-editor .suggest-widget .monaco-list-row .monaco-icon-label {
-    background-color: transparent !important;
+  background-color: transparent !important;
 }
 
 /* 3. Ensure the selection highlight itself is opaque enough to be seen */
 .monaco-editor .suggest-widget .monaco-list-row.focused {
-    background-color: #007acc !important; /* Classic VS Code Blue */
-    color: white !important;
+  background-color: #007acc !important; /* Classic VS Code Blue */
+  color: white !important;
 }
 
 /* 4. Fix for line-height issues that sometimes misalign the highlight */
 .monaco-editor .suggest-widget .monaco-list-row * {
-    line-height: normal !important;
+  line-height: normal !important;
 }
 
 .suggest-details {
-    background: transparent !important;
-    display: block !important;
-    border: 1px solid var(--border) !important;
-    border-radius: 8px !important;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3), 0 2px 8px rgba(0, 0, 0, 0.2) !important;
-    backdrop-filter: blur(12px) !important;
-    padding: 12px !important;
-    max-width: 400px !important;
-    max-height: 300px !important;
-    overflow-y: auto !important;
-    color: var(--text-strong) !important;
-    font-size: 13px !important;
-    line-height: 1.5 !important;
-    position: absolute !important;
-    z-index: 10001 !important;
-    margin-left: 8px !important;
-    top: 0 !important;
+  background: transparent !important;
+  display: block !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 8px !important;
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.3),
+    0 2px 8px rgba(0, 0, 0, 0.2) !important;
+  backdrop-filter: blur(12px) !important;
+  padding: 12px !important;
+  max-width: 400px !important;
+  max-height: 300px !important;
+  overflow-y: auto !important;
+  color: var(--text-strong) !important;
+  font-size: 13px !important;
+  line-height: 1.5 !important;
+  position: absolute !important;
+  z-index: 10001 !important;
+  margin-left: 8px !important;
+  top: 0 !important;
 }

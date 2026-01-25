@@ -42,7 +42,7 @@ export interface GraphData {
  */
 export function extractTags(content: string): string[] {
   const tags: string[] = []
-  
+
   // Frontmatter tags: tags: [tag1, tag2] or tags: tag1, tag2
   const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/)
   if (frontmatterMatch) {
@@ -50,11 +50,14 @@ export function extractTags(content: string): string[] {
     const tagsMatch = frontmatter.match(/tags:\s*\[?(.*?)\]?\s*$/m)
     if (tagsMatch) {
       const tagStr = tagsMatch[1]
-      const extracted = tagStr.split(',').map(t => t.trim().replace(/['"]/g, '')).filter(Boolean)
+      const extracted = tagStr
+        .split(',')
+        .map((t) => t.trim().replace(/['"]/g, ''))
+        .filter(Boolean)
       tags.push(...extracted)
     }
   }
-  
+
   // Inline tags: #tag (not in code blocks)
   const inlineTagRegex = /(?:^|\s)#([a-zA-Z][a-zA-Z0-9_-]*)/g
   let match
@@ -63,7 +66,7 @@ export function extractTags(content: string): string[] {
       tags.push(match[1])
     }
   }
-  
+
   return tags
 }
 
@@ -81,14 +84,18 @@ export function getFolderPath(notePath?: string): string {
  * Generate a consistent color for a folder/group
  */
 export function getGroupColor(group: number, totalGroups: number): string {
-  const hue = (group * 360 / Math.max(totalGroups, 1)) % 360
+  const hue = ((group * 360) / Math.max(totalGroups, 1)) % 360
   return `hsl(${hue}, 70%, 55%)`
 }
 
 /**
  * Get node color based on its properties
  */
-export function getNodeColor(node: GraphNode, activeId: string | null, groupColors: Map<number, string>): string {
+export function getNodeColor(
+  node: GraphNode,
+  activeId: string | null,
+  groupColors: Map<number, string>
+): string {
   if (node.id === activeId) {
     return '#fbbf24' // Gold for active
   }
@@ -130,15 +137,15 @@ export function processGraphData(
   // Create nodes
   for (const note of notes) {
     if (note.type === 'folder') continue
-    
+
     const folderPath = getFolderPath(note.path)
     if (!folderToGroup.has(folderPath)) {
       folderToGroup.set(folderPath, groupCounter++)
     }
-    
+
     const content = noteContents.get(note.id) || ''
     const tags = extractTags(content)
-    
+
     const node: GraphNode = {
       id: note.id,
       title: note.title || note.id,
@@ -152,15 +159,15 @@ export function processGraphData(
       isHub: false,
       isActive: note.id === activeId
     }
-    
+
     nodeMap.set(note.id, node)
-    
+
     // Track clusters
     if (!clusters.has(folderPath)) {
       clusters.set(folderPath, [])
     }
     clusters.get(folderPath)!.push(note.id)
-    
+
     // Track tags
     for (const tag of tags) {
       if (!tagsMap.has(tag)) {
@@ -174,7 +181,7 @@ export function processGraphData(
   const nodeById = new Map<string, GraphNode>()
   const nodeByTitle = new Map<string, GraphNode>()
   const nodeByTitleLower = new Map<string, GraphNode>()
-  
+
   for (const node of nodeMap.values()) {
     nodeById.set(node.id, node)
     nodeById.set(node.id.toLowerCase(), node)
@@ -203,24 +210,24 @@ export function processGraphData(
 
   // Process links and count connections
   const linkMap = new Map<string, GraphLink>()
-  
+
   for (const link of links) {
     const sourceNode = nodeMap.get(link.source)
     const targetNode = resolveTarget(link.target)
-    
+
     if (!sourceNode || !targetNode) continue
     // Avoid self-links
     if (sourceNode.id === targetNode.id) continue
-    
+
     sourceNode.outgoingCount++
     targetNode.incomingCount++
     sourceNode.isOrphan = false
     targetNode.isOrphan = false
-    
+
     // Check for bidirectional
     const forwardKey = `${sourceNode.id}->${targetNode.id}`
     const reverseKey = `${targetNode.id}->${sourceNode.id}`
-    
+
     if (linkMap.has(reverseKey)) {
       linkMap.get(reverseKey)!.bidirectional = true
     } else {
@@ -239,11 +246,11 @@ export function processGraphData(
     node.connectionCount = node.incomingCount + node.outgoingCount
     connectionCounts.push(node.connectionCount)
   }
-  
+
   // Hub threshold: top 10% of connections
   connectionCounts.sort((a, b) => b - a)
   const hubThreshold = connectionCounts[Math.floor(connectionCounts.length * 0.1)] || 5
-  
+
   for (const node of nodeMap.values()) {
     if (node.connectionCount >= hubThreshold && node.connectionCount >= 5) {
       node.isHub = true
@@ -295,7 +302,9 @@ export function filterNodes(
 
   // Tag filter
   if (options.selectedTags && options.selectedTags.length > 0) {
-    filteredNodes = filteredNodes.filter((n) => n.tags.some((t) => options.selectedTags!.includes(t)))
+    filteredNodes = filteredNodes.filter((n) =>
+      n.tags.some((t) => options.selectedTags!.includes(t))
+    )
   }
 
   // Folder filter

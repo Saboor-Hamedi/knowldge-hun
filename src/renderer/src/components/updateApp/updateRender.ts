@@ -14,13 +14,13 @@ export class UpdateApp {
   public checkForUpdate() {
     this.state = 'checking'
     this.progress = 0
-    this.listeners.forEach(fn => fn(this.state, this.progress));
-    (window.api as any)?.requestUpdate?.()
+    this.listeners.forEach((fn) => fn(this.state, this.progress))
+    ;(window.api as any)?.requestUpdate?.()
     notificationManager.show('Checking for updates...', 'info', { title: 'Update' })
     setTimeout(() => {
       if (this.state === 'checking') {
         this.state = 'idle'
-        this.listeners.forEach(fn => fn(this.state, this.progress));
+        this.listeners.forEach((fn) => fn(this.state, this.progress))
         notificationManager.show('No update found (timeout).', 'info', { title: 'Update' })
       }
     }, 8000)
@@ -34,30 +34,30 @@ export class UpdateApp {
     window.electron?.ipcRenderer?.on?.('update:available', () => {
       this.state = 'progress'
       this.progress = 0
-      this.listeners.forEach(fn => fn(this.state, this.progress));
+      this.listeners.forEach((fn) => fn(this.state, this.progress))
       notificationManager.show('Update available. Downloading...', 'info', { title: 'Update' })
     })
     window.electron?.ipcRenderer?.on?.('update:not-available', () => {
       this.state = 'idle'
       this.progress = 0
-      this.listeners.forEach(fn => fn(this.state, this.progress));
+      this.listeners.forEach((fn) => fn(this.state, this.progress))
       notificationManager.show('No update available.', 'info', { title: 'Update' })
     })
     window.electron?.ipcRenderer?.on?.('update:progress', (_event, progressObj) => {
       this.state = 'progress'
       this.progress = progressObj.percent || 0
-      this.listeners.forEach(fn => fn(this.state, this.progress));
+      this.listeners.forEach((fn) => fn(this.state, this.progress))
     })
     window.electron?.ipcRenderer?.on?.('update:downloaded', () => {
       this.state = 'restart'
       this.progress = 100
-      this.listeners.forEach(fn => fn(this.state, this.progress));
+      this.listeners.forEach((fn) => fn(this.state, this.progress))
       notificationManager.show('Update downloaded. Click to restart.', 'info', { title: 'Update' })
     })
     window.electron?.ipcRenderer?.on?.('update:error', (_event, errMsg) => {
       this.state = 'idle'
       this.progress = 0
-      this.listeners.forEach(fn => fn(this.state, this.progress));
+      this.listeners.forEach((fn) => fn(this.state, this.progress))
       notificationManager.show(`Update error: ${errMsg}`, 'error', { title: 'Update' })
     })
   }

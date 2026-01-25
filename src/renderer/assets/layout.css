@@ -14,7 +14,6 @@ body {
   overflow: hidden;
 }
 
-
 .vscode-shell {
   height: 100vh;
   width: 100vw;
@@ -118,7 +117,6 @@ body {
   }
 } */
 
-
 .btn {
   border: 1px solid var(--border);
   background: var(--panel-strong);
@@ -127,7 +125,10 @@ body {
   padding: 8px 12px;
   cursor: pointer;
   font-weight: 600;
-  transition: transform 100ms ease, box-shadow 160ms ease, border-color 120ms ease;
+  transition:
+    transform 100ms ease,
+    box-shadow 160ms ease,
+    border-color 120ms ease;
 }
 
 .btn:hover {
@@ -180,14 +181,16 @@ button {
 .loading-spinner {
   width: 40px;
   height: 40px;
-  border: 3px solid rgba(255,255,255,0.05);
+  border: 3px solid rgba(255, 255, 255, 0.05);
   border-top-color: var(--primary);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .vscode-shell {
@@ -203,10 +206,10 @@ body:not(.is-loading) #loadingOverlay {
   display: none;
 }
 
-.sidebar, .activitybar, .statusbar, .main {
+.sidebar,
+.activitybar,
+.statusbar,
+.main {
   background: var(--panel) !important;
   border-color: var(--border) !important;
 }
-
-
-

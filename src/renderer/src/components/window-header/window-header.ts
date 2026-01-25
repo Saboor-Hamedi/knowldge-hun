@@ -36,10 +36,13 @@ export class WindowHeader {
     try {
       const apiAny = (window as any).api
       if (apiAny && typeof apiAny.getAppIcon === 'function') {
-        void apiAny.getAppIcon().then((url: string) => {
-          const img = header.querySelector('#app-icon') as HTMLImageElement | null
-          if (img && url) img.src = url
-        }).catch(() => {})
+        void apiAny
+          .getAppIcon()
+          .then((url: string) => {
+            const img = header.querySelector('#app-icon') as HTMLImageElement | null
+            if (img && url) img.src = url
+          })
+          .catch(() => {})
       }
     } catch (e) {
       // ignore

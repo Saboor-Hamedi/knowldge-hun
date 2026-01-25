@@ -23,7 +23,11 @@ export class VaultPicker {
     this.callbacks = callbacks
   }
 
-  async show(validationError?: { path: string; error: string; suggestion?: string }): Promise<void> {
+  async show(validationError?: {
+    path: string
+    error: string
+    suggestion?: string
+  }): Promise<void> {
     if (!this.modal || this.isOpen) return
     this.isOpen = true
     this.modal.classList.add('is-open')
@@ -84,7 +88,10 @@ export class VaultPicker {
     })
   }
 
-  private async renderVaultList(vaults: VaultInfo[], validationError?: { path: string; error: string; suggestion?: string }): Promise<void> {
+  private async renderVaultList(
+    vaults: VaultInfo[],
+    validationError?: { path: string; error: string; suggestion?: string }
+  ): Promise<void> {
     const list = this.modal?.querySelector('#vault-picker-list') as HTMLElement
     const errorDiv = this.modal?.querySelector('#vault-picker-error') as HTMLElement
     if (!list) return
@@ -115,12 +122,13 @@ export class VaultPicker {
       return
     }
 
-    list.innerHTML = vaults.map((vault, index) => {
-      const statusIcon = vault.exists ? '✅' : '❌'
-      const statusText = vault.exists ? 'Available' : 'Not found'
-      const lastOpened = vault.lastOpened ? new Date(vault.lastOpened).toLocaleDateString() : ''
+    list.innerHTML = vaults
+      .map((vault, index) => {
+        const statusIcon = vault.exists ? '✅' : '❌'
+        const statusText = vault.exists ? 'Available' : 'Not found'
+        const lastOpened = vault.lastOpened ? new Date(vault.lastOpened).toLocaleDateString() : ''
 
-      return `
+        return `
         <div class="vault-picker-item ${!vault.exists ? 'vault-picker-item--missing' : ''}" data-index="${index}" data-path="${this.escapeHtml(vault.path)}">
           <div class="vault-picker-item-main">
             <div class="vault-picker-item-icon">📁</div>
@@ -134,20 +142,25 @@ export class VaultPicker {
               <span class="vault-picker-item-status-text">${statusText}</span>
             </div>
           </div>
-          ${!vault.exists ? `
+          ${
+            !vault.exists
+              ? `
             <div class="vault-picker-item-actions">
               <button class="vault-picker-item-action" data-action="locate" data-path="${this.escapeHtml(vault.path)}">
                 🔍 Locate
               </button>
             </div>
-          ` : ''}
+          `
+              : ''
+          }
         </div>
       `
-    }).join('')
+      })
+      .join('')
 
     // Attach click handlers
     const items = list.querySelectorAll('.vault-picker-item')
-    items.forEach(item => {
+    items.forEach((item) => {
       const path = (item as HTMLElement).dataset.path
       if (!path) return
 
@@ -157,7 +170,7 @@ export class VaultPicker {
         // Don't trigger if clicking on action button
         if (target.closest('.vault-picker-item-action')) return
 
-        const vault = vaults.find(v => v.path === path)
+        const vault = vaults.find((v) => v.path === path)
         if (vault?.exists && this.callbacks) {
           void this.callbacks.onVaultSelected(path)
         }

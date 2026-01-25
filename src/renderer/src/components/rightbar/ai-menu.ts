@@ -46,7 +46,7 @@ export class AIMenu {
     this.buttonElement = button
     this.buttonElement.innerHTML = this.createLucideIcon(MoreVertical, 14, 1.5)
     this.buttonElement.classList.add('rightbar__ai-menu-button')
-    
+
     // Create menu element - append to header actions for proper positioning
     const headerActions = this.buttonElement.closest('.rightbar__header-actions')
     if (headerActions) {
@@ -72,17 +72,18 @@ export class AIMenu {
       return
     }
 
-    const menuItemsHTML = this.items.map((item) => {
-      if (item.separator) {
-        return '<div class="rightbar__ai-menu-separator"></div>'
-      }
+    const menuItemsHTML = this.items
+      .map((item) => {
+        if (item.separator) {
+          return '<div class="rightbar__ai-menu-separator"></div>'
+        }
 
-      const iconHTML = this.createLucideIcon(item.icon, 14, 1.5)
-      const shortcutHTML = item.shortcut 
-        ? `<span class="rightbar__ai-menu-shortcut">${item.shortcut}</span>`
-        : ''
-      
-      return `
+        const iconHTML = this.createLucideIcon(item.icon, 14, 1.5)
+        const shortcutHTML = item.shortcut
+          ? `<span class="rightbar__ai-menu-shortcut">${item.shortcut}</span>`
+          : ''
+
+        return `
         <button 
           class="rightbar__ai-menu-item ${item.disabled ? 'rightbar__ai-menu-item--disabled' : ''}" 
           data-item-id="${item.id}"
@@ -93,7 +94,8 @@ export class AIMenu {
           ${shortcutHTML}
         </button>
       `
-    }).join('')
+      })
+      .join('')
 
     this.menuElement.innerHTML = menuItemsHTML
     this.attachMenuEvents()
@@ -109,9 +111,11 @@ export class AIMenu {
 
     // Close on outside click
     document.addEventListener('click', (e) => {
-      if (this.isOpen && 
-          !this.menuElement.contains(e.target as Node) && 
-          !this.buttonElement.contains(e.target as Node)) {
+      if (
+        this.isOpen &&
+        !this.menuElement.contains(e.target as Node) &&
+        !this.buttonElement.contains(e.target as Node)
+      ) {
         this.close()
       }
     })
@@ -128,7 +132,7 @@ export class AIMenu {
   private attachMenuEvents(): void {
     if (!this.menuElement) return
 
-    this.menuElement.querySelectorAll('.rightbar__ai-menu-item').forEach(item => {
+    this.menuElement.querySelectorAll('.rightbar__ai-menu-item').forEach((item) => {
       item.addEventListener('click', (e) => {
         e.stopPropagation()
         const itemId = (item as HTMLElement).dataset.itemId
@@ -143,8 +147,12 @@ export class AIMenu {
 
     // Keyboard navigation
     this.menuElement.addEventListener('keydown', (e) => {
-      const items = Array.from(this.menuElement.querySelectorAll('.rightbar__ai-menu-item:not(.rightbar__ai-menu-item--disabled)')) as HTMLElement[]
-      const currentIndex = items.findIndex(item => item === document.activeElement)
+      const items = Array.from(
+        this.menuElement.querySelectorAll(
+          '.rightbar__ai-menu-item:not(.rightbar__ai-menu-item--disabled)'
+        )
+      ) as HTMLElement[]
+      const currentIndex = items.findIndex((item) => item === document.activeElement)
 
       if (e.key === 'ArrowDown') {
         e.preventDefault()
@@ -183,7 +191,9 @@ export class AIMenu {
     this.buttonElement.classList.add('rightbar__ai-menu-button--active')
 
     // Focus first item for keyboard navigation
-    const firstItem = this.menuElement.querySelector('.rightbar__ai-menu-item:not(.rightbar__ai-menu-item--disabled)') as HTMLElement
+    const firstItem = this.menuElement.querySelector(
+      '.rightbar__ai-menu-item:not(.rightbar__ai-menu-item--disabled)'
+    ) as HTMLElement
     if (firstItem) {
       setTimeout(() => firstItem.focus(), 0)
     }
@@ -197,7 +207,12 @@ export class AIMenu {
     this.buttonElement.classList.remove('rightbar__ai-menu-button--active')
   }
 
-  private createLucideIcon(IconComponent: any, size: number = 14, strokeWidth: number = 1.5, color?: string): string {
+  private createLucideIcon(
+    IconComponent: any,
+    size: number = 14,
+    strokeWidth: number = 1.5,
+    color?: string
+  ): string {
     const svgElement = createElement(IconComponent, {
       size: size,
       'stroke-width': strokeWidth,

@@ -3,7 +3,9 @@
   max-width: 100%;
   line-height: 1.6;
   color: var(--text-strong);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell',
+    'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
 }
 
 /* Headings */
@@ -258,7 +260,7 @@
 }
 
 /* Task lists */
-.preview-content input[type="checkbox"] {
+.preview-content input[type='checkbox'] {
   margin-right: 8px;
   cursor: pointer;
 }

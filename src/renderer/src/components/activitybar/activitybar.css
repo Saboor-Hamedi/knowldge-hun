@@ -1,7 +1,8 @@
 .activitybar__item:focus {
   outline: none;
 }
-.activitybar, .activitybar *{
+.activitybar,
+.activitybar * {
   box-sizing: border-box;
 }
 
@@ -24,8 +25,6 @@
   width: 100%;
 }
 
-
-
 .activitybar__item {
   width: 100%;
   height: 48px;
@@ -37,7 +36,9 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: background 120ms, color 120ms;
+  transition:
+    background 120ms,
+    color 120ms;
   position: relative;
   padding: 0;
 }
@@ -64,7 +65,6 @@
   background: var(--primary);
   z-index: 1;
 }
-
 
 .activitybar__icon {
   display: flex;
@@ -96,10 +96,10 @@
   color: var(--text-strong) !important;
 }
 /* For palette dots - filled circles */
-.activitybar__icon svg circle[fill="currentColor"] {
+.activitybar__icon svg circle[fill='currentColor'] {
   fill: var(--text-soft);
 }
-.activitybar__item:hover .activitybar__icon svg circle[fill="currentColor"],
-.activitybar__item.is-active .activitybar__icon svg circle[fill="currentColor"] {
+.activitybar__item:hover .activitybar__icon svg circle[fill='currentColor'],
+.activitybar__item.is-active .activitybar__icon svg circle[fill='currentColor'] {
   fill: var(--text-strong);
 }

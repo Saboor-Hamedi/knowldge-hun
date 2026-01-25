@@ -203,5 +203,4 @@ export class ActivityBar {
       this.onViewChange?.(view)
     })
   }
-
 }

@@ -45,7 +45,9 @@
   border-radius: 4px;
   display: grid;
   place-items: center;
-  transition: background 80ms ease, color 80ms ease;
+  transition:
+    background 80ms ease,
+    color 80ms ease;
 }
 
 .sidebar__action:hover {

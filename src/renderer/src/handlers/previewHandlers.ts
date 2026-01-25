@@ -32,7 +32,7 @@ export class PreviewHandlers {
     const previewTabId = this.getPreviewTabId(currentNoteId)
 
     // Check if preview tab already exists
-    const existingPreviewTab = state.openTabs.find(t => t.id === previewTabId)
+    const existingPreviewTab = state.openTabs.find((t) => t.id === previewTabId)
     if (existingPreviewTab) {
       // Preview tab exists, just switch to it
       state.activeId = previewTabId
@@ -42,7 +42,7 @@ export class PreviewHandlers {
     }
 
     // Get current note to create preview tab
-    const currentNote = state.notes.find(n => n.id === currentNoteId)
+    const currentNote = state.notes.find((n) => n.id === currentNoteId)
     if (!currentNote) return
 
     // Create preview tab
@@ -84,9 +84,11 @@ export class PreviewHandlers {
    */
   closePreviewTabs(activeTabId?: string): void {
     // Close all preview tabs except the one being activated
-    const previewTabs = state.openTabs.filter(t => t.id.startsWith('preview-') && t.id !== activeTabId)
-    previewTabs.forEach(tab => {
-      const index = state.openTabs.findIndex(t => t.id === tab.id)
+    const previewTabs = state.openTabs.filter(
+      (t) => t.id.startsWith('preview-') && t.id !== activeTabId
+    )
+    previewTabs.forEach((tab) => {
+      const index = state.openTabs.findIndex((t) => t.id === tab.id)
       if (index !== -1) {
         state.openTabs.splice(index, 1)
       }

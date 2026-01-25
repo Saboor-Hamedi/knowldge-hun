@@ -109,50 +109,50 @@
 
 /* File items coloring - VS Code style with colorful icons */
 /* Markdown files - blue */
-.fuzzy-item[data-note-type="markdown"] .fuzzy-item__icon,
-.fuzzy-item .fuzzy-item__icon[data-note-type="markdown"] {
+.fuzzy-item[data-note-type='markdown'] .fuzzy-item__icon,
+.fuzzy-item .fuzzy-item__icon[data-note-type='markdown'] {
   color: #42a5f5;
 }
 
 /* JavaScript files - yellow */
-.fuzzy-item[data-note-type="javascript"] .fuzzy-item__icon,
-.fuzzy-item .fuzzy-item__icon[data-note-type="javascript"] {
+.fuzzy-item[data-note-type='javascript'] .fuzzy-item__icon,
+.fuzzy-item .fuzzy-item__icon[data-note-type='javascript'] {
   color: #f7df1e;
 }
 
 /* TypeScript files - blue */
-.fuzzy-item[data-note-type="typescript"] .fuzzy-item__icon,
-.fuzzy-item .fuzzy-item__icon[data-note-type="typescript"] {
+.fuzzy-item[data-note-type='typescript'] .fuzzy-item__icon,
+.fuzzy-item .fuzzy-item__icon[data-note-type='typescript'] {
   color: #3178c6;
 }
 
 /* JSON files - yellow (matching tabbar) */
-.fuzzy-item[data-note-type="json"] .fuzzy-item__icon,
-.fuzzy-item .fuzzy-item__icon[data-note-type="json"] {
+.fuzzy-item[data-note-type='json'] .fuzzy-item__icon,
+.fuzzy-item .fuzzy-item__icon[data-note-type='json'] {
   color: #f1e05a;
 }
 
 /* HTML files - orange/red */
-.fuzzy-item[data-note-type="html"] .fuzzy-item__icon,
-.fuzzy-item .fuzzy-item__icon[data-note-type="html"] {
+.fuzzy-item[data-note-type='html'] .fuzzy-item__icon,
+.fuzzy-item .fuzzy-item__icon[data-note-type='html'] {
   color: #e34c26;
 }
 
 /* CSS files - blue */
-.fuzzy-item[data-note-type="css"] .fuzzy-item__icon,
-.fuzzy-item .fuzzy-item__icon[data-note-type="css"] {
+.fuzzy-item[data-note-type='css'] .fuzzy-item__icon,
+.fuzzy-item .fuzzy-item__icon[data-note-type='css'] {
   color: #264de4;
 }
 
 /* Text files - gray */
-.fuzzy-item[data-note-type="text"] .fuzzy-item__icon,
-.fuzzy-item .fuzzy-item__icon[data-note-type="text"] {
+.fuzzy-item[data-note-type='text'] .fuzzy-item__icon,
+.fuzzy-item .fuzzy-item__icon[data-note-type='text'] {
   color: #9ca3af;
 }
 
 /* Default files - gray */
-.fuzzy-item[data-note-type="file"] .fuzzy-item__icon,
-.fuzzy-item .fuzzy-item__icon[data-note-type="file"] {
+.fuzzy-item[data-note-type='file'] .fuzzy-item__icon,
+.fuzzy-item .fuzzy-item__icon[data-note-type='file'] {
   color: #9ca3af;
 }
 
@@ -213,21 +213,21 @@
 
 /* Premium Scrollbars */
 ::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
+  width: 10px;
+  height: 10px;
 }
 ::-webkit-scrollbar-track {
-    background: transparent;
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-    background-color: var(--border);
-    border: 3px solid transparent;
-    background-clip: content-box;
-    border-radius: 99px;
+  background-color: var(--border);
+  border: 3px solid transparent;
+  background-clip: content-box;
+  border-radius: 99px;
 }
 ::-webkit-scrollbar-thumb:hover {
-    background-color: var(--muted);
+  background-color: var(--muted);
 }
 ::-webkit-scrollbar-corner {
-    background: transparent;
+  background: transparent;
 }

@@ -1,93 +1,93 @@
 .window-header {
-	position: absolute;
-	top: 0;
-	left: 0;
-	width: 100%;
-	height: 32px;
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	padding: 0 0 0 8px;
-	background: var(--panel-strong);
-	border-bottom: 1px solid var(--border);
-	-webkit-app-region: drag;
-	z-index: 1000;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 0 0 8px;
+  background: var(--panel-strong);
+  border-bottom: 1px solid var(--border);
+  -webkit-app-region: drag;
+  z-index: 1000;
 }
 
 .window-header__brand {
-	display: flex;
-	align-items: center;
-	gap: 8px;
-	color: var(--text-muted);
-	font-size: 12px;
-	letter-spacing: 0.2px;
-	flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-muted);
+  font-size: 12px;
+  letter-spacing: 0.2px;
+  flex: 1;
 }
 
 .window-header__actions {
-	display: flex;
-	align-items: center;
-	gap: 4px;
-	-webkit-app-region: no-drag;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  -webkit-app-region: no-drag;
 }
 
 .window-header__title {
-	font-weight: 600;
-	color: var(--text);
+  font-weight: 600;
+  color: var(--text);
 }
 .window-header__title:focus {
-	outline: none;
+  outline: none;
 }
 .window-header__controls {
-	display: flex;
-	align-items: center;
-	gap: 0;
-	-webkit-app-region: no-drag;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  -webkit-app-region: no-drag;
 }
 
 .wh-btn {
-	width: 46px;
-	height: 32px;
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	border: none;
-	border-radius: 0;
-	background: transparent;
-	color: var(--text);
-	font-size: 16px;
-	line-height: 1;
-	padding: 0;
-	margin: 0;
-	cursor: pointer;
-	transition: background 120ms ease;
-	flex-shrink: 0;
+  width: 46px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 16px;
+  line-height: 1;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  transition: background 120ms ease;
+  flex-shrink: 0;
 }
 
 .wh-btn:hover {
-	background: rgba(127, 167, 255, 0.15);
+  background: rgba(127, 167, 255, 0.15);
 }
 
 .wh-close {
-	color: var(--text);
+  color: var(--text);
 }
 
 .wh-close:hover {
-	background: rgba(255, 107, 107, 0.9);
-	color: white;
+  background: rgba(255, 107, 107, 0.9);
+  color: white;
 }
 
 /* Ensure SVG icons are perfectly centered */
 .wh-btn svg {
-	display: block;
-	width: 12px;
-	height: 12px;
+  display: block;
+  width: 12px;
+  height: 12px;
 }
 
 /* Header app icon */
 .window-header__icon {
-	display: inline-block;
-	width: 20px;
-	height: 20px;
-	object-fit: contain;
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
 }
