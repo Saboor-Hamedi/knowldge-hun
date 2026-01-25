@@ -59,29 +59,69 @@ async function createRelease() {
   }
 }
 
-async function uploadAsset(release, filePath, name) {
+async function uploadAsset(release, filePath, name, attempt = 1) {
+  const MAX_ATTEMPTS = 3
   try {
-    const fileData = fs.readFileSync(filePath)
+    const { size } = fs.statSync(filePath)
+    const fileStream = fs.createReadStream(filePath)
     const uploadUrl = release.upload_url.replace('{?name,label}', `?name=${name}`)
+
+    console.log(`\n📦 Uploading ${name} (${(size / 1024 / 1024).toFixed(2)} MB)...`)
+
+    // Custom progress tracker
+    let uploadedBytes = 0
+    let lastPercent = -1
+    const progressStream = new (require('stream').Transform)({
+      transform(chunk, encoding, callback) {
+        uploadedBytes += chunk.length
+        const percent = Math.floor((uploadedBytes / size) * 100)
+        if (percent !== lastPercent && percent % 5 === 0) {
+          process.stdout.write(
+            `\r   Progress: [${'#'.repeat(percent / 5)}${'.'.repeat(20 - percent / 5)}] ${percent}%`
+          )
+          lastPercent = percent
+        }
+        callback(null, chunk)
+      }
+    })
 
     const response = await fetch(uploadUrl, {
       method: 'POST',
       headers: {
         Authorization: `token ${token}`,
         'Content-Type': 'application/octet-stream',
-        'User-Agent': 'KnowledgeHub-Publisher'
+        'User-Agent': 'KnowledgeHub-Publisher',
+        'Content-Length': size
       },
-      body: fileData
+      body: fileStream.pipe(progressStream),
+      duplex: 'half'
     })
 
+    console.log('') // New line after progress bar
+
     if (!response.ok) {
-      throw new Error(`Failed to upload ${name}: ${response.statusText}`)
+      if (response.status === 422) {
+        console.log(`   ⚠ Asset ${name} already exists, skipping...`)
+        return
+      }
+      throw new Error(`Failed to upload ${name}: ${response.status} ${response.statusText}`)
     }
 
     const asset = await response.json()
+    console.log(`   ✅ Successfully uploaded ${name}`)
     return asset
   } catch (error) {
-    console.error(`Error uploading ${name}:`, error)
+    console.log('') // Ensure newline on error
+    console.error(`   ❌ Error uploading ${name} (Attempt ${attempt}):`, error.message || error)
+
+    if (attempt < MAX_ATTEMPTS) {
+      const delay = attempt * 2000
+      console.log(`   ⏳ Retrying in ${delay / 1000}s...`)
+      await new Promise((resolve) => setTimeout(resolve, delay))
+      return uploadAsset(release, filePath, name, attempt + 1)
+    }
+
+    throw error
   }
 }
 
@@ -137,12 +177,13 @@ async function main() {
     const filePath = path.join(distDir, file)
     const stat = fs.statSync(filePath)
 
-    // Upload .exe, .zip, .7z files, and other .yml files
+    // Upload .exe, .zip, .7z files, .blockmap files, and other .yml files
     if (
       stat.isFile() &&
       (file.endsWith('.zip') ||
         file.endsWith('.7z') ||
         file.endsWith('.exe') ||
+        file.endsWith('.blockmap') ||
         (file.endsWith('.yml') && file !== 'latest.yml')) // Don't duplicate latest.yml
     ) {
       assetsToUpload.push({ path: filePath, name: file })
