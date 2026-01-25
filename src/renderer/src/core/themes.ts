@@ -185,5 +185,74 @@ export const themes: Record<string, Theme> = {
       '--hover': 'rgba(255, 126, 219, 0.15)',
       '--selection': 'rgba(255, 126, 219, 0.3)'
     }
+  },
+  nord: {
+    id: 'nord',
+    name: 'Nord',
+    colors: {
+      '--bg': '#2e3440',
+      '--bg-accent': '#3b4252',
+      '--panel': '#3b4252',
+      '--panel-strong': '#434c5e',
+      '--border': '#4c566a',
+      '--border-subtle': 'rgba(216, 222, 233, 0.1)',
+      '--muted': '#d8dee9',
+      '--text': '#eceff4',
+      '--text-strong': '#ffffff',
+      '--text-soft': '#e5e9f0',
+      '--text-muted': '#d8dee9',
+      '--primary': '#88c0d0',
+      '--primary-strong': '#8fbcbb',
+      '--danger': '#bf616a',
+      '--status': '#5e81ac',
+      '--hover': 'rgba(136, 192, 208, 0.12)',
+      '--selection': 'rgba(136, 192, 208, 0.25)'
+    }
+  },
+  dracula: {
+    id: 'dracula',
+    name: 'Dracula',
+    colors: {
+      '--bg': '#282a36',
+      '--bg-accent': '#21222c',
+      '--panel': '#282a36',
+      '--panel-strong': '#343746',
+      '--border': '#44475a',
+      '--border-subtle': 'rgba(248, 248, 242, 0.1)',
+      '--muted': '#6272a4',
+      '--text': '#f8f8f2',
+      '--text-strong': '#ffffff',
+      '--text-soft': '#f8f8f2',
+      '--text-muted': '#6272a4',
+      '--primary': '#bd93f9',
+      '--primary-strong': '#ff79c6',
+      '--danger': '#ff5555',
+      '--status': '#8be9fd',
+      '--hover': 'rgba(189, 147, 249, 0.12)',
+      '--selection': 'rgba(189, 147, 249, 0.25)'
+    }
+  },
+  monokai: {
+    id: 'monokai',
+    name: 'Monokai',
+    colors: {
+      '--bg': '#272822',
+      '--bg-accent': '#1e1f1c',
+      '--panel': '#272822',
+      '--panel-strong': '#3e3d32',
+      '--border': '#49483e',
+      '--border-subtle': 'rgba(248, 248, 240, 0.1)',
+      '--muted': '#75715e',
+      '--text': '#f8f8f2',
+      '--text-strong': '#ffffff',
+      '--text-soft': '#f8f8f2',
+      '--text-muted': '#75715e',
+      '--primary': '#66d9ef',
+      '--primary-strong': '#a6e22e',
+      '--danger': '#f92672',
+      '--status': '#fd971f',
+      '--hover': 'rgba(102, 217, 239, 0.12)',
+      '--selection': 'rgba(102, 217, 239, 0.25)'
+    }
   }
 }

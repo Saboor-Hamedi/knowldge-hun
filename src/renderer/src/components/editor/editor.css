@@ -312,7 +312,7 @@
 
 /* Hashtag highlighting */
 .hashtag-highlight {
-  color: #ff6b6b !important;
+  color: var(--primary) !important;
   font-weight: bold !important;
   text-decoration: none !important;
 }

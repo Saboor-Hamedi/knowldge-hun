@@ -685,6 +685,21 @@ export class EditorComponent {
         }
       )
 
+      // Add Ctrl+Shift+, to toggle theme modal
+      this.editor.addCommand(
+        this.monacoInstance.KeyMod.CtrlCmd |
+          this.monacoInstance.KeyMod.Shift |
+          this.monacoInstance.KeyCode.Comma,
+        () => {
+          window.dispatchEvent(new CustomEvent('toggle-theme-modal'))
+        }
+      )
+
+      // Add Escape to close modals
+      this.editor.addCommand(this.monacoInstance.KeyCode.Escape, () => {
+        window.dispatchEvent(new CustomEvent('close-theme-modal'))
+      })
+
       this.shortcutsAttached = true
     }
   }
@@ -720,6 +735,10 @@ export class EditorComponent {
     } else if (isMod && key === '\\') {
       event.preventDefault()
       this.togglePreview()
+    } else if (isMod && event.shiftKey && key === ',') {
+      // Ctrl+Shift+, to toggle theme modal
+      event.preventDefault()
+      window.dispatchEvent(new CustomEvent('toggle-theme-modal'))
     }
   }
 

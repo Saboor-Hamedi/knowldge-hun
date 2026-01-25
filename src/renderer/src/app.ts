@@ -990,6 +990,15 @@ class App {
         void this.openSettings()
       }
     })
+
+    keyboardManager.register({
+      key: 'Control+Shift+,',
+      scope: 'global',
+      description: 'Select theme',
+      handler: () => {
+        this.themeModal.toggle()
+      }
+    })
   }
 
   async init(): Promise<void> {

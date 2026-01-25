@@ -14,6 +14,12 @@ export class ThemeModal {
   constructor(containerId: string) {
     this.container = document.getElementById(containerId) as HTMLElement
     this.render()
+    this.attachInternalListeners()
+  }
+
+  private attachInternalListeners(): void {
+    window.addEventListener('toggle-theme-modal', () => this.toggle())
+    window.addEventListener('close-theme-modal', () => this.close())
   }
 
   setThemeChangeHandler(handler: (themeId: string) => void): void {
@@ -36,9 +42,7 @@ export class ThemeModal {
 
     // Create invisible backdrop to close on click outside
     this.backdrop = document.createElement('div')
-    this.backdrop.style.position = 'fixed'
-    this.backdrop.style.inset = '0'
-    this.backdrop.style.zIndex = '1999'
+    this.backdrop.className = 'theme-modal-backdrop'
     this.container.appendChild(this.backdrop)
 
     this.backdrop.addEventListener('click', () => this.close())
@@ -67,15 +71,22 @@ export class ThemeModal {
     this.modal.className = 'theme-modal'
     this.modal.innerHTML = `
       <div class="theme-modal__header">
-        <h3 class="theme-modal__title">Select Theme</h3>
-        <button class="theme-modal__close">${codicons.close}</button>
+        <div class="theme-modal__title-group">
+          <h3 class="theme-modal__title">Themes</h3>
+        </div>
+        <div class="theme-modal__actions">
+          <button class="theme-modal__close wh-btn">${codicons.close}</button>
+        </div>
       </div>
       <div class="theme-modal__list"></div>
     `
     this.container.appendChild(this.modal)
 
     // Events
-    this.modal.querySelector('.theme-modal__close')?.addEventListener('click', () => this.close())
+    this.modal.querySelector('.theme-modal__close')?.addEventListener('click', (e) => {
+      e.stopPropagation()
+      this.close()
+    })
   }
 
   private renderList(): void {
@@ -84,12 +95,13 @@ export class ThemeModal {
 
     const currentId = themeManager.getCurrentThemeId()
 
-    list.innerHTML = Object.values(themes).map(theme => {
-      const isActive = theme.id === currentId ? 'is-active' : ''
-      const bg = theme.colors['--bg']
-      const primary = theme.colors['--primary']
+    list.innerHTML = Object.values(themes)
+      .map((theme) => {
+        const isActive = theme.id === currentId ? 'is-active' : ''
+        const bg = theme.colors['--bg']
+        const primary = theme.colors['--primary']
 
-      return `
+        return `
         <div class="theme-item ${isActive}" data-id="${theme.id}">
           <div class="theme-preview">
             <div class="theme-preview__c1" style="background: ${bg}"></div>
@@ -101,10 +113,11 @@ export class ThemeModal {
           ${isActive ? `<div class="theme-check">${codicons.check || '✓'}</div>` : ''}
         </div>
       `
-    }).join('')
+      })
+      .join('')
 
     // Attach click handlers
-    list.querySelectorAll('.theme-item').forEach(item => {
+    list.querySelectorAll('.theme-item').forEach((item) => {
       item.addEventListener('click', (e) => {
         e.preventDefault()
         e.stopPropagation()
