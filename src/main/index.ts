@@ -2,7 +2,7 @@
 import { setupUpdateApp } from '../renderer/src/components/updateApp/updateApp'
 import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
 import { join, basename, dirname } from 'path'
-import { writeFile, mkdir } from 'fs/promises'
+import { writeFile, mkdir, readFile } from 'fs/promises'
 import { existsSync, mkdirSync, cpSync, readdirSync } from 'fs'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { version } from '../../package.json'
@@ -253,24 +253,14 @@ app.whenReady().then(async () => {
   })
 
   ipcMain.handle('vault:choose', async () => {
-    try {
-      return await chooseVault()
-    } catch (error) {
-      console.error('Vault selection error:', error)
-      throw error
-    }
+    return await chooseVault()
   })
 
   ipcMain.handle('vault:set', async (_event, dir: string) => {
-    try {
-      await vault.setVaultPath(dir)
-      updateSettings({ vaultPath: dir })
-      addRecentVault(dir)
-      return { path: dir, name: basename(dir), changed: true }
-    } catch (error) {
-      console.error('Vault set error:', error)
-      throw error
-    }
+    await vault.setVaultPath(dir)
+    updateSettings({ vaultPath: dir })
+    addRecentVault(dir)
+    return { path: dir, name: basename(dir), changed: true }
   })
 
   // Vault validation and location handlers
@@ -588,6 +578,57 @@ app.whenReady().then(async () => {
   ipcMain.handle('window:close', async () => {
     const win = BrowserWindow.getFocusedWindow() || mainWindowRef
     win?.close()
+  })
+
+  // Session Storage Backup/Restore for Updates
+  ipcMain.handle('sessions:backup', async () => {
+    const userDataPath = app.getPath('userData')
+    const sessionsPath = join(userDataPath, 'sessions-backup.json')
+
+    try {
+      // Get sessions from renderer via webContents
+      const result = await mainWindowRef?.webContents.executeJavaScript(`
+        // Access sessionStorageService from renderer
+        if (window.sessionStorageService) {
+          return window.sessionStorageService.getAllSessions(true)
+        }
+        return null
+      `)
+
+      if (result) {
+        await writeFile(
+          sessionsPath,
+          JSON.stringify(
+            {
+              version: Date.now(),
+              sessions: result
+            },
+            null,
+            2
+          )
+        )
+        return { success: true, path: sessionsPath }
+      }
+
+      return { success: false, message: 'Could not access sessions' }
+    } catch (error) {
+      return { success: false, message: error instanceof Error ? error.message : String(error) }
+    }
+  })
+
+  ipcMain.handle('sessions:restore', async () => {
+    const userDataPath = app.getPath('userData')
+    const sessionsPath = join(userDataPath, 'sessions-backup.json')
+
+    try {
+      if (existsSync(sessionsPath)) {
+        const backupData = JSON.parse(await readFile(sessionsPath, 'utf-8'))
+        return { success: true, data: backupData }
+      }
+      return { success: false, message: 'No backup found' }
+    } catch (error) {
+      return { success: false, message: error instanceof Error ? error.message : String(error) }
+    }
   })
 
   // Expose app icon path to renderer

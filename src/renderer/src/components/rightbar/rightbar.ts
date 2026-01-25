@@ -432,11 +432,15 @@ export class RightBar {
   private async loadNotes(): Promise<void> {
     try {
       const notes = await window.api.listNotes()
-      this.allNotes = notes.map((note) => ({
-        id: note.id,
-        title: note.title,
-        path: note.path
-      }))
+      // Filter primarily for notes, but folders could be added if needed
+      // Most users expect notes when using @mention
+      this.allNotes = notes
+        .filter((n) => n.type !== 'folder')
+        .map((note) => ({
+          id: note.id,
+          title: note.title,
+          path: note.path
+        }))
     } catch (error) {
       console.error('[RightBar] Failed to load notes:', error)
       this.allNotes = []
@@ -547,6 +551,9 @@ export class RightBar {
     // Initialize mode selector
     this.initModeSelector()
 
+    // Load notes for @mention autocomplete
+    this.loadNotes()
+
     // Initialize session sidebar - append to the rightbar element
     if (rightbarElement) {
       this.sessionSidebar = new SessionSidebar(rightbarElement)
@@ -638,26 +645,69 @@ export class RightBar {
     })
 
     this.chatInput.addEventListener('keydown', (e) => {
+      // Handle mention deletion with Backspace
+      if (e.key === 'Backspace') {
+        const selection = window.getSelection()
+        if (selection && selection.isCollapsed && selection.rangeCount > 0) {
+          const range = selection.getRangeAt(0)
+
+          // Try to find if we're deleting a mention
+          let itemToDelete: HTMLElement | null = null
+
+          // Case 1: Cursor is in a text node at offset 0, check previous sibling
+          if (range.startContainer.nodeType === Node.TEXT_NODE && range.startOffset === 0) {
+            let prev = (range.startContainer as Text).previousSibling
+            // Skip empty text nodes
+            while (prev && prev.nodeType === Node.TEXT_NODE && !prev.textContent?.trim()) {
+              prev = prev.previousSibling
+            }
+            if (prev instanceof HTMLElement && prev.classList.contains('rightbar__mention')) {
+              itemToDelete = prev
+            }
+          }
+          // Case 2: Cursor is directly in the chat input (parent)
+          else if (range.startContainer === this.chatInput && range.startOffset > 0) {
+            const node = this.chatInput.childNodes[range.startOffset - 1]
+            if (node instanceof HTMLElement && node.classList.contains('rightbar__mention')) {
+              itemToDelete = node
+            }
+          }
+
+          if (itemToDelete) {
+            e.preventDefault()
+            itemToDelete.remove()
+            this.updateCharacterCount()
+            this.updateNoteReferencesInContent()
+            this.autoResizeTextarea()
+            return
+          }
+        }
+      }
+
       if (this.autocompleteDropdown.style.display === 'block') {
+        const itemsCount = this.autocompleteItems.length
         if (e.key === 'ArrowDown') {
           e.preventDefault()
-          this.selectedAutocompleteIndex = Math.min(
-            this.selectedAutocompleteIndex + 1,
-            this.autocompleteItems.length - 1
-          )
+          this.selectedAutocompleteIndex = (this.selectedAutocompleteIndex + 1) % itemsCount
           this.updateAutocompleteSelection()
           return
         }
         if (e.key === 'ArrowUp') {
           e.preventDefault()
-          this.selectedAutocompleteIndex = Math.max(this.selectedAutocompleteIndex - 1, -1)
+          this.selectedAutocompleteIndex =
+            (this.selectedAutocompleteIndex - 1 + itemsCount) % itemsCount
           this.updateAutocompleteSelection()
           return
         }
         if (e.key === 'Enter' || e.key === 'Tab') {
-          e.preventDefault()
-          this.selectAutocompleteItem()
-          return
+          if (this.selectedAutocompleteIndex === -1 && itemsCount > 0) {
+            this.selectedAutocompleteIndex = 0
+          }
+          if (this.selectedAutocompleteIndex !== -1) {
+            e.preventDefault()
+            this.selectAutocompleteItem()
+            return
+          }
         }
         if (e.key === 'Escape') {
           e.preventDefault()
@@ -692,6 +742,11 @@ export class RightBar {
     if (this.resizeHandle) {
       this.resizeHandle.addEventListener('mousedown', (e) => this.handleResizeStart(e))
     }
+
+    // Refresh notes when vault changes
+    window.addEventListener('vault-changed', () => {
+      void this.loadNotes()
+    })
 
     this.chatContainer.addEventListener('click', (e) => {
       const target = (e.target as HTMLElement).closest('[data-action]')
@@ -773,22 +828,6 @@ export class RightBar {
         // Update message feedback and persist
         message.feedback = newFeedback
         void this.autoSaveSession()
-      } else if (action === 'retry') {
-        const msg = (target as HTMLElement).closest('.rightbar__message')
-        const content = msg?.querySelector('.rightbar__message-content')
-        if (content) {
-          const text = content.textContent || ''
-          void navigator.clipboard.writeText(text).then(() => {
-            const btn = target as HTMLButtonElement
-            const prev = btn.textContent
-            btn.textContent = 'Copied'
-            btn.disabled = true
-            setTimeout(() => {
-              btn.textContent = prev
-              btn.disabled = false
-            }, 1500)
-          })
-        }
       } else if (action === 'retry' && this.lastFailedMessage) {
         const toSend = this.lastFailedMessage
         this.lastFailedMessage = null
@@ -799,15 +838,22 @@ export class RightBar {
       } else if (action === 'edit') {
         const messageIndex = parseInt(btn.dataset.messageIndex || '0', 10)
         this.editMessage(messageIndex)
-      }
-    })
-
-    // Handle citation clicks
-    this.chatContainer.querySelectorAll('.rightbar__message-citation').forEach((citationBtn) => {
-      citationBtn.addEventListener('click', (e) => {
-        e.stopPropagation()
-        const noteId = (citationBtn as HTMLElement).dataset.noteId
-        const notePath = (citationBtn as HTMLElement).dataset.notePath
+      } else if (action === 'citations-toggle') {
+        // Find the following buttons and toggle their visibility
+        const container = btn.closest('.rightbar__message-citations')
+        if (container) {
+          const chips = container.querySelectorAll('.rightbar__message-citation')
+          const firstChip = chips[0] as HTMLElement | undefined
+          const isHidden = firstChip?.style.display === 'none'
+          chips.forEach((chip) => {
+            ;(chip as HTMLElement).style.display = isHidden ? 'inline-flex' : 'none'
+          })
+          btn.classList.toggle('is-collapsed', !isHidden)
+        }
+      } else if (btn.classList.contains('rightbar__message-citation')) {
+        // Individual citation chip click (this works via delegation now)
+        const noteId = btn.dataset.noteId
+        const notePath = btn.dataset.notePath
         if (noteId) {
           window.dispatchEvent(
             new CustomEvent('knowledge-hub:open-note', {
@@ -815,7 +861,7 @@ export class RightBar {
             })
           )
         }
-      })
+      }
     })
   }
 
@@ -1744,10 +1790,14 @@ export class RightBar {
 
       replaceRange.insertNode(mentionSpan)
 
-      // Position caret right after the mention
+      // Add a space after the mention for better cursor behavior
+      const space = document.createTextNode(' ')
+      mentionSpan.after(space)
+
+      // Position caret right after the space
       const newRange = document.createRange()
-      newRange.setStartAfter(mentionSpan)
-      newRange.setEndAfter(mentionSpan)
+      newRange.setStartAfter(space)
+      newRange.setEndAfter(space)
 
       if (selection) {
         selection.removeAllRanges()
@@ -1801,7 +1851,7 @@ export class RightBar {
 
     // Only add user message if not regenerating (where message already exists)
     if (!skipAddingUserMessage) {
-    this.addMessage('user', message)
+      this.addMessage('user', message)
     }
     this.sendButton.disabled = true
     this.lastFailedMessage = null
@@ -1890,14 +1940,14 @@ export class RightBar {
 
         // Use requestAnimationFrame for smooth UI updates
         requestAnimationFrame(() => {
-      this.isLoading = false
+          this.isLoading = false
           this.renderMessages()
           this.sendButton.disabled = false
           this.chatInput.focus()
           // Auto-save after streaming completes
           void this.autoSaveSession()
         })
-    } catch (err: unknown) {
+      } catch (err: unknown) {
         // Remove placeholder message on error
         if (this.streamingMessageIndex !== null) {
           this.messages.splice(this.streamingMessageIndex, 1)
@@ -1905,15 +1955,15 @@ export class RightBar {
         }
 
         requestAnimationFrame(() => {
-      this.isLoading = false
-      this.lastFailedMessage = message
-      const errorMsg = err instanceof Error ? err.message : 'Failed to get response'
-      this.addMessage(
-        'assistant',
-        `❌ **Error**\n\n${errorMsg}\n\nPlease check your API key and internet connection.`
-      )
-      this.sendButton.disabled = false
-      this.chatInput.focus()
+          this.isLoading = false
+          this.lastFailedMessage = message
+          const errorMsg = err instanceof Error ? err.message : 'Failed to get response'
+          this.addMessage(
+            'assistant',
+            `❌ **Error**\n\n${errorMsg}\n\nPlease check your API key and internet connection.`
+          )
+          this.sendButton.disabled = false
+          this.chatInput.focus()
         })
         console.error('[RightBar] API Error:', err)
       }
@@ -2003,16 +2053,23 @@ export class RightBar {
     }
 
     let html = this.messages
-      .map((msg) => {
+      .map((msg, idx) => {
         const isError = msg.role === 'assistant' && msg.content.startsWith('❌')
+
+        // Skip empty placeholder messages from AI to avoid showing an empty bubble
+        // while it's still "thinking" or preparing the stream.
+        if (msg.role === 'assistant' && !msg.content && idx === this.streamingMessageIndex) {
+          return ''
+        }
+
         const content = this.formatContent(msg.content, msg.role === 'assistant')
         const avatar = Avatar.createHTML(msg.role as 'user' | 'assistant', 20)
-        const msgIndex = this.messages.indexOf(msg)
+        const msgIndex = idx
         const feedback = msg.feedback || this.messageFeedback.get(msgIndex) || null
         const citations =
           msg.citations && msg.citations.length > 0
             ? `<div class="rightbar__message-citations">
-               <span class="rightbar__message-citations-label">Referenced notes:</span>
+               <button class="rightbar__message-citations-label" data-action="citations-toggle" title="Show or hide referenced notes">Referenced notes:</button>
                ${msg.citations
                  .map(
                    (citation) =>
@@ -2058,7 +2115,16 @@ export class RightBar {
       })
       .join('')
 
-    if (this.isLoading) html += TYPING_HTML
+    if (this.isLoading) {
+      // Only show dots if we haven't started showing characters in a bubble yet
+      const isActuallyStreamingContent =
+        this.streamingMessageIndex !== null &&
+        this.messages[this.streamingMessageIndex]?.content.trim().length > 0
+
+      if (!isActuallyStreamingContent) {
+        html += TYPING_HTML
+      }
+    }
 
     this.chatContainer.innerHTML = html
     this.chatContainer.scrollTo({ top: this.chatContainer.scrollHeight, behavior: 'smooth' })

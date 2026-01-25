@@ -620,7 +620,6 @@ export class VaultManager {
     const folderName = basename(sourceNorm)
 
     if (targetNorm.startsWith(sourceNorm + '/') || targetNorm === sourceNorm) {
-      console.error(`[Vault] Move blocked: Cannot move ${sourceNorm} into ${targetNorm}`)
       throw new Error('Cannot move a folder into itself or its descendants')
     }
 

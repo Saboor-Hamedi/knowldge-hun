@@ -10,7 +10,6 @@ import {
   FolderCode,
   FolderOpen,
   FolderGit,
-  FolderGit2,
   Database,
   Key,
   Lock,
@@ -40,7 +39,7 @@ import {
   Linkedin,
   Youtube,
   MessageCircle,
-  Send,
+  MessageSquare,
   Share2,
   Sparkles,
   Layers,
@@ -70,20 +69,25 @@ import {
   CloudSnow,
   CloudLightning,
   Sun,
-  Wind,
-  Thermometer,
-  FileDigit,
+  GitBranch,
+  Cloud,
+  Activity,
+  Cpu,
+  Archive,
+  Monitor,
+  Command,
+  GitGraph,
   createElement
 } from 'lucide'
-import { GitBranch, Cloud, Activity, Cpu, Archive, Monitor } from 'lucide'
 
 // Create actual SVG icons for git-related files
-const createLucideSvg = (IconComponent: any, size: number = 16): string => {
+// Create actual SVG icons with specific colors
+const createLucideSvg = (IconComponent: any, size: number = 16, color?: string): string => {
   const svgElement = createElement(IconComponent, {
     width: size,
     height: size,
-    'stroke-width': 1.5,
-    stroke: 'currentColor',
+    'stroke-width': 2, // Slightly bolder for better visibility
+    stroke: color || 'currentColor',
     fill: 'none'
   })
   return svgElement.outerHTML
@@ -95,109 +99,13 @@ const createLucideSvg = (IconComponent: any, size: number = 16): string => {
  * Used for displaying contextual icons in the sidebar file explorer
  */
 
-// Special marker for icons that should render as SVG
-const SVG_ICON_MARKER = '__SVG__'
+// Process icon result - convert Lucide components to SVG strings
+const processIconResult = (icon: any, title: string = '', extension: string = ''): string => {
+  if (typeof icon === 'string') return icon
 
-// Map Lucide icons to emojis or SVG for HTML display
-const getIconEmoji = (icon: any): string => {
-  // Git-related icons - return actual SVG icons
-  if (icon === Github) return SVG_ICON_MARKER + 'github'
-  if (icon === FolderGit || icon === FolderGit2) return SVG_ICON_MARKER + 'folderGit'
-  if (icon === GitBranch) return SVG_ICON_MARKER + 'gitBranch'
-  if (icon === FileDigit) return SVG_ICON_MARKER + 'fileDigit'
-  if (icon === FileX) return SVG_ICON_MARKER + 'fileX'
-
-  // Map icon references to their emoji equivalents
-  if (icon === Settings || icon === Cog) return '⚙️'
-  if (icon === FileJson || icon === FileCode || icon === File || icon === FileText) return '📄'
-  if (icon === Hash) return '📝'
-  if (icon === Image) return '🖼️'
-  if (icon === Folder || icon === FolderCode) return '📁'
-  if (icon === FolderOpen) return '📂'
-  if (icon === Database) return '🗄️'
-  if (icon === Key) return '🔑'
-  if (icon === Lock) return '🔒'
-  if (icon === Package || icon === Box || icon === Archive) return '📦'
-  if (icon === Terminal || icon === Code) return '💻'
-  if (icon === Book || icon === Layers || icon === Library) return '📚'
-  if (icon === FileCheck || icon === ListTodo) return '✅'
-  if (icon === FileX) return '❌'
-  if (icon === Globe || icon === Network) return '🌐'
-  if (icon === Server || icon === Cpu || icon === Monitor) return '🖥️'
-  if (icon === Shield) return '🛡️'
-  if (icon === Wrench) return '🔧'
-  if (icon === Zap) return '⚡'
-  if (icon === Heart) return '❤️'
-  if (icon === Users) return '👥'
-  if (icon === ShoppingBag) return '🛍️'
-  if (icon === Brain) return '🧠'
-  if (icon === BarChart3 || icon === LayoutDashboard) return '📊'
-  if (icon === Twitter) return '🐦'
-  if (icon === Facebook) return '📘'
-  if (icon === Instagram) return '📷'
-  if (icon === Linkedin) return '💼'
-  if (icon === Youtube) return '📺'
-  if (icon === MessageCircle) return '💬'
-  if (icon === Send) return '📤'
-  if (icon === Share2) return '🔗'
-  if (icon === Sparkles) return '✨'
-  if (icon === LayoutTemplate) return '📐'
-  if (icon === ClipboardList) return '📋'
-  if (icon === Target) return '🎯'
-  if (icon === FileSearch) return '🔍'
-  if (icon === Notebook) return '📓'
-  if (icon === User) return '👤'
-  if (icon === GraduationCap) return '🎓'
-  if (icon === Flag) return '🚩'
-  if (icon === School) return '🏫'
-  if (icon === Globe2) return '🌍'
-  if (icon === Clock) return '🕐'
-  if (icon === Calendar) return '📅'
-  if (icon === FileSignature) return '✍️'
-  if (icon === Milestone) return '🏁'
-  if (icon === Car) return '🚗'
-  if (icon === Plane) return '✈️'
-  if (icon === Waves) return '🌊'
-  if (icon === Phone) return '📱'
-  if (icon === Bell) return '🔔'
-  if (icon === CloudRain) return '🌧️'
-  if (icon === CloudSnow) return '❄️'
-  if (icon === CloudLightning) return '⚡'
-  if (icon === Sun) return '☀️'
-  if (icon === Wind) return '💨'
-  if (icon === Thermometer) return '🌡️'
-  if (icon === Cloud) return '☁️'
-  if (icon === Activity) return '📈'
-
-  // Default fallback for markdown files
-  return '📝'
-}
-
-// Get actual SVG for special icons
-const getSvgIcon = (iconName: string): string => {
-  switch (iconName) {
-    case 'github':
-      return createLucideSvg(Github, 14)
-    case 'folderGit':
-      return createLucideSvg(FolderGit2, 14)
-    case 'gitBranch':
-      return createLucideSvg(GitBranch, 14)
-    case 'fileDigit':
-      return createLucideSvg(FileDigit, 14)
-    case 'fileX':
-      return createLucideSvg(FileX, 14)
-    default:
-      return '📝'
-  }
-}
-
-// Process icon result - convert SVG markers to actual SVG
-const processIconResult = (result: string): string => {
-  if (result.startsWith(SVG_ICON_MARKER)) {
-    const iconName = result.substring(SVG_ICON_MARKER.length)
-    return getSvgIcon(iconName)
-  }
-  return result
+  // Get color based on logic
+  const color = getIconColor(icon, title, extension)
+  return createLucideSvg(icon, 14, color)
 }
 
 // --- Country Flag Emoji Support (High Performance) ---
@@ -295,11 +203,11 @@ const EXTRA_EMOJIS = {
 }
 
 const EmojiIcon = (emoji, size = 16, className = 'item-icon') =>
-  `<span class="${className}" style="font-size: ${size}px;">${emoji}</span>`
+  `<span class="${className}" style="font-size: ${size}px; line-height: 1;">${emoji}</span>`
 
 const getFileIcon = (title, language) => {
   const titleLower = (title || '').toLowerCase().trim()
-  const lang = (language || 'markdown').toLowerCase()
+  const lang = (language || '').toLowerCase()
 
   // Strip .md extension for base name matching (since most snippets are .md)
   const baseName = titleLower.endsWith('.md') ? titleLower.slice(0, -3).trim() : titleLower
@@ -324,14 +232,14 @@ const getFileIcon = (title, language) => {
     'package-lock.json': Package,
     'yarn.lock': Package,
     'pnpm-lock.yaml': Package,
-
-    // Common config files
     'tsconfig.json': FileJson,
     'jsconfig.json': FileJson,
     'webpack.config.js': Cog,
-    'vite.config.js': Cog,
+    'vite.config.js': Zap,
+    'vite.config.ts': Zap,
     'rollup.config.js': Cog,
-    'tailwind.config.js': Cog,
+    'tailwind.config.js': Zap,
+    'tailwind.config.ts': Zap,
     'postcss.config.js': Cog,
     'eslint.config.js': Cog,
     'prettier.config.js': Cog,
@@ -345,9 +253,27 @@ const getFileIcon = (title, language) => {
     '.gitlab': FolderGit,
     gitlab: FolderGit,
     dockerfile: Terminal,
-    '.dockerignore': File,
+    '.dockerignore': FileX,
     'docker-compose.yml': Terminal,
     'docker-compose.yaml': Terminal,
+    'manifest.json': FileJson,
+    'theme.json': Zap,
+    'next.config.js': Layers,
+    'next.config.mjs': Layers,
+
+    // Commands, Graphs, Charts
+    command: Command,
+    commands: Command,
+    graph: GitGraph,
+    graphs: GitGraph,
+    comment: MessageSquare,
+    comments: MessageSquare,
+    chat: MessageCircle,
+    message: MessageCircle,
+    chart: BarChart3,
+    stats: BarChart3,
+    data: Database,
+    db: Database,
 
     // Documentation
     'readme.md': Book,
@@ -358,7 +284,8 @@ const getFileIcon = (title, language) => {
     'changelog.md': FileText,
     'contributing.md': Book,
     contributing: Book,
-    // Common entry points and important files
+
+    // Common entry points
     'index.js': FileCode,
     'index.jsx': FileCode,
     'app.js': FileCode,
@@ -367,45 +294,31 @@ const getFileIcon = (title, language) => {
     'main.py': FileCode,
     'requirements.txt': FileText,
 
-    // Security
-    '.htaccess': Shield,
-    'robots.txt': File,
-    '.security': Shield,
-
-    // Build & Deploy
-    build: FolderCode,
-    dist: FolderCode,
-    out: FolderCode,
-    '.next': FolderCode,
-    '.nuxt': FolderCode,
-    '.cache': Folder,
-
-    // Source directories
-    dashboard: LayoutDashboard,
-    dashboards: LayoutDashboard,
-    src: FolderCode,
-    source: FolderCode,
-    'src.md': FolderCode,
+    // Project Structure
+    src: FolderOpen,
+    source: FolderOpen,
+    'src.md': FolderOpen,
     lib: FolderCode,
     libs: FolderCode,
     'lib.md': FolderCode,
-    components: FolderCode,
-    'components.md': FolderCode,
-    utils: FolderCode,
-    'utils.md': FolderCode,
+    components: Package,
+    'components.md': Package,
+    utils: Wrench,
+    'utils.md': Wrench,
     helpers: FolderCode,
-    hooks: FolderCode,
+    hooks: Wrench,
     stores: Database,
     store: Database,
     state: Database,
     api: Server,
-    routes: Globe,
-    pages: File,
-    views: File,
+    server: Server,
+    client: Monitor,
+    ui: LayoutTemplate,
+    routes: Network,
+    pages: LayoutDashboard,
+    views: LayoutDashboard,
     templates: LayoutTemplate,
     template: LayoutTemplate,
-    'templates.md': LayoutTemplate,
-    'template.md': LayoutTemplate,
     assets: Image,
     public: Globe,
     static: Globe,
@@ -414,117 +327,45 @@ const getFileIcon = (title, language) => {
     themes: Zap,
     theme: Zap,
 
-    // Test directories
+    // Test
     test: FileCheck,
     tests: FileCheck,
     spec: FileCheck,
     __tests__: FileCheck,
     __mocks__: File,
 
-    // Documentation directories
+    // Academic & Personal
     docs: Book,
     documentation: Book,
     wiki: Book,
     notes: Notebook,
     'notes.md': Notebook,
-
-    // Literature & Academic
-    'literature review': Book,
-    'literature-review': Book,
-    literature: Book,
-    'literature.md': Book,
-    review: Book,
-    'review.md': Book,
     thesis: Book,
     'thesis.md': Book,
-    journals: Book,
     journal: Book,
-    'journals.md': Book,
     'journal.md': Book,
     daily: FileText,
     'daily.md': FileText,
-
-    // Personal & Love
     saboor: Heart,
     'saboor.md': Heart,
     note: Heart,
     'note.md': Heart,
-    node: Heart,
-    'node.md': Heart,
-    tab: Code,
-    'tab.md': Code,
     shopping: ShoppingBag,
-    'shopping.md': ShoppingBag,
-
-    // Family & Friends
-    family: Users,
-    'family.md': Users,
-    friends: Users,
-    'friends.md': Users,
-
-    // Data & Database
-    data: Database,
-    db: Database,
-    database: Database,
-    models: Database,
-    schema: Database,
-    migrations: Database,
-
-    // Scripts
-    scripts: Terminal,
-    bin: Terminal,
-    tools: Wrench,
-    cli: Terminal,
-
-    // Other common folders
-    node_modules: Package,
-    vendor: Package,
-    dependencies: Package,
-    modules: Box,
-    plugins: Zap,
-    extensions: Zap,
-
-    // Summaries & Outcomes
-    summary: ClipboardList,
-    summaries: ClipboardList,
-    abstract: ClipboardList,
-    goals: Target,
-    goal: Target,
-    objectives: Target,
-    tasks: ListTodo,
-    todo: ListTodo,
-    blueprint: Notebook,
-    plan: Notebook,
-    research: FileSearch,
-    study: FileSearch,
-    personal: User,
-    'personal.md': User,
     university: GraduationCap,
-    'university.md': GraduationCap,
-    college: GraduationCap,
     school: School,
     library: Library,
     flag: Flag,
     country: Globe2,
     when: Clock,
-    'when.md': Clock,
-
-    // Proposal & Purpose
-    proposal: FileSignature,
-    proposals: FileSignature,
-    purpose: Milestone,
-    purposes: Milestone,
+    plan: Notebook,
+    research: FileSearch,
+    study: FileSearch,
 
     // Transport & Weather
     car: Car,
-    cars: Car,
     plane: Plane,
-    airplane: Plane,
-    aeroplane: Plane,
     ocean: Waves,
     phone: Phone,
-    call: Phone,
-    ring: Bell,
     rain: CloudRain,
     snow: CloudSnow,
     storm: CloudLightning,
@@ -539,29 +380,25 @@ const getFileIcon = (title, language) => {
 
   // Check exact matches first (full filename)
   if (exactMatches[titleLower]) {
-    const Icon = exactMatches[titleLower]
-    return processIconResult(getIconEmoji(Icon))
+    const icon = exactMatches[titleLower]
+    return processIconResult(icon, titleLower, titleLower.split('.').pop())
   }
 
   // Check base name (without .md extension) for exact matches
   if (baseName !== titleLower) {
-    if (COUNTRY_FLAGS[baseName]) return COUNTRY_FLAGS[baseName]
-    if (ANIMAL_EMOJIS[baseName]) return ANIMAL_EMOJIS[baseName]
-    if (EXTRA_EMOJIS[baseName]) return EXTRA_EMOJIS[baseName]
+    if (COUNTRY_FLAGS[baseName]) return EmojiIcon(COUNTRY_FLAGS[baseName])
+    if (ANIMAL_EMOJIS[baseName]) return EmojiIcon(ANIMAL_EMOJIS[baseName])
+    if (EXTRA_EMOJIS[baseName]) return EmojiIcon(EXTRA_EMOJIS[baseName])
     if (exactMatches[baseName]) {
-      const Icon = exactMatches[baseName]
-      return processIconResult(getIconEmoji(Icon))
+      const icon = exactMatches[baseName]
+      return processIconResult(icon, baseName, baseName.split('.').pop())
     }
   }
 
   // Pattern matches (contains)
   const patternMatches = [
     { pattern: /^\.env/, icon: Key },
-    { pattern: /config/, icon: Cog },
-    { pattern: /setting/, icon: Settings },
-    { pattern: /^src/, icon: FolderCode },
-    { pattern: /^lib/, icon: FolderCode },
-    { pattern: /component/, icon: FolderCode },
+    { pattern: /component/, icon: Package },
     { pattern: /^test/, icon: FileCheck },
     { pattern: /^spec/, icon: FileCheck },
     { pattern: /^doc/, icon: Book },
@@ -593,10 +430,8 @@ const getFileIcon = (title, language) => {
     { pattern: /cloud|aws|azure|gcp|s3|lambda/, icon: Cloud },
     { pattern: /ci|workflow|action|pipeline/, icon: Activity },
     { pattern: /perf|benchmark|cpu|profil/, icon: Cpu },
-    { pattern: /^xia$/, icon: Heart },
     { pattern: /^github$|^gh$/, icon: Github },
     { pattern: /^twitter$|^x$/, icon: Twitter },
-    { pattern: /^facebook$|^fb$/, icon: Facebook },
     { pattern: /^instagram$|^ig$/, icon: Instagram },
     { pattern: /^linkedin$|linked.?in/, icon: Linkedin },
     { pattern: /^youtube$|^yt$/, icon: Youtube },
@@ -616,10 +451,7 @@ const getFileIcon = (title, language) => {
     { pattern: /gitlab/, icon: FolderGit },
     { pattern: /^\.docker/, icon: Terminal },
     { pattern: /security/, icon: Shield },
-    { pattern: /secret/, icon: Lock },
-    { pattern: /key/, icon: Key },
-    { pattern: /credential/, icon: Lock },
-    { pattern: /password/, icon: Lock },
+    { pattern: /secret|key|password|credential/, icon: Lock },
     { pattern: /api/, icon: Server },
     { pattern: /route/, icon: Globe },
     { pattern: /page/, icon: File },
@@ -628,24 +460,17 @@ const getFileIcon = (title, language) => {
     { pattern: /asset/, icon: Image },
     { pattern: /style/, icon: FileCode },
     { pattern: /theme/, icon: Zap },
-    { pattern: /model/, icon: Database },
-    { pattern: /schema/, icon: Database },
-    { pattern: /migration/, icon: Database },
-    { pattern: /script/, icon: Terminal },
-    { pattern: /tool/, icon: Wrench },
-    { pattern: /plugin/, icon: Zap },
-    { pattern: /extension/, icon: Zap },
+    { pattern: /model|schema|migration/, icon: Database },
+    { pattern: /script|tool|plugin|extension/, icon: Terminal },
     { pattern: /summary|summarize|abstract/, icon: ClipboardList },
-    { pattern: /goal|objective|aim/, icon: Target },
-    { pattern: /task|todo|to-do|action-item/, icon: ListTodo },
+    { pattern: /goal|objective|aim|target/, icon: Target },
+    { pattern: /task|todo|to-do/, icon: ListTodo },
     { pattern: /blueprint|plan|strategy/, icon: Notebook },
     { pattern: /research|study|exploration/, icon: FileSearch },
     { pattern: /personal/, icon: User },
-    { pattern: /university|college|academic/, icon: GraduationCap },
-    { pattern: /school|education/, icon: School },
+    { pattern: /university|college|academic|school/, icon: GraduationCap },
     { pattern: /library|archive/, icon: Library },
-    { pattern: /flag/, icon: Flag },
-    { pattern: /country|nation|continent|world|global/, icon: Globe2 },
+    { pattern: /flag|country|nation|continent|world|global/, icon: Globe2 },
     { pattern: /quick/, icon: Zap },
     { pattern: /when|time|schedule|clock/, icon: Clock },
     { pattern: /^\d{4}-\d{2}-\d{2}$/, icon: Calendar },
@@ -662,13 +487,19 @@ const getFileIcon = (title, language) => {
     { pattern: /rain|drizzle|shower/, icon: CloudRain },
     { pattern: /snow|ice|cold|frost/, icon: CloudSnow },
     { pattern: /storm|thunder|lightning/, icon: CloudLightning },
-    { pattern: /weather|forecast|climate|temperature|sun/, icon: Sun }
+    { pattern: /weather|forecast|climate|temperature|sun/, icon: Sun },
+
+    // Added Patterns
+    { pattern: /graph|network|diagram/, icon: GitGraph },
+    { pattern: /comment|message|chat|conversation/, icon: MessageSquare },
+    { pattern: /command|cmd|cli/, icon: Command },
+    { pattern: /chart|stat|analytics|metric/, icon: BarChart3 }
   ]
 
   // Check patterns on full filename first
   for (const { pattern, icon } of patternMatches) {
     if (pattern.test(titleLower)) {
-      return processIconResult(getIconEmoji(icon))
+      return processIconResult(icon, titleLower, titleLower.split('.').pop())
     }
   }
 
@@ -676,7 +507,7 @@ const getFileIcon = (title, language) => {
   if (baseName !== titleLower) {
     for (const { pattern, icon } of patternMatches) {
       if (pattern.test(baseName)) {
-        return processIconResult(getIconEmoji(icon))
+        return processIconResult(icon, baseName, baseName.split('.').pop())
       }
     }
   }
@@ -685,16 +516,12 @@ const getFileIcon = (title, language) => {
   let extension = titleLower.split('.').pop()
 
   // For markdown files with embedded code extensions, check for the code extension first
-  if (extension === 'md' || extension === 'markdown') {
-    const parts = titleLower.split('.')
-    if (parts.length >= 3) {
-      // Check if there's a code extension before .md (e.g., .jsx.md, .ts.md)
-      const codeExtension = parts[parts.length - 2]
-      if (
-        ['js', 'jsx', 'ts', 'tsx', 'html', 'css', 'scss', 'vue', 'svelte'].includes(codeExtension)
-      ) {
-        extension = codeExtension
-      }
+  if ((extension === 'md' || extension === 'markdown') && titleLower.split('.').length >= 3) {
+    const codeExtension = titleLower.split('.')[titleLower.split('.').length - 2]
+    if (
+      ['js', 'jsx', 'ts', 'tsx', 'html', 'css', 'scss', 'vue', 'svelte'].includes(codeExtension)
+    ) {
+      extension = codeExtension
     }
   }
 
@@ -753,7 +580,6 @@ const getFileIcon = (title, language) => {
     // build tool / script files
     gradle: FileCode,
     makefile: Terminal,
-    Dockerfile: Terminal,
 
     // Images
     png: Image,
@@ -793,16 +619,11 @@ const getFileIcon = (title, language) => {
     properties: Cog,
 
     // Other
-    log: FileText,
-    lock: Lock,
-    key: Key,
-    pem: Key,
-    cert: Shield,
-    crt: Shield
+    log: FileText
   }
 
   if (extension && extensionMap[extension]) {
-    return processIconResult(getIconEmoji(extensionMap[extension]))
+    return processIconResult(extensionMap[extension], titleLower, extension)
   }
 
   // Language-based fallback
@@ -820,7 +641,6 @@ const getFileIcon = (title, language) => {
     json: FileJson,
     markdown: Hash,
     md: Hash,
-    // Additional language identifiers
     react: FileCode,
     vue: FileCode,
     svelte: FileCode,
@@ -828,13 +648,9 @@ const getFileIcon = (title, language) => {
     java: FileCode,
     c: FileCode,
     cpp: FileCode,
-    'c++': FileCode,
     csharp: FileCode,
-    'c#': FileCode,
     go: FileCode,
-    golang: FileCode,
     rust: FileCode,
-    rs: FileCode,
     ruby: FileCode,
     php: FileCode,
     swift: FileCode,
@@ -842,135 +658,69 @@ const getFileIcon = (title, language) => {
   }
 
   if (languageMap[lang]) {
-    return processIconResult(getIconEmoji(languageMap[lang]))
+    return processIconResult(languageMap[lang], titleLower, lang)
   }
 
-  // Default fallback: ensure anything the user types has a relevant code/file icon
-  return processIconResult(getIconEmoji(Hash))
+  // Final fallback (Professional Hash/Document icon)
+  return processIconResult(Hash, titleLower, extension)
 }
 
 /**
- * Get icon color based on icon type
+ * Get icon color based on icon type and contextual logic
  */
-const getIconColor = (_iconType, title) => {
-  const titleLower = (title || '').toLowerCase()
+const getIconColor = (icon: any, title: string = '', extension: string = ''): string => {
+  const titleLower = title.toLowerCase()
 
-  // Love/Personal icons
-  if (['saboor', 'note', 'node', 'xia', 'personal'].some((name) => titleLower.includes(name))) {
-    return 'var(--icon-love, var(--text-accent))'
-  }
+  // 1. Language-specific Brand Colors (High Precision)
+  if (extension === 'ts' || extension === 'tsx') return '#3178c6' // TypeScript Blue
+  if (extension === 'js' || extension === 'jsx' || extension === 'mjs') return '#f7df1e' // JS Yellow
+  if (extension === 'html') return '#e34f26' // HTML Orange
+  if (extension === 'css') return '#1572b6' // CSS Blue
+  if (extension === 'scss' || extension === 'sass') return '#cc6699' // Sass Pink
+  if (extension === 'json') return '#cbcb41' // JSON Gold
+  if (extension === 'py') return '#3776ab' // Python Blue
+  if (extension === 'java') return '#b07219' // Java Brown
+  if (extension === 'rb') return '#701516' // Ruby Red
+  if (extension === 'go') return '#00add8' // Go Cyan
+  if (extension === 'rs') return '#dea584' // Rust Orange
+  if (extension === 'php') return '#777bb4' // PHP Purple
+  if (extension === 'sql') return '#336791' // SQL Blue
+  if (extension === 'yaml' || extension === 'yml') return '#cb171e' // YAML Red
 
-  // AI & ML icons
-  if (
-    [
-      'ai',
-      'artificial intelligence',
-      'machine learning',
-      'ml',
-      'deep learning',
-      'neural',
-      'xai'
-    ].some((name) => titleLower.includes(name))
-  ) {
-    return 'var(--icon-primary, var(--text-accent))'
-  }
+  // 2. Specialized Folder Icons
+  if (icon === FolderOpen || titleLower === 'src') return '#4d90fe' // Source Blue
+  if (icon === Package || icon === Layers) return '#ffa500' // Component/Module Orange
+  if (icon === Database) return '#4db33d' // DB Green
+  if (icon === GitBranch || icon === Github) return '#f1502f' // Git/PR Orange
 
-  // Learning & Education icons
-  if (['learning', 'study', 'education', 'course'].some((name) => titleLower.includes(name))) {
-    return 'var(--icon-tertiary, #8b5cf6)' // Violet
-  }
+  // 3. Status Icons
+  if (icon === FileCheck || icon === ListTodo) return '#22c55e' // Success Green
+  if (icon === FileX) return '#ef4444' // Error Red
+  if (icon === Lock || icon === Shield) return '#f59e0b' // Security Amber
 
-  // Dashboard icons
-  if (['dashboard', 'overview', 'console'].some((name) => titleLower.includes(name))) {
-    return 'var(--icon-primary, #06b6d4)' // Cyan
-  }
-
-  // GNN & Graph Neural Networks
-  if (['gnn', 'graph neural', 'neural network'].some((name) => titleLower.includes(name))) {
-    return 'var(--icon-secondary, #10b981)'
-  }
-
-  // Data Science & Pandas
-  if (['pandas', 'data science', 'datascience'].some((name) => titleLower.includes(name))) {
-    return 'var(--icon-tertiary, #f59e0b)'
-  }
-
-  // Social Media icons
-  if (['github', 'gh'].some((name) => titleLower.includes(name))) {
-    return 'var(--icon-primary, var(--text-accent))'
-  }
-  if (['twitter', 'x'].some((name) => titleLower.includes(name))) {
-    return 'var(--icon-primary, #1da1f2)'
-  }
-  if (['facebook', 'fb'].some((name) => titleLower.includes(name))) {
-    return 'var(--icon-primary, #1877f2)'
-  }
-  if (['instagram', 'ig'].some((name) => titleLower.includes(name))) {
-    return 'var(--icon-love, #e4405f)'
-  }
-  if (['linkedin', 'linked-in'].some((name) => titleLower.includes(name))) {
-    return 'var(--icon-primary, #0077b5)'
-  }
-  if (['youtube', 'yt'].some((name) => titleLower.includes(name))) {
-    return 'var(--icon-danger, #ff0000)'
-  }
-  if (['social', 'social media'].some((name) => titleLower.includes(name))) {
-    return 'var(--icon-primary, var(--text-accent))'
-  }
-
-  // Settings/Config icons
-  if (['settings', 'config', 'setting'].some((name) => titleLower.includes(name))) {
-    return 'var(--icon-primary, var(--text-accent))'
-  }
-
-  // Code/Development icons
-  if (['src', 'lib', 'components', 'utils', 'code'].some((name) => titleLower.includes(name))) {
-    return 'var(--icon-secondary, #10b981)'
-  }
-
-  // Documentation icons
-  if (
-    ['readme', 'docs', 'literature', 'thesis', 'journal'].some((name) => titleLower.includes(name))
-  ) {
-    return 'var(--icon-tertiary, #f59e0b)'
-  }
-
-  // Quick & When icons
-  if (titleLower.includes('quick')) {
-    return 'var(--text-accent)' // Gold/Yellow
+  // 4. Content Categories (Contextual)
+  if (['saboor', 'note', 'node', 'heart'].some((name) => titleLower.includes(name))) {
+    return '#ec4899' // Rosy Pink
   }
   if (
-    ['when', 'time', 'schedule', 'clock'].some((name) => titleLower.includes(name)) ||
-    /^\d{4}-\d{2}-\d{2}$/.test(titleLower)
-  ) {
-    return 'var(--icon-primary, #60a5fa)' // Blue
-  }
-
-  // Weather & Nature Colors
-  if (['sun', 'weather', 'forecast'].some((name) => titleLower.includes(name))) {
-    return '#f59e0b' // Amber
-  }
-  if (['rain', 'ocean', 'sea', 'waves', 'water'].some((name) => titleLower.includes(name))) {
-    return '#3b82f6' // Blue
-  }
-  if (['snow', 'ice', 'frost'].some((name) => titleLower.includes(name))) {
-    return '#93c5fd' // Light Blue
-  }
-  if (['storm', 'thunder', 'lightning'].some((name) => titleLower.includes(name))) {
-    return '#eab308' // Yellow
-  }
-
-  // Animal Colors (Earthy/Natural)
-  if (
-    ['animal', 'cat', 'dog', 'horse', 'bear', 'lion', 'tiger'].some((name) =>
+    ['ai', 'brain', 'neural', 'machine learning', 'graph', 'network'].some((name) =>
       titleLower.includes(name)
     )
   ) {
-    return '#b45309' // Brownish
+    return '#8b5cf6' // AI/Graph Purple
+  }
+  if (['comment', 'chat', 'message'].some((name) => titleLower.includes(name))) {
+    return '#60a5fa' // Message Blue
+  }
+  if (['command', 'cmd'].some((name) => titleLower.includes(name))) {
+    return '#22c55e' // Command Green
+  }
+  if (['research', 'study', 'docs', 'readme'].some((name) => titleLower.includes(name))) {
+    return '#10b981' // Documentation Teal
   }
 
-  // Default accent color
-  return 'var(--icon-primary, var(--text-accent))'
+  // Default color (Inherit text color or neutral gray)
+  return 'currentColor'
 }
 
 /**
@@ -980,11 +730,15 @@ const getIconColor = (_iconType, title) => {
  * @param {string} className - CSS class name (default: 'item-icon')
  * @returns {string} HTML string for the icon
  */
-export const getSnippetIconHtml = (snippet, size = 14, className = 'item-icon') => {
-  const Icon = getFileIcon(snippet.title, snippet.language)
-  const iconColor = getIconColor(Icon, snippet.title)
+export const getSnippetIconHtml = (
+  snippet: { title: string; language: string },
+  size: number = 14,
+  className: string = 'item-icon'
+): string => {
+  const iconHtml = getFileIcon(snippet.title, snippet.language)
+  const iconColor = getIconColor(null, snippet.title, snippet.language)
 
-  return `<span class="${className}" style="color: ${iconColor}; font-size: ${size}px; display: inline-flex; align-items: center; justify-content: center;">${Icon}</span>`
+  return `<span class="${className}" style="color: ${iconColor}; font-size: ${size}px; display: inline-flex; align-items: center; justify-content: center;">${iconHtml}</span>`
 }
 
 export default getFileIcon

@@ -7,7 +7,18 @@ export function setupUpdateApp(mainWindow: BrowserWindow) {
     autoUpdater.checkForUpdates()
   })
 
-  autoUpdater.on('update-available', () => {
+  autoUpdater.on('update-available', async () => {
+    // Backup sessions before update
+    try {
+      await mainWindow.webContents.executeJavaScript(`
+        if (window.sessionBackupService) {
+          window.sessionBackupService.backupBeforeUpdate()
+        }
+      `)
+    } catch (error) {
+      console.error('Failed to backup sessions before update:', error)
+    }
+
     mainWindow.webContents.send('update:available')
   })
 
@@ -25,6 +36,9 @@ export function setupUpdateApp(mainWindow: BrowserWindow) {
   })
 
   autoUpdater.on('error', (err) => {
-    mainWindow.webContents.send('update:error', err == null ? 'unknown' : err.message || err.toString())
+    mainWindow.webContents.send(
+      'update:error',
+      err == null ? 'unknown' : err.message || err.toString()
+    )
   })
 }

@@ -90,6 +90,8 @@ export class FuzzyFinder {
       this.input.placeholder =
         this.mode === 'commands' ? 'Type a command name...' : 'Type filename to search...'
       this.input.focus()
+      // Use micro-delay to ensure focus is solid after shortcut chord processing
+      setTimeout(() => this.input?.focus(), 10)
     }
     const iconEl = this.modal?.querySelector('.fuzzy-icon')
     if (iconEl) {
@@ -155,9 +157,9 @@ export class FuzzyFinder {
       }
     })
 
-    // Global key listener handles navigation regardless of focus
+    // Global key listener handles navigation with priority (capture phase)
     if (!this.globalKeyListenerAttached) {
-      window.addEventListener('keydown', (e) => void this.handleGlobalKey(e))
+      window.addEventListener('keydown', (e) => void this.handleGlobalKey(e), true)
       this.globalKeyListenerAttached = true
     }
   }
@@ -360,7 +362,9 @@ export class FuzzyFinder {
     // Click and hover selection
     const items = this.list.querySelectorAll('.fuzzy-item')
     items.forEach((el, index) => {
-      el.addEventListener('click', () => {
+      el.addEventListener('mousedown', (e) => {
+        e.preventDefault() // Prevent input blur before selection
+        e.stopPropagation()
         const idx = parseInt((el as HTMLElement).dataset.index || String(index))
         this.selectedIndex = idx
         const item = this.visibleItems[idx]

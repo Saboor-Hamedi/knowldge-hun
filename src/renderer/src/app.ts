@@ -1282,7 +1282,10 @@ class App {
     this.statusBar.setStatus('Ready')
     this.statusBar.setMeta(`📁 ${state.vaultPath || ''}`)
 
-    // Details modal can be opened via keyboard shortcut
+    // Reveal in sidebar (expand folders)
+    if (note.path) {
+      this.revealPathInSidebar(note.path)
+    }
 
     // Always update sidebar selection to match active note
     this.sidebar.updateSelection(id)

@@ -19,7 +19,7 @@ win:
   icon: build/icon.ico
   executableName: knowledgehub
 nsis:
-  artifactName: ${name}-${version}-setup.${ext}
+  artifactName: ${productName} Setup ${version}.${ext}
   shortcutName: ${productName}
   uninstallDisplayName: ${productName}
   createDesktopShortcut: always

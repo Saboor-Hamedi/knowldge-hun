@@ -33,7 +33,7 @@ export class SessionStorageService {
   /**
    * Initialize IndexedDB connection with retry logic
    */
-  private async init(): Promise<void> {
+  public async init(): Promise<void> {
     if (this.db && this.isInitialized) return
     if (this.initPromise) return this.initPromise
 
@@ -63,20 +63,20 @@ export class SessionStorageService {
         request.onsuccess = () => {
           this.db = request.result
           this.isInitialized = true
-          
+
           // Handle database close/error events
           this.db.onerror = (event) => {
             console.error('[SessionStorage] Database error:', event)
             this.isInitialized = false
             this.db = null
           }
-          
+
           this.db.onclose = () => {
             console.warn('[SessionStorage] Database closed')
             this.isInitialized = false
             this.db = null
           }
-          
+
           resolve()
         }
 
@@ -101,7 +101,7 @@ export class SessionStorageService {
     } catch (error) {
       if (attempt < this.maxRetries) {
         console.warn(`[SessionStorage] Init attempt ${attempt + 1} failed, retrying...`, error)
-        await new Promise(resolve => setTimeout(resolve, this.retryDelay * (attempt + 1)))
+        await new Promise((resolve) => setTimeout(resolve, this.retryDelay * (attempt + 1)))
         return this.initWithRetry(attempt + 1)
       }
       throw error
@@ -121,11 +121,11 @@ export class SessionStorageService {
         this.initPromise = null
         await this.init()
       }
-      
+
       if (!this.db) {
         throw new Error('[SessionStorage] Database not initialized after retry')
       }
-      
+
       return this.db
     } catch (error) {
       console.error('[SessionStorage] Failed to ensure initialization:', error)
@@ -149,15 +149,15 @@ export class SessionStorageService {
           console.error('[SessionStorage] Operation failed after retries:', error)
           throw error
         }
-        
+
         // Reset connection on error
         if (error instanceof Error && error.message.includes('not initialized')) {
           this.db = null
           this.isInitialized = false
           this.initPromise = null
         }
-        
-        await new Promise(resolve => setTimeout(resolve, this.retryDelay * (attempt + 1)))
+
+        await new Promise((resolve) => setTimeout(resolve, this.retryDelay * (attempt + 1)))
       }
     }
     throw new Error('[SessionStorage] Operation failed')
@@ -174,13 +174,13 @@ export class SessionStorageService {
    * Generate a smart title from messages
    */
   private generateTitle(messages: ChatMessage[]): string {
-    const firstUserMessage = messages.find(msg => msg.role === 'user')
+    const firstUserMessage = messages.find((msg) => msg.role === 'user')
     if (!firstUserMessage) {
       return 'New Session'
     }
 
     let text = firstUserMessage.content.trim()
-    
+
     // Remove markdown formatting
     text = text
       .replace(/^#+\s+/, '') // Remove heading markers
@@ -196,7 +196,7 @@ export class SessionStorageService {
       /^(explain|describe|tell|show|help|please)\s+/i,
       /^(i want|i need|i would like|i\'m looking for)\s+/i
     ]
-    
+
     for (const prefix of prefixes) {
       text = text.replace(prefix, '')
     }
@@ -205,17 +205,17 @@ export class SessionStorageService {
     // Take first line or first 40 characters
     const firstLine = text.split('\n')[0]
     let title = firstLine.substring(0, 40).trim()
-    
+
     // Capitalize first letter
     if (title.length > 0) {
       title = title.charAt(0).toUpperCase() + title.slice(1)
     }
-    
+
     // Remove trailing punctuation if it's just one character
     if (title.length > 1 && /[.,!?;:]$/.test(title)) {
       title = title.slice(0, -1)
     }
-    
+
     // Add ellipsis if truncated
     if (firstLine.length > 40) {
       title += '...'
@@ -389,18 +389,18 @@ export class SessionStorageService {
       return new Promise<ChatSession[]>((resolve, reject) => {
         const transaction = db.transaction([this.storeName], 'readonly')
         const store = transaction.objectStore(this.storeName)
-        
+
         // Use getAll and filter manually to avoid index issues
         const request = store.getAll()
 
         request.onsuccess = () => {
           let sessions = request.result as ChatSession[]
-          
+
           // Filter archived if needed
           if (!includeArchived) {
-            sessions = sessions.filter(session => !session.is_archived)
+            sessions = sessions.filter((session) => !session.is_archived)
           }
-          
+
           // Sort by updated_at descending
           sessions.sort((a, b) => b.metadata.updated_at - a.metadata.updated_at)
           resolve(sessions)
@@ -504,16 +504,14 @@ export class SessionStorageService {
     const allSessions = await this.getAllSessions(true)
     const lowerQuery = query.toLowerCase()
 
-    return allSessions.filter(session => {
+    return allSessions.filter((session) => {
       // Search in title
       if (session.title.toLowerCase().includes(lowerQuery)) {
         return true
       }
 
       // Search in message content
-      return session.messages.some(msg =>
-        msg.content.toLowerCase().includes(lowerQuery)
-      )
+      return session.messages.some((msg) => msg.content.toLowerCase().includes(lowerQuery))
     })
   }
 
@@ -552,3 +550,66 @@ export class SessionStorageService {
 
 // Export singleton instance
 export const sessionStorageService = new SessionStorageService()
+
+// Backup and restore functionality for updates
+export const sessionBackupService = {
+  async backupBeforeUpdate(): Promise<void> {
+    try {
+      const sessions = await sessionStorageService.getAllSessions(true)
+      const backupData = {
+        version: Date.now(),
+        sessions: sessions,
+        timestamp: new Date().toISOString()
+      }
+
+      // Save to localStorage as fallback
+      localStorage.setItem('knowledgehub_sessions_backup', JSON.stringify(backupData))
+    } catch (error) {
+      console.error('[SessionBackup] Backup failed:', error)
+    }
+  },
+
+  async restoreFromBackup(): Promise<boolean> {
+    try {
+      const backupStr = localStorage.getItem('knowledgehub_sessions_backup')
+      if (!backupStr) {
+        return false
+      }
+
+      const backupData = JSON.parse(backupStr)
+      if (!backupData.sessions || !Array.isArray(backupData.sessions)) {
+        console.warn('[SessionBackup] Invalid backup format')
+        return false
+      }
+
+      // Restore sessions
+      for (const session of backupData.sessions) {
+        try {
+          await sessionStorageService.saveSession(session)
+        } catch (error) {
+          console.error('[SessionBackup] Failed to restore session:', session.id, error)
+        }
+      }
+
+      // Clear backup after successful restore
+      localStorage.removeItem('knowledgehub_sessions_backup')
+      return true
+    } catch (error) {
+      console.error('[SessionBackup] Restore failed:', error)
+      return false
+    }
+  }
+}
+
+// Auto-restore on service initialization
+sessionStorageService
+  .init()
+  .then(() => {
+    // Check if we need to restore from backup (no sessions exist)
+    sessionStorageService.getAllSessions().then((sessions) => {
+      if (sessions.length === 0) {
+        sessionBackupService.restoreFromBackup()
+      }
+    })
+  })
+  .catch(console.error)

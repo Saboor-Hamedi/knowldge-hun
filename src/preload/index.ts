@@ -52,9 +52,9 @@ type AppSettings = {
 }
 
 const api = {
-    requestUpdate: (): void => {
-      ipcRenderer.send('app:update');
-    },
+  requestUpdate: (): void => {
+    ipcRenderer.send('app:update')
+  },
   listNotes: (): Promise<TreeItem[]> => ipcRenderer.invoke('notes:list'),
   loadNote: (id: string, path?: string): Promise<NotePayload | null> =>
     ipcRenderer.invoke('notes:load', id, path),
@@ -89,10 +89,10 @@ const api = {
   locateMovedVault: (originalPath: string): Promise<{ foundPath: string | null }> =>
     ipcRenderer.invoke('vault:locate', originalPath),
 
-
   searchNotes: (query: string): Promise<NoteMeta[]> => ipcRenderer.invoke('notes:search', query),
   getBacklinks: (id: string): Promise<string[]> => ipcRenderer.invoke('notes:getBacklinks', id),
-  getGraph: (): Promise<{ links: { source: string; target: string }[] }> => ipcRenderer.invoke('graph:get'),
+  getGraph: (): Promise<{ links: { source: string; target: string }[] }> =>
+    ipcRenderer.invoke('graph:get'),
 
   getSettings: (): Promise<AppSettings> => ipcRenderer.invoke('settings:get'),
   updateSettings: (updates: Partial<AppSettings>): Promise<AppSettings> =>
@@ -107,12 +107,25 @@ const api = {
   },
   getAppIcon: (): Promise<string> => ipcRenderer.invoke('app:getIcon'),
   getAppVersion: (): Promise<string> => ipcRenderer.invoke('app:getVersion'),
-  syncBackup: (token: string, gistId: string | undefined, vaultData: any): Promise<{ success: boolean; message: string; gistId?: string }> =>
+  syncBackup: (
+    token: string,
+    gistId: string | undefined,
+    vaultData: any
+  ): Promise<{ success: boolean; message: string; gistId?: string }> =>
     ipcRenderer.invoke('sync:backup', token, gistId, vaultData),
-  syncRestore: (token: string, gistId: string): Promise<{ success: boolean; message: string; data?: any }> =>
+  syncRestore: (
+    token: string,
+    gistId: string
+  ): Promise<{ success: boolean; message: string; data?: any }> =>
     ipcRenderer.invoke('sync:restore', token, gistId),
   syncTestToken: (token: string): Promise<{ valid: boolean; message: string }> =>
     ipcRenderer.invoke('sync:testToken', token),
+  sessions: {
+    backup: (): Promise<{ success: boolean; message?: string; path?: string }> =>
+      ipcRenderer.invoke('sessions:backup'),
+    restore: (): Promise<{ success: boolean; message?: string; data?: any }> =>
+      ipcRenderer.invoke('sessions:restore')
+  },
   onVaultChanged: (callback: (data: any) => void) => {
     const subscription = (_event: any, data: any) => callback(data)
     ipcRenderer.on('vault:changed', subscription)
