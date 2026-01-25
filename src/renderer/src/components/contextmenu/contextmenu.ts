@@ -148,7 +148,7 @@ export class ContextMenu {
     this.submenu.className = 'context-menu context-menu--submenu'
     this.submenu.setAttribute('role', 'menu')
 
-    items.forEach((item, index) => {
+    items.forEach((item) => {
       if (item.separator) {
         const separator = document.createElement('div')
         separator.className = 'context-menu__separator'

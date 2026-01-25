@@ -724,4 +724,10 @@ export class SettingsView {
   hide(): void {
     this.container.style.display = 'none'
   }
+
+  private escapeHtml(text: string): string {
+    const div = document.createElement('div')
+    div.textContent = text
+    return div.innerHTML
+  }
 }

@@ -105,7 +105,6 @@ export class AIService {
   private readonly MAX_CONTEXT_TOKENS = 8000 // Approximate token limit
   private readonly MAX_NOTES_TO_LOAD = 30 // Limit notes loaded at once (reduced for performance)
   private readonly MAX_CONTENT_LENGTH = 1500 // Max chars per note in context (reduced for performance)
-  private readonly BATCH_SIZE = 5 // Smaller batches for better performance
   private currentMode: ChatMode = 'balanced'
 
   constructor() {
@@ -333,7 +332,6 @@ export class AIService {
     queryTerms: string[],
     maxLength: number = 300
   ): string[] {
-    const lowerContent = content.toLowerCase()
     const sentences = content.split(/[.!?]\s+/)
 
     const scoredSentences = sentences.map((sentence) => {

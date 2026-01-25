@@ -1,13 +1,13 @@
-import { createElement, Download, Upload, Trash2, Settings, Info, Archive, MoreVertical } from 'lucide'
+import { createElement, MoreVertical } from 'lucide'
 import './ai-menu.css'
 
 export interface AIMenuItem {
-  id: string
-  label: string
-  icon: any
-  onClick: () => void
+  separator?: true
+  id?: string
+  label?: string
+  icon?: any
+  onClick?: () => void
   disabled?: boolean
-  separator?: boolean
   shortcut?: string
 }
 
@@ -72,7 +72,7 @@ export class AIMenu {
       return
     }
 
-    const menuItemsHTML = this.items.map((item, index) => {
+    const menuItemsHTML = this.items.map((item) => {
       if (item.separator) {
         return '<div class="rightbar__ai-menu-separator"></div>'
       }
@@ -89,7 +89,7 @@ export class AIMenu {
           ${item.disabled ? 'disabled' : ''}
         >
           <span class="rightbar__ai-menu-icon">${iconHTML}</span>
-          <span class="rightbar__ai-menu-label">${this.escapeHtml(item.label)}</span>
+          <span class="rightbar__ai-menu-label">${this.escapeHtml(item.label || '')}</span>
           ${shortcutHTML}
         </button>
       `

@@ -38,7 +38,6 @@ export class GraphView {
   private localGraphDepth = 2
   private pathFindMode = false
   private pathFindStart: string | null = null
-  private currentPath: string[] = []
   private minimap: d3.Selection<SVGSVGElement, unknown, null, undefined> | null = null
 
   // D3 selections
@@ -839,7 +838,6 @@ export class GraphView {
   private handleStartPathFind(): void {
     this.pathFindMode = true
     this.pathFindStart = null
-    this.currentPath = []
     this.clearPathHighlight()
 
     const hint = this.modal.querySelector('#graph-pathfind-hint') as HTMLElement
@@ -870,9 +868,9 @@ export class GraphView {
   }
 
   private highlightPathNode(nodeId: string, type: 'start' | 'end' | 'path'): void {
-    this.nodeSelection?.each(function (d) {
+    this.nodeSelection?.each((d, i, nodes) => {
       if (d.id === nodeId) {
-        const circle = d3.select(this).select('circle')
+        const circle = d3.select(nodes[i]).select('circle')
         if (type === 'start') {
           circle.attr('stroke', '#22c55e').attr('stroke-width', 4)
         } else if (type === 'end') {
@@ -894,8 +892,6 @@ export class GraphView {
       setTimeout(() => this.endPathFindMode(), 2000)
       return
     }
-
-    this.currentPath = path
 
     // Highlight path nodes
     this.highlightPathNode(startId, 'start')
@@ -925,7 +921,6 @@ export class GraphView {
   private clearPathHighlight(): void {
     this.nodeSelection?.selectAll('circle').attr('stroke', null).attr('stroke-width', null)
     this.linkSelection?.classed('link--path', false)
-    this.currentPath = []
   }
 
   private updateMinimap(): void {

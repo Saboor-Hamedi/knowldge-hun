@@ -11,7 +11,6 @@ import {
   ThumbsUp,
   ThumbsDown,
   Check,
-  Search,
   Download,
   Edit2,
   RotateCw,
@@ -105,7 +104,6 @@ export class RightBar {
   private autocompleteItems: HTMLElement[] = []
   private selectedAutocompleteIndex = -1
   private allNotes: Array<{ id: string; title: string; path?: string }> = []
-  private noteReferences: Set<string> = new Set()
   private characterCounter!: HTMLElement
   private typingTimeout: number | null = null
   private currentSessionId: string | null = null
@@ -113,10 +111,10 @@ export class RightBar {
   private isInitialized = false
   private messageFeedback: Map<number, 'thumbs-up' | 'thumbs-down' | null> = new Map() // Track feedback per message index
   private streamingMessageIndex: number | null = null // Track which message is currently streaming
-  private streamingAbortController: AbortController | null = null // For canceling streaming
   private aiMenu!: AIMenu
   private modeDropdown!: HTMLElement
   private modeButton!: HTMLElement
+  private sessionSidebar!: SessionSidebar
 
   constructor(containerId: string) {
     this.container = document.getElementById(containerId) as HTMLElement
@@ -614,7 +612,7 @@ export class RightBar {
       }
     })
 
-    this.chatInput.addEventListener('input', (e) => {
+    this.chatInput.addEventListener('input', () => {
       this.updateCharacterCount()
       this.autoResizeTextarea()
 
@@ -926,7 +924,7 @@ export class RightBar {
       markdown += `*Exported on ${new Date().toLocaleString()}*\n\n`
       markdown += '---\n\n'
 
-      this.messages.forEach((msg, index) => {
+      this.messages.forEach((msg) => {
         const role = msg.role === 'user' ? '**You**' : '**AI**'
         const time = new Date(msg.timestamp).toLocaleTimeString()
         markdown += `### ${role} (${time})\n\n`
@@ -1462,7 +1460,6 @@ export class RightBar {
     const cursorTextRange = currentRange.cloneRange()
     cursorTextRange.selectNodeContents(this.chatInput)
     cursorTextRange.setEnd(currentRange.endContainer, currentRange.endOffset)
-    const absoluteCursorPos = cursorTextRange.toString().length
 
     // Find the text node containing @ and the query
     const walker = document.createTreeWalker(this.chatInput, NodeFilter.SHOW_TEXT)
@@ -1669,7 +1666,7 @@ export class RightBar {
     const context = (this.autocompleteDropdown as any).__context
     if (!context) return
 
-    const { atIndex, query } = context
+    const { atIndex } = context
 
     // Get current selection to find where the query actually ends
     const selection = window.getSelection()
@@ -1744,7 +1741,6 @@ export class RightBar {
       const cursorBefore = selection.getRangeAt(0).cloneRange()
       cursorBefore.selectNodeContents(this.chatInput)
       cursorBefore.setEnd(selection.getRangeAt(0).endContainer, selection.getRangeAt(0).endOffset)
-      const cursorTextPos = cursorBefore.toString().length
 
       replaceRange.insertNode(mentionSpan)
 
@@ -1781,11 +1777,7 @@ export class RightBar {
       if (noteId) refs.add(noteId)
     })
 
-    this.noteReferences = refs
-  }
-
-  private escapeRegex(str: string): string {
-    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    // refs collected but not used further
   }
 
   private sendMessage(): void {
@@ -1925,7 +1917,7 @@ export class RightBar {
         })
         console.error('[RightBar] API Error:', err)
       }
-    }, 0)
+    })
   }
 
   private addMessage(role: 'user' | 'assistant', content: string, messageId?: string): void {
