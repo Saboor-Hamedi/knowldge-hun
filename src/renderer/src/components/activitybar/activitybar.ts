@@ -1,12 +1,14 @@
 import { state } from '../../core/state'
 import { codicons } from '../../utils/codicons'
 import { updateApp } from '../updateApp/updateRender'
-import { createElement, File, Search, Settings, Palette } from 'lucide'
+import { createElement, File, Search, Settings, Palette, Library } from 'lucide'
 import './activitybar.css'
 
 export class ActivityBar {
   private container: HTMLElement
-  private onViewChange?: (view: 'notes' | 'search' | 'settings' | 'theme' | 'graph' | null) => void
+  private onViewChange?: (
+    view: 'notes' | 'search' | 'settings' | 'theme' | 'graph' | 'documentation' | null
+  ) => void
   private updateState: 'idle' | 'checking' | 'progress' | 'restart' = 'idle'
   private updateProgress: number = 0
 
@@ -22,7 +24,9 @@ export class ActivityBar {
   }
 
   setViewChangeHandler(
-    handler: (view: 'notes' | 'search' | 'settings' | 'theme' | 'graph' | null) => void
+    handler: (
+      view: 'notes' | 'search' | 'settings' | 'theme' | 'graph' | 'documentation' | null
+    ) => void
   ): void {
     this.onViewChange = handler
   }
@@ -91,6 +95,7 @@ export class ActivityBar {
     const searchIcon = this.createLucideIcon(Search)
     const settingsIcon = this.createLucideIcon(Settings)
     const paletteIcon = this.createLucideIcon(Palette)
+    const libraryIcon = this.createLucideIcon(Library)
 
     this.container.innerHTML = `
       <div class="activitybar__top">
@@ -112,6 +117,9 @@ export class ActivityBar {
         </button>
         <button class="activitybar__item" data-view="update" title="Update">
           <span class="activitybar__icon">${updateIcon}</span>
+        </button>
+        <button class="activitybar__item" data-view="documentation" title="Documentation">
+          <span class="activitybar__icon">${libraryIcon}</span>
         </button>
       </div>
       <div class="activitybar__bottom">
@@ -154,6 +162,7 @@ export class ActivityBar {
         | 'theme'
         | 'graph'
         | 'update'
+        | 'documentation'
       if (!view) return
 
       if (view === 'update') {
@@ -168,7 +177,7 @@ export class ActivityBar {
       }
 
       // Do NOT set active for modal actions (theme, settings is also kinda modal but treated as view in previous logic)
-      if (view === 'theme') {
+      if (view === 'theme' || view === 'documentation') {
         this.onViewChange?.(view)
         return
       }

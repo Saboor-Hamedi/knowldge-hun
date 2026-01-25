@@ -107,6 +107,7 @@ const api = {
   },
   getAppIcon: (): Promise<string> => ipcRenderer.invoke('app:getIcon'),
   getAppVersion: (): Promise<string> => ipcRenderer.invoke('app:getVersion'),
+  getDocumentation: (): Promise<string> => ipcRenderer.invoke('app:getDocumentation'),
   syncBackup: (
     token: string,
     gistId: string | undefined,
@@ -141,6 +142,7 @@ if (process.contextIsolated) {
   try {
     contextBridge.exposeInMainWorld('electron', electronAPI)
     contextBridge.exposeInMainWorld('api', api)
+    console.log('[Preload] API exposed successfully with getDocumentation')
   } catch (error) {
     console.error(error)
   }

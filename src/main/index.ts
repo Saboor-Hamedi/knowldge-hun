@@ -643,6 +643,18 @@ app.whenReady().then(async () => {
   ipcMain.handle('app:getVersion', () => {
     return version
   })
+  console.log('[Main] Registering app:getDocumentation handler')
+  ipcMain.handle('app:getDocumentation', async () => {
+    const docPath = is.dev
+      ? join(__dirname, '../../resources/documentation.md')
+      : join(process.resourcesPath, 'resources/documentation.md')
+    try {
+      return await readFile(docPath, 'utf-8')
+    } catch (e) {
+      console.error('Failed to read documentation', e)
+      return '# Documentation Not Found'
+    }
+  })
 
   try {
     const savedPath = resolveVaultPath()

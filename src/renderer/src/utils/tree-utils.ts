@@ -35,8 +35,8 @@ export function sortTreeRecursive(list: TreeItem[]): void {
     const newlyCreatedIds = state.newlyCreatedIds
     const aNew = newlyCreatedIds.has(a.id)
     const bNew = newlyCreatedIds.has(b.id)
-    if (aNew && !bNew) return 1
-    if (!aNew && bNew) return -1
+    if (aNew && !bNew) return -1
+    if (!aNew && bNew) return 1
     return (a.title || '').localeCompare(b.title || '')
   })
 

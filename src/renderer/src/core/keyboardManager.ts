@@ -95,24 +95,30 @@ export class KeyboardManager {
    * Listen to keyboard events
    */
   private listen(): void {
-    document.addEventListener('keydown', (event) => {
-      const keyNotation = this.getKeyNotation(event)
+    // Use capture phase (true) to intercept events before Monaco editor
+    document.addEventListener(
+      'keydown',
+      (event) => {
+        const keyNotation = this.getKeyNotation(event)
 
-      // Check all active scopes
-      for (const scope of this.activeScopes) {
-        const id = `${scope}:${keyNotation}`
-        const binding = this.bindings.get(id)
+        // Check all active scopes
+        for (const scope of this.activeScopes) {
+          const id = `${scope}:${keyNotation}`
+          const binding = this.bindings.get(id)
 
-        if (binding) {
-          const processed = binding.handler(event)
-          // If the handler explicitly returns false, don't prevent default
-          if (processed !== false) {
-            event.preventDefault()
+          if (binding) {
+            const processed = binding.handler(event)
+            // If the handler explicitly returns false, don't prevent default
+            if (processed !== false) {
+              event.preventDefault()
+              event.stopPropagation() // Stop bubbling to other listeners
+            }
+            return
           }
-          return
         }
-      }
-    })
+      },
+      true
+    )
 
     this.isListening = true
   }

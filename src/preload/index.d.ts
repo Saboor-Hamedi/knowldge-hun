@@ -92,6 +92,9 @@ type NoteApi = {
   ) => Promise<{ success: boolean; message: string; data?: any }>
   syncTestToken: (token: string) => Promise<{ valid: boolean; message: string }>
   window: WindowApi
+  getAppIcon: () => Promise<string>
+  getAppVersion: () => Promise<string>
+  getDocumentation: () => Promise<string>
   onVaultChanged: (callback: (data: any) => void) => () => void
   onNoteOpened: (callback: (id: string) => void) => void
 }

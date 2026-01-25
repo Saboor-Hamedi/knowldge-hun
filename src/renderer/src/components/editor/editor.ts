@@ -688,6 +688,16 @@ export class EditorComponent {
         }
       )
 
+      // Add Ctrl+Shift+\ to toggle documentation modal
+      this.editor.addCommand(
+        this.monacoInstance.KeyMod.CtrlCmd |
+          this.monacoInstance.KeyMod.Shift |
+          this.monacoInstance.KeyCode.Backslash,
+        () => {
+          window.dispatchEvent(new CustomEvent('toggle-documentation-modal'))
+        }
+      )
+
       // Add Ctrl+Shift+, to toggle theme modal
       this.editor.addCommand(
         this.monacoInstance.KeyMod.CtrlCmd |
@@ -704,6 +714,10 @@ export class EditorComponent {
 
   togglePreview(): void {
     if (!this.previewHost || !this.editorHost) return
+
+    // Do not toggle if no note is active
+    const isNote = state.notes.some((n) => n.id === state.activeId)
+    if (!state.activeId || state.activeId === 'settings' || !isNote) return
 
     this.isPreviewMode = !this.isPreviewMode
 
@@ -723,6 +737,24 @@ export class EditorComponent {
   private handleKeyDown(event: KeyboardEvent): void {
     const isMod = event.ctrlKey || event.metaKey
     const key = event.key.toLowerCase()
+
+    // Global Documentation shortcut (ensure it works even if no note is open)
+    if (isMod && event.shiftKey && key === '|') {
+      // Note: event.key for shift+\ is often |
+      event.preventDefault()
+      window.dispatchEvent(new CustomEvent('toggle-documentation-modal'))
+      return
+    }
+
+    if (isMod && event.shiftKey && (key === '\\' || event.code === 'Backslash')) {
+      event.preventDefault()
+      window.dispatchEvent(new CustomEvent('toggle-documentation-modal'))
+      return
+    }
+
+    // Following shortcuts require an active note
+    const isNote = state.notes.some((n) => n.id === state.activeId)
+    if (!state.activeId || state.activeId === 'settings' || !isNote) return
 
     if (isMod && key === 's') {
       event.preventDefault()

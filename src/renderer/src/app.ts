@@ -21,6 +21,7 @@ import { SettingsView } from './components/settings/settings-view'
 import { contextMenu } from './components/contextmenu/contextmenu'
 
 import { ThemeModal } from './components/theme-modal/theme-modal'
+import { DocumentationModal } from './components/documentation/documentation'
 import { FuzzyFinder } from './components/fuzzy-finder/fuzzy-finder'
 import { GraphView } from './components/graph/graph'
 import { themeManager } from './core/themeManager'
@@ -174,6 +175,7 @@ class App {
   private settingsView: SettingsView
   private rightBar: RightBar
   private themeModal: ThemeModal
+  private documentationModal: DocumentationModal
   private fuzzyFinder: FuzzyFinder
   private graphView: GraphView
   private tabHandlers!: TabHandlersImpl
@@ -192,6 +194,7 @@ class App {
     this.settingsView = new SettingsView('settingsHost')
     this.rightBar = new RightBar('rightPanel')
     this.themeModal = new ThemeModal('app') // Mount to app container
+    this.documentationModal = new DocumentationModal('app')
     this.fuzzyFinder = new FuzzyFinder('app')
     this.graphView = new GraphView() // Mount to app container
     this.tabHandlers = new TabHandlersImpl(
@@ -320,6 +323,10 @@ class App {
         this.graphView.open()
         return
       }
+      if (view === 'documentation') {
+        this.documentationModal.toggle()
+        return
+      }
 
       const isSidebarView = view === 'notes' || view === 'search'
       this.sidebar.setVisible(isSidebarView)
@@ -369,6 +376,10 @@ class App {
 
     window.addEventListener('knowledge-hub:toggle-right-sidebar', () => {
       void this.toggleRightSidebar()
+    })
+
+    window.addEventListener('toggle-documentation-modal', () => {
+      this.documentationModal.toggle()
     })
 
     // Fuzzy Finder
@@ -967,7 +978,8 @@ class App {
 
         // If the note is new/untitled, prompt for rename after saving content
         const note = state.notes.find((n) => n.id === state.activeId)
-        if (note && note.title === 'Untitled note') {
+        // Match "Untitled", "Untitled 1", "Untitled 2", etc.
+        if (note && /^Untitled( \d+)?$/i.test(note.title)) {
           void this.promptRenameActiveNote()
         }
       }
@@ -1019,6 +1031,26 @@ class App {
       description: 'Select theme',
       handler: () => {
         this.themeModal.toggle()
+      }
+    })
+
+    keyboardManager.register({
+      key: 'Control+Shift+\\',
+      scope: 'global',
+      description: 'Documentation shortcuts',
+      handler: () => {
+        this.documentationModal.toggle()
+        return true // Prevent bubbling to Monaco
+      }
+    })
+
+    keyboardManager.register({
+      key: 'Control+Shift+|',
+      scope: 'global',
+      description: 'Documentation shortcuts (pipe variant)',
+      handler: () => {
+        this.documentationModal.toggle()
+        return true
       }
     })
 
@@ -1321,10 +1353,14 @@ class App {
     this.statusBar.setStatus(`Created note "${meta.title}"`)
     void this.persistWorkspace()
 
-    // Start rename in sidebar
+    // Open the note in a tab
+    await this.openNote(meta.id, meta.path, 'editor')
+
+    // Start rename in sidebar (if sidebar is visible)
     setTimeout(() => {
       this.sidebar.startRename(meta.id)
     }, 100)
+
     // Index new note for RAG
     await ragService.indexNote(meta.id, '', {
       title: meta.title,
@@ -2096,6 +2132,25 @@ class App {
       this.statusBar.setStatus(`⚠️ ${errorMessage}`)
       notificationManager.show('Failed to reload vault', 'error')
     }
+  }
+  private async reindexAllNotes(): Promise<void> {
+    console.log('[App] Starting full re-indexing of all notes...')
+    const notesToIndex = state.notes.filter((n) => n.type === 'note' || !n.type)
+
+    for (const note of notesToIndex) {
+      try {
+        const fullNote = await window.api.loadNote(note.id, note.path)
+        if (fullNote) {
+          await ragService.indexNote(note.id, fullNote.content, {
+            title: note.title,
+            path: note.path
+          })
+        }
+      } catch (e) {
+        console.warn(`[App] Failed to index note ${note.id}:`, e)
+      }
+    }
+    console.log('[App] Full re-indexing completed.')
   }
 }
 

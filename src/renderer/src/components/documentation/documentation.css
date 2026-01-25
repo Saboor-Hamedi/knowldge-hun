@@ -1,0 +1,201 @@
+/* ============================================
+   Documentation Modal Styles (Same as Graph View)
+   ============================================ */
+
+.documentation-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity 0.25s ease,
+    visibility 0.25s ease;
+}
+
+.documentation-modal.is-open {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.documentation-modal__content {
+  width: 70vw;
+  height: 85vh;
+  max-width: 1000px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Header Integration */
+.documentation-modal .window-header {
+  position: relative;
+  top: auto;
+  left: auto;
+  right: auto;
+  width: auto;
+}
+
+.documentation-modal__body {
+  flex: 1;
+  padding: 40px 60px;
+  overflow-y: auto;
+  background: var(--bg);
+  line-height: 1.6;
+  color: var(--text);
+  font-family: var(--font-family);
+}
+
+/* Markdown Styling */
+.documentation-modal__body h1 {
+  font-size: 28px;
+  margin-top: 0;
+  margin-bottom: 24px;
+  color: var(--text-strong);
+}
+
+.documentation-modal__body h2 {
+  font-size: 20px;
+  margin-top: 32px;
+  margin-bottom: 16px;
+  color: var(--primary);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 8px;
+}
+
+.documentation-modal__body h3 {
+  font-size: 16px;
+  margin-top: 24px;
+  margin-bottom: 12px;
+  color: var(--text-strong);
+}
+
+.documentation-modal__body p {
+  margin-bottom: 16px;
+  color: var(--text-soft);
+}
+
+.documentation-modal__body ul {
+  margin-bottom: 16px;
+  padding-left: 20px;
+}
+
+.documentation-modal__body li {
+  margin-bottom: 8px;
+}
+
+/* Code Styling */
+.documentation-modal__body code {
+  background: var(--panel-strong);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.9em;
+  color: var(--primary-light, #7fa7ff);
+  user-select: text;
+}
+
+.documentation-modal__body pre {
+  background: var(--bg-accent);
+  padding: 16px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  overflow-x: auto;
+  margin-bottom: 24px;
+  position: relative;
+}
+
+.documentation-modal__body pre code {
+  background: transparent;
+  padding: 0;
+  display: block;
+  color: var(--text-soft);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.documentation-modal__body hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 32px 0;
+}
+
+.documentation-modal__body table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 24px;
+}
+
+.documentation-modal__body th,
+.documentation-modal__body td {
+  padding: 10px 12px;
+  text-align: left;
+  border: 1px solid var(--border);
+}
+
+.documentation-modal__body th {
+  background: rgba(255, 255, 255, 0.03);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+/* KBD (Keyboard Key) Style for shortcuts in tables */
+.documentation-modal__body td code {
+  background: var(--panel-strong);
+  border: 1px solid var(--border);
+  border-bottom-width: 2px; /* Key-depth effect */
+  padding: 2px 5px;
+  border-radius: 4px;
+  font-weight: 600;
+  color: var(--text-strong);
+  font-size: 11px;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.2);
+}
+
+.documentation-modal__body blockquote {
+  border-left: 4px solid var(--primary);
+  margin: 20px 0;
+  padding: 10px 20px;
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--text-soft);
+  font-style: italic;
+  border-radius: 0 4px 4px 0;
+}
+
+/* Loading/Error States */
+.documentation-modal__loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-soft);
+  font-size: 14px;
+}
+
+.documentation-error {
+  color: var(--danger);
+  padding: 20px;
+  text-align: center;
+}
+
+.documentation-modal-backdrop {
+  display: none; /* We use the built-in modal background instead */
+}
