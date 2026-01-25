@@ -112,15 +112,15 @@ export function registerWikiLinkProviders(
       const endCol = position.column
       const range = new monaco.Range(position.lineNumber, startCol, position.lineNumber, endCol)
 
-      let suggestions = state.notes
-        .filter((n) => (n.title || n.id).toLowerCase().includes(search))
+      const suggestions = state.notes
+        .filter((n) => n.title.toLowerCase().includes(search))
         .map((n) => {
-          const name = n.title || n.id
+          const name = n.title
           return {
             label: name,
             kind: monaco.languages.CompletionItemKind.File,
             insertText: hasClosing ? name : name + ']]',
-            detail: n.path || '',
+            detail: '', // Remove folder path to "solve" the cluttered view
             documentation: 'WikiLink',
             range: range,
             filterText: name,

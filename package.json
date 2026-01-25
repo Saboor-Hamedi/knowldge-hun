@@ -46,6 +46,10 @@
   },
   "build": {
     "appId": "com.example.knowledgehub",
+    "productName": "KnowledgeHub",
+    "win": {
+      "artifactName": "${name}-Setup-${version}.${ext}"
+    },
     "publish": [
       {
         "provider": "github",
