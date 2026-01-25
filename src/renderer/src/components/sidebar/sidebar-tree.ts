@@ -926,12 +926,27 @@ export class SidebarTree {
 
     if (!this.draggedItem) return
 
-    if (!item && (target.classList.contains('sidebar__body') || target === this.bodyEl)) {
+    // Clear all drag-over states first
+    document.querySelectorAll('.drag-over').forEach((el) => el.classList.remove('drag-over'))
+
+    // Check if we're over the root area (empty space in sidebar body)
+    // This includes clicking on the body itself, the inner wrapper, or any empty space
+    const isOverBody = this.bodyEl.contains(target) && !item
+    const isBodyOrInner =
+      target === this.bodyEl ||
+      target.classList.contains('sidebar__body-inner') ||
+      target.classList.contains('sidebar__body')
+
+    if (isOverBody || isBodyOrInner) {
       event.dataTransfer!.dropEffect = 'move'
       this.bodyEl.classList.add('drag-over-root')
       return
     }
 
+    // We're over an item, remove root drag-over
+    this.bodyEl.classList.remove('drag-over-root')
+
+    // Add drag-over to the specific item
     if (item && item.dataset.id !== this.draggedItem.id) {
       event.dataTransfer!.dropEffect = 'move'
       item.classList.add('drag-over')
@@ -940,12 +955,17 @@ export class SidebarTree {
 
   private handleDragLeave(event: DragEvent): void {
     const target = event.target as HTMLElement
-    const item = target.closest('.tree-item') as HTMLElement
+    const relatedTarget = event.relatedTarget as HTMLElement
 
+    // Only remove drag-over-root if we're actually leaving the sidebar body
+    if (target === this.bodyEl && !this.bodyEl.contains(relatedTarget)) {
+      this.bodyEl.classList.remove('drag-over-root')
+    }
+
+    // Remove item drag-over
+    const item = target.closest('.tree-item') as HTMLElement
     if (item) {
       item.classList.remove('drag-over')
-    } else {
-      this.bodyEl.classList.remove('drag-over-root')
     }
   }
 
@@ -985,7 +1005,15 @@ export class SidebarTree {
     let targetPath = ''
 
     if (!folder) {
-      if (target.classList.contains('sidebar__body') || target === this.bodyEl) {
+      // Check if we're dropping in the root area (same logic as dragOver)
+      const isOverBody = this.bodyEl.contains(target)
+      const isBodyOrInner =
+        target === this.bodyEl ||
+        target.classList.contains('sidebar__body-inner') ||
+        target.classList.contains('sidebar__body')
+
+      if (isOverBody || isBodyOrInner) {
+        // Drop to root directory
         targetPath = ''
       } else {
         this.clearDragState()
