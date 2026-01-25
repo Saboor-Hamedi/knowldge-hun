@@ -681,8 +681,23 @@ const getFileIcon = (title, language) => {
     }
   }
 
-  // File extension matches
-  const extension = titleLower.split('.').pop()
+  // File extension matches - handle compound extensions like .jsx.md
+  let extension = titleLower.split('.').pop()
+
+  // For markdown files with embedded code extensions, check for the code extension first
+  if (extension === 'md' || extension === 'markdown') {
+    const parts = titleLower.split('.')
+    if (parts.length >= 3) {
+      // Check if there's a code extension before .md (e.g., .jsx.md, .ts.md)
+      const codeExtension = parts[parts.length - 2]
+      if (
+        ['js', 'jsx', 'ts', 'tsx', 'html', 'css', 'scss', 'vue', 'svelte'].includes(codeExtension)
+      ) {
+        extension = codeExtension
+      }
+    }
+  }
+
   const extensionMap = {
     // Code files
     js: FileCode,
@@ -727,7 +742,7 @@ const getFileIcon = (title, language) => {
     ini: FileJson,
     csv: FileJson,
 
-    // Markdown
+    // Markdown (only if no code extension found)
     md: Hash,
     markdown: Hash,
     mdx: Hash,

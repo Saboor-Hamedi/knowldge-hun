@@ -84,9 +84,9 @@ import { GitBranch, Cloud, Activity, Cpu, Archive, Monitor } from 'lucide-react'
 const iconToEmoji = {
   [Settings.name]: '⚙️',
   [Cog.name]: '⚙️',
-  [FileJson.name]: '📄',
+  [FileJson.name]: '📋',
   [FileCode.name]: '📄',
-  [Hash.name]: '📝',
+  [Hash.name]: '#',
   [ImageIcon.name]: '🖼️',
   [FileText.name]: '📄',
   [Folder.name]: '📁',
@@ -96,13 +96,13 @@ const iconToEmoji = {
   [Key.name]: '🔑',
   [Lock.name]: '🔒',
   [Package.name]: '📦',
-  [Terminal.name]: '💻',
+  [Terminal.name]: '⌨️',
   [Book.name]: '📚',
   [FileCheck.name]: '✅',
   [FileX.name]: '❌',
   [File.name]: '📄',
   [FileType.name]: '📄',
-  [Code.name]: '💻',
+  [Code.name]: '</>',
   [Globe.name]: '🌐',
   [Server.name]: '🖥️',
   [Shield.name]: '🛡️',
@@ -113,11 +113,11 @@ const iconToEmoji = {
   [Users.name]: '👥',
   [ShoppingBag.name]: '🛍️',
   [Brain.name]: '🧠',
-  [Network.name]: '🌐',
+  [Network.name]: '🔗',
   [BarChart3.name]: '📊',
   [Github.name]: '🐙',
-  [Twitter.name]: '🐦',
-  [Facebook.name]: '📘',
+  [Twitter.name]: '𝕏',
+  [Facebook.name]: '👥',
   [Instagram.name]: '📷',
   [Linkedin.name]: '💼',
   [Youtube.name]: '📺',
@@ -157,7 +157,7 @@ const iconToEmoji = {
   [GitBranch.name]: '🌿',
   [Cloud.name]: '☁️',
   [Activity.name]: '📈',
-  [Cpu.name]: '🖥️',
+  [Cpu.name]: '💻',
   [Archive.name]: '📦',
   [Monitor.name]: '🖥️'
 }
@@ -503,6 +503,53 @@ const getFileIcon = (title, language) => {
     weather: Sun
   }
 
+  // Check extension mapping FIRST (before exact matches)
+  let extension = titleLower.split('.').pop()
+
+  // For markdown files with embedded code extensions, check for the code extension first
+  if (extension === 'md' || extension === 'markdown') {
+    const parts = titleLower.split('.')
+    if (parts.length >= 3) {
+      // Check if there's a code extension before .md (e.g., .jsx.md, .ts.md)
+      const codeExtension = parts[parts.length - 2]
+      if (
+        ['js', 'jsx', 'ts', 'tsx', 'html', 'css', 'scss', 'vue', 'svelte'].includes(codeExtension)
+      ) {
+        extension = codeExtension
+      }
+    }
+  }
+
+  // Direct emoji mapping for specific extensions
+  const extensionEmojiMap = {
+    js: '⚡',
+    jsx: '🔷',
+    ts: '🔷',
+    tsx: '⚛️',
+    sql: '🗄️',
+    py: '🐍',
+    java: '☕',
+    cpp: '⚙️',
+    c: '⚙️',
+    go: '🐹',
+    rs: '🦀',
+    php: '🐘',
+    rb: '💎',
+    swift: '🦉',
+    kt: '🎯',
+    html: '🌐',
+    css: '🎨',
+    scss: '🎨',
+    json: '📋',
+    xml: '📋',
+    yaml: '📋',
+    yml: '📋'
+  }
+
+  if (extension && extensionEmojiMap[extension]) {
+    return extensionEmojiMap[extension]
+  }
+
   // Check emoji exact matches first
   const emojiKey = titleLower
   if (COUNTRY_FLAGS[emojiKey]) return EmojiIcon(COUNTRY_FLAGS[emojiKey])
@@ -650,8 +697,6 @@ const getFileIcon = (title, language) => {
     }
   }
 
-  // File extension matches
-  const extension = titleLower.split('.').pop()
   const extensionMap = {
     // Code files
     js: FileCode,
@@ -696,7 +741,7 @@ const getFileIcon = (title, language) => {
     ini: FileJson,
     csv: FileJson,
 
-    // Markdown
+    // Markdown (only if no code extension found)
     md: Hash,
     markdown: Hash,
     mdx: Hash,
