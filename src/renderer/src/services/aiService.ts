@@ -1,4 +1,6 @@
 // import { state } from '../core/state'
+import { ragService } from './rag/ragService'
+import type { TreeItem } from '../core/types'
 
 export interface ChatMessage {
   role: 'user' | 'assistant'
@@ -55,7 +57,9 @@ export const CHAT_MODES: ChatModeConfig[] = [
     label: 'Balanced',
     icon: '⚖️',
     description: 'General purpose responses',
-    temperature: 0.7
+    temperature: 0.7,
+    systemPrompt:
+      'You are a helpful AI assistant. Be conversational and natural. When the user says things like "okay", "fine", "thanks", or "got it", respond briefly without re-explaining. If the user says "stop", "don\'t explain", or "just help", IMMEDIATELY stop explaining and only do what they ask - no context, no background, just the direct help they need. Match the user\'s tone and energy level.'
   },
   {
     id: 'thinking',
@@ -82,7 +86,7 @@ export const CHAT_MODES: ChatModeConfig[] = [
     description: 'Factual and concise',
     temperature: 0.2,
     systemPrompt:
-      'Be concise and precise. Focus on facts. Avoid unnecessary elaboration. Give direct answers.'
+      'Be extremely concise. Answer in 1-2 sentences when possible. No elaboration unless asked. Direct answers only. If the user acknowledges with "okay" or "fine", just say "👍" or similar.'
   },
   {
     id: 'code',
@@ -131,10 +135,25 @@ export class AIService {
 
   async loadApiKey(): Promise<void> {
     try {
-      const settings = await window.api.getSettings()
-      this.apiKey = (settings as any)?.deepseekApiKey || null
+      const settings = (await window.api.getSettings()) as { deepseekApiKey?: string }
+      this.apiKey = settings.deepseekApiKey || null
+      // Initialize RAG
+      this.initRag()
     } catch (err) {
       console.error('[AIService] Failed to load API key:', err)
+    }
+  }
+
+  private async initRag(): Promise<void> {
+    try {
+      // TEMPORARILY DISABLED: RAG initialization is causing SyntaxError in dev mode
+      // The app will use TF-IDF fallback for note searching instead
+      // TODO: Re-enable once Transformers.js loading is fixed
+      console.log('[AIService] RAG disabled - using TF-IDF fallback for note search')
+      // await ragService.configureProvider('local')
+      // await ragService.init()
+    } catch (err) {
+      console.warn('[AIService] Failed to init RAG:', err)
     }
   }
 
@@ -161,7 +180,7 @@ export class AIService {
       const notesTree = await window.api.listNotes()
       const metadata: NoteMetadata[] = []
 
-      const flattenNotes = (items: any[], parentPath?: string): void => {
+      const flattenNotes = (items: TreeItem[], parentPath?: string): void => {
         for (const item of items) {
           if (item.type === 'note') {
             metadata.push({
@@ -175,7 +194,7 @@ export class AIService {
         }
       }
 
-      flattenNotes(notesTree)
+      flattenNotes(notesTree as TreeItem[])
 
       // Update metadata cache
       this.vaultMetadataCache.clear()
@@ -419,6 +438,51 @@ export class AIService {
   }
 
   /**
+   * Hybrid search: Try RAG first, fall back to TF-IDF
+   */
+  private async findRelevantNotesHybrid(
+    userMessage: string,
+    limit: number = 5
+  ): Promise<ScoredNote[]> {
+    try {
+      // 1. Try Vector RAG
+      const ragResults = await ragService.search(userMessage, limit)
+
+      if (ragResults && ragResults.length > 0) {
+        // Hydrate results with content
+        const scoredNotes: ScoredNote[] = []
+        for (const res of ragResults) {
+          try {
+            const content = await this.loadNoteContent(res.id, res.metadata?.path)
+            if (content) {
+              scoredNotes.push({
+                id: res.id,
+                title: res.metadata?.title || 'Unknown Note',
+                content,
+                path: res.metadata?.path,
+                score: res.score * 100 // Scale cosine (0-1) to be comparable roughly
+              })
+            }
+          } catch {
+            // Ignore load error
+          }
+        }
+
+        if (scoredNotes.length > 0) {
+          console.log(`[AIService] Using ${scoredNotes.length} RAG results`)
+          return scoredNotes
+        }
+      }
+    } catch (err) {
+      console.warn('[AIService] RAG search failed, falling back to TF-IDF:', err)
+    }
+
+    // 2. Fallback to TF-IDF
+    console.log('[AIService] Using TF-IDF fallback')
+    return this.findRelevantNotes(userMessage, limit)
+  }
+
+  /**
    * Find relevant notes based on user message (OLD VERSION - kept for compatibility)
    */
   /**
@@ -428,24 +492,45 @@ export class AIService {
   async buildContextMessage(
     userMessage: string
   ): Promise<{ context: string; citations: NoteCitation[] }> {
+    // FIRST: Check if user is telling us to stop explaining or just wants direct help
+    const stopPhrases =
+      /\b(stop|don't explain|dont explain|just help|just fix|no explanation|skip the|enough|stop explaining|stop it|please stop)\b/i
+    const isStopCommand = stopPhrases.test(userMessage)
+
+    // Check if this is just an acknowledgment
+    const isAcknowledgment =
+      /^(okay|ok|fine|thanks|got it|alright|cool|nice|good|sure|yep|yeah|yes)\b/i.test(
+        userMessage.trim()
+      )
+
+    if (isStopCommand || isAcknowledgment) {
+      // User wants us to stop - send ONLY their message, no context at all
+      return { context: userMessage, citations: [] }
+    }
+
     let context =
       "You are an AI assistant helping with a note-taking application. You have FULL ACCESS to the user's entire vault of notes. You can read, analyze, and reference any note in the vault.\n\n"
     const citations: NoteCitation[] = []
 
-    // Get current note context
+    // Get current note context (but keep it minimal)
     if (this.editorContext) {
       const noteInfo = this.editorContext.getActiveNoteInfo?.()
       const editorContent = this.editorContext.getEditorContent?.()
 
       if (noteInfo) {
-        context += `Current note: "${noteInfo.title}" (ID: ${noteInfo.id})\n`
+        context += `Current note: "${noteInfo.title}"\n`
         citations.push({ id: noteInfo.id, title: noteInfo.title })
       }
 
-      if (editorContent && editorContent.trim()) {
+      // Only include content if user is asking about it specifically
+      const askingAboutContent =
+        /\b(this note|current note|this code|this file|what does|explain this|in this)\b/i.test(
+          userMessage
+        )
+      if (editorContent && editorContent.trim() && askingAboutContent) {
         const contentPreview =
-          editorContent.length > 1500 ? editorContent.substring(0, 1500) + '...' : editorContent
-        context += `\nCurrent note content:\n${contentPreview}\n\n`
+          editorContent.length > 800 ? editorContent.substring(0, 800) + '...' : editorContent
+        context += `\nNote content:\n${contentPreview}\n\n`
       }
     }
 
@@ -457,10 +542,23 @@ export class AIService {
       if (vaultSize === 0) {
         context += `\nNote: The vault appears to be empty.\n`
       } else {
-        context += `\n=== VAULT ACCESS ===\nYou have access to ${vaultSize} notes in the vault.\n`
+        // Only mention vault access if it seems relevant
+        const lowerMessage = userMessage.toLowerCase()
+
+        // Check if this is just an acknowledgment (user saying "okay", "fine", etc.)
+        const isAcknowledgment =
+          /^(okay|ok|fine|thanks|got it|alright|cool|nice|good|sure|yep|yeah|yes)\b/i.test(
+            userMessage.trim()
+          )
+
+        if (isAcknowledgment) {
+          // Don't add vault context for simple acknowledgments
+          return { context: userMessage, citations }
+        }
+
+        context += `\nVault: ${vaultSize} notes available.\n`
 
         // Check if user is asking about vault overview
-        const lowerMessage = userMessage.toLowerCase()
         const isVaultQuery =
           lowerMessage.includes('vault') ||
           lowerMessage.includes('all notes') ||
@@ -483,7 +581,7 @@ export class AIService {
           }
         } else {
           // Find and load only relevant notes (smart RAG)
-          const relevantNotes = await this.findRelevantNotes(userMessage, 5)
+          const relevantNotes = await this.findRelevantNotesHybrid(userMessage, 5)
 
           if (relevantNotes.length > 0) {
             context += `\nRelevant notes from vault (${relevantNotes.length} most relevant):\n`
@@ -559,10 +657,19 @@ export class AIService {
         messagesForAPI.push({ role: 'system', content: modeConfig.systemPrompt })
       }
 
-      // Add conversation history (exclude the last user message)
-      messagesForAPI.push(
-        ...messages.slice(0, -1).map((m) => ({ role: m.role, content: m.content }))
-      )
+      // Detect if user is saying stop/don't explain
+      const stopPhrases =
+        /\b(stop|don't explain|dont explain|just help|just fix|no explanation|skip the|enough|stop explaining|stop it|please stop)\b/i
+      const isStopCommand = stopPhrases.test(context)
+
+      // If it's a stop command, only include the last 2 messages to avoid re-explaining
+      // Otherwise include full history
+      const historyToInclude = isStopCommand
+        ? messages.slice(-3, -1) // Only last 2 messages (excluding current)
+        : messages.slice(0, -1) // All history (excluding current)
+
+      // Add conversation history
+      messagesForAPI.push(...historyToInclude.map((m) => ({ role: m.role, content: m.content })))
 
       // Add the context-enhanced user message
       messagesForAPI.push({ role: 'user', content: context })
@@ -588,13 +695,14 @@ export class AIService {
 
       const data = await response.json()
       return data.choices[0]?.message?.content || 'No response'
-    } catch (err: any) {
-      if (err.name === 'TypeError' && err.message.includes('fetch')) {
+    } catch (err: unknown) {
+      const error = err as Error
+      if (error.name === 'TypeError' && error.message.includes('fetch')) {
         throw new Error(
           'Network error: Unable to connect to DeepSeek API. Please check your internet connection.'
         )
       }
-      throw err
+      throw error
     }
   }
 
@@ -706,23 +814,25 @@ export class AIService {
               fullText += delta
               onChunk(delta)
             }
-          } catch (e) {
+          } catch {
             // Skip invalid JSON
           }
         }
       }
 
       return fullText
-    } catch (err: any) {
-      if (err.name === 'AbortError') {
-        throw new Error('Request cancelled')
+    } catch (err: unknown) {
+      const error = err as Error
+      if (error.name === 'AbortError') {
+        // User cancelled the request - this is expected, not an error
+        return ''
       }
-      if (err.name === 'TypeError' && err.message.includes('fetch')) {
+      if (error.name === 'TypeError' && error.message.includes('fetch')) {
         throw new Error(
           'Network error: Unable to connect to DeepSeek API. Please check your internet connection.'
         )
       }
-      throw err
+      throw error
     }
   }
 }

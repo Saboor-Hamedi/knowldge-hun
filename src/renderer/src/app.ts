@@ -34,6 +34,7 @@ import { WikiLinkService } from './components/wikilink/wikilinkService'
 import { PreviewHandlers } from './handlers/previewHandlers'
 import { vaultService } from './services/vaultService'
 import { VaultPicker } from './components/vault-picker/vault-picker'
+import { ragService } from './services/rag/ragService'
 
 function buildTree(items: NoteMeta[]): TreeItem[] {
   const root: TreeItem[] = []
@@ -1324,6 +1325,11 @@ class App {
     setTimeout(() => {
       this.sidebar.startRename(meta.id)
     }, 100)
+    // Index new note for RAG
+    await ragService.indexNote(meta.id, '', {
+      title: meta.title,
+      path: meta.path
+    })
   }
 
   private async openNote(
@@ -1443,30 +1449,45 @@ class App {
 
     this.statusBar.setStatus('Saving...')
     const meta = await window.api.saveNote(payload)
-    state.newlyCreatedIds.delete(payload.id) // It's no longer "untouched"
-    state.lastSavedAt = meta.updatedAt
-    state.isDirty = false
 
-    const idx = state.notes.findIndex((n) => n.id === meta.id)
-    if (idx >= 0) {
-      state.notes[idx] = { ...meta }
+    if (meta) {
+      // Assuming meta is returned on success
+      state.newlyCreatedIds.delete(payload.id) // It's no longer "untouched"
+      state.lastSavedAt = meta.updatedAt
+      state.isDirty = false
+
+      const idx = state.notes.findIndex((n) => n.id === meta.id)
+      if (idx >= 0) {
+        state.notes[idx] = { ...meta }
+      } else {
+        state.notes.unshift(meta)
+      }
+
+      sortNotes(state.notes)
+      tabService.ensureTab(meta)
+      // Update existing tab if it exists
+      const tabIndex = state.openTabs.findIndex((t) => t.id === meta.id)
+      if (tabIndex >= 0) {
+        state.openTabs[tabIndex] = meta
+      }
+      tabService.syncTabs()
+
+      this.sidebar.renderTree(this.sidebar.getSearchValue())
+      this.tabBar.render()
+      this.statusBar.setStatus('Autosaved')
+      this.statusBar.setMeta(`📁 ${state.vaultPath || ''}`)
+
+      // Index updated content for RAG
+      // We do this silently in the background
+      ragService
+        .indexNote(payload.id, payload.content, {
+          title: meta.title, // Use meta.title as it's the most up-to-date
+          path: meta.path
+        })
+        .catch((err) => console.error('Failed to index on save:', err))
     } else {
-      state.notes.unshift(meta)
+      this.statusBar.setStatus('Save failed')
     }
-
-    sortNotes(state.notes)
-    tabService.ensureTab(meta)
-    // Update existing tab if it exists
-    const tabIndex = state.openTabs.findIndex((t) => t.id === meta.id)
-    if (tabIndex >= 0) {
-      state.openTabs[tabIndex] = meta
-    }
-    tabService.syncTabs()
-
-    this.sidebar.renderTree(this.sidebar.getSearchValue())
-    this.tabBar.render()
-    this.statusBar.setStatus('Autosaved')
-    this.statusBar.setMeta(`📁 ${state.vaultPath || ''}`)
   }
   private showDeleteConfirmationModal(
     items: { id: string; type: 'note' | 'folder'; path?: string }[],
@@ -1519,6 +1540,13 @@ class App {
               this.editor.showEmpty()
             }
           }
+
+          // Remove deleted items from RAG index
+          for (const item of items) {
+            if (item.type === 'note') {
+              await ragService.deleteNote(item.id)
+            }
+          }
         } else {
           this.statusBar.setStatus('Some items could not be deleted')
           if (result.errors.length > 0) {
@@ -1567,6 +1595,19 @@ class App {
       }
 
       await this.refreshNotes()
+
+      // Re-index the moved note for RAG
+      try {
+        const note = await window.api.loadNote(newMeta.id, newMeta.path)
+        if (note) {
+          await ragService.indexNote(newMeta.id, note.content, {
+            title: newMeta.title,
+            path: newMeta.path
+          })
+        }
+      } catch (e) {
+        console.warn('Failed to re-index moved note', e)
+      }
     } catch (error) {
       console.error('Note move failed:', error)
       this.statusBar.setStatus('Move failed')
@@ -1722,6 +1763,20 @@ class App {
 
       this.statusBar.setStatus(`Renamed to "${newTitle}"`)
       void this.persistWorkspace()
+
+      // Re-index the renamed note for RAG.
+      // We need to fetch the content first as rename doesn't return it.
+      try {
+        const note = await window.api.loadNote(actualNewId, newMeta.path)
+        if (note) {
+          await ragService.indexNote(actualNewId, note.content, {
+            title: newMeta.title,
+            path: newMeta.path
+          })
+        }
+      } catch (e) {
+        console.warn('Failed to re-index renamed note', e)
+      }
     } catch (error) {
       // We propagate the error so callers can handle specific UI reverts.
       // We set a status here as a fallback for callers that don't handle it explicitly.
@@ -1829,6 +1884,12 @@ class App {
       // Refresh tree and open the note
       await this.refreshNotes()
       await this.openNote(imported.id, imported.path)
+
+      // Index imported note for RAG
+      await ragService.indexNote(imported.id, imported.content, {
+        title: imported.title,
+        path: imported.path
+      })
     } catch (error) {
       const message = (error as Error).message || 'Failed to import file'
       console.error('File import failed', error)
@@ -2014,6 +2075,9 @@ class App {
         }
       }
     }, 100)
+
+    // Re-index all notes after restore
+    await this.reindexAllNotes()
   }
 
   private async reloadVault(): Promise<void> {
@@ -2023,6 +2087,10 @@ class App {
       this.sidebar.renderTree(this.sidebar.getSearchValue())
       this.statusBar.setStatus('Vault reloaded')
       notificationManager.show('Vault reloaded successfully', 'success')
+
+      // Trigger background re-indexing of all notes
+      // This ensures RAG is up to date, especially on first load
+      this.reindexAllNotes().catch((err) => console.error('Failed to reindex vault:', err))
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to reload vault'
       this.statusBar.setStatus(`⚠️ ${errorMessage}`)

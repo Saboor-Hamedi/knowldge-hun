@@ -486,7 +486,7 @@ export class VaultManager {
 
     const content = await readFile(normalizedPath, 'utf-8')
     const fileName = basename(externalFilePath)
-    let nameWithoutExt = fileName.replace(/\.[^.]+$/, '')
+    const nameWithoutExt = fileName.replace(/\.[^.]+$/, '')
     let idBase = nameWithoutExt
     const targetDir = folderPath ? join(this.rootPath, folderPath) : this.rootPath
 

@@ -57,6 +57,10 @@ const initHighlightJS = (): Promise<any> => {
         hljs.registerLanguage('yaml', yaml.default)
         hljs.registerLanguage('yml', yaml.default)
 
+        // Configure highlighting to ignore unescaped HTML warnings
+        // Safe as we sanitize with DOMPurify
+        hljs.configure({ ignoreUnescapedHTML: true })
+
         // Load CSS
         await import('highlight.js/styles/github-dark.css')
         return hljs

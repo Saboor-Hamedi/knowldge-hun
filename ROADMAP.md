@@ -799,11 +799,17 @@ User Query:
 
 ### Phase 2 (Enhanced Features)
 
-1. ✅ Session search and filtering
-2. ✅ Note citation display
-3. ✅ Autocomplete for note references
-4. ✅ Conversation history retrieval
-5. ⏳ Session export/import
+1. ✅ **Web Worker Infrastructure** (Non-blocking RAG foundation)
+2. ⬜ **IndexedDB Vector Store** (Local embeddings storage)
+3. ⬜ **Local Embeddings** (Transformers.js integration)
+4. ⬜ **Offline AI Mode** (Ollama integration)
+5. ⬜ **Chat-Graph Integration** (Visual RAG)
+
+6. ✅ Session search and filtering
+7. ✅ Note citation display
+8. ✅ Autocomplete for note references
+9. ✅ Conversation history retrieval
+10. ⏳ Session export/import
 
 ### Phase 3 (Advanced Features)
 

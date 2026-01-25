@@ -363,7 +363,7 @@ export class SidebarTree {
         const selected = results.querySelector('.search-result-item.selected') as HTMLElement
         if (e.key === 'ArrowDown') {
           e.preventDefault()
-          let idx = items.indexOf(selected)
+          const idx = items.indexOf(selected)
           if (idx < items.length - 1) {
             if (selected) selected.classList.remove('selected')
             items[idx + 1].classList.add('selected')
@@ -371,7 +371,7 @@ export class SidebarTree {
           }
         } else if (e.key === 'ArrowUp') {
           e.preventDefault()
-          let idx = items.indexOf(selected)
+          const idx = items.indexOf(selected)
           if (idx > 0) {
             if (selected) selected.classList.remove('selected')
             items[idx - 1].classList.add('selected')

@@ -30,8 +30,11 @@ hljs.registerLanguage('python', python)
 hljs.registerLanguage('py', python)
 hljs.registerLanguage('bash', bash)
 hljs.registerLanguage('sh', bash)
-hljs.registerLanguage('yaml', yaml)
 hljs.registerLanguage('yml', yaml)
+
+// Configure highlighting to ignore unescaped HTML warnings
+// Safe as we sanitize with DOMPurify
+hljs.configure({ ignoreUnescapedHTML: true })
 
 export class PreviewComponent {
   private container: HTMLElement
@@ -39,7 +42,7 @@ export class PreviewComponent {
   private onWikiLinkClick?: (target: string) => void
 
   private createLucideIcon(
-    IconComponent: any,
+    IconComponent: Parameters<typeof createElement>[0],
     size: number = 16,
     strokeWidth: number = 1.5,
     color?: string
@@ -65,31 +68,7 @@ export class PreviewComponent {
       html: true, // Enable HTML tags in source
       linkify: true, // Autoconvert URL-like text to links
       breaks: false, // Don't convert '\n' in paragraphs into <br> (standard markdown)
-      typographer: true, // Enable some language-neutral replacement + quotes beautification
-      highlight: (str: string, lang: string) => {
-        if (!lang) {
-          return `<pre class="hljs"><code>${this.md.utils.escapeHtml(str)}</code></pre>`
-        }
-
-        // Normalize language name
-        const normalizedLang = lang.toLowerCase().trim()
-
-        // Try to highlight
-        if (hljs.getLanguage(normalizedLang)) {
-          try {
-            const highlighted = hljs.highlight(str, {
-              language: normalizedLang,
-              ignoreIllegals: true
-            })
-            return `<pre class="hljs"><code class="language-${normalizedLang}">${highlighted.value}</code></pre>`
-          } catch (err) {
-            console.warn(`[Preview] Highlighting failed for language: ${normalizedLang}`, err)
-          }
-        }
-
-        // Fallback: escape HTML
-        return `<pre class="hljs"><code class="language-${normalizedLang}">${this.md.utils.escapeHtml(str)}</code></pre>`
-      }
+      typographer: true // Enable some language-neutral replacement + quotes beautification
     })
 
     // Add custom rule for wiki links [[note-name]]
@@ -101,7 +80,7 @@ export class PreviewComponent {
       if (state.src.charCodeAt(start + 1) !== 0x5b /* [ */) return false
 
       let pos = start + 2
-      let labelStart = pos
+      const labelStart = pos
       let labelEnd = -1
 
       // Find the closing ]]
@@ -315,7 +294,7 @@ export class PreviewComponent {
       if (lang && hljs.getLanguage(lang)) {
         try {
           hljs.highlightElement(codeElement as HTMLElement)
-        } catch (err) {
+        } catch {
           // Ignore highlighting errors
         }
       }
