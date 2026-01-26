@@ -81,6 +81,16 @@ export class AIStatusManager {
     }
   }
 
+  public updateProgress(current: number, total: number): void {
+    if (!this.indicator) this.init()
+    const message = `Indexing... ${current}/${total} notes`
+    if (this.tooltip) this.tooltip.textContent = message
+    if (this.indicator && !this.indicator.classList.contains('ready')) {
+      this.indicator.style.display = 'flex'
+      if (this.spinner) this.spinner.style.display = 'block'
+    }
+  }
+
   public hide(): void {
     if (!this.indicator) this.init()
     if (this.indicator) {

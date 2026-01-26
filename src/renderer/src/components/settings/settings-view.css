@@ -180,6 +180,49 @@
   font-size: 12px;
 }
 
+.settings-field__input-with-action {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+  width: 100%;
+}
+
+.settings-field__input-with-action .settings-input {
+  flex: 1;
+}
+
+.settings-icon-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: auto;
+  min-height: 28px;
+  padding: 0;
+  background: var(--panel-strong);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-soft);
+  cursor: pointer;
+  transition: all 150ms ease;
+  flex-shrink: 0;
+}
+
+.settings-icon-button:hover {
+  background: var(--hover-bg);
+  color: var(--primary);
+  border-color: var(--primary);
+}
+
+.settings-icon-button:active {
+  transform: scale(0.95);
+}
+
+.settings-icon-button svg {
+  width: 14px;
+  height: 14px;
+}
+
 .settings-input:focus {
   outline: none;
   border-color: var(--primary);

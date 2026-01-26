@@ -180,6 +180,20 @@ function createWindow(): void {
     return { action: 'deny' }
   })
 
+  // Prevent internal navigation to external sites (which causes a blank screen)
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    const isInternal =
+      url.startsWith('file://') ||
+      url.startsWith('http://localhost:5173') ||
+      url.startsWith('http://localhost:3000') ||
+      url.startsWith('http://localhost:4173')
+
+    if (!isInternal) {
+      event.preventDefault()
+      shell.openExternal(url)
+    }
+  })
+
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
@@ -671,6 +685,12 @@ app.whenReady().then(async () => {
   } catch (err) {
     console.error('Failed to initialize vault:', err)
   }
+
+  ipcMain.on('open-external-url', (_event, url: string) => {
+    if (url && url.startsWith('http')) {
+      shell.openExternal(url)
+    }
+  })
 
   createWindow()
 

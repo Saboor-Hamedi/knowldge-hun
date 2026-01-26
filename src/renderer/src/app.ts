@@ -22,6 +22,7 @@ import { contextMenu } from './components/contextmenu/contextmenu'
 
 import { ThemeModal } from './components/theme-modal/theme-modal'
 import { DocumentationModal } from './components/documentation/documentation'
+import { AISettingsModal } from './components/settings/ai-settings-modal'
 import { FuzzyFinder } from './components/fuzzy-finder/fuzzy-finder'
 import { ConsoleComponent } from './components/console/console'
 import { GraphView } from './components/graph/graph'
@@ -178,6 +179,7 @@ class App {
   private rightBar: RightBar
   private themeModal: ThemeModal
   private documentationModal: DocumentationModal
+  private aiSettingsModal: AISettingsModal
   private fuzzyFinder: FuzzyFinder
   private graphView: GraphView
   private tabHandlers!: TabHandlersImpl
@@ -195,9 +197,10 @@ class App {
     this.statusBar = new StatusBar('statusBar')
     this.attachSyncEvents()
     this.settingsView = new SettingsView('settingsHost')
-    this.rightBar = new RightBar('rightPanel')
     this.themeModal = new ThemeModal('app') // Mount to app container
     this.documentationModal = new DocumentationModal('app')
+    this.aiSettingsModal = new AISettingsModal('app')
+    this.rightBar = new RightBar('rightPanel', this.aiSettingsModal)
     this.fuzzyFinder = new FuzzyFinder('app')
     this.graphView = new GraphView() // Mount to app container
     this.tabHandlers = new TabHandlersImpl(
@@ -950,6 +953,15 @@ class App {
     })
 
     keyboardManager.register({
+      key: 'Control+Alt+s',
+      scope: 'global',
+      description: 'Open AI Configuration',
+      handler: () => {
+        this.aiSettingsModal.open()
+      }
+    })
+
+    keyboardManager.register({
       key: 'Control+Shift+r',
       scope: 'global',
       description: 'Reload vault',
@@ -1361,8 +1373,26 @@ class App {
         const target = e.target as HTMLElement
         if (target.closest('.vscode-shell')) {
           // If we don't handle it specifically, we still want to block the browser's ugly menu
-          // Our components (sidebar, editor, tabs) handle their own and call e.preventDefault()
-          // This is a safety net.
+        }
+      },
+      true
+    )
+
+    // Global link interceptor to prevent internal navigation and open in browser
+    window.addEventListener(
+      'click',
+      (e) => {
+        const target = e.target as HTMLElement
+        const link = target.closest('a')
+
+        if (link && link.href && !link.href.startsWith('#') && !link.dataset.internal) {
+          // Check if it's an external link
+          const url = link.href
+          if (url.startsWith('http')) {
+            e.preventDefault()
+            e.stopPropagation()
+            window.electron?.ipcRenderer?.send('open-external-url', url)
+          }
         }
       },
       true

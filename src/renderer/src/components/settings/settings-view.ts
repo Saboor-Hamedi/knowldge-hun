@@ -409,6 +409,22 @@ export class SettingsView {
                   />
                 </div>
               </div>
+
+            </div>
+
+            <!-- General Model Configuration (Used for cloud providers: DeepSeek, OpenAI, Claude, etc.) -->
+            <div id="view-general-model-section" style="display: ${state.settings?.aiProvider !== 'ollama' ? 'block' : 'none'}">
+              <div class="settings-field">
+                <div class="settings-field__info">
+                  <label class="settings-field__label">Model Version</label>
+                  <p class="settings-field__hint">Select your preferred engine version.</p>
+                </div>
+                <div class="settings-field__control">
+                  <select class="settings-input" id="view-general-model-select" data-setting="aiModel">
+                    <option value="">Default (Provider Recommended)</option>
+                  </select>
+                </div>
+              </div>
             </div>
 
           </div>
@@ -538,6 +554,7 @@ export class SettingsView {
     if (this.activeSection === 'vault') {
       void this.loadRecentVaults()
     }
+    void this.updateModelDropdowns()
     this.filterSettings()
   }
 
@@ -609,6 +626,8 @@ export class SettingsView {
 
         // Special case: if AI provider changes, re-render to show appropriate fields
         if (setting === 'aiProvider') {
+          // Clear model to prevent "Model Not Found"
+          this.onSettingChange?.({ aiModel: '' })
           this.render()
         }
       })
@@ -731,6 +750,57 @@ export class SettingsView {
         restoreBtn.removeAttribute('disabled')
       }
     })
+
+    // View Ollama Refresh Button
+    this.container
+      .querySelector('#view-refresh-ollama-models')
+      ?.addEventListener('click', async (e) => {
+        e.preventDefault()
+        const btn = e.currentTarget as HTMLButtonElement
+        const select = this.container.querySelector(
+          '#view-ollama-model-select'
+        ) as HTMLSelectElement
+        if (!select || !btn) return
+
+        const originalText = btn.textContent
+        btn.textContent = '...'
+        btn.disabled = true
+
+        try {
+          const { aiProviderManager } = await import('../../services/ai/provider-manager')
+          const baseUrl = (
+            this.container.querySelector('[data-setting="ollamaBaseUrl"]') as HTMLInputElement
+          )?.value
+          const models = await aiProviderManager.listModels({ baseUrl })
+
+          select.innerHTML = '<option value="">Select a model...</option>'
+          models.forEach((model) => {
+            const option = document.createElement('option')
+            option.value = model
+            option.textContent = model
+            if (model === state.settings?.aiModel) option.selected = true
+            select.appendChild(option)
+          })
+
+          // If current model is not in list but we have one, keep it as an option
+          if (state.settings?.aiModel && !models.includes(state.settings.aiModel)) {
+            const option = document.createElement('option')
+            option.value = state.settings.aiModel
+            option.textContent = state.settings.aiModel
+            option.selected = true
+            select.appendChild(option)
+          }
+
+          // Trigger change to sync with settings
+          this.onSettingChange?.({ aiModel: select.value })
+        } catch (err) {
+          console.error('Failed to fetch Ollama models:', err)
+          notificationManager.show('Failed to connect to Ollama server', 'error')
+        } finally {
+          btn.textContent = originalText
+          btn.disabled = false
+        }
+      })
   }
 
   private async loadRecentVaults(): Promise<void> {
@@ -887,6 +957,29 @@ export class SettingsView {
 
   hide(): void {
     this.container.style.display = 'none'
+  }
+
+  private async updateModelDropdowns(): Promise<void> {
+    const providerType = state.settings?.aiProvider || 'deepseek'
+    const select = this.container.querySelector('#view-general-model-select') as HTMLSelectElement
+    if (!select || providerType === 'ollama') return
+
+    try {
+      const { AIProviderFactory } = await import('../../services/ai/factory')
+      const provider = AIProviderFactory.getProvider(providerType as any)
+      const models = provider.supportedModels
+
+      select.innerHTML = '<option value="">Default (Provider Recommended)</option>'
+      models.forEach((model) => {
+        const option = document.createElement('option')
+        option.value = model
+        option.textContent = model
+        if (model === state.settings?.aiModel) option.selected = true
+        select.appendChild(option)
+      })
+    } catch (err) {
+      console.error('[SettingsView] Failed to update models:', err)
+    }
   }
 
   private escapeHtml(text: string): string {

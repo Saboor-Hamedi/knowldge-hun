@@ -309,6 +309,30 @@
   border: 1px solid var(--border);
 }
 
+.rightbar__message--error .rightbar__message-content {
+  background: rgba(239, 68, 68, 0.05);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  color: var(--text-strong);
+}
+
+.rightbar__model-badge {
+  font-size: 10px;
+  padding: 2px 7px;
+  background: var(--panel-strong);
+  border: 1px solid var(--border);
+  color: var(--text-soft);
+  border-radius: 2px;
+  font-weight: 500;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  transition: all 0.2s ease;
+  cursor: default;
+}
+
 /* ---- Markdown elements in assistant messages ---- */
 .rightbar__message-content h1,
 .rightbar__message-content h2,

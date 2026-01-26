@@ -27,6 +27,11 @@ export class SettingsPanel {
     this.isOpen = true
     this.currentSettings = { ...state.settings }
     this.updateUI()
+    const provider = this.currentSettings.aiProvider || 'deepseek'
+    this.updateAIProviderFields(provider)
+    if (provider !== 'ollama') {
+      void this.updateModelDropdownOptions(provider)
+    }
     this.container.classList.add('settings-panel--open')
     this.attachEventListeners()
   }
@@ -219,20 +224,21 @@ export class SettingsPanel {
 
           <!-- AI Tab -->
           <div class="settings-panel__section" data-section="ai">
-            <h3 class="settings-panel__section-title">AI Settings</h3>
+            <h3 class="settings-panel__section-title">AI Brain Settings</h3>
 
             <div class="settings-field">
               <label class="settings-field__label">AI Provider</label>
               <select class="settings-field__input" data-setting="aiProvider">
-                <option value="deepseek" ${state.settings?.aiProvider === 'deepseek' ? 'selected' : ''}>DeepSeek</option>
-                <option value="openai" ${state.settings?.aiProvider === 'openai' ? 'selected' : ''}>OpenAI</option>
-                <option value="claude" ${state.settings?.aiProvider === 'claude' ? 'selected' : ''}>Claude</option>
-                <option value="grok" ${state.settings?.aiProvider === 'grok' ? 'selected' : ''}>Grok</option>
-                <option value="ollama" ${state.settings?.aiProvider === 'ollama' ? 'selected' : ''}>Ollama</option>
+                <option value="deepseek">DeepSeek (OpenAI Compatible)</option>
+                <option value="openai">OpenAI (ChatGPT)</option>
+                <option value="claude">Anthropic Claude</option>
+                <option value="grok">xAI Grok</option>
+                <option value="ollama">Ollama (Local)</option>
               </select>
             </div>
 
-            <div class="settings-field" style="display: ${state.settings?.aiProvider === 'deepseek' || !state.settings?.aiProvider ? 'block' : 'none'}">
+            <!-- DeepSeek Section -->
+            <div class="settings-field" data-provider-section="deepseek" style="display: none">
               <label class="settings-field__label">DeepSeek API Key</label>
               <input 
                 type="password" 
@@ -240,9 +246,11 @@ export class SettingsPanel {
                 data-setting="deepseekApiKey"
                 placeholder="sk-..."
               />
+              <p class="settings-field__hint">Get your key from <a href="https://platform.deepseek.com/" target="_blank">platform.deepseek.com</a></p>
             </div>
 
-            <div class="settings-field" style="display: ${state.settings?.aiProvider === 'openai' ? 'block' : 'none'}">
+            <!-- OpenAI Section -->
+            <div class="settings-field" data-provider-section="openai" style="display: none">
               <label class="settings-field__label">OpenAI API Key</label>
               <input 
                 type="password" 
@@ -250,9 +258,11 @@ export class SettingsPanel {
                 data-setting="openaiApiKey"
                 placeholder="sk-..."
               />
+              <p class="settings-field__hint">Get your key from <a href="https://platform.openai.com/" target="_blank">platform.openai.com</a></p>
             </div>
 
-            <div class="settings-field" style="display: ${state.settings?.aiProvider === 'claude' ? 'block' : 'none'}">
+            <!-- Claude Section -->
+            <div class="settings-field" data-provider-section="claude" style="display: none">
               <label class="settings-field__label">Claude API Key</label>
               <input 
                 type="password" 
@@ -260,26 +270,59 @@ export class SettingsPanel {
                 data-setting="claudeApiKey"
                 placeholder="sk-ant-..."
               />
+              <p class="settings-field__hint">Get your key from <a href="https://console.anthropic.com/" target="_blank">console.anthropic.com</a></p>
             </div>
 
-            <div class="settings-field" style="display: ${state.settings?.aiProvider === 'grok' ? 'block' : 'none'}">
+            <!-- Grok Section -->
+            <div class="settings-field" data-provider-section="grok" style="display: none">
               <label class="settings-field__label">Grok API Key</label>
               <input 
                 type="password" 
                 class="settings-field__input" 
                 data-setting="grokApiKey"
                 placeholder="xai-..."
+                  data-setting="grokApiKey"
+                  placeholder="xai-..."
               />
+              <p class="settings-field__hint">Get your key from <a href="https://console.x.ai/" target="_blank">console.x.ai</a></p>
             </div>
 
-            <div class="settings-field" style="display: ${state.settings?.aiProvider === 'ollama' ? 'block' : 'none'}">
-              <label class="settings-field__label">Ollama Base URL</label>
-              <input 
-                type="text" 
-                class="settings-field__input" 
-                data-setting="ollamaBaseUrl"
-                placeholder="http://localhost:11434"
-              />
+            <!-- Ollama Section -->
+            <div data-provider-section="ollama" style="display: none">
+              <div class="settings-field">
+                <label class="settings-field__label">Ollama Base URL</label>
+                <input 
+                  type="text" 
+                  class="settings-field__input" 
+                  data-setting="ollamaBaseUrl"
+                  placeholder="http://localhost:11434"
+                />
+                <p class="settings-field__hint">Ensure Ollama is running locally.</p>
+              </div>
+              
+              <div class="settings-field">
+                <label class="settings-field__label">Ollama Model</label>
+                <div class="settings-field__input-with-action">
+                  <select class="settings-field__input" id="ollama-model-select" data-setting="aiModel">
+                    <option value="">Select a model...</option>
+                    ${this.currentSettings.aiModel ? `<option value="${this.currentSettings.aiModel}" selected>${this.currentSettings.aiModel}</option>` : ''}
+                  </select>
+                  <button class="settings-icon-button" id="refresh-ollama-models" title="Refresh available models">
+                    ${codicons.refresh}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- General Model Configuration (Cloud Providers) -->
+            <div id="general-model-section" data-section-not-ollama="true" style="display: ${this.currentSettings.aiProvider !== 'ollama' ? 'block' : 'none'}">
+              <div class="settings-field">
+                <label class="settings-field__label">Model Version</label>
+                <select class="settings-field__input" id="general-model-select" data-setting="aiModel">
+                  <option value="">Default (Provider Recommended)</option>
+                </select>
+                <p class="settings-field__hint">Select your preferred engine version.</p>
+              </div>
             </div>
           </div>
 
@@ -326,6 +369,23 @@ export class SettingsPanel {
         ;(input as HTMLInputElement).value = String(value || 0)
       } else {
         ;(input as HTMLInputElement).value = String(value || '')
+
+        // Handle select specifically to ensure the correct option is visible
+        if (input.tagName === 'SELECT' && value) {
+          const select = input as HTMLSelectElement
+          const options = Array.from(select.options)
+          const hasOption = options.some((opt) => opt.value === value)
+          if (!hasOption) {
+            // Add current model as an option if it's missing from the dropdown
+            const opt = document.createElement('option')
+            opt.value = String(value)
+            opt.textContent = String(value)
+            opt.selected = true
+            select.appendChild(opt)
+          } else {
+            select.value = String(value)
+          }
+        }
       }
     })
   }
@@ -373,6 +433,45 @@ export class SettingsPanel {
       e.stopPropagation()
     })
 
+    // Ollama Refresh Button
+    this.container.querySelector('#refresh-ollama-models')?.addEventListener('click', async (e) => {
+      e.preventDefault()
+      const btn = e.currentTarget as HTMLButtonElement
+      const select = this.container.querySelector('#ollama-model-select') as HTMLSelectElement
+      if (!select || !btn) return
+
+      const originalText = btn.textContent
+      btn.textContent = '...'
+      btn.disabled = true
+
+      try {
+        const { aiProviderManager } = await import('../../services/ai/provider-manager')
+        const baseUrl = (
+          this.container.querySelector('[data-setting="ollamaBaseUrl"]') as HTMLInputElement
+        )?.value
+        const models = await aiProviderManager.listModels({ baseUrl })
+
+        select.innerHTML = '<option value="">Select a model...</option>'
+        models.forEach((model) => {
+          const option = document.createElement('option')
+          option.value = model
+          option.textContent = model
+          if (model === this.currentSettings.aiModel) {
+            option.selected = true
+          }
+          select.appendChild(option)
+        })
+
+        // Manually trigger change to sync if the current selection changed or was initialized
+        this.handleSettingChange(select as unknown as HTMLInputElement)
+      } catch (err) {
+        console.error('Failed to fetch Ollama models:', err)
+      } finally {
+        btn.textContent = originalText
+        btn.disabled = false
+      }
+    })
+
     // ESC key to close
     const escHandler = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && this.isOpen) {
@@ -416,6 +515,8 @@ export class SettingsPanel {
         if (value > 10) value = 10
         input.value = String(value)
       }
+    } else if (input.tagName === 'SELECT') {
+      value = (input as unknown as HTMLSelectElement).value
     } else {
       value = input.value
     }
@@ -424,12 +525,56 @@ export class SettingsPanel {
 
     // Refresh UI if provider changes to show/hide correct fields
     if (setting === 'aiProvider') {
-      this.updateUI()
-      // Since updateUI only handles values, we might need a partial re-render or just let the data-section handle it
-      // But wait, the display: none logic is in the template. So we need to call render() if we want to update the template-based style.
-      // Actually, settings-panel handles active section via CSS mostly, but the inline styles for AI providers need a re-render.
-      this.render()
-      this.updateUI()
+      // CLEAR model when provider changes to prevent "Model Not Found" errors
+      this.currentSettings.aiModel = ''
+      this.updateAIProviderFields(value)
+
+      // Update the general dropdown if it's not ollama
+      if (value !== 'ollama') {
+        this.updateModelDropdownOptions(value)
+      }
+    }
+  }
+
+  private async updateModelDropdownOptions(providerType: string): Promise<void> {
+    const select = this.container.querySelector('#general-model-select') as HTMLSelectElement
+    if (!select) return
+
+    try {
+      const { AIProviderFactory } = await import('../../services/ai/factory')
+      const provider = AIProviderFactory.getProvider(providerType as any)
+      const models = provider.supportedModels
+
+      select.innerHTML = '<option value="">Default (Provider Recommended)</option>'
+      models.forEach((model) => {
+        const option = document.createElement('option')
+        option.value = model
+        option.textContent = model
+        if (model === this.currentSettings.aiModel) option.selected = true
+        select.appendChild(option)
+      })
+    } catch (err) {
+      console.error('Failed to update model dropdown:', err)
+    }
+  }
+
+  private updateAIProviderFields(provider: string): void {
+    const sections = this.container.querySelectorAll('[data-provider-section]')
+    sections.forEach((section: Element) => {
+      const s = section as HTMLElement
+      if (s.dataset.providerSection === provider) {
+        s.style.display = 'block'
+      } else {
+        s.style.display = 'none'
+      }
+    })
+
+    // Toggle the general model input
+    const generalModelInput = this.container.querySelector(
+      '[data-section-not-ollama="true"]'
+    ) as HTMLElement
+    if (generalModelInput) {
+      generalModelInput.style.display = provider === 'ollama' ? 'none' : 'block'
     }
   }
 

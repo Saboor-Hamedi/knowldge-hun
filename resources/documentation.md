@@ -473,6 +473,7 @@ alice@CodeDocs λ
 | **Command Palette**           | `Ctrl + Shift + P`             |
 | **HUB Console**               | `Ctrl + J`                     |
 | **Documentation Dashboard**   | `Ctrl + Shift + \`             |
+| **AI Configuration**          | `Ctrl + Alt + S`               |
 | **Reload Vault / Refresh UI** | `Ctrl + Shift + R`             |
 | **Choose Vault Folder**       | `Ctrl + Shift + V`             |
 | **Sync Now (GitHub Gist)**    | `Ctrl + S (while in Settings)` |

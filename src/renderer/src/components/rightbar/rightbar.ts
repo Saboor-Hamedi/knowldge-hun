@@ -1,7 +1,9 @@
+import { state } from '../../core/state'
 import { aiService, type ChatMessage, type ChatMode, CHAT_MODES } from '../../services/aiService'
 import { sessionStorageService, type ChatSession } from '../../services/sessionStorageService'
 import { SessionSidebar } from './session-sidebar'
 import { AIMenu, type AIMenuItem } from './ai-menu'
+import { AISettingsModal } from '../settings/ai-settings-modal'
 import MarkdownIt from 'markdown-it'
 import DOMPurify from 'dompurify'
 import { Avatar } from './avatar'
@@ -127,8 +129,10 @@ export class RightBar {
   private streamingMessageIndex: number | null = null // Track which message is currently streaming
   private aiMenu!: AIMenu
   private sessionSidebar!: SessionSidebar
+  private aiSettingsModal: AISettingsModal
 
-  constructor(containerId: string) {
+  constructor(containerId: string, aiSettingsModal: AISettingsModal) {
+    this.aiSettingsModal = aiSettingsModal
     this.container = document.getElementById(containerId) as HTMLElement
     this.md = new MarkdownIt({
       html: false, // Disable HTML for security - let DOMPurify handle it
@@ -473,6 +477,7 @@ export class RightBar {
         <div class="rightbar__header">
           <h3 class="rightbar__title">AI Chat</h3>
           <div class="rightbar__header-actions">
+            <div id="rightbar-model-badge" class="rightbar__model-badge"></div>
             <button class="rightbar__header-ai-menu" id="rightbar-header-ai-menu" title="More options" aria-label="AI chat menu"></button>
             <button class="rightbar__header-sessions" id="rightbar-header-sessions" title="Sessions" aria-label="Toggle sessions">
               <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -604,6 +609,34 @@ export class RightBar {
       const stopBtn = this.container.querySelector('#rightbar-chat-stop') as HTMLButtonElement
       stopBtn?.addEventListener('click', () => this.stopGeneration())
     }
+
+    // Initial model badge
+    this.updateModelBadge()
+
+    // Listen for model changes
+    window.addEventListener('knowledge-hub:settings-updated', () => {
+      this.updateModelBadge()
+    })
+  }
+
+  private updateModelBadge(): void {
+    const badge = this.container.querySelector('#rightbar-model-badge') as HTMLElement
+    if (!badge) return
+
+    const provider = state.settings?.aiProvider || 'deepseek'
+    const model = state.settings?.aiModel || (provider === 'ollama' ? 'llama3' : 'default')
+
+    const providerName =
+      {
+        ollama: 'Local',
+        deepseek: 'DeepSeek',
+        openai: 'OpenAI',
+        claude: 'Claude',
+        grok: 'Grok'
+      }[provider] || provider
+
+    badge.textContent = `modal:${model}`
+    badge.title = `Current Provider: ${providerName}\nModel: ${model}`
   }
 
   private attachEvents(): void {
@@ -950,6 +983,9 @@ export class RightBar {
    */
   private async handleMenuAction(itemId: string): Promise<void> {
     switch (itemId) {
+      case 'settings':
+        this.aiSettingsModal.open()
+        break
       case 'export':
         await this.exportSession()
         break
@@ -964,9 +1000,6 @@ export class RightBar {
         break
       case 'archive':
         await this.archiveSession()
-        break
-      case 'settings':
-        this.openAISettings()
         break
     }
   }
@@ -1233,12 +1266,7 @@ export class RightBar {
    * Open AI settings
    */
   private openAISettings(): void {
-    // Dispatch event to open settings and focus on AI/Behavior section
-    window.dispatchEvent(
-      new CustomEvent('knowledge-hub:open-settings', {
-        detail: { section: 'behavior' }
-      })
-    )
+    this.aiSettingsModal.open()
   }
 
   /**
@@ -2024,14 +2052,27 @@ export class RightBar {
     this.abortController = new AbortController()
 
     const apiKey = aiService.getApiKey()
-    if (!apiKey) {
+    const currentProvider = state.settings?.aiProvider || 'deepseek'
+    const isLocal = currentProvider === 'ollama'
+
+    if (!apiKey && !isLocal) {
       this.isLoading = false
       this.updateGenerationUI(false)
       this.sendButton.disabled = false
       this.abortController = null
+
+      const providerName = currentProvider.charAt(0).toUpperCase() + currentProvider.slice(1)
+      const setupLink =
+        {
+          openai: 'https://platform.openai.com',
+          claude: 'https://console.anthropic.com',
+          deepseek: 'https://platform.deepseek.com',
+          grok: 'https://console.x.ai'
+        }[currentProvider] || '#'
+
       this.addMessage(
         'assistant',
-        '🔑 **API Key Required**\n\nAdd your DeepSeek API key in **Settings → Behavior → DeepSeek API Key**.\n\nGet your key at [platform.deepseek.com](https://platform.deepseek.com)'
+        `🔑 **${providerName} API Key Required**\n\nPlease add your ${providerName} API key in **Settings → AI**. \n\nYou can get your key at [${setupLink}](${setupLink})`
       )
       this.chatInput.focus()
       return
@@ -2152,7 +2193,17 @@ export class RightBar {
           this.sendButton.disabled = false
           this.chatInput.focus()
         })
-        console.error('[RightBar] API Error:', err)
+
+        // Silence "expected" errors in the console to avoid cluttering for the user
+        const isExpectedError =
+          err instanceof Error &&
+          (err.message.includes('🔴') ||
+            err.message.includes('📂') ||
+            err.message === 'Request cancelled')
+
+        if (!isExpectedError) {
+          console.error('[RightBar] API Error:', err)
+        }
       }
     })
   }
@@ -2289,8 +2340,12 @@ export class RightBar {
                ${this.createLucideIcon(Edit2, 12, 1.5)}
              </button>
            </div>`
+        const isErrorMsg =
+          msg.content.includes('🔴') || msg.content.includes('❌') || msg.content.includes('failed')
+        const errorClass = isErrorMsg ? 'rightbar__message--error' : ''
+
         return `
-        <div class="rightbar__message rightbar__message--${msg.role}">
+        <div class="rightbar__message rightbar__message--${msg.role} ${errorClass}">
           ${avatar}
           <div class="rightbar__message-body">
           <div class="rightbar__message-content">${content}</div>

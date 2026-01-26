@@ -17,6 +17,7 @@ export interface AIProviderConfig {
   maxTokens?: number
   topP?: number
   stream?: boolean
+  signal?: AbortSignal
 }
 
 /**
@@ -62,6 +63,11 @@ export interface AIProvider {
    * Async generator for streaming response tokens.
    */
   streamResponse(messages: AIMessage[], config: AIProviderConfig): AsyncGenerator<string>
+
+  /**
+   * Optional: Fetches dynamically available models from the provider.
+   */
+  listModels?(config: AIProviderConfig): Promise<string[]>
 
   /**
    * Validates the provided configuration (e.g. pings API or checks key format).

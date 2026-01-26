@@ -1,6 +1,8 @@
-// import { state } from '../core/state'
+import { state } from '../core/state'
 import { ragService } from './rag/ragService'
 import type { TreeItem } from '../core/types'
+import { aiProviderManager } from './ai/provider-manager'
+import { AIMessage } from './ai/providers/base'
 
 export interface ChatMessage {
   role: 'user' | 'assistant'
@@ -135,12 +137,20 @@ export class AIService {
 
   async loadApiKey(): Promise<void> {
     try {
-      const settings = (await window.api.getSettings()) as { deepseekApiKey?: string }
-      this.apiKey = settings.deepseekApiKey || null
+      const settings = (await window.api.getSettings()) as Record<string, any>
+      // We check for any valid configuration now
+      const hasConfig =
+        settings.deepseekApiKey ||
+        settings.openaiApiKey ||
+        settings.claudeApiKey ||
+        settings.grokApiKey ||
+        settings.aiProvider === 'ollama'
+
+      this.apiKey = hasConfig ? 'configured' : null
       // Initialize RAG
       this.initRag()
     } catch (err) {
-      console.error('[AIService] Failed to load API key:', err)
+      console.error('[AIService] Failed to load settings:', err)
     }
   }
 
@@ -638,70 +648,44 @@ export class AIService {
     messages: ChatMessage[],
     contextMessage: string | { context: string; citations: NoteCitation[] }
   ): Promise<string> {
-    // Handle both old string format and new object format for backward compatibility
     const context = typeof contextMessage === 'string' ? contextMessage : contextMessage.context
-    if (!this.apiKey) {
-      throw new Error('API key not configured')
-    }
-
     const modeConfig = this.getModeConfig()
 
     try {
-      // Build messages array with optional system prompt for mode
-      const messagesForAPI: Array<{ role: string; content: string }> = []
+      const messagesForAPI = this.prepareMessages(modeConfig, context, messages)
 
-      // Add system prompt if mode has one
-      if (modeConfig.systemPrompt) {
-        messagesForAPI.push({ role: 'system', content: modeConfig.systemPrompt })
-      }
-
-      // Detect if user is saying stop/don't explain
-      const stopPhrases =
-        /\b(stop|don't explain|dont explain|just help|just fix|no explanation|skip the|enough|stop explaining|stop it|please stop)\b/i
-      const isStopCommand = stopPhrases.test(context)
-
-      // If it's a stop command, only include the last 2 messages to avoid re-explaining
-      // Otherwise include full history
-      const historyToInclude = isStopCommand
-        ? messages.slice(-3, -1) // Only last 2 messages (excluding current)
-        : messages.slice(0, -1) // All history (excluding current)
-
-      // Add conversation history
-      messagesForAPI.push(...historyToInclude.map((m) => ({ role: m.role, content: m.content })))
-
-      // Add the context-enhanced user message
-      messagesForAPI.push({ role: 'user', content: context })
-
-      const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${this.apiKey}`
-        },
-        body: JSON.stringify({
-          model: 'deepseek-chat',
-          messages: messagesForAPI,
-          temperature: modeConfig.temperature,
-          max_tokens: 2000
-        })
+      return await aiProviderManager.sendMessage(messagesForAPI, {
+        temperature: modeConfig.temperature
       })
-
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({}))
-        throw new Error(error.error?.message || `API error: ${response.status}`)
-      }
-
-      const data = await response.json()
-      return data.choices[0]?.message?.content || 'No response'
     } catch (err: unknown) {
-      const error = err as Error
-      if (error.name === 'TypeError' && error.message.includes('fetch')) {
-        throw new Error(
-          'Network error: Unable to connect to DeepSeek API. Please check your internet connection.'
+      throw this.handleAIError(err)
+    }
+  }
+
+  private handleAIError(err: unknown): Error {
+    const error = err as Error
+    const provider = (state.settings?.aiProvider || 'deepseek') as string
+
+    if (error.name === 'TypeError' && error.message.includes('fetch')) {
+      if (provider === 'ollama') {
+        const url = state.settings?.ollamaBaseUrl || 'http://localhost:11434'
+        let hint = ''
+
+        // Detect common typo: localhost/11434 instead of localhost:11434
+        if (url.includes('localhost/') && /\d{4,5}$/.test(url)) {
+          const suggested = url.replace('localhost/', 'localhost:')
+          hint = `\n\n💡 **Typo detected?** It looks like you might have used a slash instead of a colon. Try using \`${suggested}\` in settings.`
+        }
+
+        return new Error(
+          `🔴 **Local Ollama connection failed**\n\nEnsure your Ollama server is running at [\`${url}\`](${url}).\n\nYou can start it by running \`ollama serve\` in your terminal.${hint}`
         )
       }
-      throw error
+      return new Error(
+        `🔴 **Network error**\n\nUnable to connect to ${provider}. Please check your internet connection and API configuration.`
+      )
     }
+    return error
   }
 
   /**
@@ -720,102 +704,20 @@ export class AIService {
   ): Promise<string> {
     // Handle both old string format and new object format for backward compatibility
     const context = typeof contextMessage === 'string' ? contextMessage : contextMessage.context
-
-    if (!this.apiKey) {
-      throw new Error('API key not configured')
-    }
-
     const modeConfig = this.getModeConfig()
 
     try {
-      // Build messages array with optional system prompt for mode
-      const messagesForAPI: Array<{ role: string; content: string }> = []
+      const messagesForAPI = this.prepareMessages(modeConfig, context, messages)
 
-      // Add system prompt if mode has one
-      if (modeConfig.systemPrompt) {
-        messagesForAPI.push({ role: 'system', content: modeConfig.systemPrompt })
-      }
-
-      // Add conversation history (exclude the last user message)
-      messagesForAPI.push(
-        ...messages.slice(0, -1).map((m) => ({ role: m.role, content: m.content }))
-      )
-
-      // Add the context-enhanced user message
-      messagesForAPI.push({ role: 'user', content: context })
-
-      const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${this.apiKey}`
-        },
-        body: JSON.stringify({
-          model: 'deepseek-chat',
-          messages: messagesForAPI,
-          temperature: modeConfig.temperature,
-          max_tokens: 2000,
-          stream: true
-        }),
-        signal // Pass the abort signal
+      let fullText = ''
+      const stream = aiProviderManager.streamResponse(messagesForAPI, {
+        temperature: modeConfig.temperature,
+        signal
       })
 
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({}))
-        throw new Error(error.error?.message || `API error: ${response.status}`)
-      }
-
-      if (!response.body) {
-        throw new Error('Response body is null')
-      }
-
-      const reader = response.body.getReader()
-      const decoder = new TextDecoder()
-      let fullText = ''
-      let buffer = ''
-
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-
-        buffer += decoder.decode(value, { stream: true })
-        const lines = buffer.split('\n')
-        buffer = lines.pop() || '' // Keep incomplete line in buffer
-
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6)
-            if (data === '[DONE]') continue
-
-            try {
-              const json = JSON.parse(data)
-              const delta = json.choices?.[0]?.delta?.content
-              if (delta) {
-                fullText += delta
-                onChunk(delta)
-              }
-            } catch {
-              // Skip invalid JSON
-            }
-          }
-        }
-      }
-
-      // Process remaining buffer
-      if (buffer.startsWith('data: ')) {
-        const data = buffer.slice(6)
-        if (data !== '[DONE]') {
-          try {
-            const json = JSON.parse(data)
-            const delta = json.choices?.[0]?.delta?.content
-            if (delta) {
-              fullText += delta
-              onChunk(delta)
-            }
-          } catch {
-            // Skip invalid JSON
-          }
-        }
+      for await (const chunk of stream) {
+        fullText += chunk
+        onChunk(chunk)
       }
 
       return fullText
@@ -825,13 +727,47 @@ export class AIService {
         // User cancelled the request - this is expected, not an error
         return ''
       }
-      if (error.name === 'TypeError' && error.message.includes('fetch')) {
-        throw new Error(
-          'Network error: Unable to connect to DeepSeek API. Please check your internet connection.'
-        )
-      }
-      throw error
+      throw this.handleAIError(err)
     }
+  }
+
+  /**
+   * Internal helper to build the messages array with identity awareness
+   */
+  private prepareMessages(
+    modeConfig: ChatModeConfig,
+    context: string,
+    messages: ChatMessage[]
+  ): AIMessage[] {
+    const provider = state.settings?.aiProvider || 'deepseek'
+    const model = state.settings?.aiModel || 'default-recommended'
+
+    // Identity injection: We tell the AI who it is and what it's running on
+    const identityPrompt =
+      `You are Knowledge Hub AI, an intelligent personal assistant fully integrated into the user's note-taking application.\n` +
+      `Your current engine: ${provider.toUpperCase()} (Model: ${model === 'default-recommended' ? 'System Default' : model}).\n` +
+      `When the user asks who you are, what model you are, or what powers you, answer accurately as Knowledge Hub AI using ${provider} ${model === 'default-recommended' ? '' : `(${model})`}.`
+
+    const messagesForAPI: AIMessage[] = []
+
+    // 1. Add System Prompt (Identity + Mode behavior)
+    const basePrompt = modeConfig.systemPrompt || 'You are a helpful assistant.'
+    messagesForAPI.push({
+      role: 'system',
+      content: `${identityPrompt}\n\n${basePrompt}`
+    })
+
+    // 2. Add History (exclude last user message as it's replaced by the context-aware one)
+    const history = messages.slice(0, -1).map((m) => ({
+      role: m.role as 'user' | 'assistant',
+      content: m.content
+    }))
+    messagesForAPI.push(...history)
+
+    // 3. Add Final Context-Aware Prompt
+    messagesForAPI.push({ role: 'user', content: context })
+
+    return messagesForAPI
   }
 }
 
