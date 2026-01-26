@@ -1,4 +1,3 @@
-import { state } from '../../core/state'
 import './console.css'
 
 export interface Command {

@@ -2202,11 +2202,14 @@ class App {
       await this.refreshNotes()
       await this.openNote(imported.id, imported.path)
 
-      // Index imported note for RAG
-      await ragService.indexNote(imported.id, imported.content, {
-        title: imported.title,
-        path: imported.path
-      })
+      // Index imported note for RAG (load content first)
+      const notePayload = await window.api.loadNote(imported.id, imported.path)
+      if (notePayload?.content) {
+        await ragService.indexNote(imported.id, notePayload.content, {
+          title: imported.title,
+          path: imported.path
+        })
+      }
     } catch (error) {
       const message = (error as Error).message || 'Failed to import file'
       console.error('File import failed', error)
