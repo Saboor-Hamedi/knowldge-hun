@@ -73,6 +73,9 @@ export class SettingsView {
           <button class="settings-view__sidebar-item ${this.activeSection === 'behavior' ? 'is-active' : ''}" data-section-tab="behavior">
             ${codicons.settingsGear} Behavior
           </button>
+          <button class="settings-view__sidebar-item ${this.activeSection === 'ai' ? 'is-active' : ''}" data-section-tab="ai">
+            ${codicons.sparkles} AI
+          </button>
           <button class="settings-view__sidebar-item ${this.activeSection === 'vault' ? 'is-active' : ''}" data-section-tab="vault">
             ${codicons.folderRoot} Vault
           </button>
@@ -288,22 +291,126 @@ export class SettingsView {
                 />
               </div>
             </div>
+          </div>
 
+          <!-- AI Section -->
+          <div class="settings-view__section ${this.activeSection === 'ai' ? 'is-active' : ''}" data-section="ai">
+            <div class="settings-view__section-header">
+                <h2 class="settings-view__section-title">AI Settings</h2>
+            </div>
+
+            <!-- AI Provider -->
             <div class="settings-field">
               <div class="settings-field__info">
-                <label class="settings-field__label">DeepSeek API Key</label>
-                <p class="settings-field__hint">Your DeepSeek API key for AI chat functionality. Get one at <a href="https://platform.deepseek.com" target="_blank" style="color: var(--primary);">platform.deepseek.com</a></p>
+                <label class="settings-field__label">Primary AI Provider</label>
+                <p class="settings-field__hint">Select which service to use for AI features.</p>
               </div>
               <div class="settings-field__control">
-                <input
-                  type="password"
-                  class="settings-input"
-                  data-setting="deepseekApiKey"
-                  placeholder="sk-..."
-                  value="${(state.settings as any)?.deepseekApiKey || ''}"
-                />
+                <select class="settings-input" data-setting="aiProvider">
+                  <option value="deepseek" ${state.settings?.aiProvider === 'deepseek' ? 'selected' : ''}>DeepSeek</option>
+                  <option value="openai" ${state.settings?.aiProvider === 'openai' ? 'selected' : ''}>OpenAI (GPT-4o)</option>
+                  <option value="claude" ${state.settings?.aiProvider === 'claude' ? 'selected' : ''}>Anthropic Claude</option>
+                  <option value="grok" ${state.settings?.aiProvider === 'grok' ? 'selected' : ''}>xAI Grok</option>
+                  <option value="ollama" ${state.settings?.aiProvider === 'ollama' ? 'selected' : ''}>Ollama (Local)</option>
+                </select>
               </div>
             </div>
+
+            <!-- DeepSeek Configuration -->
+            <div class="settings-ai-provider-group" style="display: ${state.settings?.aiProvider === 'deepseek' || !state.settings?.aiProvider ? 'block' : 'none'}">
+              <div class="settings-field">
+                <div class="settings-field__info">
+                  <label class="settings-field__label">DeepSeek API Key</label>
+                  <p class="settings-field__hint">Get one at <a href="https://platform.deepseek.com" target="_blank" style="color: var(--primary);">platform.deepseek.com</a></p>
+                </div>
+                <div class="settings-field__control">
+                  <input
+                    type="password"
+                    class="settings-input"
+                    data-setting="deepseekApiKey"
+                    placeholder="sk-..."
+                    value="${state.settings?.deepseekApiKey || ''}"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <!-- OpenAI Configuration -->
+            <div class="settings-ai-provider-group" style="display: ${state.settings?.aiProvider === 'openai' ? 'block' : 'none'}">
+              <div class="settings-field">
+                <div class="settings-field__info">
+                  <label class="settings-field__label">OpenAI API Key</label>
+                  <p class="settings-field__hint">Get one at <a href="https://platform.openai.com" target="_blank" style="color: var(--primary);">platform.openai.com</a></p>
+                </div>
+                <div class="settings-field__control">
+                  <input
+                    type="password"
+                    class="settings-input"
+                    data-setting="openaiApiKey"
+                    placeholder="sk-..."
+                    value="${state.settings?.openaiApiKey || ''}"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <!-- Claude Configuration -->
+            <div class="settings-ai-provider-group" style="display: ${state.settings?.aiProvider === 'claude' ? 'block' : 'none'}">
+              <div class="settings-field">
+                <div class="settings-field__info">
+                  <label class="settings-field__label">Anthropic API Key</label>
+                  <p class="settings-field__hint">Get one at <a href="https://console.anthropic.com" target="_blank" style="color: var(--primary);">console.anthropic.com</a></p>
+                </div>
+                <div class="settings-field__control">
+                  <input
+                    type="password"
+                    class="settings-input"
+                    data-setting="claudeApiKey"
+                    placeholder="sk-ant-..."
+                    value="${state.settings?.claudeApiKey || ''}"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <!-- Grok Configuration -->
+            <div class="settings-ai-provider-group" style="display: ${state.settings?.aiProvider === 'grok' ? 'block' : 'none'}">
+              <div class="settings-field">
+                <div class="settings-field__info">
+                  <label class="settings-field__label">xAI Grok API Key</label>
+                  <p class="settings-field__hint">Get one at <a href="https://console.x.ai" target="_blank" style="color: var(--primary);">console.x.ai</a></p>
+                </div>
+                <div class="settings-field__control">
+                  <input
+                    type="password"
+                    class="settings-input"
+                    data-setting="grokApiKey"
+                    placeholder="xai-..."
+                    value="${state.settings?.grokApiKey || ''}"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <!-- Ollama Configuration -->
+            <div class="settings-ai-provider-group" style="display: ${state.settings?.aiProvider === 'ollama' ? 'block' : 'none'}">
+              <div class="settings-field">
+                <div class="settings-field__info">
+                  <label class="settings-field__label">Ollama Base URL</label>
+                  <p class="settings-field__hint">Default: http://localhost:11434</p>
+                </div>
+                <div class="settings-field__control">
+                  <input
+                    type="text"
+                    class="settings-input"
+                    data-setting="ollamaBaseUrl"
+                    placeholder="http://localhost:11434"
+                    value="${state.settings?.ollamaBaseUrl || ''}"
+                  />
+                </div>
+              </div>
+            </div>
+
           </div>
 
           <!-- Vault Section -->
@@ -499,6 +606,11 @@ export class SettingsView {
         }
 
         this.onSettingChange?.({ [setting]: value })
+
+        // Special case: if AI provider changes, re-render to show appropriate fields
+        if (setting === 'aiProvider') {
+          this.render()
+        }
       })
     })
 

@@ -12,6 +12,7 @@
   scrollbar-width: none;
   white-space: nowrap;
   flex-shrink: 0;
+  z-index: 50;
 }
 
 .tabbar::-webkit-scrollbar {
@@ -23,21 +24,19 @@
   height: 100%;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   border: none;
-  border-right: 1px solid var(--border);
-  padding: 0 10px;
+  border-right: 1px solid var(--border-subtle);
+  padding: 0 16px;
   background: var(--bg);
   color: var(--text-soft);
   cursor: pointer;
-  transition:
-    background 120ms ease,
-    color 120ms ease;
+  transition: all var(--transition-base);
   box-sizing: border-box;
   position: relative;
-  min-width: 120px;
-  max-width: 180px;
-  flex-shrink: 0; /* Never shrink below min-width - scroll instead */
+  min-width: 140px;
+  max-width: 220px;
+  flex-shrink: 0;
 }
 
 .tab:last-child {
@@ -48,28 +47,11 @@
 .tab.is-active {
   background: var(--panel);
   color: var(--text-strong);
+  box-shadow: inset 0 2px 0 var(--primary);
 }
 
 .tab.is-active::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: -1px;
-  height: 2px;
-  background: var(--primary);
-  z-index: 2;
-}
-
-/* Pinned Tab */
-.tab.is-pinned {
-  padding: 0 10px;
-  min-width: fit-content;
-  max-width: none;
-}
-
-.tab.is-pinned .tab__icon {
-  margin-right: 4px;
+  display: none; /* Replaced by inset box shadow for cleaner look */
 }
 
 /* Hover State */
@@ -87,80 +69,40 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--text-soft);
   flex-shrink: 0;
   width: 16px;
   height: 16px;
+  opacity: 0.8;
+  transition: opacity var(--transition-base);
 }
 
-.tab__icon svg {
-  width: 16px;
-  height: 16px;
-}
-
-/* Dynamic Icon Colors */
-.tab[data-ext='md'] .tab__icon {
-  color: #519aba;
-}
-.tab[data-ext='js'] .tab__icon {
-  color: #f7df1e;
-}
-.tab[data-ext='ts'] .tab__icon {
-  color: #3178c6;
-}
-.tab[data-ext='jsx'] .tab__icon {
-  color: #61dafb;
-}
-.tab[data-ext='tsx'] .tab__icon {
-  color: #61dafb;
-}
-.tab[data-ext='html'] .tab__icon {
-  color: #e34c26;
-}
-.tab[data-ext='css'] .tab__icon {
-  color: #264de4;
-}
-.tab[data-ext='json'] .tab__icon {
-  color: #f1e05a;
-}
-.tab[data-ext='png'] .tab__icon,
-.tab[data-ext='jpg'] .tab__icon {
-  color: #b83998;
-}
-
-/* Pin Icon */
-.tab__pin-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--primary);
-  margin-left: 4px;
-  opacity: 0.7;
-  flex-shrink: 0;
-}
-
-.tab__pin-icon svg {
-  width: 12px;
-  height: 12px;
-}
-
-.tab.is-pinned:hover .tab__pin-icon {
+.tab:hover .tab__icon,
+.tab.is-active .tab__icon {
   opacity: 1;
 }
+
+/* Dynamic Icon Colors - refined */
+.tab[data-ext='md'] .tab__icon { color: #818cf8; }
+.tab[data-ext='js'] .tab__icon { color: #fbbf24; }
+.tab[data-ext='ts'] .tab__icon { color: #60a5fa; }
+.tab[data-ext='html'] .tab__icon { color: #f87171; }
+.tab[data-ext='css'] .tab__icon { color: #38bdf8; }
+.tab[data-ext='json'] .tab__icon { color: #fbbf24; }
 
 /* Tab Label */
 .tab__label {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-size: 12px;
-  font-weight: 400;
+  font-size: 13px;
+  font-weight: 500;
   flex: 1;
   min-width: 0;
+  opacity: 0.9;
 }
 
 .tab.is-active .tab__label {
-  font-weight: 500;
+  opacity: 1;
 }
 
 /* Close Button */
@@ -168,18 +110,26 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  height: 18px;
-  border-radius: 4px;
-  color: var(--text-soft);
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  color: var(--text-muted);
   opacity: 0;
-  transition:
-    opacity 100ms ease,
-    background 100ms ease,
-    color 100ms ease;
+  transition: all var(--transition-base);
   flex-shrink: 0;
-  margin-left: 4px;
+  margin-left: 8px;
   position: relative;
+}
+
+.tab:hover .tab__close,
+.tab.is-dirty .tab__close {
+  opacity: 0.6;
+}
+
+.tab__close:hover {
+  opacity: 1 !important;
+  background: var(--hover);
+  color: var(--text-strong);
 }
 
 .tab.is-dirty:not(:hover) .tab__close svg {
@@ -190,24 +140,10 @@
   content: '';
   width: 8px;
   height: 8px;
-  background-color: #cca700; /* Yellowish */
+  background-color: var(--primary);
   border-radius: 50%;
   display: block;
-}
-
-/* Ensure close button area is visible when dirty even if not hovered, but it will show as a dot */
-.tab.is-dirty .tab__close {
-  opacity: 1;
-}
-
-.tab:hover .tab__close {
-  opacity: 0.7;
-}
-
-.tab__close:hover {
-  opacity: 1 !important;
-  background: rgba(255, 255, 255, 0.1);
-  color: var(--text-strong);
+  box-shadow: 0 0 8px var(--primary);
 }
 
 .tab__close svg {
@@ -217,10 +153,12 @@
 
 /* Empty State */
 .tabbar__empty {
-  color: var(--muted);
-  padding: 0 16px;
-  font-size: 12px;
+  color: var(--text-muted);
+  padding: 0 24px;
+  font-size: 13px;
   display: flex;
   align-items: center;
   height: 100%;
+  font-style: italic;
+  opacity: 0.6;
 }

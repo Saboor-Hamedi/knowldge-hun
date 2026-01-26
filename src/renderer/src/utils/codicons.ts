@@ -10,7 +10,8 @@ import {
   FolderArchive,
   FolderRoot,
   FolderDot,
-  Keyboard
+  Keyboard,
+  Sparkles
 } from 'lucide'
 
 /**
@@ -110,7 +111,8 @@ export const codicons = {
   warning:
     '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1L1 14h14L8 1z"/></svg>',
   info: '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path fill-rule="evenodd" clip-rule="evenodd" d="M8 1.5a6.5 6.5 0 100 13 6.5 6.5 0 000-13zM8 4a1 1 0 100-2 1 1 0 000 2zm.75 3.5a.75.75 0 00-1.5 0v4a.75.75 0 001.5 0v-4z"/></svg>',
-  keyboard: lucideIcon(Keyboard)
+  keyboard: lucideIcon(Keyboard),
+  sparkles: lucideIcon(Sparkles)
 }
 
 // Folder type detector based on folder name

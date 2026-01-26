@@ -62,6 +62,9 @@ export class SettingsPanel {
             <button class="settings-panel__tab" data-tab="behavior">
               ${codicons.settingsGear} <span>Behavior</span>
             </button>
+            <button class="settings-panel__tab" data-tab="ai">
+              ${codicons.sparkles} <span>AI</span>
+            </button>
             <button class="settings-panel__tab" data-tab="shortcuts">
               ${codicons.keyboard} <span>Shortcuts</span>
             </button>
@@ -214,6 +217,72 @@ export class SettingsPanel {
             </div>
           </div>
 
+          <!-- AI Tab -->
+          <div class="settings-panel__section" data-section="ai">
+            <h3 class="settings-panel__section-title">AI Settings</h3>
+
+            <div class="settings-field">
+              <label class="settings-field__label">AI Provider</label>
+              <select class="settings-field__input" data-setting="aiProvider">
+                <option value="deepseek" ${state.settings?.aiProvider === 'deepseek' ? 'selected' : ''}>DeepSeek</option>
+                <option value="openai" ${state.settings?.aiProvider === 'openai' ? 'selected' : ''}>OpenAI</option>
+                <option value="claude" ${state.settings?.aiProvider === 'claude' ? 'selected' : ''}>Claude</option>
+                <option value="grok" ${state.settings?.aiProvider === 'grok' ? 'selected' : ''}>Grok</option>
+                <option value="ollama" ${state.settings?.aiProvider === 'ollama' ? 'selected' : ''}>Ollama</option>
+              </select>
+            </div>
+
+            <div class="settings-field" style="display: ${state.settings?.aiProvider === 'deepseek' || !state.settings?.aiProvider ? 'block' : 'none'}">
+              <label class="settings-field__label">DeepSeek API Key</label>
+              <input 
+                type="password" 
+                class="settings-field__input" 
+                data-setting="deepseekApiKey"
+                placeholder="sk-..."
+              />
+            </div>
+
+            <div class="settings-field" style="display: ${state.settings?.aiProvider === 'openai' ? 'block' : 'none'}">
+              <label class="settings-field__label">OpenAI API Key</label>
+              <input 
+                type="password" 
+                class="settings-field__input" 
+                data-setting="openaiApiKey"
+                placeholder="sk-..."
+              />
+            </div>
+
+            <div class="settings-field" style="display: ${state.settings?.aiProvider === 'claude' ? 'block' : 'none'}">
+              <label class="settings-field__label">Claude API Key</label>
+              <input 
+                type="password" 
+                class="settings-field__input" 
+                data-setting="claudeApiKey"
+                placeholder="sk-ant-..."
+              />
+            </div>
+
+            <div class="settings-field" style="display: ${state.settings?.aiProvider === 'grok' ? 'block' : 'none'}">
+              <label class="settings-field__label">Grok API Key</label>
+              <input 
+                type="password" 
+                class="settings-field__input" 
+                data-setting="grokApiKey"
+                placeholder="xai-..."
+              />
+            </div>
+
+            <div class="settings-field" style="display: ${state.settings?.aiProvider === 'ollama' ? 'block' : 'none'}">
+              <label class="settings-field__label">Ollama Base URL</label>
+              <input 
+                type="text" 
+                class="settings-field__input" 
+                data-setting="ollamaBaseUrl"
+                placeholder="http://localhost:11434"
+              />
+            </div>
+          </div>
+
           <!-- Shortcuts Tab -->
           <div class="settings-panel__section" data-section="shortcuts">
             <h3 class="settings-panel__section-title">Keyboard Shortcuts</h3>
@@ -352,6 +421,16 @@ export class SettingsPanel {
     }
 
     this.currentSettings[setting] = value
+
+    // Refresh UI if provider changes to show/hide correct fields
+    if (setting === 'aiProvider') {
+      this.updateUI()
+      // Since updateUI only handles values, we might need a partial re-render or just let the data-section handle it
+      // But wait, the display: none logic is in the template. So we need to call render() if we want to update the template-based style.
+      // Actually, settings-panel handles active section via CSS mostly, but the inline styles for AI providers need a re-render.
+      this.render()
+      this.updateUI()
+    }
   }
 
   private async save(): Promise<void> {

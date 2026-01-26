@@ -16,6 +16,10 @@ export type ThemeColors = {
   '--status': string
   '--hover': string
   '--selection': string
+  '--glass-bg': string
+  '--glass-border': string
+  '--shadow-subtle': string
+  '--shadow-strong': string
 }
 
 export type Theme = {
@@ -27,48 +31,56 @@ export type Theme = {
 export const themes: Record<string, Theme> = {
   dark: {
     id: 'dark',
-    name: 'Dark (Default)',
+    name: 'Hub Dark (Default)',
     colors: {
-      '--bg': '#0f111a',
-      '--bg-accent': '#11141f',
-      '--panel': '#1e1e1e',
-      '--panel-strong': '#252526',
-      '--border': '#2a2d37',
-      '--border-subtle': 'rgba(255, 255, 255, 0.05)',
-      '--muted': '#9da5b4',
-      '--text': '#e8eaed',
+      '--bg': '#0a0b10',
+      '--bg-accent': '#0f1117',
+      '--panel': '#12141c',
+      '--panel-strong': '#1a1d27',
+      '--border': '#232735',
+      '--border-subtle': 'rgba(255, 255, 255, 0.04)',
+      '--muted': '#626a84',
+      '--text': '#e2e4e9',
       '--text-strong': '#ffffff',
-      '--text-soft': '#c5c9d6',
-      '--text-muted': '#9da5b4',
-      '--primary': '#569cd6',
-      '--primary-strong': '#4fc1ff',
-      '--danger': '#f48771',
-      '--status': '#0e639c',
-      '--hover': '#7fa7ff1f',
-      '--selection': '#569cd640'
+      '--text-soft': '#9b9fb1',
+      '--text-muted': '#626a84',
+      '--primary': '#6366f1',
+      '--primary-strong': '#818cf8',
+      '--danger': '#f43f5e',
+      '--status': '#4f46e5',
+      '--hover': 'rgba(99, 102, 241, 0.08)',
+      '--selection': 'rgba(99, 102, 241, 0.25)',
+      '--glass-bg': 'rgba(18, 20, 28, 0.7)',
+      '--glass-border': 'rgba(255, 255, 255, 0.08)',
+      '--shadow-subtle': '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+      '--shadow-strong': '0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.1)'
     }
   },
   light: {
     id: 'light',
-    name: 'Light',
+    name: 'Hub Light',
     colors: {
-      '--bg': '#ffffff',
-      '--bg-accent': '#f3f3f3',
-      '--panel': '#f3f3f3',
-      '--panel-strong': '#e5e5e5',
-      '--border': '#e5e5e5',
-      '--border-subtle': 'rgba(0, 0, 0, 0.05)',
-      '--muted': '#6a737d',
-      '--text': '#24292e',
-      '--text-strong': '#000000',
-      '--text-soft': '#586069',
-      '--text-muted': '#6a737d',
-      '--primary': '#0366d6',
-      '--primary-strong': '#005cc5',
-      '--danger': '#d73a49',
-      '--status': '#0366d6',
-      '--hover': '#0342d614',
-      '--selection': '#0342d626'
+      '--bg': '#f8fafc',
+      '--bg-accent': '#f1f5f9',
+      '--panel': '#ffffff',
+      '--panel-strong': '#fdfdfd',
+      '--border': '#e2e8f0',
+      '--border-subtle': 'rgba(0, 0, 0, 0.03)',
+      '--muted': '#94a3b8',
+      '--text': '#334155',
+      '--text-strong': '#0f172a',
+      '--text-soft': '#64748b',
+      '--text-muted': '#94a3b8',
+      '--primary': '#4f46e5',
+      '--primary-strong': '#4338ca',
+      '--danger': '#e11d48',
+      '--status': '#4f46e5',
+      '--hover': 'rgba(79, 70, 229, 0.06)',
+      '--selection': 'rgba(79, 70, 229, 0.15)',
+      '--glass-bg': 'rgba(255, 255, 255, 0.7)',
+      '--glass-border': 'rgba(0, 0, 0, 0.08)',
+      '--shadow-subtle': '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
+      '--shadow-strong': '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)'
     }
   },
   githubDark: {
@@ -91,81 +103,70 @@ export const themes: Record<string, Theme> = {
       '--danger': '#f85149',
       '--status': '#1f6feb',
       '--hover': '#b1bac41f',
-      '--selection': '#388bfd26'
+      '--selection': '#388bfd26',
+      '--glass-bg': 'rgba(13, 17, 23, 0.8)',
+      '--glass-border': 'rgba(48, 54, 61, 0.5)',
+      '--shadow-subtle': '0 1px 3px rgba(0,0,0,0.12)',
+      '--shadow-strong': '0 4px 12px rgba(0,0,0,0.25)'
     }
   },
   midnight: {
     id: 'midnight',
-    name: 'Midnight',
+    name: 'OLED Midnight',
     colors: {
       '--bg': '#000000',
-      '--bg-accent': '#0a0a0a',
-      '--panel': '#111111',
-      '--panel-strong': '#1a1a1a',
-      '--border': '#333333',
-      '--border-subtle': 'rgba(255, 255, 255, 0.1)',
-      '--muted': '#888888',
-      '--text': '#dddddd',
+      '--bg-accent': '#050505',
+      '--panel': '#000000',
+      '--panel-strong': '#080808',
+      '--border': '#1a1a1a',
+      '--border-subtle': 'rgba(255, 255, 255, 0.03)',
+      '--muted': '#555555',
+      '--text': '#e0e0e0',
       '--text-strong': '#ffffff',
-      '--text-soft': '#bbbbbb',
-      '--text-muted': '#888888',
-      '--primary': '#bb86fc',
-      '--primary-strong': '#d7b7fd',
-      '--danger': '#cf6679',
-      '--status': '#3700b3',
-      '--hover': '#bb86fc1f',
-      '--selection': '#bb86fc40'
+      '--text-soft': '#aaaaaa',
+      '--text-muted': '#555555',
+      '--primary': '#a78bfa',
+      '--primary-strong': '#c4b5fd',
+      '--danger': '#f87171',
+      '--status': '#6d28d9',
+      '--hover': 'rgba(167, 139, 250, 0.1)',
+      '--selection': 'rgba(167, 139, 250, 0.3)',
+      '--glass-bg': 'rgba(0, 0, 0, 0.8)',
+      '--glass-border': 'rgba(255, 255, 255, 0.06)',
+      '--shadow-subtle': '0 0 0 1px rgba(255, 255, 255, 0.05)',
+      '--shadow-strong': '0 0 40px rgba(167, 139, 250, 0.05)'
     }
   },
   oceanic: {
     id: 'oceanic',
-    name: 'Oceanic',
+    name: 'Oceanic Pro',
     colors: {
-      '--bg': '#0f181e',
-      '--bg-accent': '#121f26',
-      '--panel': '#1a2b34',
-      '--panel-strong': '#20343f',
-      '--border': '#2a414d',
-      '--border-subtle': 'rgba(64, 224, 208, 0.1)',
-      '--muted': '#567a8c',
-      '--text': '#cfe6ee',
-      '--text-strong': '#ffffff',
-      '--text-soft': '#b0cdd9',
-      '--text-muted': '#567a8c',
-      '--primary': '#40e0d0',
-      '--primary-strong': '#7fffd4',
-      '--danger': '#ff6b6b',
-      '--status': '#008b8b',
-      '--hover': '#40e0d01f',
-      '--selection': '#40e0d040'
-    }
-  },
-  forest: {
-    id: 'forest',
-    name: 'Forest',
-    colors: {
-      '--bg': '#1e2320',
-      '--bg-accent': '#252b27',
-      '--panel': '#2a312c',
-      '--panel-strong': '#323a35',
-      '--border': '#3e4941',
-      '--border-subtle': 'rgba(144, 238, 144, 0.1)',
-      '--muted': '#7c8a80',
-      '--text': '#dbebe2',
-      '--text-strong': '#ffffff',
-      '--text-soft': '#bcd1c6',
-      '--text-muted': '#7c8a80',
-      '--primary': '#90ee90',
-      '--primary-strong': '#98fb98',
-      '--danger': '#ff7f7f',
-      '--status': '#2e8b57',
-      '--hover': '#90ee901f',
-      '--selection': '#90ee9040'
+      '--bg': '#0f172a',
+      '--bg-accent': '#1e293b',
+      '--panel': '#0f172a',
+      '--panel-strong': '#1e293b',
+      '--border': '#334155',
+      '--border-subtle': 'rgba(56, 189, 248, 0.1)',
+      '--muted': '#64748b',
+      '--text': '#e2e8f0',
+      '--text-strong': '#f8fafc',
+      '--text-soft': '#94a3b8',
+      '--text-muted': '#64748b',
+      '--primary': '#0ea5e9',
+      '--primary-strong': '#38bdf8',
+      '--danger': '#ef4444',
+      '--status': '#0284c7',
+      '--hover': 'rgba(14, 165, 233, 0.1)',
+      '--selection': 'rgba(14, 165, 233, 0.3)',
+      '--glass-bg': 'rgba(15, 23, 42, 0.8)',
+      '--glass-border': 'rgba(56, 189, 248, 0.1)',
+      '--shadow-subtle': '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+      '--shadow-strong': '0 20px 25px -5px rgba(0, 0, 0, 0.2)'
     }
   },
   synthwave: {
     id: 'synthwave',
-    name: 'Synthwave',
+    name: 'Cyberpunk 84',
     colors: {
       '--bg': '#2b213a',
       '--bg-accent': '#261b36',
@@ -179,16 +180,20 @@ export const themes: Record<string, Theme> = {
       '--text-soft': '#d9c2f2',
       '--text-muted': '#9681b6',
       '--primary': '#ff7edb',
-      '--primary-strong': '#ff2a6d',
+      '--primary-strong': '#f97e72',
       '--danger': '#fe4450',
       '--status': '#72f1b8',
-      '--hover': '#ff7edb26',
-      '--selection': '#ff7edb4d'
+      '--hover': 'rgba(255, 126, 219, 0.15)',
+      '--selection': 'rgba(255, 126, 219, 0.4)',
+      '--glass-bg': 'rgba(43, 33, 58, 0.8)',
+      '--glass-border': 'rgba(255, 126, 219, 0.2)',
+      '--shadow-subtle': '0 0 10px rgba(255, 126, 219, 0.1)',
+      '--shadow-strong': '0 0 30px rgba(255, 126, 219, 0.2)'
     }
   },
   nord: {
     id: 'nord',
-    name: 'Nord',
+    name: 'Nordic Frost',
     colors: {
       '--bg': '#2e3440',
       '--bg-accent': '#3b4252',
@@ -205,13 +210,17 @@ export const themes: Record<string, Theme> = {
       '--primary-strong': '#8fbcbb',
       '--danger': '#bf616a',
       '--status': '#5e81ac',
-      '--hover': '#88c0d01f',
-      '--selection': '#88c0d040'
+      '--hover': 'rgba(136, 192, 208, 0.15)',
+      '--selection': 'rgba(136, 192, 208, 0.4)',
+      '--glass-bg': 'rgba(46, 52, 64, 0.8)',
+      '--glass-border': 'rgba(136, 192, 208, 0.1)',
+      '--shadow-subtle': '0 1px 3px rgba(0,0,0,0.1)',
+      '--shadow-strong': '0 4px 12px rgba(0,0,0,0.2)'
     }
   },
   dracula: {
     id: 'dracula',
-    name: 'Dracula',
+    name: 'Dracula Plus',
     colors: {
       '--bg': '#282a36',
       '--bg-accent': '#21222c',
@@ -228,31 +237,12 @@ export const themes: Record<string, Theme> = {
       '--primary-strong': '#ff79c6',
       '--danger': '#ff5555',
       '--status': '#8be9fd',
-      '--hover': '#bd93f91f',
-      '--selection': '#bd93f940'
-    }
-  },
-  monokai: {
-    id: 'monokai',
-    name: 'Monokai',
-    colors: {
-      '--bg': '#272822',
-      '--bg-accent': '#1e1f1c',
-      '--panel': '#272822',
-      '--panel-strong': '#3e3d32',
-      '--border': '#49483e',
-      '--border-subtle': 'rgba(248, 248, 240, 0.1)',
-      '--muted': '#75715e',
-      '--text': '#f8f8f2',
-      '--text-strong': '#ffffff',
-      '--text-soft': '#f8f8f2',
-      '--text-muted': '#75715e',
-      '--primary': '#66d9ef',
-      '--primary-strong': '#a6e22e',
-      '--danger': '#f92672',
-      '--status': '#fd971f',
-      '--hover': '#66d9ef1f',
-      '--selection': '#66d9ef40'
+      '--hover': 'rgba(189, 147, 249, 0.15)',
+      '--selection': 'rgba(189, 147, 249, 0.4)',
+      '--glass-bg': 'rgba(40, 42, 54, 0.8)',
+      '--glass-border': 'rgba(189, 147, 249, 0.1)',
+      '--shadow-subtle': '0 2px 4px rgba(0,0,0,0.1)',
+      '--shadow-strong': '0 8px 16px rgba(0,0,0,0.2)'
     }
   }
 }
