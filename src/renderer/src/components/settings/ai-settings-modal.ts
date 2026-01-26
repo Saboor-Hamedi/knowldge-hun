@@ -111,11 +111,17 @@ export class AISettingsModal {
     this.backdrop.addEventListener('click', () => this.close())
 
     document.addEventListener('keydown', this.handleKeyDown)
-    void this.switchProvider(this.currentSettings.aiProvider || 'deepseek')
+    void this.switchProvider(this.currentSettings.aiProvider || 'deepseek', false)
   }
 
-  private async switchProvider(provider: string): Promise<void> {
+  private async switchProvider(provider: string, isManualSwitch = true): Promise<void> {
     const providerKey = provider as AppSettings['aiProvider']
+
+    // Reset model if provider changed manually to ensure consistency
+    if (isManualSwitch && this.currentSettings.aiProvider !== providerKey) {
+      this.currentSettings.aiModel = ''
+    }
+
     this.currentSettings.aiProvider = providerKey
 
     // Update UI active state
@@ -286,7 +292,20 @@ export class AISettingsModal {
 
   private async save(): Promise<void> {
     const status = this.modal.querySelector('#ai-settings-status') as HTMLElement
-    if (status) status.textContent = 'Saving...'
+    if (status) {
+      status.textContent = 'Syncing engine...'
+      status.style.color = 'var(--text-soft)'
+    }
+
+    // Explicitly scrape all data-setting values from the DOM to ensure we have the latest state
+    // This fixes issues where the 'change' event might not have fired yet or was missed
+    this.modal.querySelectorAll('[data-setting]').forEach((el) => {
+      const input = el as HTMLInputElement | HTMLSelectElement
+      const setting = input.dataset.setting as keyof AppSettings
+      if (setting) {
+        this.updateSetting(setting, input.value)
+      }
+    })
 
     try {
       const updated = await window.api.updateSettings(this.currentSettings)
@@ -296,7 +315,7 @@ export class AISettingsModal {
       window.dispatchEvent(new CustomEvent('knowledge-hub:settings-updated'))
 
       if (status) {
-        status.textContent = 'Settings saved!'
+        status.textContent = 'Configuration secured!'
         status.style.color = 'var(--accent)'
       }
 

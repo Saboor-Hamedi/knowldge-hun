@@ -624,7 +624,17 @@ export class RightBar {
     if (!badge) return
 
     const provider = state.settings?.aiProvider || 'deepseek'
-    const model = state.settings?.aiModel || (provider === 'ollama' ? 'llama3' : 'default')
+    let model = state.settings?.aiModel
+
+    // Robust fallback if no model is selected
+    if (!model || model === 'default') {
+      if (provider === 'ollama') model = 'llama3'
+      else if (provider === 'deepseek') model = 'deepseek-chat'
+      else if (provider === 'openai') model = 'gpt-4o'
+      else if (provider === 'claude') model = 'claude-3-5-sonnet-20240620'
+      else if (provider === 'grok') model = 'grok-beta'
+      else model = 'default'
+    }
 
     const providerName =
       {
@@ -678,6 +688,14 @@ export class RightBar {
     this.chatInput.addEventListener('input', () => {
       this.updateCharacterCount()
       this.autoResizeTextarea()
+
+      // Robust placeholder fix: if visually empty, truly clear innerHTML to trigger :empty
+      const text = this.getPlainText()
+      if (text.trim().length === 0 && !this.chatInput.querySelector('.rightbar__mention')) {
+        if (this.chatInput.innerHTML !== '') {
+          this.chatInput.innerHTML = ''
+        }
+      }
 
       // Clear any existing timeout
       if (this.typingTimeout !== null) {
@@ -2002,10 +2020,14 @@ export class RightBar {
       switch (command) {
         case '/clear':
           this.chatInput.innerHTML = ''
+          this.autoResizeTextarea()
+          this.updateCharacterCount()
           void this.clearConversation()
           return
         case '/new':
           this.chatInput.innerHTML = ''
+          this.autoResizeTextarea()
+          this.updateCharacterCount()
           void this.startNewSession()
           return
         case '/help':
@@ -2015,9 +2037,13 @@ export class RightBar {
               this.slashCommands.map((c) => `- \`${c.command}\`: ${c.description}`).join('\n')
           )
           this.chatInput.innerHTML = ''
+          this.autoResizeTextarea()
+          this.updateCharacterCount()
           return
         case '/export':
           this.chatInput.innerHTML = ''
+          this.autoResizeTextarea()
+          this.updateCharacterCount()
           void this.exportSession()
           return
       }
