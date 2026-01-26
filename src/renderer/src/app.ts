@@ -1313,10 +1313,12 @@ class App {
 
     await this.refreshNotes()
 
-    // Initialize RAG and index vault in background
+    // Show UI immediately after basic data is loaded
+    document.body.classList.remove('is-loading')
+
+    // Initialize RAG and index vault in background without blocking UI
     if (state.vaultPath && state.notes.length > 0) {
-      this.statusBar.setStatus('Initializing AI...')
-      await ragService.init()
+      ragService.init().catch((err) => console.error('AI init failed:', err))
       this.backgroundIndexVault().catch((err) => console.error('Background indexing failed:', err))
     }
 
@@ -1349,7 +1351,6 @@ class App {
 
     this.tabBar.render()
     this.updateViewVisibility()
-    document.body.classList.remove('is-loading')
 
     // Global context menu suppression to prevent browser default appearing over custom menus
     window.addEventListener(
@@ -2410,7 +2411,7 @@ class App {
 
       // Trigger background re-indexing of all notes
       // This ensures RAG is up to date, especially on first load
-      this.reindexAllNotes().catch((err) => console.error('Failed to reindex vault:', err))
+      this.backgroundIndexVault().catch((err) => console.error('Failed to reindex vault:', err))
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to reload vault'
       this.statusBar.setStatus(`⚠️ ${errorMessage}`)
@@ -2418,23 +2419,7 @@ class App {
     }
   }
   private async reindexAllNotes(): Promise<void> {
-    console.log('[App] Starting full re-indexing of all notes...')
-    const notesToIndex = state.notes.filter((n) => n.type === 'note' || !n.type)
-
-    for (const note of notesToIndex) {
-      try {
-        const fullNote = await window.api.loadNote(note.id, note.path)
-        if (fullNote) {
-          await ragService.indexNote(note.id, fullNote.content, {
-            title: note.title,
-            path: note.path
-          })
-        }
-      } catch (e) {
-        console.warn(`[App] Failed to index note ${note.id}:`, e)
-      }
-    }
-    console.log('[App] Full re-indexing completed.')
+    return this.backgroundIndexVault()
   }
 }
 
