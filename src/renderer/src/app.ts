@@ -1318,8 +1318,10 @@ class App {
 
     // Initialize RAG and index vault in background without blocking UI
     if (state.vaultPath && state.notes.length > 0) {
-      ragService.init().catch((err) => console.error('AI init failed:', err))
-      this.backgroundIndexVault().catch((err) => console.error('Background indexing failed:', err))
+      this.backgroundIndexVault().catch((err) => {
+        console.error('Initial background indexing failed:', err)
+        aiStatusManager.setError('AI Initialization Failed')
+      })
     }
 
     if (state.openTabs.length > 0) {
@@ -1491,46 +1493,75 @@ class App {
     })
 
     let indexedCount = 0
-    const total = notesToIndex.length
+    let isInitialized = false
 
-    aiStatusManager.show(`Indexing notes... 0/${total}`)
+    // Smart Gatekeeper: Get existing index timestamps FIRST (Very fast)
+    aiStatusManager.show('Checking brain...')
 
-    for (const note of notesToIndex) {
-      try {
-        const content = await window.api.loadNote(note.id)
-        if (content && content.content.trim()) {
-          await ragService.indexNote(note.id, content.content, {
-            title: note.title,
-            path: note.path
-          })
-          indexedCount++
+    let existingMetadata: Record<string, number> = {}
+    try {
+      existingMetadata = await ragService.getAllMetadata()
+    } catch (e) {
+      console.warn('[RAG] Failed to fetch existing metadata:', e)
+    }
 
-          // Update progress every 5 notes or on last note
-          if (indexedCount % 5 === 0 || indexedCount === total) {
-            aiStatusManager.updateProgress(indexedCount, total)
-          }
-        } else {
-          // Skip empty notes silently
-          console.log(`[RAG] Skipping empty note: ${note.title}`)
-        }
-      } catch (e) {
-        const errorMsg = (e as Error).message
-        if (errorMsg.includes('No vector or content')) {
-          console.log(`[RAG] Skipped empty note: ${note.title}`)
-        } else {
-          console.warn(`[RAG] Failed to index note ${note.title}:`, e)
-        }
-        // Continue with other notes
+    // 1. Identify Deletions (Silent)
+    const noteIdsInVault = new Set(notesToIndex.map((n) => n.id))
+    for (const indexedId in existingMetadata) {
+      if (!noteIdsInVault.has(indexedId)) {
+        void ragService.deleteNote(indexedId)
       }
     }
 
-    console.log(`[RAG] Background indexed ${indexedCount}/${total} notes`)
+    // 2. Identify potentially changed notes
+    const potentiallyChanged = notesToIndex.filter((note) => {
+      const indexedTime = existingMetadata[note.id]
+      return !indexedTime || note.updatedAt > indexedTime
+    })
+
+    if (potentiallyChanged.length === 0) {
+      aiStatusManager.setReady('Brain is up to date')
+      return
+    }
+
+    // 3. Process changed notes lazily
+    for (const note of potentiallyChanged) {
+      try {
+        const content = await window.api.loadNote(note.id, note.path)
+
+        // Skip if empty or too large
+        if (!content || !content.content.trim() || content.content.length > 1024 * 1024) {
+          continue
+        }
+
+        // ONLY NOW do we wake up the AI engine (first time we have real work)
+        if (!isInitialized) {
+          aiStatusManager.show('Waking up AI engine...')
+          await ragService.init()
+          isInitialized = true
+          aiStatusManager.show(`Indexing changed notes... 0/${potentiallyChanged.length}`)
+        }
+
+        await ragService.indexNote(note.id, content.content, {
+          title: note.title,
+          path: note.path
+        })
+        indexedCount++
+
+        // Update progress
+        if (indexedCount % 5 === 0 || indexedCount === potentiallyChanged.length) {
+          aiStatusManager.updateProgress(indexedCount, potentiallyChanged.length)
+        }
+      } catch (e) {
+        console.warn(`[RAG] Failed to index note ${note.title}:`, e)
+      }
+    }
 
     if (indexedCount > 0) {
       aiStatusManager.setReady(`AI Ready (${indexedCount} notes indexed)`)
       this.statusBar.setStatus('AI Intelligence Ready')
     } else {
-      aiStatusManager.hide()
+      aiStatusManager.setReady('Brain is up to date')
     }
   }
 

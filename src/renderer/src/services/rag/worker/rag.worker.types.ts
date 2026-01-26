@@ -1,6 +1,6 @@
 export interface RagWorkerJob {
   id: string
-  type: 'index' | 'search' | 'init' | 'delete' | 'embed' | 'debug'
+  type: 'index' | 'search' | 'init' | 'delete' | 'embed' | 'debug' | 'get-all-metadata'
   payload: any
 }
 

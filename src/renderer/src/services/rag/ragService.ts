@@ -9,7 +9,7 @@ import { ApiEmbeddingProvider } from './api-embedding-provider'
  */
 export class RagService {
   private worker: Worker | null = null
-  private jobs: Map<string, { resolve: (val: any) => void; reject: (err: Error) => void }> =
+  private jobs: Map<string, { resolve: (val: unknown) => void; reject: (err: Error) => void }> =
     new Map()
   private embeddingProvider: EmbeddingProvider | null = null
 
@@ -84,11 +84,11 @@ export class RagService {
       }, 120000)
 
       this.jobs.set(id, {
-        resolve: (val) => {
+        resolve: (val: unknown) => {
           clearTimeout(timeout)
-          resolve(val)
+          resolve(val as T)
         },
-        reject: (err) => {
+        reject: (err: Error) => {
           clearTimeout(timeout)
           reject(err)
         }
@@ -107,7 +107,7 @@ export class RagService {
   async search(
     query: string,
     limit: number = 5
-  ): Promise<{ id: string; score: number; metadata: any }[]> {
+  ): Promise<{ id: string; score: number; metadata: { title: string; path?: string } }[]> {
     if (!this.embeddingProvider) {
       // RAG is disabled, return empty to trigger TF-IDF fallback
       return []
@@ -155,6 +155,10 @@ export class RagService {
 
   async getStats(): Promise<{ count: number; modelLoaded: boolean; dbName: string }> {
     return this.dispatch('debug', {})
+  }
+
+  async getAllMetadata(): Promise<Record<string, number>> {
+    return this.dispatch('get-all-metadata', {})
   }
 }
 

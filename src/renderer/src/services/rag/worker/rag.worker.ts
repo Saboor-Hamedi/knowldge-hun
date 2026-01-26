@@ -155,6 +155,14 @@ ctx.addEventListener('message', async (event: MessageEvent<RagWorkerJob>) => {
         break
       }
 
+      case 'get-all-metadata': {
+        await db.connect()
+        const meta = await db.getAllMetadata()
+        // Convert Map to Object for serialization
+        result = Object.fromEntries(meta)
+        break
+      }
+
       default:
         throw new Error(`Unknown job type: ${type}`)
     }

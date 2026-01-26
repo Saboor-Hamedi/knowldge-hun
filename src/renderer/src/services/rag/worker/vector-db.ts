@@ -117,6 +117,32 @@ export class VectorDB {
     })
   }
 
+  /**
+   * Returns all record IDs and their updatedAt timestamps.
+   * Lightweight way to check which notes need re-indexing.
+   */
+  async getAllMetadata(): Promise<Map<string, number>> {
+    await this.ensureConnection()
+    return new Promise((resolve, reject) => {
+      const transaction = this.db!.transaction([this.storeName], 'readonly')
+      const store = transaction.objectStore(this.storeName)
+      const request = store.openCursor()
+      const metadata = new Map<string, number>()
+
+      request.onsuccess = (event): void => {
+        const cursor = (event.target as IDBRequest<IDBCursorWithValue>).result
+        if (cursor) {
+          metadata.set(cursor.value.id, cursor.value.updatedAt)
+          cursor.continue()
+        } else {
+          resolve(metadata)
+        }
+      }
+
+      request.onerror = (): void => reject(request.error)
+    })
+  }
+
   private async ensureConnection(): Promise<void> {
     if (!this.db) {
       await this.connect()

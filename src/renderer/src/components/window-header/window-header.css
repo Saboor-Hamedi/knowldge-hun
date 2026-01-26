@@ -96,27 +96,34 @@
 .window-header__ai-status {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   margin-left: 12px;
-  padding: 4px 8px;
-  border-radius: 4px;
-  background: rgba(127, 167, 255, 0.1);
+  padding: 4px 10px;
+  border-radius: 20px;
+  background: rgba(127, 167, 255, 0.08);
+  border: 1px solid rgba(127, 167, 255, 0.15);
   position: relative;
   -webkit-app-region: no-drag;
-  cursor: help;
-  transition: all 0.2s ease;
+  cursor: default;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
 }
 
 .window-header__ai-status:hover {
-  background: rgba(127, 167, 255, 0.15);
+  background: rgba(127, 167, 255, 0.12);
+  border-color: rgba(127, 167, 255, 0.25);
+  box-shadow: 0 0 10px rgba(127, 167, 255, 0.1);
 }
 
 .window-header__ai-status.ready {
-  background: rgba(76, 175, 80, 0.1);
+  background: rgba(34, 197, 94, 0.08);
+  border-color: rgba(34, 197, 94, 0.15);
 }
 
 .window-header__ai-status.ready:hover {
-  background: rgba(76, 175, 80, 0.15);
+  background: rgba(34, 197, 94, 0.12);
+  border-color: rgba(34, 197, 94, 0.25);
+  box-shadow: 0 0 10px rgba(34, 197, 94, 0.1);
 }
 
 .ai-status-icon {
@@ -145,21 +152,51 @@
   }
 }
 
+/* Subtle pulse for the AI brain when it is working */
+.window-header__ai-status:not(.ready) {
+  animation: brain-pulse 2s infinite ease-in-out;
+}
+
+@keyframes brain-pulse {
+  0% { transform: scale(1); box-shadow: 0 0 0px rgba(127, 167, 255, 0); }
+  50% { transform: scale(1.02); box-shadow: 0 0 8px rgba(127, 167, 255, 0.2); }
+  100% { transform: scale(1); box-shadow: 0 0 0px rgba(127, 167, 255, 0); }
+}
+
 .ai-status-tooltip {
   font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.3px;
   color: var(--text-muted);
   white-space: nowrap;
-  opacity: 0;
+  opacity: 0.8;
   max-width: 0;
   overflow: hidden;
-  transition: all 0.3s ease;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .window-header__ai-status:hover .ai-status-tooltip {
   opacity: 1;
-  max-width: 200px;
+  max-width: 300px;
+  margin-left: 2px;
 }
 
 .window-header__ai-status.ready .ai-status-tooltip {
   color: rgba(76, 175, 80, 0.9);
+}
+
+.window-header__ai-status.error {
+  background: rgba(248, 113, 113, 0.1);
+}
+
+.window-header__ai-status.error:hover {
+  background: rgba(248, 113, 113, 0.15);
+}
+
+.window-header__ai-status.error .ai-status-tooltip {
+  color: rgba(248, 113, 113, 0.9);
+}
+
+.ai-status-warning {
+  color: rgba(248, 113, 113, 1);
 }
