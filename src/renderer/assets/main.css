@@ -21,10 +21,15 @@ body {
   gap: 0;
   background: var(--bg);
   color: var(--text-strong);
-  transition: grid-template-columns 200ms ease;
+  transition: grid-template-columns 200ms ease, filter 300ms ease;
   overflow: hidden;
   /* Ensure header space */
   padding-top: 32px;
+}
+
+.vscode-shell.is-blurred {
+  filter: blur(8px) grayscale(0.2);
+  pointer-events: none;
 }
 
 .vscode-shell.sidebar-hidden {
@@ -433,4 +438,183 @@ button {
   to {
     opacity: 1;
   }
+}
+
+/* Security Firewall Lock Screen */
+.security-firewall {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 2147483647 !important;
+  background: rgba(10, 15, 25, 0.4);
+  backdrop-filter: blur(30px) saturate(160%);
+  -webkit-backdrop-filter: blur(30px) saturate(160%);
+  display: grid;
+  place-items: center;
+  animation: firewallFadeIn 500ms cubic-bezier(0.16, 1, 0.3, 1);
+  color: #ffffff;
+  overflow: hidden;
+}
+
+.security-firewall::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(circle at 50% 50%, rgba(86, 156, 214, 0.1), transparent 80%);
+  pointer-events: none;
+}
+
+@keyframes firewallFadeIn {
+  from {
+    opacity: 0;
+    backdrop-filter: blur(0px);
+    -webkit-backdrop-filter: blur(0px);
+  }
+  to {
+    opacity: 1;
+    backdrop-filter: blur(30px);
+    -webkit-backdrop-filter: blur(30px);
+  }
+}
+
+.security-firewall.is-leaving {
+  opacity: 0;
+  backdrop-filter: blur(0px);
+  -webkit-backdrop-filter: blur(0px);
+  transition: opacity 400ms ease, backdrop-filter 400ms ease, -webkit-backdrop-filter 400ms ease;
+  pointer-events: none;
+}
+
+.security-firewall__content {
+  width: 100%;
+  max-width: 320px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  position: relative;
+  z-index: 10;
+  margin-top: -5vh; /* Slight upward shift for optical centering */
+}
+
+.security-firewall__logo {
+  width: 96px;
+  height: 96px;
+  background: linear-gradient(135deg, #3f6df3, #9ac6ff);
+  border-radius: 24px;
+  display: grid;
+  place-items: center;
+  margin: 0 auto;
+  color: #0c1220;
+  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.1);
+  animation: logoFloat 4s ease-in-out infinite;
+}
+
+@keyframes logoFloat {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-12px) rotate(2deg); }
+}
+
+.security-firewall__header {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.security-firewall__title {
+  font-size: 28px;
+  font-weight: 700;
+  margin: 0;
+  letter-spacing: -0.03em;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.security-firewall__message {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.security-firewall__input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  position: relative;
+}
+
+.security-firewall__input {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  padding: 16px;
+  color: #fff;
+  font-size: 16px;
+  text-align: center;
+  transition: all 250ms cubic-bezier(0.4, 0, 0.2, 1);
+  backdrop-filter: blur(10px);
+}
+
+.security-firewall__input:focus {
+  outline: none;
+  border-color: #3f6df3;
+  background: rgba(255, 255, 255, 0.15);
+  box-shadow: 0 0 0 4px rgba(63, 109, 243, 0.25);
+}
+
+.security-firewall__input.is-invalid {
+  border-color: #ff5f5f;
+  animation: shake 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+
+.security-firewall__error {
+  height: 18px;
+  color: #ff5f5f;
+  font-size: 13px;
+  font-weight: 500;
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+
+.security-firewall__input.is-invalid + .security-firewall__error {
+  opacity: 1;
+}
+
+.security-firewall__actions {
+  margin-top: 8px;
+}
+
+.security-firewall__btn {
+  width: 100%;
+  padding: 14px;
+  border: none;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  background: #ffffff;
+  color: #0c1220;
+  transition: all 200ms ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.security-firewall__btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+  background: #f0f0f0;
+}
+
+.security-firewall__btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.security-firewall__btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }

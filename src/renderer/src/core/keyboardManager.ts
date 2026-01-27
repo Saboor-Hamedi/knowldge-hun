@@ -1,6 +1,14 @@
 /**
- * Robust keyboard shortcut manager
- * Handles global and scoped keyboard bindings
+ * KEYBOARD SHORTCUT ENGINE:
+ *
+ * This manager centralizes all hotkeys (e.g., Ctrl+S to save, Ctrl+I for AI).
+ * It uses a "Capture Phase" listener to intercept keys before they reach
+ * individual components like the editor or sidebar.
+ *
+ * SECURITY ROLE:
+ * When the app is locked (Firewall active), the SecurityService calls
+ * 'setEnabled(false)'. This acts as a master circuit breaker, killing
+ * all shortcuts so no one can "bypass" the login screen using hotkeys.
  */
 
 export interface KeyBinding {
@@ -14,9 +22,19 @@ export class KeyboardManager {
   private bindings: Map<string, KeyBinding> = new Map()
   private activeScopes: Set<string> = new Set()
   private isListening = false
+  // Flag controlled by SecurityService.ts
+  private enabled = true
 
   constructor() {
     this.activeScopes.add('global')
+  }
+
+  /**
+   * Master switch for the shortcut system.
+   * Called by: securityService.ts (during showFirewall/handleUnlock)
+   */
+  setEnabled(enabled: boolean): void {
+    this.enabled = enabled
   }
 
   /**
@@ -95,10 +113,14 @@ export class KeyboardManager {
    * Listen to keyboard events
    */
   private listen(): void {
-    // Use capture phase (true) to intercept events before Monaco editor
+    // 🛡️ SECURITY INTERCEPTOR
+    // Uses capture phase (true) to intercept events before Monaco or Chrome defaults
     document.addEventListener(
       'keydown',
       (event) => {
+        // If disabled by SecurityService, ignore all shortcuts
+        if (!this.enabled) return
+
         const keyNotation = this.getKeyNotation(event)
 
         // Check all active scopes

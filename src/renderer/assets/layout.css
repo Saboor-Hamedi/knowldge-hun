@@ -24,10 +24,15 @@ body {
   gap: 0;
   background: var(--bg);
   color: var(--text-strong);
-  transition: grid-template-columns 0.2s ease;
+  transition: grid-template-columns 0.2s ease, filter 0.3s ease;
   overflow: hidden;
   padding-top: 32px; /* account for fixed window header */
   position: relative;
+}
+
+.vscode-shell.is-blurred > *:not(.window-header) {
+  filter: blur(20px) grayscale(0.2);
+  pointer-events: none;
 }
 
 .vscode-shell.sidebar-hidden {
@@ -212,4 +217,213 @@ body:not(.is-loading) #loadingOverlay {
 .main {
   background: var(--panel) !important;
   border-color: var(--border) !important;
+}
+
+/* Updated Security Firewall positioning */
+.security-firewall {
+  position: fixed;
+  top: 32px;
+  left: var(--activity-width); /* Push to the right of ActivityBar */
+  width: calc(100vw - var(--activity-width));
+  height: calc(100vh - 32px);
+  z-index: 2147483647 !important;
+  background: rgba(10, 15, 25, 0.2); /* Lighter since we have backdrop-filter */
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  display: grid;
+  place-items: center;
+  animation: firewallFadeIn 600ms cubic-bezier(0.16, 1, 0.3, 1);
+  color: #ffffff;
+  overflow: hidden;
+  border-left: 1px solid rgba(255, 255, 255, 0.05); /* Subtle separation */
+}
+
+.security-firewall::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(circle at 50% 50%, rgba(86, 156, 214, 0.1), transparent 80%);
+  pointer-events: none;
+}
+
+@keyframes firewallFadeIn {
+  from {
+    opacity: 0;
+    backdrop-filter: blur(0px);
+    -webkit-backdrop-filter: blur(0px);
+  }
+  to {
+    opacity: 1;
+    backdrop-filter: blur(30px);
+    -webkit-backdrop-filter: blur(30px);
+  }
+}
+
+.security-firewall.is-leaving {
+  opacity: 0;
+  backdrop-filter: blur(0px);
+  -webkit-backdrop-filter: blur(0px);
+  transition: opacity 400ms ease, backdrop-filter 400ms ease, -webkit-backdrop-filter 400ms ease;
+  pointer-events: none;
+}
+
+.security-firewall__content {
+  width: 100%;
+  max-width: 280px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  position: relative;
+  z-index: 10;
+  margin-top: -8vh;
+}
+
+.security-firewall__profile {
+  margin-bottom: 8px;
+}
+
+.security-firewall__avatar {
+  width: 64px;
+  height: 64px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  margin: 0 auto;
+  color: #fff;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+}
+
+.security-firewall__header {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.security-firewall__title {
+  font-size: 24px;
+  font-weight: 600;
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+
+.security-firewall__message {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.5);
+  margin: 0;
+}
+
+.security-firewall__input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  position: relative;
+}
+
+.security-firewall__input {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+  padding: 12px;
+  color: #fff;
+  font-size: 14px;
+  text-align: center;
+  transition: all 200ms ease;
+  height: 44px;
+}
+
+.security-firewall__input:focus {
+  outline: none;
+  border-color: #3f6df3;
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 0 0 3px rgba(63, 109, 243, 0.2);
+}
+
+.security-firewall__input.is-invalid {
+  border-color: #ff5f5f;
+  animation: shake 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+
+@keyframes shake {
+  10%, 90% { transform: translate3d(-1px, 0, 0); }
+  20%, 80% { transform: translate3d(2px, 0, 0); }
+  30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+  40%, 60% { transform: translate3d(4px, 0, 0); }
+}
+
+.security-firewall__error {
+  height: 10px;
+  color: #ff5f5f;
+  font-size: 8px;
+  font-weight: 500;
+  opacity: 0;
+  transition: opacity 200ms ease;
+  margin-top: 2px;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  text-align: center;
+}
+
+.security-firewall__error:empty {
+  display: none;
+}
+
+.security-firewall__input.is-invalid + .security-firewall__error {
+  opacity: 1;
+}
+
+.security-firewall__actions {
+  margin-top: 0;
+}
+
+.security-firewall__btn {
+  width: 100%;
+  height: 44px;
+  border: none;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  background: #ffffff;
+  color: #0c1220;
+  transition: all 150ms ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.security-firewall__btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  background: #f8f8f8;
+}
+
+.security-firewall__btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.security-firewall__btn:disabled {
+  opacity: 0.8;
+  cursor: not-allowed;
+}
+
+.security-firewall__spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(12, 18, 32, 0.1);
+  border-top-color: #0c1220;
+  border-radius: 50%;
+  animation: firewallSpin 0.6s linear infinite;
+}
+
+@keyframes firewallSpin {
+  to { transform: rotate(360deg); }
 }

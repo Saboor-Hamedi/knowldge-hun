@@ -52,6 +52,33 @@ export class SessionStorageService {
   }
 
   /**
+   * Hard reset the database (delete and recreate)
+   * USE WITH CAUTION: All session data will be lost
+   */
+  public async resetDatabase(): Promise<void> {
+    this.isInitialized = false
+    if (this.db) {
+      this.db.close()
+      this.db = null
+    }
+
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.deleteDatabase(this.dbName)
+      request.onsuccess = () => {
+        console.log('[SessionStorage] Database deleted successfully')
+        resolve()
+      }
+      request.onerror = () => {
+        console.error('[SessionStorage] Failed to delete database:', request.error)
+        reject(request.error)
+      }
+      request.onblocked = () => {
+        console.warn('[SessionStorage] Deletion blocked. Close other tabs.')
+      }
+    })
+  }
+
+  /**
    * Initialize with retry mechanism
    */
   private async initWithRetry(attempt: number): Promise<void> {
@@ -121,6 +148,24 @@ export class SessionStorageService {
         }
       })
     } catch (error) {
+      // 🚀 RECOVERY: If persistent internal error, try to reset DB as a last resort
+      if (
+        error instanceof Error &&
+        (error.name === 'UnknownError' || error.message.includes('Internal error'))
+      ) {
+        if (attempt === this.maxRetries) {
+          console.error('[SessionStorage] Fatal IDB error. Attempting database reset...')
+          try {
+            await this.resetDatabase()
+            // Reset state for clean retry
+            this.initPromise = null
+            return this.init()
+          } catch (resetError) {
+            console.error('[SessionStorage] Database reset failed:', resetError)
+          }
+        }
+      }
+
       if (attempt < this.maxRetries) {
         console.warn(`[SessionStorage] Init attempt ${attempt + 1} failed, retrying...`, error)
         await new Promise((resolve) => setTimeout(resolve, this.retryDelay * (attempt + 1)))
@@ -679,8 +724,11 @@ export class SessionStorageService {
   }
 }
 
-// Export singleton instance
+// Export singleton instance and attach to window
 export const sessionStorageService = new SessionStorageService()
+if (typeof window !== 'undefined') {
+  ;(window as any).sessionStorageService = sessionStorageService
+}
 
 // Backup and restore functionality for updates
 export const sessionBackupService = {
@@ -731,16 +779,3 @@ export const sessionBackupService = {
     }
   }
 }
-
-// Auto-restore on service initialization
-sessionStorageService
-  .init()
-  .then(() => {
-    // Check if we need to restore from backup (no sessions exist)
-    sessionStorageService.getAllSessions().then((sessions) => {
-      if (sessions.length === 0) {
-        sessionBackupService.restoreFromBackup()
-      }
-    })
-  })
-  .catch(console.error)

@@ -6,6 +6,18 @@ export interface Shortcut {
   highlight?: boolean
 }
 
+import { Keyboard, createElement } from 'lucide'
+
+function createLucideIcon(IconComponent: any, size: number = 18): string {
+  const svgElement = createElement(IconComponent, {
+    size: size,
+    'stroke-width': 1.5,
+    stroke: 'currentColor',
+    color: 'currentColor'
+  })
+  return svgElement?.outerHTML || ''
+}
+
 export const shortcuts: Shortcut[] = [
   {
     title: 'Knowledge Graph',
@@ -118,11 +130,13 @@ export const shortcuts: Shortcut[] = [
   }
 ]
 
-export function renderShortcutItems(containerClass: string = ''): string {
+export function renderShortcutItems(): string {
+  const icon = createLucideIcon(Keyboard)
   return shortcuts
     .map(
       (s) => `
-    <div class="shortcut-item settings-field ${containerClass} ${s.highlight ? 'is-highlighted' : ''}" data-search="${s.search}">
+    <div class="shortcut-item ${s.highlight ? 'is-highlighted' : ''}" data-search="${s.search}">
+      <div class="settings-row__icon">${icon}</div>
       <div class="shortcut-info">
         <div class="shortcut-title">${s.title}</div>
         <div class="shortcut-description">${s.desc}</div>

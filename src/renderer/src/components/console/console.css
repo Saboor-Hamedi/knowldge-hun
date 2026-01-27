@@ -7,7 +7,9 @@
   background: var(--panel);
   border-top: 1px solid var(--border);
   z-index: 1000;
-  transition: height 0.2s ease-out, right 0.2s ease;
+  transition:
+    height 0.2s ease-out,
+    right 0.2s ease;
   overflow: hidden;
   display: flex;
   flex-direction: column;

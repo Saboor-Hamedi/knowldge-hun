@@ -39,6 +39,7 @@ import { vaultService } from './services/vaultService'
 import { VaultPicker } from './components/vault-picker/vault-picker'
 import { ragService } from './services/rag/ragService'
 import { aiStatusManager } from './core/aiStatusManager'
+import { securityService } from './services/security/securityService'
 
 function buildTree(items: NoteMeta[]): TreeItem[] {
   const root: TreeItem[] = []
@@ -1311,9 +1312,37 @@ class App {
     })
   }
 
+  /**
+   * APPLICATION STARTUP SEQUENCE:
+   * 1. Load Settings (Theme, Layout, etc.)
+   * 2. SECURITY CHECK (The Firewall)
+   * 3. Initialize Vault (File System)
+   * 4. Restore Workspace (Tabs, Last Active Note)
+   */
   async init(): Promise<void> {
     this.statusBar.setStatus('Initializing...')
+    // Pulls from: main/index.ts -> settings.json
     await this.initSettings()
+
+    // Show UI before lock check so modal is visible
+    document.body.classList.remove('is-loading')
+
+    /**
+     * THE FIREWALL GATEKEEPER:
+     * This triggers the 'SecurityService.requestUnlock()' which creates
+     * the blurred overlay. The 'await' here pauses the entire startup
+     * until the user provides the correct password.
+     *
+     * Target: securityService.ts
+     */
+    const unlocked = await securityService.requestUnlock()
+    if (!unlocked) {
+      this.statusBar.setStatus('Locked')
+      // System will stay in a "blurred" state indefinitely.
+      return
+    }
+
+    // 🔓 APP IS NOW AUTHORIZED - PROCEED WITH LOADING SENSITIVE DATA
     await this.initVault()
 
     if (state.settings?.openTabs && state.settings.openTabs.length > 0) {
@@ -1324,9 +1353,6 @@ class App {
     }
 
     await this.refreshNotes()
-
-    // Show UI immediately after basic data is loaded
-    document.body.classList.remove('is-loading')
 
     // Initialize RAG and index vault in background without blocking UI
     if (state.vaultPath && state.notes.length > 0) {
@@ -1895,6 +1921,9 @@ class App {
   private async deleteItems(
     items: { id: string; type: 'note' | 'folder'; path?: string }[]
   ): Promise<void> {
+    const verified = await securityService.verifyAction()
+    if (!verified) return
+
     this.showDeleteConfirmationModal(items, async () => {
       this.statusBar.setStatus(`Deleting ${items.length} items...`)
 

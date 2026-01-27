@@ -5,8 +5,32 @@ import { themes } from '../../core/themes'
 import { vaultService } from '../../services/vaultService'
 import type { VaultInfo } from '../../services/vaultService'
 import { notificationManager } from '../notification/notification'
-import { createElement, CloudUpload, CloudDownload } from 'lucide'
+import {
+  createElement,
+  CloudUpload,
+  CloudDownload,
+  Github,
+  Key,
+  ListOrdered,
+  WrapText,
+  Scan,
+  FolderSync,
+  FolderOpen,
+  PlusCircle,
+  Eye,
+  Trash2,
+  CheckCircle2,
+  AlertCircle,
+  Type,
+  Palette,
+  Timer,
+  Save,
+  Sparkles,
+  Zap,
+  Cpu
+} from 'lucide'
 import { renderShortcutItems } from '../../utils/shortcutUtils'
+import { SecuritySection } from '../security/security-section'
 import './settings-view.css'
 
 export interface VaultSettingsCallbacks {
@@ -24,9 +48,12 @@ export class SettingsView {
   private recentVaults: VaultInfo[] = []
   private searchQuery: string = ''
   private searchTimeout?: number
+  private securitySection: SecuritySection
 
   constructor(containerId: string) {
     this.container = document.getElementById(containerId) as HTMLElement
+    this.securitySection = new SecuritySection()
+
     this.render()
   }
 
@@ -57,6 +84,11 @@ export class SettingsView {
 
   // create the settings view HTML ->tab
   private render(): void {
+    // Restore active section from settings if available
+    if (state.settings?.activeSettingsSection) {
+      this.activeSection = state.settings.activeSettingsSection
+    }
+
     this.container.innerHTML = `
       <div class="settings-view">
         <aside class="settings-view__sidebar">
@@ -85,6 +117,9 @@ export class SettingsView {
           <button class="settings-view__sidebar-item ${this.activeSection === 'shortcuts' ? 'is-active' : ''}" data-section-tab="shortcuts">
             ${codicons.keyboard} Shortcuts
           </button>
+          <button class="settings-view__sidebar-item ${this.activeSection === 'security' ? 'is-active' : ''}" data-section-tab="security">
+            ${codicons.lock} Security
+          </button>
         </aside>
 
         <div class="settings-view__content">
@@ -102,42 +137,32 @@ export class SettingsView {
           <!-- Editor Section -->
           <div class="settings-view__section ${this.activeSection === 'editor' ? 'is-active' : ''}" data-section="editor">
             <div class="settings-view__section-header">
-                <h2 class="settings-view__section-title">Editor</h2>
+                <h2 class="settings-view__section-title">Typography & Display</h2>
             </div>
 
-            <!-- Font Size -->
-            <div class="settings-field" data-search="font size controls the editor font size px">
-              <div class="settings-field__info">
-                <label class="settings-field__label">Font Size</label>
-                <p class="settings-field__hint">Controls the editor font size (px).</p>
+            <div class="settings-list">
+              <!-- Font Size -->
+              <div class="settings-row" data-search="font size controls the editor font size px">
+                <div class="settings-row__icon">${this.createLucideIcon(Type, 18)}</div>
+                <div class="settings-row__info">
+                  <label class="settings-row__label">Font Size</label>
+                  <p class="settings-row__hint">Adjust the primary display size for your notes (px).</p>
+                </div>
+                <div class="settings-row__action">
+                  <input type="number" class="settings-input" data-setting="fontSize" min="10" max="40" value="${state.settings?.fontSize || 14}" style="width: 80px;" />
+                </div>
               </div>
-              <div class="settings-field__control">
-                <input
-                  type="number"
-                  class="settings-input"
-                  data-setting="fontSize"
-                  min="10"
-                  max="40"
-                  value="${state.settings?.fontSize || 14}"
-                />
-              </div>
-            </div>
 
-            <!-- Caret Width -->
-            <div class="settings-field" data-search="caret width set the max width for the editor caret">
-              <div class="settings-field__info">
-                <label class="settings-field__label">Caret Width</label>
-                <p class="settings-field__hint">Set the max width for the editor caret.</p>
-              </div>
-              <div class="settings-field__control">
-                <input
-                  type="number"
-                  class="settings-input"
-                  data-setting="caretMaxWidth"
-                  min="1"
-                  max="10"
-                  value="${state.settings?.caretMaxWidth ?? 2}"
-                />
+              <!-- Caret Width -->
+              <div class="settings-row" data-search="caret width set the max width for the editor caret">
+                <div class="settings-row__icon">${this.createLucideIcon(Scan, 18)}</div>
+                <div class="settings-row__info">
+                  <label class="settings-row__label">Caret Thickness</label>
+                  <p class="settings-row__hint">Set the width of the editor's insertion point cursor.</p>
+                </div>
+                <div class="settings-row__action">
+                  <input type="number" class="settings-input" data-setting="caretMaxWidth" min="1" max="10" value="${state.settings?.caretMaxWidth ?? 2}" style="width: 80px;" />
+                </div>
               </div>
             </div>
           </div>
@@ -145,82 +170,68 @@ export class SettingsView {
           <!-- Editor Options Section -->
           <div class="settings-view__section ${this.activeSection === 'editor-options' ? 'is-active' : ''}" data-section="editor-options">
             <div class="settings-view__section-header">
-                <h2 class="settings-view__section-title">Editor Options</h2>
+                <h2 class="settings-view__section-title">Editor Experience</h2>
             </div>
 
-            <!-- Caret Toggle -->
-            <div class="settings-field" data-search="caret show or hide the editor caret">
-              <div class="settings-field__info">
-                <label class="settings-field__label">Caret</label>
-                <p class="settings-field__hint">Show or hide the editor caret.</p>
+            <div class="settings-list">
+              <!-- Caret Toggle -->
+              <div class="settings-row" data-search="caret show or hide the editor caret">
+                <div class="settings-row__icon">${this.createLucideIcon(Eye, 18)}</div>
+                <div class="settings-row__info">
+                  <label class="settings-row__label">Caret Visibility</label>
+                  <p class="settings-row__hint">Toggle the high-visibility focus cursor in the editor.</p>
+                </div>
+                <div class="settings-row__action">
+                  <label class="settings-toggle">
+                    <input type="checkbox" data-setting="caretEnabled" ${state.settings?.caretEnabled ? 'checked' : ''} />
+                    <span class="settings-toggle__slider"></span>
+                  </label>
+                </div>
               </div>
-              <div class="settings-field__control">
-                <label class="settings-toggle">
-                  <input
-                    type="checkbox"
-                    data-setting="caretEnabled"
-                    ${state.settings?.caretEnabled ? 'checked' : ''}
-                  />
-                  <span class="settings-toggle__slider"></span>
-                  <span class="settings-toggle__label">Show caret</span>
-                </label>
-              </div>
-            </div>
 
-            <!-- Line Numbers -->
-            <div class="settings-field" data-search="line numbers show or hide the line numbers in the gutter">
-              <div class="settings-field__info">
-                <label class="settings-field__label">Line Numbers</label>
-                <p class="settings-field__hint">Show or hide the line numbers in the gutter.</p>
+              <!-- Line Numbers -->
+              <div class="settings-row" data-search="line numbers show or hide the line numbers in the gutter">
+                <div class="settings-row__icon">${this.createLucideIcon(ListOrdered, 18)}</div>
+                <div class="settings-row__info">
+                  <label class="settings-row__label">Line Numbers</label>
+                  <p class="settings-row__hint">Display indices on the left gutter for better navigation.</p>
+                </div>
+                <div class="settings-row__action">
+                  <label class="settings-toggle">
+                    <input type="checkbox" data-setting="lineNumbers" ${state.settings?.lineNumbers ? 'checked' : ''} />
+                    <span class="settings-toggle__slider"></span>
+                  </label>
+                </div>
               </div>
-              <div class="settings-field__control">
-                <label class="settings-toggle">
-                  <input
-                    type="checkbox"
-                    data-setting="lineNumbers"
-                    ${state.settings?.lineNumbers ? 'checked' : ''}
-                  />
-                  <span class="settings-toggle__slider"></span>
-                  <span class="settings-toggle__label">Enable line numbers</span>
-                </label>
-              </div>
-            </div>
 
-            <!-- Word Wrap -->
-            <div class="settings-field" data-search="word wrap wrap long lines to fit the editor width">
-              <div class="settings-field__info">
-                <label class="settings-field__label">Word Wrap</label>
-                <p class="settings-field__hint">Wrap long lines to fit the editor width.</p>
+              <!-- Word Wrap -->
+              <div class="settings-row" data-search="word wrap wrap long lines to fit the editor width">
+                <div class="settings-row__icon">${this.createLucideIcon(WrapText, 18)}</div>
+                <div class="settings-row__info">
+                  <label class="settings-row__label">Word Wrap</label>
+                  <p class="settings-row__hint">Soft-wrap long lines to fit within the editor's horizontal bounds.</p>
+                </div>
+                <div class="settings-row__action">
+                  <label class="settings-toggle">
+                    <input type="checkbox" data-setting="wordWrap" ${state.settings?.wordWrap ? 'checked' : ''} />
+                    <span class="settings-toggle__slider"></span>
+                  </label>
+                </div>
               </div>
-              <div class="settings-field__control">
-                <label class="settings-toggle">
-                  <input
-                    type="checkbox"
-                    data-setting="wordWrap"
-                    ${state.settings?.wordWrap ? 'checked' : ''}
-                  />
-                  <span class="settings-toggle__slider"></span>
-                  <span class="settings-toggle__label">Enable word wrap</span>
-                </label>
-              </div>
-            </div>
 
-            <!-- Minimap -->
-            <div class="settings-field" data-search="minimap show the minimap for quick navigation">
-              <div class="settings-field__info">
-                <label class="settings-field__label">Minimap</label>
-                <p class="settings-field__hint">Show the minimap for quick navigation.</p>
-              </div>
-              <div class="settings-field__control">
-                <label class="settings-toggle">
-                  <input
-                    type="checkbox"
-                    data-setting="minimap"
-                    ${state.settings?.minimap ? 'checked' : ''}
-                  />
-                  <span class="settings-toggle__slider"></span>
-                  <span class="settings-toggle__label">Show minimap</span>
-                </label>
+              <!-- Minimap -->
+              <div class="settings-row" data-search="minimap show the minimap for quick navigation">
+                <div class="settings-row__icon">${this.createLucideIcon(Scan, 18)}</div>
+                <div class="settings-row__info">
+                  <label class="settings-row__label">Code Minimap</label>
+                  <p class="settings-row__hint">Show a high-level overview scrollbar on the far right.</p>
+                </div>
+                <div class="settings-row__action">
+                  <label class="settings-toggle">
+                    <input type="checkbox" data-setting="minimap" ${state.settings?.minimap ? 'checked' : ''} />
+                    <span class="settings-toggle__slider"></span>
+                  </label>
+                </div>
               </div>
             </div>
           </div>
@@ -228,24 +239,27 @@ export class SettingsView {
           <!-- Appearance Section -->
           <div class="settings-view__section ${this.activeSection === 'appearance' ? 'is-active' : ''}" data-section="appearance">
                <div class="settings-view__section-header">
-                <h2 class="settings-view__section-title">Appearance</h2>
+                <h2 class="settings-view__section-title">Interface Customization</h2>
             </div>
 
-            <div class="settings-field">
-              <div class="settings-field__info">
-                <label class="settings-field__label">Color Theme</label>
-                <p class="settings-field__hint">Select your preferred color scheme for the entire application.</p>
-              </div>
-              <div class="settings-field__control">
-                <select class="settings-input" data-setting="theme">
-                  ${Object.values(themes)
-                    .map(
-                      (t) => `
-                    <option value="${t.id}" ${state.settings?.theme === t.id ? 'selected' : ''}>${t.name}</option>
-                  `
-                    )
-                    .join('')}
-                </select>
+            <div class="settings-list">
+              <div class="settings-row">
+                <div class="settings-row__icon">${this.createLucideIcon(Palette, 18)}</div>
+                <div class="settings-row__info">
+                  <label class="settings-row__label">Color Theme</label>
+                  <p class="settings-row__hint">Choose an aesthetic that matches your workflow and mood.</p>
+                </div>
+                <div class="settings-row__action">
+                  <select class="settings-input" data-setting="theme" style="width: 140px;">
+                    ${Object.values(themes)
+                      .map(
+                        (t) => `
+                      <option value="${t.id}" ${state.settings?.theme === t.id ? 'selected' : ''}>${t.name}</option>
+                    `
+                      )
+                      .join('')}
+                  </select>
+                </div>
               </div>
             </div>
           </div>
@@ -253,42 +267,35 @@ export class SettingsView {
           <!-- Behavior Section -->
           <div class="settings-view__section ${this.activeSection === 'behavior' ? 'is-active' : ''}" data-section="behavior">
             <div class="settings-view__section-header">
-                <h2 class="settings-view__section-title">Behavior</h2>
+                <h2 class="settings-view__section-title">Application Behavior</h2>
             </div>
 
-            <div class="settings-field">
-              <div class="settings-field__info">
-                <label class="settings-field__label">Auto Save</label>
-                <p class="settings-field__hint">Automatically save your notes as you type.</p>
+            <div class="settings-list">
+              <!-- Auto Save Toggle -->
+              <div class="settings-row">
+                <div class="settings-row__icon">${this.createLucideIcon(Save, 18)}</div>
+                <div class="settings-row__info">
+                  <label class="settings-row__label">Persistence Mode</label>
+                  <p class="settings-row__hint">Automatically commit changes to your vault as you type.</p>
+                </div>
+                <div class="settings-row__action">
+                  <label class="settings-toggle">
+                    <input type="checkbox" data-setting="autoSave" ${state.settings?.autoSave ? 'checked' : ''} />
+                    <span class="settings-toggle__slider"></span>
+                  </label>
+                </div>
               </div>
-              <div class="settings-field__control">
-                <label class="settings-toggle">
-                  <input
-                    type="checkbox"
-                    data-setting="autoSave"
-                    ${state.settings?.autoSave ? 'checked' : ''}
-                  />
-                  <span class="settings-toggle__slider"></span>
-                  <span class="settings-toggle__label">Enable Auto Save</span>
-                </label>
-              </div>
-            </div>
 
-            <div class="settings-field">
-              <div class="settings-field__info">
-                <label class="settings-field__label">Auto Save Delay</label>
-                <p class="settings-field__hint">Millisecond delay after your last keystroke before saving.</p>
-              </div>
-              <div class="settings-field__control">
-                <input
-                  type="number"
-                  class="settings-input"
-                  data-setting="autoSaveDelay"
-                  min="300"
-                  max="10000"
-                  step="100"
-                  value="${state.settings?.autoSaveDelay || 800}"
-                />
+              <!-- Auto Save Delay -->
+              <div class="settings-row">
+                <div class="settings-row__icon">${this.createLucideIcon(Timer, 18)}</div>
+                <div class="settings-row__info">
+                  <label class="settings-row__label">Save Throttle</label>
+                  <p class="settings-row__hint">Delay (ms) before triggering the auto-save sequence.</p>
+                </div>
+                <div class="settings-row__action">
+                  <input type="number" class="settings-input" data-setting="autoSaveDelay" min="300" max="10000" step="100" value="${state.settings?.autoSaveDelay || 800}" style="width: 80px;" />
+                </div>
               </div>
             </div>
           </div>
@@ -296,133 +303,112 @@ export class SettingsView {
           <!-- AI Section -->
           <div class="settings-view__section ${this.activeSection === 'ai' ? 'is-active' : ''}" data-section="ai">
             <div class="settings-view__section-header">
-                <h2 class="settings-view__section-title">AI Settings</h2>
+                <h2 class="settings-view__section-title">Intelligent Features</h2>
             </div>
 
-            <!-- AI Provider -->
-            <div class="settings-field">
-              <div class="settings-field__info">
-                <label class="settings-field__label">Primary AI Provider</label>
-                <p class="settings-field__hint">Select which service to use for AI features.</p>
-              </div>
-              <div class="settings-field__control">
-                <select class="settings-input" data-setting="aiProvider">
-                  <option value="deepseek" ${state.settings?.aiProvider === 'deepseek' ? 'selected' : ''}>DeepSeek</option>
-                  <option value="openai" ${state.settings?.aiProvider === 'openai' ? 'selected' : ''}>OpenAI (GPT-4o)</option>
-                  <option value="claude" ${state.settings?.aiProvider === 'claude' ? 'selected' : ''}>Anthropic Claude</option>
-                  <option value="grok" ${state.settings?.aiProvider === 'grok' ? 'selected' : ''}>xAI Grok</option>
-                  <option value="ollama" ${state.settings?.aiProvider === 'ollama' ? 'selected' : ''}>Ollama (Local)</option>
-                </select>
-              </div>
-            </div>
-
-            <!-- DeepSeek Configuration -->
-            <div class="settings-ai-provider-group" style="display: ${state.settings?.aiProvider === 'deepseek' || !state.settings?.aiProvider ? 'block' : 'none'}">
-              <div class="settings-field">
-                <div class="settings-field__info">
-                  <label class="settings-field__label">DeepSeek API Key</label>
-                  <p class="settings-field__hint">Get one at <a href="https://platform.deepseek.com" target="_blank" style="color: var(--primary);">platform.deepseek.com</a></p>
+            <div class="settings-list">
+              <!-- AI Provider -->
+              <div class="settings-row">
+                <div class="settings-row__icon">${this.createLucideIcon(Zap, 18)}</div>
+                <div class="settings-row__info">
+                  <label class="settings-row__label">Primary Engine</label>
+                  <p class="settings-row__hint">Select which intelligence service powers your AI features.</p>
                 </div>
-                <div class="settings-field__control">
-                  <input
-                    type="password"
-                    class="settings-input"
-                    data-setting="deepseekApiKey"
-                    placeholder="sk-..."
-                    value="${state.settings?.deepseekApiKey || ''}"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <!-- OpenAI Configuration -->
-            <div class="settings-ai-provider-group" style="display: ${state.settings?.aiProvider === 'openai' ? 'block' : 'none'}">
-              <div class="settings-field">
-                <div class="settings-field__info">
-                  <label class="settings-field__label">OpenAI API Key</label>
-                  <p class="settings-field__hint">Get one at <a href="https://platform.openai.com" target="_blank" style="color: var(--primary);">platform.openai.com</a></p>
-                </div>
-                <div class="settings-field__control">
-                  <input
-                    type="password"
-                    class="settings-input"
-                    data-setting="openaiApiKey"
-                    placeholder="sk-..."
-                    value="${state.settings?.openaiApiKey || ''}"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <!-- Claude Configuration -->
-            <div class="settings-ai-provider-group" style="display: ${state.settings?.aiProvider === 'claude' ? 'block' : 'none'}">
-              <div class="settings-field">
-                <div class="settings-field__info">
-                  <label class="settings-field__label">Anthropic API Key</label>
-                  <p class="settings-field__hint">Get one at <a href="https://console.anthropic.com" target="_blank" style="color: var(--primary);">console.anthropic.com</a></p>
-                </div>
-                <div class="settings-field__control">
-                  <input
-                    type="password"
-                    class="settings-input"
-                    data-setting="claudeApiKey"
-                    placeholder="sk-ant-..."
-                    value="${state.settings?.claudeApiKey || ''}"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <!-- Grok Configuration -->
-            <div class="settings-ai-provider-group" style="display: ${state.settings?.aiProvider === 'grok' ? 'block' : 'none'}">
-              <div class="settings-field">
-                <div class="settings-field__info">
-                  <label class="settings-field__label">xAI Grok API Key</label>
-                  <p class="settings-field__hint">Get one at <a href="https://console.x.ai" target="_blank" style="color: var(--primary);">console.x.ai</a></p>
-                </div>
-                <div class="settings-field__control">
-                  <input
-                    type="password"
-                    class="settings-input"
-                    data-setting="grokApiKey"
-                    placeholder="xai-..."
-                    value="${state.settings?.grokApiKey || ''}"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <!-- Ollama Configuration -->
-            <div class="settings-ai-provider-group" style="display: ${state.settings?.aiProvider === 'ollama' ? 'block' : 'none'}">
-              <div class="settings-field">
-                <div class="settings-field__info">
-                  <label class="settings-field__label">Ollama Base URL</label>
-                  <p class="settings-field__hint">Default: http://localhost:11434</p>
-                </div>
-                <div class="settings-field__control">
-                  <input
-                    type="text"
-                    class="settings-input"
-                    data-setting="ollamaBaseUrl"
-                    placeholder="http://localhost:11434"
-                    value="${state.settings?.ollamaBaseUrl || ''}"
-                  />
-                </div>
-              </div>
-
-            </div>
-
-            <!-- General Model Configuration (Used for cloud providers: DeepSeek, OpenAI, Claude, etc.) -->
-            <div id="view-general-model-section" style="display: ${state.settings?.aiProvider !== 'ollama' ? 'block' : 'none'}">
-              <div class="settings-field">
-                <div class="settings-field__info">
-                  <label class="settings-field__label">Model Version</label>
-                  <p class="settings-field__hint">Select your preferred engine version.</p>
-                </div>
-                <div class="settings-field__control">
-                  <select class="settings-input" id="view-general-model-select" data-setting="aiModel">
-                    <option value="">Default (Provider Recommended)</option>
+                <div class="settings-row__action" style="flex: 1; max-width: 250px;">
+                  <select class="settings-input" data-setting="aiProvider">
+                    <option value="deepseek" ${state.settings?.aiProvider === 'deepseek' ? 'selected' : ''}>DeepSeek</option>
+                    <option value="openai" ${state.settings?.aiProvider === 'openai' ? 'selected' : ''}>OpenAI (GPT-4o)</option>
+                    <option value="claude" ${state.settings?.aiProvider === 'claude' ? 'selected' : ''}>Anthropic Claude</option>
+                    <option value="grok" ${state.settings?.aiProvider === 'grok' ? 'selected' : ''}>xAI Grok</option>
+                    <option value="ollama" ${state.settings?.aiProvider === 'ollama' ? 'selected' : ''}>Ollama (Local)</option>
                   </select>
+                </div>
+              </div>
+
+              <!-- Provider Specific Keys -->
+              <!-- DeepSeek -->
+              <div class="settings-ai-provider-group" style="display: ${state.settings?.aiProvider === 'deepseek' || !state.settings?.aiProvider ? 'block' : 'none'}">
+                <div class="settings-row">
+                  <div class="settings-row__icon">${this.createLucideIcon(Key, 18)}</div>
+                  <div class="settings-row__info">
+                    <label class="settings-row__label">DeepSeek Token</label>
+                    <p class="settings-row__hint">Secure access key from platform.deepseek.com</p>
+                  </div>
+                  <div class="settings-row__action" style="flex: 1; max-width: 250px;">
+                    <input type="password" class="settings-input" data-setting="deepseekApiKey" placeholder="sk-..." value="${state.settings?.deepseekApiKey || ''}" />
+                  </div>
+                </div>
+              </div>
+
+              <!-- OpenAI -->
+              <div class="settings-ai-provider-group" style="display: ${state.settings?.aiProvider === 'openai' ? 'block' : 'none'}">
+                <div class="settings-row">
+                  <div class="settings-row__icon">${this.createLucideIcon(Key, 18)}</div>
+                  <div class="settings-row__info">
+                    <label class="settings-row__label">OpenAI Token</label>
+                    <p class="settings-row__hint">Secure access key from platform.openai.com</p>
+                  </div>
+                  <div class="settings-row__action" style="flex: 1; max-width: 250px;">
+                    <input type="password" class="settings-input" data-setting="openaiApiKey" placeholder="sk-..." value="${state.settings?.openaiApiKey || ''}" />
+                  </div>
+                </div>
+              </div>
+
+              <!-- Claude -->
+              <div class="settings-ai-provider-group" style="display: ${state.settings?.aiProvider === 'claude' ? 'block' : 'none'}">
+                <div class="settings-row">
+                  <div class="settings-row__icon">${this.createLucideIcon(Key, 18)}</div>
+                  <div class="settings-row__info">
+                    <label class="settings-row__label">Anthropic Token</label>
+                    <p class="settings-row__hint">Secure access key from console.anthropic.com</p>
+                  </div>
+                  <div class="settings-row__action" style="flex: 1; max-width: 250px;">
+                    <input type="password" class="settings-input" data-setting="claudeApiKey" placeholder="sk-ant-..." value="${state.settings?.claudeApiKey || ''}" />
+                  </div>
+                </div>
+              </div>
+
+              <!-- Grok -->
+              <div class="settings-ai-provider-group" style="display: ${state.settings?.aiProvider === 'grok' ? 'block' : 'none'}">
+                <div class="settings-row">
+                  <div class="settings-row__icon">${this.createLucideIcon(Key, 18)}</div>
+                  <div class="settings-row__info">
+                    <label class="settings-row__label">xAI Token</label>
+                    <p class="settings-row__hint">Secure access key from console.x.ai</p>
+                  </div>
+                  <div class="settings-row__action" style="flex: 1; max-width: 250px;">
+                    <input type="password" class="settings-input" data-setting="grokApiKey" placeholder="xai-..." value="${state.settings?.grokApiKey || ''}" />
+                  </div>
+                </div>
+              </div>
+
+              <!-- Ollama -->
+              <div class="settings-ai-provider-group" style="display: ${state.settings?.aiProvider === 'ollama' ? 'block' : 'none'}">
+                <div class="settings-row">
+                  <div class="settings-row__icon">${this.createLucideIcon(Cpu, 18)}</div>
+                  <div class="settings-row__info">
+                    <label class="settings-row__label">Local Server</label>
+                    <p class="settings-row__hint">Base URL for your Ollama instance (e.g., http://localhost:11434).</p>
+                  </div>
+                  <div class="settings-row__action" style="flex: 1; max-width: 250px;">
+                    <input type="text" class="settings-input" data-setting="ollamaBaseUrl" placeholder="http://localhost:11434" value="${state.settings?.ollamaBaseUrl || ''}" />
+                  </div>
+                </div>
+              </div>
+
+              <!-- Model Logic -->
+              <div id="view-general-model-section" style="display: ${state.settings?.aiProvider !== 'ollama' ? 'block' : 'none'}">
+                <div class="settings-row">
+                  <div class="settings-row__icon">${this.createLucideIcon(Sparkles, 18)}</div>
+                  <div class="settings-row__info">
+                    <label class="settings-row__label">Model Version</label>
+                    <p class="settings-row__hint">Select the specific neural model to use for generations.</p>
+                  </div>
+                  <div class="settings-row__action" style="flex: 1; max-width: 250px;">
+                    <select class="settings-input" id="view-general-model-select" data-setting="aiModel">
+                      <option value="">Default (Provider Recommended)</option>
+                    </select>
+                  </div>
                 </div>
               </div>
             </div>
@@ -432,47 +418,45 @@ export class SettingsView {
           <!-- Vault Section -->
           <div class="settings-view__section ${this.activeSection === 'vault' ? 'is-active' : ''}" data-section="vault">
             <div class="settings-view__section-header">
-              <h2 class="settings-view__section-title">Vault Management</h2>
+              <h2 class="settings-view__section-title">Vault Configuration</h2>
             </div>
 
-            <div class="settings-field">
-              <div class="settings-field__info">
-                <label class="settings-field__label">Current Vault</label>
-                <p class="settings-field__hint">The folder where your notes are stored.</p>
-              </div>
-              <div class="settings-field__control" style="grid-column: 1 / -1;">
-                <div class="settings-vault-path">
-                  <div class="settings-vault-path__display" id="settings-vault-path-display">
-                    ${state.vaultPath || 'No vault selected'}
-                  </div>
-                  <button class="settings-button settings-button--secondary" id="settings-vault-reveal" title="Reveal in File Explorer">
-                    ${codicons.folderOpened} Reveal
+            <div class="settings-list">
+              <!-- Current Vault Path Row -->
+              <div class="settings-row">
+                <div class="settings-row__icon">${this.createLucideIcon(FolderSync, 18)}</div>
+                <div class="settings-row__info">
+                  <label class="settings-row__label">Active Vault Path</label>
+                  <div class="settings-vault-active-path" id="settings-vault-path-display">${state.vaultPath || 'No vault selected'}</div>
+                </div>
+                <div class="settings-row__action">
+                  <button class="settings-button settings-button--sm settings-button--secondary" id="settings-vault-reveal">
+                    ${this.createLucideIcon(FolderOpen, 14)} Reveal
                   </button>
                 </div>
               </div>
-            </div>
 
-            <div class="settings-field">
-              <div class="settings-field__info">
-                <label class="settings-field__label">Change Vault</label>
-                <p class="settings-field__hint">Select a different folder for your notes.</p>
-              </div>
-              <div class="settings-field__control">
-                <button class="settings-button settings-button--primary" id="settings-vault-change">
-                  ${codicons.newFolder} Change Vault Folder
-                </button>
-              </div>
-            </div>
-
-            <div class="settings-field">
-              <div class="settings-field__info">
-                <label class="settings-field__label">Recent Vaults</label>
-                <p class="settings-field__hint">Quickly switch between recently used vaults.</p>
-              </div>
-              <div class="settings-field__control" style="grid-column: 1 / -1;">
-                <div class="settings-vault-list" id="settings-vault-list">
-                  <div class="settings-vault-list__loading">Loading recent vaults...</div>
+              <!-- Switch Vault Row -->
+              <div class="settings-row">
+                <div class="settings-row__icon">${this.createLucideIcon(PlusCircle, 18)}</div>
+                <div class="settings-row__info">
+                  <label class="settings-row__label">Switch or Initialize</label>
+                  <p class="settings-row__hint">Select a different folder or create a new vault location.</p>
                 </div>
+                <div class="settings-row__action">
+                  <button class="settings-button settings-button--sm settings-button--primary" id="settings-vault-change">
+                    Change Folder
+                  </button>
+                </div>
+              </div>
+
+              <div class="settings-divider"></div>
+              <div class="settings-view__section-header" style="border: none; margin-top: 8px;">
+                <h3 class="settings-view__section-title" style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Recent Vaults</h3>
+              </div>
+
+              <div class="settings-recent-vaults" id="settings-vault-list">
+                <div class="settings-vault-list__loading">Indexing recent locations...</div>
               </div>
             </div>
           </div>
@@ -480,57 +464,61 @@ export class SettingsView {
           <!-- Sync Section -->
           <div class="settings-view__section ${this.activeSection === 'sync' ? 'is-active' : ''}" data-section="sync">
             <div class="settings-view__section-header">
-              <h2 class="settings-view__section-title">GitHub Gist Sync</h2>
+              <h2 class="settings-view__section-title">Cloud Sync (GitHub)</h2>
             </div>
+            
+            <div class="settings-list">
+              <!-- Gist Token Row -->
+              <div class="settings-row">
+                <div class="settings-row__icon">${this.createLucideIcon(Github, 18)}</div>
+                <div class="settings-row__info">
+                  <label class="settings-row__label">Access Token</label>
+                  <p class="settings-row__hint">GitHub Personal Access Token with 'gist' scope.</p>
+                </div>
+                <div class="settings-row__action" style="flex: 1; max-width: 400px; display: flex; gap: 8px;">
+                  <input type="password" class="settings-input" data-setting="gistToken" placeholder="ghp_..." value="${(state.settings as any)?.gistToken || ''}">
+                  <button class="settings-button settings-button--sm settings-button--secondary" id="settings-sync-test-token">Test</button>
+                </div>
+              </div>
 
-            <div class="settings-field">
-              <div class="settings-field__info">
-                <label class="settings-field__label">GitHub Personal Access Token</label>
-                <p class="settings-field__hint">Your GitHub token for Gist access. Create one at <a href="https://github.com/settings/tokens" target="_blank">github.com/settings/tokens</a></p>
+              <!-- Gist ID Row -->
+              <div class="settings-row">
+                <div class="settings-row__icon">${this.createLucideIcon(Key, 18)}</div>
+                <div class="settings-row__info">
+                  <label class="settings-row__label">Gist Identifier</label>
+                  <p class="settings-row__hint">Auto-filled after your first successful backup.</p>
+                </div>
+                <div class="settings-row__action" style="flex: 1; max-width: 400px;">
+                  <input type="text" class="settings-input" data-setting="gistId" value="${(state.settings as any)?.gistId || ''}" readonly>
+                </div>
               </div>
-              <div class="settings-field__control">
-                <input
-                  type="password"
-                  class="settings-input"
-                  data-setting="gistToken"
-                  placeholder="ghp_..."
-                  value="${(state.settings as any)?.gistToken || ''}"
-                />
-                <button class="settings-button settings-button--secondary" id="settings-sync-test-token" style="margin-top: 8px;">
-                  Test Token
-                </button>
-              </div>
-            </div>
 
-            <div class="settings-field">
-              <div class="settings-field__info">
-                <label class="settings-field__label">Gist ID</label>
-                <p class="settings-field__hint">The Gist ID where your backup is stored (auto-filled after first backup).</p>
-              </div>
-              <div class="settings-field__control">
-                <input
-                  type="text"
-                  class="settings-input"
-                  data-setting="gistId"
-                  placeholder="Auto-filled after backup"
-                  value="${(state.settings as any)?.gistId || ''}"
-                  readonly
-                />
-              </div>
-            </div>
+              <div class="settings-divider"></div>
 
-            <div class="settings-field">
-              <div class="settings-field__info">
-                <label class="settings-field__label">Sync Actions</label>
-                <p class="settings-field__hint">Backup your entire vault to GitHub Gist or restore from a previous backup.</p>
-              </div>
-              <div class="settings-field__control">
-                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                  <button class="settings-button settings-button--primary" id="settings-sync-backup">
-                    ${this.createLucideIcon(CloudUpload, 16)} Backup to Gist
+              <!-- Backup Row -->
+              <div class="settings-row">
+                <div class="settings-row__icon">${this.createLucideIcon(CloudUpload, 18)}</div>
+                <div class="settings-row__info">
+                  <label class="settings-row__label">Push Backup</label>
+                  <p class="settings-row__hint">Upload current vault contents to your secure Gist.</p>
+                </div>
+                <div class="settings-row__action">
+                  <button class="settings-button settings-button--sm settings-button--primary" id="settings-sync-backup">
+                    Backup Now
                   </button>
-                  <button class="settings-button settings-button--secondary" id="settings-sync-restore">
-                    ${this.createLucideIcon(CloudDownload, 16)} Restore from Gist
+                </div>
+              </div>
+
+              <!-- Restore Row -->
+              <div class="settings-row">
+                <div class="settings-row__icon">${this.createLucideIcon(CloudDownload, 18)}</div>
+                <div class="settings-row__info">
+                  <label class="settings-row__label">Pull Recovery</label>
+                  <p class="settings-row__hint">Overwrite local data with the latest cloud backup.</p>
+                </div>
+                <div class="settings-row__action">
+                  <button class="settings-button settings-button--sm settings-button--secondary" id="settings-sync-restore">
+                    Restore
                   </button>
                 </div>
               </div>
@@ -545,6 +533,11 @@ export class SettingsView {
             <div class="settings-shortcuts">
               ${renderShortcutItems()}
             </div>
+          </div>
+
+          <!-- Security Section -->
+          <div class="settings-view__section ${this.activeSection === 'security' ? 'is-active' : ''}" data-section="security">
+            ${this.securitySection.render()}
           </div>
 
         </div>
@@ -592,6 +585,13 @@ export class SettingsView {
         const section = (tab as HTMLElement).dataset.sectionTab
         if (section) {
           this.activeSection = section
+
+          // Persist the active section
+          if (state.settings) {
+            state.settings.activeSettingsSection = section
+            this.onSettingChange?.({ activeSettingsSection: section })
+          }
+
           this.render()
           if (section === 'vault') {
             void this.loadRecentVaults()
@@ -801,6 +801,9 @@ export class SettingsView {
           btn.disabled = false
         }
       })
+
+    // Security events
+    this.securitySection.attachEvents(this.container, () => this.render())
   }
 
   private async loadRecentVaults(): Promise<void> {
@@ -819,54 +822,52 @@ export class SettingsView {
 
   private renderVaultList(container: HTMLElement): void {
     if (this.recentVaults.length === 0) {
-      container.innerHTML = '<div class="settings-vault-list__empty">No recent vaults</div>'
+      container.innerHTML =
+        '<div class="settings-vault-list__empty">No recent vaults encountered.</div>'
       return
     }
 
     container.innerHTML = this.recentVaults
       .map((vault) => {
-        const statusIcon = vault.exists
-          ? '<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="8" r="6" fill="#10b981"/><path d="M6 8l2 2 4-4" stroke="white" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>'
-          : '<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><circle cx="8" cy="8" r="6" fill="#ef4444"/><path d="M6 6l4 4M10 6l-4 4" stroke="white" stroke-width="1.5" stroke-linecap="round"/></svg>'
-        const statusClass = vault.exists ? '' : 'settings-vault-item--missing'
         const isCurrent = vault.path === state.vaultPath
-        const vaultIcon = isCurrent ? codicons.folderRoot : codicons.folder
+        const statusIcon = vault.exists
+          ? this.createLucideIcon(CheckCircle2, 14)
+          : this.createLucideIcon(AlertCircle, 14)
+
+        const statusColor = vault.exists ? '#10b981' : '#ef4444'
 
         return `
-        <div class="settings-vault-item ${statusClass} ${isCurrent ? 'settings-vault-item--current' : ''}" data-vault-path="${this.escapeHtml(vault.path)}">
-          <div class="settings-vault-item__header">
-            <div class="settings-vault-item__icon">${vaultIcon}</div>
-            <div class="settings-vault-item__status">${statusIcon}</div>
-            ${
-              !isCurrent
-                ? `
-              <button class="settings-vault-item__delete" data-action="delete" data-path="${this.escapeHtml(vault.path)}" title="Remove from recent vaults">
-                ${codicons.trash}
-              </button>
-            `
-                : ''
-            }
-          </div>
-          <div class="settings-vault-item__body">
-            <div class="settings-vault-item__name">
+        <div class="vault-row ${isCurrent ? 'is-active' : ''} ${!vault.exists ? 'is-missing' : ''}">
+          <div class="vault-row__status" style="color: ${statusColor}">${statusIcon}</div>
+          <div class="vault-row__info">
+            <div class="vault-row__name">
               ${this.escapeHtml(vault.name)}
-              ${isCurrent ? '<span class="settings-vault-item__badge">Current</span>' : ''}
+              ${isCurrent ? '<span class="vault-row__badge">Current</span>' : ''}
             </div>
-            <div class="settings-vault-item__path">${this.escapeHtml(vault.path)}</div>
+            <div class="vault-row__path" title="${this.escapeHtml(vault.path)}">${this.escapeHtml(vault.path)}</div>
           </div>
-          <div class="settings-vault-item__footer">
+          <div class="vault-row__actions">
             ${
               vault.exists
                 ? `
-              <button class="settings-vault-item__action" data-action="select" data-path="${this.escapeHtml(vault.path)}">
-                Open
-              </button>
-            `
+                <button class="vault-row__btn vault-row__btn--open" data-action="select" data-path="${this.escapeHtml(vault.path)}">
+                  Open
+                </button>
+              `
                 : `
-              <button class="settings-vault-item__action" data-action="locate" data-path="${this.escapeHtml(vault.path)}">
-                Locate
+                <button class="vault-row__btn vault-row__btn--locate" data-action="locate" data-path="${this.escapeHtml(vault.path)}">
+                  Locate
+                </button>
+              `
+            }
+            ${
+              !isCurrent
+                ? `
+              <button class="vault-row__btn vault-row__btn--delete" data-action="delete" data-path="${this.escapeHtml(vault.path)}">
+                  ${this.createLucideIcon(Trash2, 14)}
               </button>
             `
+                : ''
             }
           </div>
         </div>

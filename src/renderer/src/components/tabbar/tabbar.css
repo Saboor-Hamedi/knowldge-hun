@@ -82,12 +82,24 @@
 }
 
 /* Dynamic Icon Colors - refined */
-.tab[data-ext='md'] .tab__icon { color: #818cf8; }
-.tab[data-ext='js'] .tab__icon { color: #fbbf24; }
-.tab[data-ext='ts'] .tab__icon { color: #60a5fa; }
-.tab[data-ext='html'] .tab__icon { color: #f87171; }
-.tab[data-ext='css'] .tab__icon { color: #38bdf8; }
-.tab[data-ext='json'] .tab__icon { color: #fbbf24; }
+.tab[data-ext='md'] .tab__icon {
+  color: #818cf8;
+}
+.tab[data-ext='js'] .tab__icon {
+  color: #fbbf24;
+}
+.tab[data-ext='ts'] .tab__icon {
+  color: #60a5fa;
+}
+.tab[data-ext='html'] .tab__icon {
+  color: #f87171;
+}
+.tab[data-ext='css'] .tab__icon {
+  color: #38bdf8;
+}
+.tab[data-ext='json'] .tab__icon {
+  color: #fbbf24;
+}
 
 /* Tab Label */
 .tab__label {

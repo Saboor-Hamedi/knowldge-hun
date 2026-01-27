@@ -65,6 +65,8 @@ export type AppSettings = {
   gistId?: string
   rightPanelWidth?: number
   rightPanelVisible?: boolean
+  passwordHash?: string | null
+  activeSettingsSection?: string
   // Caret settings
   caretEnabled?: boolean
   caretMaxWidth?: number

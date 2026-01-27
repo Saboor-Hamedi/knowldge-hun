@@ -1,13 +1,14 @@
 import { state } from '../../core/state'
 import { codicons } from '../../utils/codicons'
 import { updateApp } from '../updateApp/updateRender'
-import { createElement, File, Search, Settings, Palette, Library } from 'lucide'
+import { createElement, File, Search, Settings, Palette, Library, Lock } from 'lucide'
+import { securityService } from '../../services/security/securityService'
 import './activitybar.css'
 
 export class ActivityBar {
   private container: HTMLElement
   private onViewChange?: (
-    view: 'notes' | 'search' | 'settings' | 'theme' | 'graph' | 'documentation' | null
+    view: 'notes' | 'search' | 'settings' | 'theme' | 'graph' | 'documentation' | 'lock' | null
   ) => void
   private updateState: 'idle' | 'checking' | 'progress' | 'restart' = 'idle'
   private updateProgress: number = 0
@@ -25,7 +26,7 @@ export class ActivityBar {
 
   setViewChangeHandler(
     handler: (
-      view: 'notes' | 'search' | 'settings' | 'theme' | 'graph' | 'documentation' | null
+      view: 'notes' | 'search' | 'settings' | 'theme' | 'graph' | 'documentation' | 'lock' | null
     ) => void
   ): void {
     this.onViewChange = handler
@@ -96,6 +97,7 @@ export class ActivityBar {
     const settingsIcon = this.createLucideIcon(Settings)
     const paletteIcon = this.createLucideIcon(Palette)
     const libraryIcon = this.createLucideIcon(Library)
+    const lockIcon = this.createLucideIcon(Lock)
 
     this.container.innerHTML = `
       <div class="activitybar__top">
@@ -123,6 +125,9 @@ export class ActivityBar {
         </button>
       </div>
       <div class="activitybar__bottom">
+        <button class="activitybar__item" data-view="lock" title="Lock App">
+          <span class="activitybar__icon">${lockIcon}</span>
+        </button>
         <button class="activitybar__item" data-view="theme" title="Theme">
           <span class="activitybar__icon">${paletteIcon}</span>
         </button>
@@ -163,6 +168,7 @@ export class ActivityBar {
         | 'graph'
         | 'update'
         | 'documentation'
+        | 'lock'
       if (!view) return
 
       if (view === 'update') {
@@ -177,7 +183,11 @@ export class ActivityBar {
       }
 
       // Do NOT set active for modal actions (theme, settings is also kinda modal but treated as view in previous logic)
-      if (view === 'theme' || view === 'documentation') {
+      if (view === 'theme' || view === 'documentation' || view === 'lock') {
+        if (view === 'lock') {
+          void securityService.promptAndLock()
+          return
+        }
         this.onViewChange?.(view)
         return
       }

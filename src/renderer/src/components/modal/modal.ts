@@ -125,6 +125,13 @@ export class Modal {
   }
 
   /**
+   * Find an input element by name
+   */
+  findInput(name: string): HTMLInputElement | HTMLTextAreaElement | undefined {
+    return this.inputs.get(name)
+  }
+
+  /**
    * Render modal structure
    */
   private render(): void {

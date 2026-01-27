@@ -158,9 +158,18 @@
 }
 
 @keyframes brain-pulse {
-  0% { transform: scale(1); box-shadow: 0 0 0px rgba(127, 167, 255, 0); }
-  50% { transform: scale(1.02); box-shadow: 0 0 8px rgba(127, 167, 255, 0.2); }
-  100% { transform: scale(1); box-shadow: 0 0 0px rgba(127, 167, 255, 0); }
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0px rgba(127, 167, 255, 0);
+  }
+  50% {
+    transform: scale(1.02);
+    box-shadow: 0 0 8px rgba(127, 167, 255, 0.2);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0px rgba(127, 167, 255, 0);
+  }
 }
 
 .ai-status-tooltip {
