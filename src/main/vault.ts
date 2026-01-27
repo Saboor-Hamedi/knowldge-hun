@@ -1,6 +1,6 @@
 import { join, basename, relative, dirname, normalize } from 'path'
 import { readFile, writeFile, rm, rename, stat, readdir, mkdir, copyFile } from 'fs/promises'
-import { existsSync, readdirSync } from 'fs'
+import { existsSync } from 'fs'
 import { watch } from 'chokidar'
 import type { FSWatcher } from 'chokidar'
 import { BrowserWindow } from 'electron'
@@ -25,7 +25,77 @@ export type FileChange = {
   path: string
 }
 
-const NOTE_EXTENSIONS = ['.md', '.txt']
+const TEXT_EXTENSIONS = [
+  '.md',
+  '.txt',
+  '.js',
+  '.jsx',
+  '.ts',
+  '.tsx',
+  '.py',
+  '.c',
+  '.cpp',
+  '.cs',
+  '.h',
+  '.hpp',
+  '.css',
+  '.scss',
+  '.html',
+  '.json',
+  '.yaml',
+  '.yml',
+  '.sh',
+  '.bash',
+  '.sql',
+  '.rs',
+  '.go',
+  '.java',
+  '.php',
+  '.rb',
+  '.xml',
+  '.toml',
+  '.ini',
+  '.csv',
+  '.tsv',
+  '.log',
+  '.lock',
+  '.env',
+  '.babelrc',
+  '.eslintrc',
+  '.prettierrc',
+  '.stylelintrc',
+  '.gitignore',
+  '.gitattributes',
+  '.editorconfig',
+  '.npmrc',
+  '.nvmrc',
+  '.dockerignore',
+  '.env.example',
+  '.env.local',
+  '.twig',
+  '.blade.php',
+  '.less',
+  '.sass',
+  '.mdx',
+  'dockerfile',
+  'makefile'
+]
+
+const IGNORED_NAMES = [
+  'node_modules',
+  '.git',
+  'dist',
+  'build',
+  'out',
+  '.next',
+  '.cache',
+  'vendor',
+  '.idea',
+  '.vscode',
+  'storage',
+  'bin',
+  'obj'
+]
 
 export class VaultManager {
   private rootPath: string = ''
@@ -38,9 +108,7 @@ export class VaultManager {
   private links = new Map<string, Set<string>>() // Source -> Targets
   private backlinks = new Map<string, Set<string>>() // Target -> Sources
 
-  constructor() {}
-
-  public setMainWindow(window: BrowserWindow) {
+  public setMainWindow(window: BrowserWindow): void {
     this.mainWindow = window
   }
 
@@ -48,7 +116,7 @@ export class VaultManager {
     return this.rootPath
   }
 
-  public async setVaultPath(path: string) {
+  public async setVaultPath(path: string): Promise<void> {
     if (!path || !existsSync(path)) {
       throw new Error(`Invalid vault path: ${path}`)
     }
@@ -62,64 +130,51 @@ export class VaultManager {
     await this.initialScan()
   }
 
-  private async initialScan() {
+  private async initialScan(): Promise<void> {
     await this.scanDirectory(this.rootPath)
   }
 
-  private async scanDirectory(dir: string) {
+  private async scanDirectory(dir: string): Promise<void> {
     const entries = await readdir(dir, { withFileTypes: true })
     for (const entry of entries) {
       const fullPath = join(dir, entry.name)
+      const entryName = entry.name.toLowerCase()
 
-      // Skip hidden directories, but allow hidden files that are notes
-      if (entry.isDirectory() && entry.name.startsWith('.')) continue
+      // Skip hidden directories and bulky code folders (Shadow Folders)
+      if (
+        entry.isDirectory() &&
+        (entry.name.startsWith('.') || IGNORED_NAMES.includes(entryName))
+      ) {
+        continue
+      }
 
       if (entry.isDirectory()) {
         const relPath = relative(this.rootPath, fullPath)
         const normalizedPath = relPath.replace(/\\/g, '/')
         this.folders.add(normalizedPath)
         await this.scanDirectory(fullPath)
-      } else if (entry.isFile() && this.isNoteFile(entry.name)) {
+      } else if (entry.isFile() && this.isSupportedFile(entry.name)) {
         await this.indexFile(fullPath)
       }
     }
   }
-
-  private isNoteFile(filename: string): boolean {
+  private isSupportedFile(filename: string): boolean {
     const lower = filename.toLowerCase()
-    return NOTE_EXTENSIONS.some((ext) => lower.endsWith(ext))
+    return TEXT_EXTENSIONS.some((ext) => {
+      if (ext.startsWith('.')) return lower.endsWith(ext)
+      return lower === ext // Exact match for things like 'makefile' or 'dockerfile'
+    })
   }
 
-  private hasConflictingFile(targetDir: string, baseId: string): boolean {
-    // Check if there are any files (including dotfiles) with the same base name
+  private async indexFile(fullPath: string): Promise<void> {
     try {
-      const entries = readdirSync(targetDir, { withFileTypes: true })
-      for (const entry of entries) {
-        if (!entry.isFile()) continue
-
-        const entryName = entry.name
-        const entryBaseName = entryName.includes('.')
-          ? entryName.substring(0, entryName.lastIndexOf('.'))
-          : entryName
-
-        if (entryBaseName === baseId) {
-          return true
-        }
-      }
-      return false
-    } catch {
-      // If we can't read the directory, assume no conflict
-      return false
-    }
-  }
-
-  private async indexFile(fullPath: string) {
-    try {
-      const content = await readFile(fullPath, 'utf-8')
       const stats = await stat(fullPath)
       const relPath = relative(this.rootPath, fullPath)
       const normalizedPath = relPath.replace(/\\/g, '/')
       const id = this.getIdFromPath(normalizedPath)
+
+      // Only read content if it's a text-based file for indexing
+      const content = await readFile(fullPath, 'utf-8')
 
       // Extract directory path (without filename)
       const dirPath = dirname(normalizedPath)
@@ -166,28 +221,38 @@ export class VaultManager {
     }
   }
 
-  private async startWatcher() {
+  private async startWatcher(): Promise<void> {
     if (this.watcher) await this.watcher.close()
 
     this.watcher = watch(this.rootPath, {
       ignored: (path: string) => {
-        const basename = path.split(/[\\/]/).pop() || ''
-        // Ignore hidden files unless they are markdown files
-        return basename.startsWith('.') && !basename.toLowerCase().endsWith('.md')
+        const parts = path.split(/[\\/]/)
+        const name = parts[parts.length - 1].toLowerCase()
+        // Ignore hidden folders and ignored code folders
+        if (
+          name.startsWith('.') &&
+          !parts.some((p) => TEXT_EXTENSIONS.some((ext) => p.toLowerCase().endsWith(ext)))
+        )
+          return true
+        if (IGNORED_NAMES.includes(name)) return true
+        return false
       },
       persistent: true,
       ignoreInitial: true
     })
 
-    this.watcher.on('add', (path) => this.handleFileChange('add', path))
-    this.watcher.on('change', (path) => this.handleFileChange('change', path))
-    this.watcher.on('unlink', (path) => this.handleFileChange('unlink', path))
-    this.watcher.on('addDir', (path) => this.handleDirChange('add', path))
-    this.watcher.on('unlinkDir', (path) => this.handleDirChange('unlink', path))
+    this.watcher.on('add', (path) => void this.handleFileChange('add', path))
+    this.watcher.on('change', (path) => void this.handleFileChange('change', path))
+    this.watcher.on('unlink', (path) => void this.handleFileChange('unlink', path))
+    this.watcher.on('addDir', (path) => void this.handleDirChange('add', path))
+    this.watcher.on('unlinkDir', (path) => void this.handleDirChange('unlink', path))
   }
 
-  private async handleFileChange(event: 'add' | 'change' | 'unlink', fullPath: string) {
-    if (!this.isNoteFile(fullPath)) return
+  private async handleFileChange(
+    event: 'add' | 'change' | 'unlink',
+    fullPath: string
+  ): Promise<void> {
+    if (!this.isSupportedFile(fullPath)) return
     const relativePath = relative(this.rootPath, fullPath)
     const id = this.getIdFromPath(relativePath)
 
@@ -206,7 +271,7 @@ export class VaultManager {
     })
   }
 
-  private async handleDirChange(event: 'add' | 'unlink', fullPath: string) {
+  private async handleDirChange(event: 'add' | 'unlink', fullPath: string): Promise<void> {
     const relPath = relative(this.rootPath, fullPath)
     const normalizedPath = relPath.replace(/\\/g, '/')
 
@@ -222,15 +287,9 @@ export class VaultManager {
   // --- Helpers ---
 
   private getIdFromPath(relPath: string): string {
-    // relPath is already normalized to forward slashes
-    let id = relPath
-    for (const ext of NOTE_EXTENSIONS) {
-      if (id.toLowerCase().endsWith(ext)) {
-        id = id.slice(0, -ext.length)
-        break
-      }
-    }
-    return id
+    // UNIFIED ID: The ID is now the full relative path including extension.
+    // This allows unique selection and editing of any file in the workspace.
+    return relPath.replace(/\\/g, '/')
   }
 
   private extractTitle(_content: string, id: string): string {
@@ -238,7 +297,7 @@ export class VaultManager {
     return basename(id)
   }
 
-  private updateLinks(sourceId: string, content: string) {
+  private updateLinks(sourceId: string, content: string): void {
     const links = new Set<string>()
     const regex = /\[\[(.*?)\]\]/g
     let match
@@ -250,7 +309,7 @@ export class VaultManager {
     this.links.set(sourceId, links)
   }
 
-  private removeLinks(sourceId: string) {
+  private removeLinks(sourceId: string): void {
     this.links.delete(sourceId)
   }
 
@@ -267,7 +326,7 @@ export class VaultManager {
         updatedAt: 0,
         path: parentPath,
         type: 'folder'
-      } as any as NoteMeta
+      } as NoteMeta
     })
     return [...notes, ...folderMetas]
   }
@@ -281,29 +340,27 @@ export class VaultManager {
       meta.title = basename(id) || 'Untitled'
     }
 
-    // id is like "folder/sub/note"
-    // meta.path is the directory "folder/sub"
-    const filename = `${basename(id)}.md`
-    const fullPath = join(this.rootPath, meta.path || '', filename)
+    // Dynamic extension loading: joined id is the full workspace path
+    const fullPath = join(this.rootPath, id)
 
     try {
       let content = await readFile(fullPath, 'utf-8')
 
-      // MIGRATION: Auto-strip old <!-- Title --> comments if they exist
-      if (content.startsWith('<!--')) {
+      // MIGRATION: Auto-strip old <!-- Title --> comments only for markdown
+      if (id.toLowerCase().endsWith('.md') && content.startsWith('<!--')) {
         content = content.replace(/^<!--\s*(.+?)\s*-->\r?\n?/, '')
       }
 
       return {
         id,
         content,
-        title: meta.title || basename(id) || 'Untitled', // Double safety check
+        title: meta.title || basename(id) || 'Untitled',
         path: meta.path,
         updatedAt: meta.updatedAt,
         createdAt: meta.createdAt
       }
     } catch (e) {
-      console.error(`[Vault] Failed to load note ${id} at ${fullPath}`, e)
+      console.error(`[Vault] Failed to load file ${id} at ${fullPath}`, e)
       return null
     }
   }
@@ -330,27 +387,22 @@ export class VaultManager {
   }
 
   public async saveNote(id: string, content: string, _title?: string): Promise<NoteMeta> {
+    void _title // Suppress unused parameter warning
     let meta = this.notes.get(id)
     if (!meta) {
-      // Try to find the file if not indexed
-      // Since ID is the relative path without extension, we can reconstruct the path
-      const fullPath = join(this.rootPath, `${id}.md`)
+      // Direct path access
+      const fullPath = join(this.rootPath, id)
       if (existsSync(fullPath)) {
         await this.indexFile(fullPath)
         meta = this.notes.get(id)
       }
       if (!meta) {
-        throw new Error(`Note not found: ${id}`)
+        throw new Error(`File not found: ${id}`)
       }
     }
 
-    // We no longer prepend <!-- title --> comments
-    const finalContent = content
-
-    const filename = `${basename(id)}.md`
-    const fullPath = join(this.rootPath, meta.path || '', filename)
-
-    await writeFile(fullPath, finalContent, 'utf-8')
+    const fullPath = join(this.rootPath, id)
+    await writeFile(fullPath, content, 'utf-8')
     await this.indexFile(fullPath)
 
     return this.notes.get(id)!
@@ -358,23 +410,22 @@ export class VaultManager {
 
   public async createNote(title: string, folderPath?: string): Promise<NoteMeta> {
     const safeTitle = title.trim() || 'Untitled'
-    // Sanitize ID
-    const baseId = safeTitle.replace(/[<>:"/\\|?*]/g, '-')
-
     const targetDir = folderPath ? join(this.rootPath, folderPath) : this.rootPath
 
     // Ensure target directory exists
     await mkdir(targetDir, { recursive: true })
 
-    let finalId = baseId
-    let filename = `${finalId}.md`
+    // If title doesn't have an extension, default to .md
+    let filename = safeTitle.includes('.') ? safeTitle : `${safeTitle}.md`
     let fullPath = join(targetDir, filename)
     let counter = 1
 
-    // Check for both .md files and other files with same base name (including dotfiles)
-    while (existsSync(fullPath) || this.hasConflictingFile(targetDir, finalId)) {
-      finalId = `${baseId} ${counter}`
-      filename = `${finalId}.md`
+    const nameParts = filename.split('.')
+    const ext = nameParts.length > 1 ? `.${nameParts.pop()}` : '.md'
+    const baseName = nameParts.join('.')
+
+    while (existsSync(fullPath)) {
+      filename = `${baseName} ${counter}${ext}`
       fullPath = join(targetDir, filename)
       counter++
     }
@@ -384,28 +435,11 @@ export class VaultManager {
     await this.indexFile(fullPath)
 
     const relPath = relative(this.rootPath, fullPath).replace(/\\/g, '/')
-    const finalFullId = this.getIdFromPath(relPath)
-    const dir = dirname(relPath)
-    const finalParentPath = dir === '.' ? '' : dir
-
-    return (
-      this.notes.get(finalFullId) || {
-        id: finalFullId,
-        title: safeTitle,
-        updatedAt: Date.now(),
-        path: finalParentPath,
-        type: 'note'
-      }
-    )
+    return this.notes.get(relPath)!
   }
 
   public async deleteNote(id: string): Promise<void> {
-    const meta = this.notes.get(id)
-    if (!meta) return
-
-    const filename = `${basename(id)}.md`
-    const fullPath = join(this.rootPath, meta.path || '', filename)
-
+    const fullPath = join(this.rootPath, id)
     if (existsSync(fullPath)) {
       await rm(fullPath)
     }
@@ -414,33 +448,30 @@ export class VaultManager {
     this.removeLinks(id)
   }
 
-  public async renameNote(id: string, newId: string, path?: string): Promise<string> {
+  public async renameNote(id: string, newTitle: string): Promise<string> {
     const meta = this.notes.get(id)
-    if (!meta) throw new Error('Note not found')
+    if (!meta) throw new Error('File not found')
 
-    const oldFilename = `${basename(id)}.md`
-    const newFilename = `${basename(newId)}.md`
+    const currentPath = join(this.rootPath, id)
+    const dir = dirname(id)
 
-    const currentDir = join(this.rootPath, meta.path || '')
-    const targetDir = path ? join(this.rootPath, path) : currentDir
+    // Ensure extension remains or is added
+    const oldExt = id.split('.').pop()
+    let newFilename = newTitle
+    if (!newFilename.includes('.') && oldExt) {
+      newFilename = `${newTitle}.${oldExt}`
+    }
 
-    const oldPath = join(currentDir, oldFilename)
-    const newPath = join(targetDir, newFilename)
+    const newId = dir === '.' || dir === '' ? newFilename : `${dir}/${newFilename}`
+    const newPath = join(this.rootPath, newId)
 
-    if (existsSync(newPath)) throw new Error('Note already exists')
+    if (existsSync(newPath)) throw new Error('File already exists')
 
-    await mkdir(targetDir, { recursive: true })
-    await rename(oldPath, newPath)
+    await rename(currentPath, newPath)
 
-    // Cleanup old and re-index new
     this.notes.delete(id)
     await this.indexFile(newPath)
-
-    // In our system, the ID is based on the new relative path
-    const newRelPath = relative(this.rootPath, newPath).replace(/\\/g, '/')
-    const actualNewId = this.getIdFromPath(newRelPath)
-
-    return actualNewId
+    return newId
   }
 
   public async moveNote(id: string, fromPath?: string, toPath?: string): Promise<NoteMeta> {
@@ -696,7 +727,7 @@ export class VaultManager {
         if (content.toLowerCase().includes(lower)) {
           matches.push(meta)
         }
-      } catch (e) {
+      } catch {
         // ignore read error
       }
     }

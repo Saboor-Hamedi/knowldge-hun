@@ -228,6 +228,8 @@ const getFileIcon = (title, language) => {
     'package-lock.json': Package,
     'yarn.lock': Package,
     'pnpm-lock.yaml': Package,
+    'composer.json': Package,
+    'composer.lock': Lock,
     'tsconfig.json': FileJson,
     'jsconfig.json': FileJson,
     'webpack.config.js': Cog,
@@ -241,6 +243,11 @@ const getFileIcon = (title, language) => {
     'prettier.config.js': Cog,
     '.prettierrc': Cog,
     '.eslintrc': Cog,
+    '.babelrc': Cog,
+    '.stylelintrc': Cog,
+    '.editorconfig': Cog,
+    '.npmrc': Cog,
+    '.nvmrc': Cog,
     '.gitignore': FileX,
     gitignore: FileX,
     '.gitattributes': GitBranch,
@@ -249,13 +256,19 @@ const getFileIcon = (title, language) => {
     '.gitlab': FolderGit,
     gitlab: FolderGit,
     dockerfile: Terminal,
+    Dockerfile: Terminal,
     '.dockerignore': FileX,
     'docker-compose.yml': Terminal,
     'docker-compose.yaml': Terminal,
+    makefile: Terminal,
+    Makefile: Terminal,
     'manifest.json': FileJson,
     'theme.json': Zap,
     'next.config.js': Layers,
     'next.config.mjs': Layers,
+    'next.config.ts': Layers,
+    'nuxt.config.js': Layers,
+    'nuxt.config.ts': Layers,
 
     // Commands, Graphs, Charts
     command: Command,
@@ -531,11 +544,17 @@ const getFileIcon = (title, language) => {
         'json',
         'py',
         'yaml',
-        'sh'
+        'sh',
+        'php'
       ].includes(codeExtension)
     ) {
       extension = codeExtension
     }
+  }
+
+  // Handle special compound extensions like .blade.php
+  if (titleLower.endsWith('.blade.php')) {
+    extension = 'blade.php'
   }
 
   const extensionMap = {
@@ -581,6 +600,11 @@ const getFileIcon = (title, language) => {
     toml: FileJson,
     ini: FileJson,
     csv: FileJson,
+    tsv: FileJson,
+    log: FileText,
+    lock: Lock,
+    twig: FileCode,
+    'blade.php': FileCode,
 
     // Markdown (only if no code extension found)
     md: Hash,
@@ -629,10 +653,8 @@ const getFileIcon = (title, language) => {
     conf: Cog,
     config: Cog,
     cfg: Cog,
-    properties: Cog,
-
+    properties: Cog
     // Other
-    log: FileText
   }
 
   if (extension && extensionMap[extension]) {
@@ -696,9 +718,13 @@ const getIconColor = (icon: any, title: string = '', extension: string = ''): st
   if (extension === 'rb') return '#701516' // Ruby Red
   if (extension === 'go') return '#00add8' // Go Cyan
   if (extension === 'rs') return '#dea584' // Rust Orange
-  if (extension === 'php') return '#777bb4' // PHP Purple
+  if (extension === 'php' || extension === 'blade.php') return '#777bb4' // PHP Purple
   if (extension === 'sql') return '#336791' // SQL Blue
   if (extension === 'yaml' || extension === 'yml') return '#cb171e' // YAML Red
+  if (extension === 'twig') return '#869d00' // Twig Green
+  if (extension === 'toml') return '#9c4221' // TOML Brown
+  if (extension === 'lock') return '#a4a4a4' // Lock Gray
+  if (extension === 'env') return '#f59e0b' // Env Amber
 
   // 2. Specialized Folder Icons
   if (icon === FolderOpen || titleLower === 'src') return '#4d90fe' // Source Blue

@@ -228,13 +228,13 @@ export class SidebarTree {
         results.innerHTML = ''
         try {
           // Use window.api.searchNotes for robust search (title, content, tags)
-          const notes = await (window.api as any).searchNotes(query)
+          const notes: NoteMeta[] = await window.api.searchNotes(query)
           // Filter for tags if #tag is present
           let filtered = notes
           const tagMatch = query.match(/#(\w+)/g)
           if (tagMatch) {
             const tags = tagMatch.map((t) => t.slice(1).toLowerCase())
-            filtered = notes.filter((n: any) => {
+            filtered = notes.filter((n: NoteMeta) => {
               if (!n.content) return false
               return tags.every((tag) => n.content.toLowerCase().includes(`#${tag}`))
             })
@@ -259,7 +259,7 @@ export class SidebarTree {
             }
             const qNoTags = query.replace(/#\w+/g, '').trim()
             results.innerHTML = filtered
-              .map((n: any) => {
+              .map((n: NoteMeta) => {
                 const title = highlight(n.title || n.id, qNoTags)
                 let content = n.content || ''
                 if (qNoTags) content = highlight(content.slice(0, 120), qNoTags)
@@ -291,7 +291,7 @@ export class SidebarTree {
               items.forEach((el, i) => el.classList.toggle('selected', i === selectedIndex))
             }, 50)
           }
-        } catch (e) {
+        } catch {
           results.innerHTML =
             '<div style="text-align:center;margin-top:20px;color:var(--danger);">Search failed</div>'
         }
@@ -309,7 +309,7 @@ export class SidebarTree {
           item.classList.add('selected')
           if (id && this.onNoteSelect) {
             // Prevent duplicate tabs: check if already open
-            if (state && state.openTabs && state.openTabs.some((t: any) => t.id === id)) {
+            if (state && state.openTabs && state.openTabs.some((t: NoteMeta) => t.id === id)) {
               window.dispatchEvent(
                 new CustomEvent('knowledge-hub:open-note', { detail: { id, path } })
               )
@@ -342,7 +342,7 @@ export class SidebarTree {
             items.forEach((el) => el.classList.remove('selected'))
             item.classList.add('selected')
             if (id && this.onNoteSelect) {
-              if (state && state.openTabs && state.openTabs.some((t: any) => t.id === id)) {
+              if (state && state.openTabs && state.openTabs.some((t: NoteMeta) => t.id === id)) {
                 window.dispatchEvent(
                   new CustomEvent('knowledge-hub:open-note', { detail: { id, path } })
                 )
@@ -363,28 +363,6 @@ export class SidebarTree {
       }`
         document.head.appendChild(style)
       })
-      // Add keyboard navigation for up/down arrow
-      results?.addEventListener('keydown', (e) => {
-        const items = Array.from(results.querySelectorAll('.search-result-item')) as HTMLElement[]
-        const selected = results.querySelector('.search-result-item.selected') as HTMLElement
-        if (e.key === 'ArrowDown') {
-          e.preventDefault()
-          const idx = items.indexOf(selected)
-          if (idx < items.length - 1) {
-            if (selected) selected.classList.remove('selected')
-            items[idx + 1].classList.add('selected')
-            // Do NOT call .focus() to keep input focused
-          }
-        } else if (e.key === 'ArrowUp') {
-          e.preventDefault()
-          const idx = items.indexOf(selected)
-          if (idx > 0) {
-            if (selected) selected.classList.remove('selected')
-            items[idx - 1].classList.add('selected')
-            // Do NOT call .focus() to keep input focused
-          }
-        }
-      })
       // Add CSS for .selected background
       const style = document.createElement('style')
       style.textContent = `.search-result-item.selected { background: var(--selection) !important; }`
@@ -400,20 +378,6 @@ export class SidebarTree {
     } else {
       if (treeBody) treeBody.style.display = 'block'
       if (filterContainer) filterContainer.style.display = 'block'
-      if (searchBody) searchBody.style.display = 'none'
-    }
-
-    if (mode === 'search') {
-      if (treeBody) treeBody.style.display = 'none'
-      // Hide the explorer filter input
-      if (filterContainer) filterContainer.style.display = 'none'
-
-      if (searchBody) searchBody.style.display = 'block'
-    } else {
-      if (treeBody) treeBody.style.display = 'block'
-      // Show the explorer filter input
-      if (filterContainer) filterContainer.style.display = 'block'
-
       if (searchBody) searchBody.style.display = 'none'
     }
   }
@@ -616,7 +580,8 @@ export class SidebarTree {
 
     const icon = document.createElement('span')
     icon.className = 'tree-item__icon sidebar__icon'
-    icon.innerHTML = getFileIcon(note.title, 'markdown')
+    const extension = note.title.split('.').pop() || 'markdown'
+    icon.innerHTML = getFileIcon(note.title, extension)
     // Add note type for CSS styling
     const noteType = this.getNoteType(note.title)
     if (noteType) {
@@ -910,7 +875,9 @@ export class SidebarTree {
       this.updateSelectionStates()
     }
 
-    const itemsToDrag = Array.from(state.selectedIds)
+    const itemsToDrag: { id: string; type: 'note' | 'folder'; path?: string }[] = Array.from(
+      state.selectedIds
+    )
       .map((dragId) => {
         const el = this.bodyEl.querySelector(`.tree-item[data-id="${dragId}"]`) as HTMLElement
         return {
@@ -921,11 +888,8 @@ export class SidebarTree {
       })
       .filter((i) => i.type)
 
-    if (itemsToDrag.length === 0) return
-
-    this.draggedItem = itemsToDrag[0] as any // Keep for backward compatibility if needed, but we'll use dataTransfer for the list
-
-    // Store items in a global variable as backup since dataTransfer can be unreliable
+    if (itemsToDrag.length === 0)
+      return // Store items in a global variable as backup since dataTransfer can be unreliable
     ;(window as any).dragItems = itemsToDrag
 
     const dragData = {
@@ -956,8 +920,6 @@ export class SidebarTree {
     const target = event.target as HTMLElement
     const item = target.closest('.tree-item') as HTMLElement
 
-    if (!this.draggedItem) return
-
     // Clear all drag-over states first
     document.querySelectorAll('.drag-over').forEach((el) => el.classList.remove('drag-over'))
 
@@ -979,7 +941,12 @@ export class SidebarTree {
     this.bodyEl.classList.remove('drag-over-root')
 
     // Add drag-over to the specific item
-    if (item && item.dataset.id !== this.draggedItem.id) {
+    // Check if the dragged item is among the itemsToMove (from global state)
+    const itemsToMove: { id: string; type: 'note' | 'folder'; path?: string }[] =
+      (window as any).dragItems || []
+    const draggedItem = itemsToMove.length > 0 ? itemsToMove[0] : null
+
+    if (item && draggedItem && item.dataset.id !== draggedItem.id) {
       event.dataTransfer!.dropEffect = 'move'
       item.classList.add('drag-over')
     }
@@ -1015,19 +982,16 @@ export class SidebarTree {
     if (itemsJson) {
       try {
         itemsToMove = JSON.parse(itemsJson)
-      } catch (e) {
+      } catch {
         console.warn('Failed to parse drag data from dataTransfer')
       }
     }
 
     // Fallback to global variable if dataTransfer failed
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if (itemsToMove.length === 0 && (window as any).dragItems) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       itemsToMove = (window as any).dragItems
-    }
-
-    // Final fallback to draggedItem for backward compatibility
-    if (itemsToMove.length === 0 && this.draggedItem) {
-      itemsToMove = [this.draggedItem]
     }
 
     if (itemsToMove.length === 0) return
@@ -1113,7 +1077,7 @@ export class SidebarTree {
   }
 
   private clearDragState(): void {
-    this.draggedItem = null
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     delete (window as any).dragItems
     this.bodyEl.querySelectorAll('.tree-item').forEach((el) => {
       ;(el as HTMLElement).style.opacity = ''
@@ -1121,6 +1085,7 @@ export class SidebarTree {
   }
 
   private handleDragEnd(_event: DragEvent): void {
+    void _event // Suppress unused warning
     document.querySelectorAll('.drag-over').forEach((el) => el.classList.remove('drag-over'))
     this.bodyEl.classList.remove('drag-over-root')
 
@@ -1169,16 +1134,18 @@ export class SidebarTree {
 
       if (idsToDelete.length === 0) return
 
-      const itemsToDelete = idsToDelete
-        .map((id) => {
-          const targetItem = this.bodyEl.querySelector(`.tree-item[data-id="${id}"]`) as HTMLElement
+      const itemsToDelete = (
+        idsToDelete.map((idToDel) => {
+          const targetItem = this.bodyEl.querySelector(
+            `.tree-item[data-id="${idToDel}"]`
+          ) as HTMLElement
           return {
-            id: id,
+            id: idToDel,
             type: targetItem?.dataset.type as 'note' | 'folder',
             path: targetItem?.dataset.path || undefined
           }
-        })
-        .filter((i) => i.type)
+        }) as { id: string; type: 'note' | 'folder'; path?: string }[]
+      ).filter((i) => i.type)
 
       if (this.onItemsDelete) {
         this.onItemsDelete(itemsToDelete)
@@ -1457,7 +1424,7 @@ export class SidebarTree {
     } else {
       // Note context menu
       const fullPath = getFullPath(id, itemPath)
-      const note = state.notes.find((n) => n.id === id)
+      const note = (state.notes as NoteMeta[]).find((n) => n.id === id)
       const noteName = note?.title || id
 
       contextMenu.show(event.clientX, event.clientY, [

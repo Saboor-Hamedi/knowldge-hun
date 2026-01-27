@@ -1509,8 +1509,10 @@ class App {
 
   private async backgroundIndexVault(): Promise<void> {
     const notesToIndex = state.notes.filter((note) => {
-      // Only index markdown files
-      return note.title.endsWith('.md') || !note.title.includes('.')
+      // Index all supported text/code files for AI context
+      const title = note.title.toLowerCase()
+      // Skip very common or likely binary-adjacent files if needed, but for now allow all text extensions
+      return true // Already filtered by TEXT_EXTENSIONS in main
     })
 
     let indexedCount = 0
@@ -1848,7 +1850,7 @@ class App {
       // We do this silently in the background
       ragService
         .indexNote(payload.id, payload.content, {
-          title: meta.title, // Use meta.title as it's the most up-to-date
+          title: meta.title,
           path: meta.path
         })
         .catch((err) => console.error('Failed to index on save:', err))
