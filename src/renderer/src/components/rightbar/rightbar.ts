@@ -1283,9 +1283,9 @@ export class RightBar {
   /**
    * Open AI settings
    */
-  private openAISettings(): void {
-    this.aiSettingsModal.open()
-  }
+  // private openAISettings(): void {
+  //   this.aiSettingsModal.open()
+  // }
 
   /**
    * Regenerate AI response from a specific message
