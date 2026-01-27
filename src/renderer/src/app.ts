@@ -2058,8 +2058,17 @@ class App {
               m.close()
               return
             }
-            await this.renameNote(activeId, newTitle)
-            m.close()
+
+            m.setLoading(true)
+            try {
+              await this.renameNote(activeId, newTitle)
+              m.close()
+            } catch (err) {
+              m.setLoading(false)
+              // The error is propagated to ErrorHandler which will open the Error modal
+              // which also closes this modal. But we set loading false just in case.
+              throw err
+            }
           }
         }
       ]

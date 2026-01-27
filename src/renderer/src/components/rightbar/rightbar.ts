@@ -849,6 +849,30 @@ export class RightBar {
                 btn.innerHTML = originalHTML
               }, 2000)
             })
+            .catch(() => {
+              // Fallback
+              const textarea = document.createElement('textarea')
+              textarea.value = plainText
+              textarea.style.position = 'fixed'
+              textarea.style.left = '-9999px'
+              textarea.style.top = '0'
+              document.body.appendChild(textarea)
+              textarea.focus()
+              textarea.select()
+              try {
+                document.execCommand('copy')
+                btn.classList.add('rightbar__message-action--copied')
+                const originalHTML = btn.innerHTML
+                btn.innerHTML = this.createLucideIcon(Check, 12, 2, '#22c55e')
+                setTimeout(() => {
+                  btn.classList.remove('rightbar__message-action--copied')
+                  btn.innerHTML = originalHTML
+                }, 2000)
+              } catch (err) {
+                console.error('Fallback copy failed', err)
+              }
+              document.body.removeChild(textarea)
+            })
             .catch((err) => {
               console.error('Failed to copy:', err)
             })
@@ -2451,28 +2475,31 @@ export class RightBar {
 
           try {
             await navigator.clipboard.writeText(codeToCopy)
-
-            // Visual feedback
-            const originalHTML = copyButton.innerHTML
-            copyButton.innerHTML = this.createLucideIcon(Check, 14, 1.5)
-            copyButton.classList.add('rightbar__code-copy--copied')
-            copyButton.title = 'Copied!'
-
-            setTimeout(() => {
-              copyButton.innerHTML = originalHTML
-              copyButton.classList.remove('rightbar__code-copy--copied')
-              copyButton.title = 'Copy code'
-            }, 2000)
+            this.showCopyFeedback(copyButton)
           } catch (err) {
             console.error('[RightBar] Failed to copy code:', err)
-            // Fallback: select text
-            const range = document.createRange()
-            range.selectNodeContents(codeElement)
-            const selection = window.getSelection()
-            if (selection) {
-              selection.removeAllRanges()
-              selection.addRange(range)
+            // Fallback
+            const textarea = document.createElement('textarea')
+            textarea.value = codeToCopy
+            textarea.style.position = 'fixed'
+            textarea.style.left = '-9999px'
+            textarea.style.top = '0'
+            document.body.appendChild(textarea)
+            textarea.focus()
+            textarea.select()
+            try {
+              document.execCommand('copy')
+              this.showCopyFeedback(copyButton)
+            } catch (fallbackErr) {
+              console.error('Fallback copy failed', fallbackErr)
+              // Last resort: Select the text as visual hint
+              const range = document.createRange()
+              range.selectNodeContents(codeElement)
+              const selection = window.getSelection()
+              selection?.removeAllRanges()
+              selection?.addRange(range)
             }
+            document.body.removeChild(textarea)
           }
         })
 

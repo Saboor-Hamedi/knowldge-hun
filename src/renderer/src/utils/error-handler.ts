@@ -93,8 +93,23 @@ ${this.escapeHtml(stack)}
           label: 'Copy Details',
           variant: 'ghost',
           onClick: () => {
-            navigator.clipboard.writeText(`Error: ${message}\n\nStack:\n${stack}`).then(() => {
-              // Maybe a toast later
+            const text = `Error: ${message}\n\nStack:\n${stack}`
+            navigator.clipboard.writeText(text).catch(() => {
+              // Fallback for when document is not focused or other clipboard issues
+              const textarea = document.createElement('textarea')
+              textarea.value = text
+              textarea.style.position = 'fixed'
+              textarea.style.left = '-9999px'
+              textarea.style.top = '0'
+              document.body.appendChild(textarea)
+              textarea.focus()
+              textarea.select()
+              try {
+                document.execCommand('copy')
+              } catch (err) {
+                console.error('Fallback copy failed', err)
+              }
+              document.body.removeChild(textarea)
             })
           }
         },

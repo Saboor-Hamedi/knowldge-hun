@@ -43,6 +43,7 @@ export class Modal {
   private modal: HTMLElement | null = null
   private inputs: Map<string, HTMLInputElement | HTMLTextAreaElement> = new Map()
   private isOpen = false
+  private isSubmitting = false
   private handleEscape?: (event: KeyboardEvent) => void
   private handleEnter?: (event: KeyboardEvent) => void
 
@@ -95,6 +96,32 @@ export class Modal {
   setValue(name: string, value: string): void {
     const input = this.inputs.get(name)
     if (input) input.value = value
+  }
+
+  /**
+   * Set submitting state to prevent double actions
+   */
+  setLoading(loading: boolean): void {
+    this.isSubmitting = loading
+    const buttons = this.modal?.querySelectorAll('button')
+    buttons?.forEach((btn) => {
+      if (loading) {
+        btn.setAttribute('disabled', 'true')
+        btn.style.opacity = '0.7'
+        btn.style.pointerEvents = 'none'
+      } else {
+        btn.removeAttribute('disabled')
+        btn.style.opacity = ''
+        btn.style.pointerEvents = ''
+      }
+    })
+  }
+
+  /**
+   * Get main modal element
+   */
+  getElement(): HTMLElement | null {
+    return this.modal
   }
 
   /**
@@ -194,7 +221,10 @@ export class Modal {
         const button = document.createElement('button')
         button.className = `btn btn--${btn.variant || 'primary'}`
         button.textContent = btn.label
-        button.addEventListener('click', () => btn.onClick(this))
+        button.addEventListener('click', () => {
+          if (this.isSubmitting) return
+          btn.onClick(this)
+        })
         footer.appendChild(button)
       })
 
@@ -247,6 +277,8 @@ export class Modal {
 
     // Enter key for submit (first button or custom handler)
     this.handleEnter = (event: KeyboardEvent) => {
+      if (this.isSubmitting) return
+
       const activeTag = (document.activeElement?.tagName || '').toLowerCase()
       const isTextArea = activeTag === 'textarea'
       if (event.key === 'Enter' && !event.shiftKey && !isTextArea) {
