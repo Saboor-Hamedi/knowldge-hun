@@ -499,28 +499,28 @@
   color: #3178c6;
 }
 
-/* JSON files - yellow (matching tabbar) */
-.tree-item--note[data-note-type='json'] .tree-item__icon,
-.tree-item--note .tree-item__icon[data-note-type='json'] {
-  color: #f1e05a;
+/* SQL files - blue */
+.tree-item--note[data-note-type='sql'] .tree-item__icon,
+.tree-item--note .tree-item__icon[data-note-type='sql'] {
+  color: #336791;
 }
 
-/* HTML files - orange/red */
-.tree-item--note[data-note-type='html'] .tree-item__icon,
-.tree-item--note .tree-item__icon[data-note-type='html'] {
-  color: #e34c26;
+/* Python files - blue/yellow */
+.tree-item--note[data-note-type='python'] .tree-item__icon,
+.tree-item--note .tree-item__icon[data-note-type='python'] {
+  color: #3776ab;
 }
 
-/* CSS files - blue */
-.tree-item--note[data-note-type='css'] .tree-item__icon,
-.tree-item--note .tree-item__icon[data-note-type='css'] {
-  color: #264de4;
+/* YAML files - red */
+.tree-item--note[data-note-type='yaml'] .tree-item__icon,
+.tree-item--note .tree-item__icon[data-note-type='yaml'] {
+  color: #cb171e;
 }
 
-/* Text files - gray */
-.tree-item--note[data-note-type='text'] .tree-item__icon,
-.tree-item--note .tree-item__icon[data-note-type='text'] {
-  color: #9ca3af;
+/* Shell files - green */
+.tree-item--note[data-note-type='shell'] .tree-item__icon,
+.tree-item--note .tree-item__icon[data-note-type='shell'] {
+  color: #4db33d;
 }
 
 /* Default files - gray */

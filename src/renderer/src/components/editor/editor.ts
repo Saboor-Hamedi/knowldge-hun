@@ -301,11 +301,11 @@ export class EditorComponent {
     }
 
     try {
-      this.monacoInstance!.editor.setModelLanguage(model, 'markdown')
+      const lang = this.getLanguageFromFilename(payload.title || payload.id)
+      this.monacoInstance!.editor.setModelLanguage(model, lang)
     } catch {
       // Language setting failed, continue with current language
     }
-
     state.applyingRemote = false
     state.isDirty = false
     state.lastSavedAt = payload.updatedAt || Date.now()
@@ -426,6 +426,54 @@ export class EditorComponent {
 
   triggerAction(actionId: string): void {
     this.editor?.trigger('context-menu', actionId, null)
+  }
+  private getLanguageFromFilename(filename: string): string {
+    const lower = filename.toLowerCase()
+    const parts = lower.split('.')
+
+    const map: Record<string, string> = {
+      js: 'javascript',
+      jsx: 'javascript',
+      ts: 'typescript',
+      tsx: 'typescript',
+      sql: 'sql',
+      json: 'json',
+      html: 'html',
+      css: 'css',
+      scss: 'scss',
+      py: 'python',
+      go: 'go',
+      rs: 'rust',
+      yaml: 'yaml',
+      yml: 'yaml',
+      sh: 'shell',
+      bash: 'shell',
+      cpp: 'cpp',
+      c: 'c',
+      cs: 'csharp',
+      java: 'java',
+      php: 'php',
+      rb: 'ruby',
+      swift: 'swift'
+    }
+
+    // Case 1: Full compound extension like tables.sql.md
+    if (
+      parts.length >= 3 &&
+      (parts[parts.length - 1] === 'md' || parts[parts.length - 1] === 'markdown')
+    ) {
+      const subExt = parts[parts.length - 2]
+      if (map[subExt]) return map[subExt]
+    }
+
+    // Case 2: Extension is already stripped or it's a direct code file
+    // e.g. "tables.sql" (likely from "tables.sql.md")
+    if (parts.length >= 2) {
+      const ext = parts[parts.length - 1]
+      if (map[ext]) return map[ext]
+    }
+
+    return 'markdown'
   }
 
   private async ensureEditor(): Promise<void> {

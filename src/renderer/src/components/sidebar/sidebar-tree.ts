@@ -1571,42 +1571,17 @@ export class SidebarTree {
   private getNoteType(noteName: string): string {
     const name = noteName.toLowerCase()
 
-    // Since this is a .md project, all notes are .md files by default
-    // The noteName here is the note title (without .md extension in the system)
-    // But we check for special patterns like "settings.json" which would be "settings.json.md"
-
     // Check for special patterns in the title (these would be *.json.md, *.yaml.md, etc.)
-    if (name.includes('.json')) {
-      // e.g., "settings.json" -> "settings.json.md"
-      return 'json'
-    }
-    if (name.includes('.yaml') || name.includes('.yml')) {
-      // e.g., "config.yaml" -> "config.yaml.md"
-      return 'typescript'
-    }
-    if (name.includes('.js') && (name.includes('.jsx') || name.endsWith('.js'))) {
-      // e.g., "component.jsx" -> "component.jsx.md"
-      return 'javascript'
-    }
-    if (name.includes('.ts') && (name.includes('.tsx') || name.endsWith('.ts'))) {
-      // e.g., "component.tsx" -> "component.tsx.md"
-      return 'typescript'
-    }
-    if (name.includes('.html')) {
-      // e.g., "template.html" -> "template.html.md"
-      return 'html'
-    }
-    if (
-      name.includes('.css') ||
-      name.includes('.scss') ||
-      name.includes('.sass') ||
-      name.includes('.less')
-    ) {
-      // e.g., "styles.css" -> "styles.css.md"
-      return 'css'
-    }
+    if (name.includes('.json')) return 'json'
+    if (name.includes('.yaml') || name.includes('.yml')) return 'yaml'
+    if (name.includes('.sql')) return 'sql'
+    if (name.includes('.py')) return 'python'
+    if (name.includes('.sh')) return 'shell'
+    if (name.includes('.js')) return 'javascript'
+    if (name.includes('.ts')) return 'typescript'
+    if (name.includes('.html')) return 'html'
+    if (name.includes('.css') || name.includes('.scss')) return 'css'
 
-    // Default: all notes are markdown files
     return 'markdown'
   }
 

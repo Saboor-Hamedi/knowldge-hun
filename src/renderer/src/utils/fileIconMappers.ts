@@ -517,7 +517,22 @@ const getFileIcon = (title, language) => {
   if ((extension === 'md' || extension === 'markdown') && titleLower.split('.').length >= 3) {
     const codeExtension = titleLower.split('.')[titleLower.split('.').length - 2]
     if (
-      ['js', 'jsx', 'ts', 'tsx', 'html', 'css', 'scss', 'vue', 'svelte'].includes(codeExtension)
+      [
+        'js',
+        'jsx',
+        'ts',
+        'tsx',
+        'html',
+        'css',
+        'scss',
+        'vue',
+        'svelte',
+        'sql',
+        'json',
+        'py',
+        'yaml',
+        'sh'
+      ].includes(codeExtension)
     ) {
       extension = codeExtension
     }
