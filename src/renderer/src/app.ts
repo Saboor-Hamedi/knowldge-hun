@@ -2063,8 +2063,14 @@ class App {
               await this.renameNote(activeId, newTitle, () => m.close())
             } catch (err) {
               m.setLoading(false)
-              // The error is propagated to ErrorHandler which will open the Error modal
-              // which also closes this modal. But we set loading false just in case.
+              const msg = (err as Error).message
+              // If it's a validation error (duplicate name), just show it in the status bar
+              // and keep the modal open so the user can try another name.
+              if (msg.includes('already exists')) {
+                this.statusBar.setStatus(`Rename failed: A note with that name already exists`)
+                return
+              }
+              // For unexpected errors, throw so ErrorHandler can show the technical modal
               throw err
             }
           }

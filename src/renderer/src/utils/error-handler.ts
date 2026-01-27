@@ -6,8 +6,8 @@ import { modalManager } from '../components/modal/modal'
 export class ErrorHandler {
   static init() {
     window.addEventListener('error', (event) => {
-      // Suppress Monaco Editor's "Canceled" errors (harmless internal errors)
-      if (this.isMonacoCanceledError(event.error)) {
+      // Suppress Monaco Editor's "Canceled" errors and expected user errors
+      if (this.isMonacoCanceledError(event.error) || this.isExpectedUserError(event.error)) {
         event.preventDefault()
         return
       }
@@ -15,13 +15,26 @@ export class ErrorHandler {
     })
 
     window.addEventListener('unhandledrejection', (event) => {
-      // Suppress Monaco Editor's "Canceled" promise rejections
-      if (this.isMonacoCanceledError(event.reason)) {
+      // Suppress Monaco Editor's "Canceled" promise rejections and expected user errors
+      if (this.isMonacoCanceledError(event.reason) || this.isExpectedUserError(event.reason)) {
         event.preventDefault()
         return
       }
       this.showErrorModal(event.reason || new Error('Unhandled Promise Rejection'))
     })
+  }
+
+  /**
+   * Check if error is an "expected" user or validation error that shouldn't
+   * trigger the scary "Application Error" modal.
+   */
+  private static isExpectedUserError(error: any): boolean {
+    if (!error) return false
+    const message = error?.message || String(error)
+
+    const patterns = ['already exists', 'File exists', 'folder exists', 'Note exists']
+
+    return patterns.some((p) => message.toLowerCase().includes(p.toLowerCase()))
   }
 
   /**
