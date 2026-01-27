@@ -194,7 +194,8 @@
     grid-template-columns: 1fr;
     gap: 8px;
   }
-  .settings-input, .settings-select {
+  .settings-input,
+  .settings-select {
     max-width: 100%;
   }
 }
@@ -219,7 +220,6 @@
   margin-bottom: 0;
   line-height: 1.4;
 }
-
 
 .settings-input {
   width: 100%;
