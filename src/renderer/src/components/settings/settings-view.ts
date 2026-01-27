@@ -1,4 +1,5 @@
 import { state } from '../../core/state'
+import { modalManager } from '../modal/modal'
 import type { AppSettings } from '../../core/types'
 import { codicons } from '../../utils/codicons'
 import { themes } from '../../core/themes'
@@ -917,12 +918,29 @@ export class SettingsView {
         const path = (e.currentTarget as HTMLElement).dataset.path
         if (!path) return
 
-        try {
-          await vaultService.removeRecentVault(path)
-          await this.loadRecentVaults()
-        } catch (error) {
-          console.error('[SettingsView] Failed to remove recent vault:', error)
-        }
+        modalManager.open({
+          title: 'Remove Vault',
+          content: `Are you sure you want to remove this vault from your recent list?<br/><br/><code style="font-size: 11px; opacity: 0.7;">${path}</code>`,
+          size: 'md',
+          buttons: [
+            {
+              label: 'Remove',
+              variant: 'danger',
+              onClick: async (m) => {
+                m.setLoading(true)
+                try {
+                  await vaultService.removeRecentVault(path)
+                  await this.loadRecentVaults()
+                  m.close()
+                } catch (error) {
+                  m.setLoading(false)
+                  console.error('[SettingsView] Failed to remove recent vault:', error)
+                }
+              }
+            },
+            { label: 'Cancel', variant: 'ghost', onClick: (m) => m.close() }
+          ]
+        })
       })
     })
   }

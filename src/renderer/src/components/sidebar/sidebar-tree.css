@@ -185,7 +185,7 @@
 }
 
 .tree-item:focus {
-  background: rgba(127, 167, 255, 0.12);
+  background: var(--hover);
 }
 
 .tree-item.drag-over {
@@ -468,10 +468,10 @@
   color: #29b6f6;
 }
 
-/* Library/Utils folders - red/pink */
+/* Library/Utils folders - blue-grey */
 .tree-item--folder[data-folder-type='lib'] .tree-item__icon,
 .tree-item--folder .tree-item__icon[data-folder-type='lib'] {
-  color: #ef5350;
+  color: #7fa7ff;
 }
 
 /* File items coloring - VS Code style with colorful icons */
@@ -511,10 +511,10 @@
   color: #3776ab;
 }
 
-/* YAML files - red */
+/* YAML files - blue */
 .tree-item--note[data-note-type='yaml'] .tree-item__icon,
 .tree-item--note .tree-item__icon[data-note-type='yaml'] {
-  color: #cb171e;
+  color: #569cd6;
 }
 
 /* Shell files - green */

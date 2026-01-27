@@ -156,16 +156,21 @@ function createWindow(): void {
   mainWindow.on('resize', () => {
     clearTimeout(boundsTimeout)
     boundsTimeout = setTimeout(() => {
-      const bounds = mainWindow.getBounds()
-      updateSettings({ windowBounds: bounds })
+      // Don't save bounds if maximized, or we lose the restore size
+      if (!mainWindow.isMaximized()) {
+        const bounds = mainWindow.getBounds()
+        updateSettings({ windowBounds: bounds })
+      }
     }, 500)
   })
 
   mainWindow.on('move', () => {
     clearTimeout(boundsTimeout)
     boundsTimeout = setTimeout(() => {
-      const bounds = mainWindow.getBounds()
-      updateSettings({ windowBounds: bounds })
+      if (!mainWindow.isMaximized()) {
+        const bounds = mainWindow.getBounds()
+        updateSettings({ windowBounds: bounds })
+      }
     }, 500)
   })
 

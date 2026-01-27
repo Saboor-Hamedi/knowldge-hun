@@ -1,4 +1,4 @@
-.settings-host {
+#settingsHost {
   height: 100%;
   overflow: hidden;
   display: flex;
@@ -7,11 +7,47 @@
 
 .settings-view {
   display: grid;
-  grid-template-columns: 200px 1fr;
+  grid-template-columns: 220px 1fr; /* Slightly wider sidebar for better label breathing */
   flex: 1;
   min-height: 0;
   background: var(--bg);
   color: var(--text-strong);
+}
+
+@media (max-width: 850px) {
+  .settings-view {
+    grid-template-columns: 64px 1fr; /* Compact sidebar for medium screens */
+  }
+  .settings-view__sidebar-item span {
+    display: none; /* Hide text, keep icons */
+  }
+  .settings-view__sidebar-title {
+    opacity: 0;
+  }
+}
+
+@media (max-width: 600px) {
+  .settings-view {
+    grid-template-columns: 1fr; /* Full width for mobile */
+    grid-template-rows: auto 1fr;
+  }
+  .settings-view__sidebar {
+    flex-direction: row;
+    padding: 8px;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+  }
+  .settings-view__sidebar-item {
+    width: auto;
+    padding: 8px 12px;
+  }
+  .settings-view__sidebar-item span {
+    display: block;
+  }
+  .settings-view__sidebar-title {
+    display: none;
+  }
 }
 
 .settings-view__sidebar {
@@ -76,12 +112,18 @@
 
 .settings-view__content {
   flex: 1;
-  padding: 24px 40px;
+  padding: 32px 48px;
   overflow-y: auto;
-  max-width: 1100px;
   background: linear-gradient(135deg, var(--bg) 0%, var(--panel) 100%);
   height: 100%;
   min-height: 0;
+  scrollbar-gutter: stable; /* Prevent jump when scrollbar appears */
+}
+
+@media (max-width: 1000px) {
+  .settings-view__content {
+    padding: 24px 20px;
+  }
 }
 
 .settings-search {
@@ -141,10 +183,20 @@
 
 .settings-field {
   display: grid;
-  grid-template-columns: 1fr 160px;
-  gap: 16px;
+  grid-template-columns: 1fr 200px; /* Slightly wider control column */
+  gap: 24px;
   align-items: start;
   margin-bottom: 24px;
+}
+
+@media (max-width: 750px) {
+  .settings-field {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  .settings-input, .settings-select {
+    max-width: 100%;
+  }
 }
 
 .settings-field__info {
@@ -168,9 +220,6 @@
   line-height: 1.4;
 }
 
-.settings-field__control {
-  /* max-width removed for grid layout */
-}
 
 .settings-input {
   width: 100%;
@@ -319,8 +368,8 @@
 .settings-recent-vaults {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin-top: 8px;
+  gap: 12px;
+  margin-top: 12px;
 }
 
 .vault-row {
@@ -345,7 +394,13 @@
 }
 
 .vault-row.is-missing {
-  opacity: 0.6;
+  opacity: 0.5;
+  filter: grayscale(0.8);
+}
+
+.vault-row.is-missing .vault-row__actions {
+  opacity: 1; /* Keep buttons clear even if row is dimmed */
+  filter: none;
 }
 
 .vault-row__status {
@@ -386,10 +441,12 @@
 .vault-row__path {
   font-size: 11px;
   color: var(--text-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-family: inherit;
+  white-space: normal; /* Allow wrapping for long paths */
+  word-break: break-all;
+  line-height: 1.4;
+  font-family: var(--font-mono, monospace);
+  margin-top: 4px;
+  opacity: 0.8;
 }
 
 .vault-row__actions {
@@ -400,20 +457,21 @@
 }
 
 .vault-row__btn {
-  padding: 6px 12px;
-  border-radius: 6px;
-  font-size: 11px;
+  padding: 4px 10px; /* More compact buttons */
+  border-radius: 4px;
+  font-size: 10.5px;
   font-weight: 600;
   cursor: pointer;
   border: 1px solid var(--border);
   background: var(--panel-strong);
-  color: var(--text-strong);
-  transition: all 0.2s ease;
+  color: var(--text-soft);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .vault-row__btn:hover {
   background: var(--hover-bg);
   border-color: var(--primary);
+  color: var(--text-strong);
 }
 
 .vault-row__btn--open {
@@ -427,16 +485,19 @@
 }
 
 .vault-row__btn--delete {
-  padding: 6px;
+  padding: 5px;
   color: var(--text-muted);
   background: transparent;
   border-color: transparent;
+  opacity: 0.6;
 }
 
 .vault-row__btn--delete:hover {
   color: #ef4444;
-  background: rgba(239, 68, 68, 0.1);
+  background: rgba(239, 68, 68, 0.08);
   border-color: transparent;
+  opacity: 1;
+  transform: scale(1.1);
 }
 
 /* Global Settings Row Design System (Promoted from Security) */
@@ -627,7 +688,7 @@
   color: var(--text-strong);
   min-width: 20px;
   text-align: center;
-  box-shadow: 0 1px 0 rgba(0,0,0,0.3);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.3);
 }
 
 /* Maintain Highlighted Shortcuts */
@@ -637,18 +698,21 @@
 }
 
 @media (max-width: 700px) {
-  .settings-row, .shortcut-item {
+  .settings-row,
+  .shortcut-item {
     flex-direction: column;
     align-items: flex-start;
     gap: 12px;
   }
-  
-  .settings-row__action, .shortcut-keys {
+
+  .settings-row__action,
+  .shortcut-keys {
     width: 100%;
     justify-content: flex-start;
   }
 
-  .settings-row__hint, .shortcut-description {
+  .settings-row__hint,
+  .shortcut-description {
     white-space: normal;
   }
 }

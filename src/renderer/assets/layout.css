@@ -24,7 +24,9 @@ body {
   gap: 0;
   background: var(--bg);
   color: var(--text-strong);
-  transition: grid-template-columns 0.2s ease, filter 0.3s ease;
+  transition:
+    grid-template-columns 0.2s ease,
+    filter 0.3s ease;
   overflow: hidden;
   padding-top: 32px; /* account for fixed window header */
   position: relative;
@@ -266,7 +268,10 @@ body:not(.is-loading) #loadingOverlay {
   opacity: 0;
   backdrop-filter: blur(0px);
   -webkit-backdrop-filter: blur(0px);
-  transition: opacity 400ms ease, backdrop-filter 400ms ease, -webkit-backdrop-filter 400ms ease;
+  transition:
+    opacity 400ms ease,
+    backdrop-filter 400ms ease,
+    -webkit-backdrop-filter 400ms ease;
   pointer-events: none;
 }
 
@@ -351,10 +356,23 @@ body:not(.is-loading) #loadingOverlay {
 }
 
 @keyframes shake {
-  10%, 90% { transform: translate3d(-1px, 0, 0); }
-  20%, 80% { transform: translate3d(2px, 0, 0); }
-  30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
-  40%, 60% { transform: translate3d(4px, 0, 0); }
+  10%,
+  90% {
+    transform: translate3d(-1px, 0, 0);
+  }
+  20%,
+  80% {
+    transform: translate3d(2px, 0, 0);
+  }
+  30%,
+  50%,
+  70% {
+    transform: translate3d(-4px, 0, 0);
+  }
+  40%,
+  60% {
+    transform: translate3d(4px, 0, 0);
+  }
 }
 
 .security-firewall__error {
@@ -425,5 +443,7 @@ body:not(.is-loading) #loadingOverlay {
 }
 
 @keyframes firewallSpin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }

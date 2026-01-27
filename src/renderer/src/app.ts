@@ -235,7 +235,6 @@ class App {
     })
     this.wireComponents()
     this.registerGlobalShortcuts()
-    this.registerVaultChangeListener()
     this.setupMobileEvents()
     this.wireUpdateEvents()
     // Ensure editor resizes correctly when window size changes
@@ -252,6 +251,17 @@ class App {
       void this.deleteItems([{ id: activeId, type: 'note', path: note.path }])
     })
 
+    // Consolidate vault-changed listener here
+    window.addEventListener('vault-changed', () => {
+      void this.refreshNotes()
+      void this.saveExpandedFolders()
+    })
+
+    window.addEventListener('status', ((event: CustomEvent) => {
+      const message = (event.detail && (event.detail.message as string)) || ''
+      if (message) this.statusBar.setStatus(message)
+    }) as EventListener)
+
     // Listen for toggle right sidebar event from editor
     window.addEventListener('toggle-right-sidebar', () => {
       void this.toggleRightSidebar()
@@ -260,6 +270,13 @@ class App {
     // Listen for toggle hub console event from editor
     window.addEventListener('toggle-hub-console', () => {
       this.hubConsole.toggle()
+    })
+
+    // Listen for specialized rename event from sidebar
+    window.addEventListener('knowledge-hub:rename-item', (e: Event) => {
+      const customEvent = e as CustomEvent
+      const { id, type, title } = customEvent.detail
+      void this.promptRenameItem(id, type, title)
     })
 
     this.editor.setCursorPositionChangeHandler(() => this.schedulePersist())
@@ -275,7 +292,7 @@ class App {
       }
       // Note: In some environments, we might need a synchronous IPC here,
       // but usually window.api.updateSettings (via electron) works if not too large.
-      void window.api.updateSettings(settings as any)
+      void window.api.updateSettings(settings as Partial<AppSettings>)
     })
   }
 
@@ -606,7 +623,7 @@ class App {
         activeId: state.activeId,
         pinnedTabs: Array.from(state.pinnedTabs),
         cursorPositions: Object.fromEntries(state.cursorPositions)
-      } as any)
+      } as Partial<AppSettings>)
     } catch (e) {
       console.error('Failed to persist workspace', e)
     }
@@ -701,56 +718,6 @@ class App {
       (id, path) => this.openNote(id, path),
       () => this.editor.showEmpty()
     )
-  }
-  private registerVaultChangeListener(): void {
-    window.addEventListener('vault-changed', () => {
-      void this.refreshNotes()
-      void this.saveExpandedFolders()
-    })
-
-    window.addEventListener('status', ((event: CustomEvent) => {
-      const message = (event.detail && (event.detail.message as string)) || ''
-      if (message) this.statusBar.setStatus(message)
-    }) as EventListener)
-
-    window.addEventListener('item-rename', (async (event: CustomEvent) => {
-      const { id, type, newTitle } = event.detail
-
-      // Remove from newly created list once user interacts
-      state.newlyCreatedIds.delete(id)
-
-      if (id === newTitle || !newTitle.trim()) {
-        this.statusBar.setStatus('Rename finished')
-        await this.refreshNotes()
-        return
-      }
-
-      try {
-        // If the folder/note with same name already exists, show error clearly
-        if (type === 'folder') {
-          await this.renameFolder(id, newTitle)
-        } else {
-          await this.renameNote(id, newTitle)
-        }
-      } catch (err: any) {
-        let message = (err as Error).message || ''
-
-        if (message.includes('already exists') || message.includes('EEXIST')) {
-          message = `Name "${newTitle}" already taken`
-          notificationManager.show(message, 'error', { title: 'Duplicate Name' })
-        } else if (message.includes('EPERM')) {
-          message = 'Permission denied (file in use?)'
-          notificationManager.show(message, 'error', { title: 'Rename Failed' })
-        } else {
-          notificationManager.show(message, 'error', { title: 'Error' })
-        }
-
-        this.statusBar.setStatus(`⚠️ ${message}`)
-
-        // Vital: Refresh to revert the UI change (the optimistic rename)
-        await this.refreshNotes()
-      }
-    }) as unknown as EventListener)
   }
 
   private async renameFolder(id: string, newName: string): Promise<void> {
@@ -2051,6 +2018,61 @@ class App {
     }
   }
 
+  private async promptRenameItem(
+    id: string,
+    type: 'note' | 'folder',
+    currentTitle: string
+  ): Promise<void> {
+    const isNote = type === 'note'
+    const header = this.createModalHeader(isNote ? 'Rename Note' : 'Rename Folder')
+
+    modalManager.open({
+      customHeader: header,
+      size: 'md',
+      inputs: [
+        {
+          name: 'title',
+          label: isNote ? 'Note Title' : 'Folder Name',
+          value: currentTitle,
+          required: true
+        }
+      ],
+      buttons: [
+        {
+          label: 'Rename',
+          variant: 'primary',
+          onClick: async (m) => {
+            const values = m.getValues()
+            const newTitle = (values.title as string)?.trim()
+            if (!newTitle || newTitle === currentTitle) {
+              m.close()
+              return
+            }
+
+            m.setLoading(true)
+            try {
+              if (isNote) {
+                await this.renameNote(id, newTitle, () => m.close())
+              } else {
+                await this.renameFolder(id, newTitle)
+                m.close()
+              }
+            } catch (err) {
+              m.setLoading(false)
+              const msg = (err as Error).message
+              if (msg.includes('already exists')) {
+                this.statusBar.setStatus(`Rename failed: A ${type} with that name already exists`)
+              } else {
+                throw err
+              }
+            }
+          }
+        },
+        { label: 'Cancel', variant: 'ghost', onClick: (m) => m.close() }
+      ]
+    })
+  }
+
   private async promptRenameActiveNote(): Promise<void> {
     const activeId = state.activeId
     if (!activeId) return
@@ -2058,52 +2080,7 @@ class App {
     const note = state.notes.find((n) => n.id === activeId)
     if (!note) return
 
-    const header = this.createModalHeader('Rename Note')
-    modalManager.open({
-      customHeader: header,
-      size: 'md',
-      inputs: [
-        {
-          name: 'noteTitle',
-          label: 'Note Title',
-          value: note.title,
-          required: true
-        }
-      ],
-      buttons: [
-        { label: 'Cancel', variant: 'ghost', onClick: (m) => m.close() },
-        {
-          label: 'Rename',
-          variant: 'primary',
-          onClick: async (m) => {
-            const values = m.getValues()
-            const newTitle = (values.noteTitle as string)?.trim()
-            if (!newTitle) {
-              m.close()
-              return
-            }
-
-            m.setLoading(true)
-            try {
-              // We pass a callback to close the modal as soon as the core rename operation is done.
-              // renameNote then continues with refreshing the UI and re-opening the editor in the background.
-              await this.renameNote(activeId, newTitle, () => m.close())
-            } catch (err) {
-              m.setLoading(false)
-              const msg = (err as Error).message
-              // If it's a validation error (duplicate name), just show it in the status bar
-              // and keep the modal open so the user can try another name.
-              if (msg.includes('already exists')) {
-                this.statusBar.setStatus(`Rename failed: A note with that name already exists`)
-                return
-              }
-              // For unexpected errors, throw so ErrorHandler can show the technical modal
-              throw err
-            }
-          }
-        }
-      ]
-    })
+    void this.promptRenameItem(activeId, 'note', note.title)
   }
 
   private createModalHeader(title: string): HTMLElement {
@@ -2255,7 +2232,7 @@ class App {
 
     // Ignore internal folder drags from sidebar
     // External paths are absolute (C:\... or /...), internal are relative
-    if (!isFile && path && !path.match(/^[a-zA-Z]:[\\\/]|^[\\\/]/)) {
+    if (!isFile && path && !path.match(/^[a-zA-Z]:[\\/]|^[\\/]/)) {
       // This is an internal folder drag - ignore it (handled by sidebar)
       return
     }

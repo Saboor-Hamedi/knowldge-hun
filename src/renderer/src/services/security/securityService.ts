@@ -113,7 +113,7 @@ export class SecurityService {
      * This interceptor blocks all interactions from reaching the app background.
      * Captured phase (true) ensures we catch events before any other component.
      */
-    const blockEvents = (e: Event) => {
+    const blockEvents = (e: Event): void => {
       const target = e.target as HTMLElement
       // Exception: Window management buttons (Min/Max/Close) in the header
       const isHeaderControl = target?.closest('.wh-min, .wh-max, .wh-close, .window-header')
@@ -145,7 +145,7 @@ export class SecurityService {
     window.addEventListener('mousedown', blockEvents, true)
     window.addEventListener('contextmenu', blockEvents, true)
 
-    const handleUnlock = async () => {
+    const handleUnlock = async (): Promise<void> => {
       const password = input.value
       if (!password) {
         input.classList.add('is-invalid')

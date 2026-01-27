@@ -11,29 +11,42 @@ if (container) {
     <div class="window-header__brand">
       <span class="window-header__title">Knowledge Hub</span>
     </div>
-    <div class="window-header__ai-status" id="ai-status-indicator" style="display: none;">
-      <div class="ai-status-icon">
-        <svg class="ai-status-spinner" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
-        </svg>
-        <svg class="ai-status-check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display: none;">
-          <path d="M20 6L9 17l-5-5"/>
-        </svg>
-      </div>
-      <div class="ai-status-tooltip">Initializing AI...</div>
-    </div>
     <div class="window-header__actions">
+      <div class="window-header__ai-status" id="ai-status-indicator" style="display: none;">
+        <div class="ai-status-icon">
+          <svg class="ai-status-spinner" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+          </svg>
+          <svg class="ai-status-check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display: none;">
+            <path d="M20 6L9 17l-5-5"/>
+          </svg>
+        </div>
+        <div class="ai-status-tooltip">Initializing AI...</div>
+      </div>
+      <div class="window-header__separator">|</div>
       <button class="wh-btn wh-chat" id="window-header-chat" title="Open AI Chat" aria-label="Open AI Chat">
-        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M14 2H2a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3l3 3 3-3h5a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1z"/>
-          <path d="M5 7h6M5 10h4"/>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
         </svg>
       </button>
     </div>
     <div class="window-header__controls">
-      <button class="wh-btn wh-min" title="Minimize" aria-label="Minimize">–</button>
-      <button class="wh-btn wh-max" title="Maximize" aria-label="Maximize">□</button>
-      <button class="wh-btn wh-close" title="Close" aria-label="Close">×</button>
+      <button class="wh-btn wh-min" title="Minimize" aria-label="Minimize">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>
+      </button>
+      <button class="wh-btn wh-max" id="wh-max-btn" title="Maximize" aria-label="Maximize">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+        </svg>
+      </button>
+      <button class="wh-btn wh-close" title="Close" aria-label="Close">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
     </div>
   `
 
@@ -64,7 +77,7 @@ if (container) {
   container.insertAdjacentElement('afterbegin', header)
 
   const minBtn = header.querySelector('.wh-min') as HTMLButtonElement | null
-  const maxBtn = header.querySelector('.wh-max') as HTMLButtonElement | null
+  const maxBtn = header.querySelector('#wh-max-btn') as HTMLButtonElement | null
   const closeBtn = header.querySelector('.wh-close') as HTMLButtonElement | null
 
   minBtn?.addEventListener('click', () => {
@@ -74,7 +87,19 @@ if (container) {
   const updateMax = async (): Promise<void> => {
     const isMax = await window.api.window.isMaximized()
     if (maxBtn) {
-      maxBtn.textContent = isMax ? '❐' : '□'
+      if (isMax) {
+        maxBtn.innerHTML = `
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M8 3v3a2 2 0 0 1-2 2H3m18 10h-3a2 2 0 0 1-2-2v-3m0-10h3a2 2 0 0 1 2 2v3M3 18h3a2 2 0 0 1 2 2v3"></path>
+          </svg>
+        `
+      } else {
+        maxBtn.innerHTML = `
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+          </svg>
+        `
+      }
       maxBtn.setAttribute('title', isMax ? 'Restore' : 'Maximize')
       maxBtn.setAttribute('aria-label', isMax ? 'Restore' : 'Maximize')
     }

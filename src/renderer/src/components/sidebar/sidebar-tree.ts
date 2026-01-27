@@ -244,14 +244,14 @@ export class SidebarTree {
               '<div style="text-align:center;margin-top:20px;color:var(--text-soft);">No results found</div>'
           } else {
             // Highlight matches in title/content/tags
-            const highlight = (text: string, q: string) => {
+            const highlight = (text: string, q: string): string => {
               if (!q) return text
               try {
                 const safeQ = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
                 return text.replace(
                   new RegExp(safeQ, 'gi'),
                   (m) =>
-                    `<mark style=\"background:var(--selection);color:var(--text-strong);padding:0 2px;border-radius:2px;\">${m}</mark>`
+                    `<mark style="background:var(--selection);color:var(--text-strong);padding:0 2px;border-radius:2px;">${m}</mark>`
                 )
               } catch {
                 return text
@@ -270,13 +270,19 @@ export class SidebarTree {
                   tagHtml = tagMatch
                     .map((tag) =>
                       n.content.toLowerCase().includes(tag.toLowerCase())
-                        ? `<mark style=\"background:var(--primary);color:var(--bg);padding:0 2px;border-radius:2px;\">${tag}</mark>`
+                        ? `<mark style="background:var(--primary);color:var(--bg);padding:0 2px;border-radius:2px;">${tag}</mark>`
                         : ''
                     )
                     .join(' ')
                 }
                 return `
-                <div class=\"search-result-item\" data-id=\"${n.id}\" data-path=\"${n.path || ''}\" tabindex=\"0\" style=\"padding:8px 6px;cursor:pointer;border-radius:4px;display:flex;flex-direction:column;gap:2px;outline:none;\">\n                  <span style=\"font-weight:600;color:var(--text-strong);\">${title}</span>\n                  <span style=\"font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;\">${n.path || ''}</span>\n                  <span style=\"font-size:12px;color:var(--text-soft);max-height:2.5em;overflow:hidden;text-overflow:ellipsis;\">${content} ${tagHtml}</span>\n                  <span style=\"font-size:11px;color:var(--muted);margin-top:2px;\">Press <b>Enter</b> to open</span>\n                </div>\n              `
+                <div class="search-result-item" data-id="${n.id}" data-path="${n.path || ''}" tabindex="0" style="padding:8px 6px;cursor:pointer;border-radius:4px;display:flex;flex-direction:column;gap:2px;outline:none;">
+                  <span style="font-weight:600;color:var(--text-strong);">${title}</span>
+                  <span style="font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${n.path || ''}</span>
+                  <span style="font-size:12px;color:var(--text-soft);max-height:2.5em;overflow:hidden;text-overflow:ellipsis;">${content} ${tagHtml}</span>
+                  <span style="font-size:11px;color:var(--muted);margin-top:2px;">Press <b>Enter</b> to open</span>
+                </div>
+              `
               })
               .join('')
             // Focus first result for keyboard nav and add selection highlight
@@ -352,7 +358,7 @@ export class SidebarTree {
         const style = document.createElement('style')
         style.textContent = `
       .search-result-item:hover:not(.selected) {
-        background: rgba(80,120,200,0.08);
+        background: var(--hover);
         transition: background 0.12s;
       }`
         document.head.appendChild(style)
@@ -381,7 +387,7 @@ export class SidebarTree {
       })
       // Add CSS for .selected background
       const style = document.createElement('style')
-      style.textContent = `.search-result-item.selected { background: #22304a !important; }`
+      style.textContent = `.search-result-item.selected { background: var(--selection) !important; }`
       document.head.appendChild(style)
     }
     if (mode === 'search') {
@@ -801,15 +807,21 @@ export class SidebarTree {
       this.showContextMenu(event, item)
     })
 
-    // Double-click to rename
+    // Double-click to rename - now triggers Modal
     this.bodyEl.addEventListener('dblclick', (event) => {
       const target = event.target as HTMLElement
       const label = target.closest('.tree-item__label') as HTMLElement
       if (!label) return
 
-      const itemId = label.dataset.itemId || label.dataset.noteId
-      if (itemId) {
-        this.startRename(itemId)
+      const item = target.closest('.tree-item') as HTMLElement
+      const id = item?.dataset.id
+      const type = item?.dataset.type as 'note' | 'folder'
+      if (id && type) {
+        window.dispatchEvent(
+          new CustomEvent('knowledge-hub:rename-item', {
+            detail: { id, type, title: label.textContent?.trim() }
+          })
+        )
       }
     })
 
@@ -1421,7 +1433,14 @@ export class SidebarTree {
           label: 'Rename',
           icon: icons.rename,
           keybinding: 'F2',
-          onClick: () => this.startRename(id)
+          onClick: () => {
+            const folderName = id.split('/').pop() || id
+            window.dispatchEvent(
+              new CustomEvent('knowledge-hub:rename-item', {
+                detail: { id, type: 'folder', title: folderName }
+              })
+            )
+          }
         },
         {
           label: 'Delete',
@@ -1431,8 +1450,6 @@ export class SidebarTree {
           onClick: () => {
             if (this.onItemsDelete) {
               this.onItemsDelete([{ id, type: 'folder' }])
-            } else {
-              void this.deleteFolder(id)
             }
           }
         }
@@ -1470,52 +1487,43 @@ export class SidebarTree {
           label: 'Rename',
           icon: icons.rename,
           keybinding: 'F2',
-          onClick: () => this.startRename(id)
+          onClick: () => {
+            window.dispatchEvent(
+              new CustomEvent('knowledge-hub:rename-item', {
+                detail: { id, type: 'note', title: noteName }
+              })
+            )
+          }
         },
         {
           label: 'Delete',
           icon: icons.delete,
           keybinding: 'Del',
           danger: true,
-          onClick: () => this.onNoteDelete?.(id, itemPath || undefined)
+          onClick: () => {
+            if (this.onItemsDelete) {
+              this.onItemsDelete([{ id, type: 'note', path: itemPath }])
+            }
+          }
         }
       ])
     }
   }
 
-  public startRename(itemId: string): void {
-    const attemptRename = (retries = 5) => {
-      const item = this.bodyEl.querySelector(`.tree-item[data-id="${itemId}"]`) as HTMLElement
-      if (!item) {
-        if (retries > 0) setTimeout(() => attemptRename(retries - 1), 50)
-        return
-      }
-
-      const label = item.querySelector('.tree-item__label') as HTMLElement
-      if (!label) return
-
-      this.editingId = itemId
-      label.dataset.originalTitle = label.textContent || ''
-      label.contentEditable = 'true'
-      label.classList.add('is-editing')
-
-      // Explicitly focus and select all text
-      setTimeout(() => {
-        if (label.isConnected) {
-          label.focus()
-          const range = document.createRange()
-          range.selectNodeContents(label)
-          const sel = window.getSelection()
-          sel?.removeAllRanges()
-          sel?.addRange(range)
-
-          // Ensure it's scrolled into view
-          label.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
-        }
-      }, 50)
+  public startRename(id: string): void {
+    const item = this.bodyEl.querySelector(`.tree-item[data-id="${id}"]`) as HTMLElement
+    const label = item?.querySelector('.tree-item__label') as HTMLElement
+    if (id && label) {
+      window.dispatchEvent(
+        new CustomEvent('knowledge-hub:rename-item', {
+          detail: {
+            id,
+            type: (item.dataset.type as 'note' | 'folder') || 'note',
+            title: label.textContent?.trim()
+          }
+        })
+      )
     }
-
-    attemptRename()
   }
 
   private async finishRename(label: HTMLElement): Promise<void> {

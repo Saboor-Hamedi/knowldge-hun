@@ -1,4 +1,5 @@
 import { modalManager } from '../components/modal/modal'
+import { notificationManager } from '../components/notification/notification'
 
 /**
  * Robust Error handling utility for Knowledge Hub
@@ -69,25 +70,36 @@ export class ErrorHandler {
     const content = document.createElement('div')
     content.className = 'error-modal-content'
     content.innerHTML = `
-            <div style="display: flex; flex-direction: column; gap: 16px;">
-                <div style="color: var(--text-soft); font-size: 14px; line-height: 1.5;">
-                    The application encountered an unexpected error. You can try refreshing the workspace or resetting the state if it persists.
+            <div style="display: flex; flex-direction: column; gap: 20px;">
+                <div style="display: flex; align-items: flex-start; gap: 16px;">
+                    <div style="width: 42px; height: 42px; background: rgba(248, 113, 113, 0.1); border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #f87171; flex-shrink: 0;">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+                    </div>
+                    <div style="flex: 1;">
+                        <div style="color: var(--text-strong); font-size: 15px; font-weight: 600; margin-bottom: 4px;">System Failure Detected</div>
+                        <div style="color: var(--text-soft); font-size: 13px; line-height: 1.5; opacity: 0.8;">
+                            The application encountered an unexpected error. Your technical data is safe, but a workspace refresh may be required.
+                        </div>
+                    </div>
                 </div>
                 
-                <div style="background: rgba(248, 113, 113, 0.1); border-left: 3px solid #f87171; padding: 12px; border-radius: 4px;">
-                    <div style="color: #f87171; font-weight: 700; font-size: 13px; margin-bottom: 4px;">ERROR</div>
-                    <div style="font-family: monospace; font-size: 12px; color: var(--text-strong); word-break: break-all;">
+                <div style="background: var(--panel-strong); border: 1px solid var(--border); padding: 16px; border-radius: 12px; position: relative; overflow: hidden;">
+                    <div style="position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: #f87171;"></div>
+                    <div style="color: #f87171; font-weight: 800; font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px; opacity: 0.9;">Error Diagnostic</div>
+                    <div style="font-family: var(--font-mono, monospace); font-size: 12px; color: var(--text-strong); word-break: break-all; line-height: 1.5;">
                         ${this.escapeHtml(message)}
                     </div>
                 </div>
 
-                <details style="cursor: pointer;">
-                    <summary style="font-size: 12px; color: var(--text-muted); padding: 4px 0; user-select: none;">
-                        Show Technical Details
+                <details style="cursor: pointer; border-radius: 8px; overflow: hidden; background: rgba(255, 255, 255, 0.02);">
+                    <summary style="font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); padding: 10px 14px; user-select: none; display: flex; align-items: center; gap: 8px;">
+                        Technical Stack Trace
                     </summary>
-                    <pre style="background: var(--panel-strong); padding: 12px; border-radius: 4px; overflow: auto; max-height: 200px; font-size: 11px; margin-top: 8px; color: var(--text-soft); border: 1px solid var(--border);">
-${this.escapeHtml(stack)}
-                    </pre>
+                    <div style="padding: 0 14px 14px 14px;">
+                        <pre style="background: rgba(0, 0, 0, 0.2); padding: 12px; border-radius: 8px; overflow: auto; max-height: 180px; font-size: 11px; font-family: var(--font-mono, monospace); color: var(--text-soft); border: 1px solid var(--border); margin: 0; line-height: 1.6;">${this.escapeHtml(
+                          stack
+                        )}</pre>
+                    </div>
                 </details>
             </div>
         `
@@ -98,17 +110,16 @@ ${this.escapeHtml(stack)}
       size: 'md',
       buttons: [
         {
-          label: 'Refresh App',
+          label: 'Refresh Workspace',
           variant: 'primary',
           onClick: () => window.location.reload()
         },
         {
-          label: 'Copy Details',
+          label: 'Copy Logs',
           variant: 'ghost',
           onClick: () => {
             const text = `Error: ${message}\n\nStack:\n${stack}`
             navigator.clipboard.writeText(text).catch(() => {
-              // Fallback for when document is not focused or other clipboard issues
               const textarea = document.createElement('textarea')
               textarea.value = text
               textarea.style.position = 'fixed'
@@ -119,6 +130,7 @@ ${this.escapeHtml(stack)}
               textarea.select()
               try {
                 document.execCommand('copy')
+                notificationManager.show('Error logs copied to clipboard', 'info')
               } catch (err) {
                 console.error('Fallback copy failed', err)
               }
@@ -127,19 +139,18 @@ ${this.escapeHtml(stack)}
           }
         },
         {
-          label: 'Reset Workspace',
+          label: 'Hard Reset',
           variant: 'danger',
           onClick: async () => {
-            if (confirm('Are you sure? This will reset all local settings and workspace state.')) {
+            if (
+              confirm(
+                'Are you sure? This will wipe all local settings and workspace state. Your notes will remain safe on disk.'
+              )
+            ) {
               await window.api.resetSettings()
               window.location.reload()
             }
           }
-        },
-        {
-          label: 'Dismiss',
-          variant: 'ghost',
-          onClick: (m) => m.close()
         }
       ]
     })

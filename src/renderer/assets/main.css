@@ -21,7 +21,9 @@ body {
   gap: 0;
   background: var(--bg);
   color: var(--text-strong);
-  transition: grid-template-columns 200ms ease, filter 300ms ease;
+  transition:
+    grid-template-columns 200ms ease,
+    filter 300ms ease;
   overflow: hidden;
   /* Ensure header space */
   padding-top: 32px;
@@ -70,15 +72,15 @@ body {
 }
 
 .activitybar__item:hover {
-  background: rgba(127, 167, 255, 0.12);
+  background: var(--hover);
   color: var(--text-strong);
 }
 
 .activitybar__item.is-active {
-  background: rgba(127, 167, 255, 0.18);
+  background: var(--selection);
   color: var(--text-strong);
-  border-color: rgba(127, 167, 255, 0.35);
-  box-shadow: inset 0 0 0 1px rgba(127, 167, 255, 0.08);
+  border-color: var(--primary);
+  box-shadow: inset 0 0 0 1px var(--border-subtle);
 }
 
 .sidebar {
@@ -162,7 +164,7 @@ body {
 }
 
 .note-list__item.is-active {
-  background: rgba(127, 167, 255, 0.12);
+  background: var(--selection);
   border-left: 3px solid var(--primary);
   padding-left: 11px;
 }
@@ -486,7 +488,10 @@ button {
   opacity: 0;
   backdrop-filter: blur(0px);
   -webkit-backdrop-filter: blur(0px);
-  transition: opacity 400ms ease, backdrop-filter 400ms ease, -webkit-backdrop-filter 400ms ease;
+  transition:
+    opacity 400ms ease,
+    backdrop-filter 400ms ease,
+    -webkit-backdrop-filter 400ms ease;
   pointer-events: none;
 }
 
@@ -511,13 +516,20 @@ button {
   place-items: center;
   margin: 0 auto;
   color: #0c1220;
-  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.1);
+  box-shadow:
+    0 16px 32px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(255, 255, 255, 0.1);
   animation: logoFloat 4s ease-in-out infinite;
 }
 
 @keyframes logoFloat {
-  0%, 100% { transform: translateY(0) rotate(0deg); }
-  50% { transform: translateY(-12px) rotate(2deg); }
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-12px) rotate(2deg);
+  }
 }
 
 .security-firewall__header {

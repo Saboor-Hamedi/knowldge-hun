@@ -10,7 +10,7 @@ import { createElement, KeyRound, ShieldCheck, ShieldAlert, LogOut, Info } from 
  * to manage the application's login system.
  */
 export class SecuritySection {
-  private createLucideIcon(IconComponent: any, size: number = 16): string {
+  private createLucideIcon(IconComponent: unknown, size: number = 16): string {
     const svgElement = createElement(IconComponent, {
       size: size,
       'stroke-width': 1.5,

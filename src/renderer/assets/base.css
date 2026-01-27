@@ -27,6 +27,10 @@
   margin: 0;
 }
 
+button:focus {
+  outline: none;
+}
+
 ul {
   list-style: none;
   padding: 0;
@@ -43,4 +47,8 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Remove global selection overrides that interfere with Monaco */
+/* Global browser selection override */
+::selection {
+  background-color: var(--selection);
+  color: inherit;
+}
