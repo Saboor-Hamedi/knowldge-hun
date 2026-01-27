@@ -1085,14 +1085,12 @@ class App {
       }
     })
 
-    this.registerConsoleCommands()
-
     keyboardManager.register({
-      key: 'Control+j',
+      key: 'Control+l',
       scope: 'global',
-      description: 'Toggle HUB Console',
+      description: 'Lock Application',
       handler: () => {
-        this.hubConsole.toggle()
+        void securityService.promptAndLock()
       }
     })
 

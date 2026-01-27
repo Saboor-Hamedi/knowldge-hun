@@ -452,7 +452,7 @@ export class SettingsView {
 
               <div class="settings-divider"></div>
               <div class="settings-view__section-header" style="border: none; margin-top: 8px;">
-                <h3 class="settings-view__section-title" style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Recent Vaults</h3>
+                <h3 class="settings-view__section-title">Recent Vaults</h3>
               </div>
 
               <div class="settings-recent-vaults" id="settings-vault-list">
@@ -842,16 +842,18 @@ export class SettingsView {
           <div class="vault-row__info">
             <div class="vault-row__name">
               ${this.escapeHtml(vault.name)}
-              ${isCurrent ? '<span class="vault-row__badge">Current</span>' : ''}
+              ${isCurrent ? '<span class="vault-row__badge">Active</span>' : ''}
             </div>
             <div class="vault-row__path" title="${this.escapeHtml(vault.path)}">${this.escapeHtml(vault.path)}</div>
           </div>
           <div class="vault-row__actions">
             ${
               vault.exists
-                ? `
+                ? isCurrent
+                  ? `<span class="vault-row__current-label">${this.createLucideIcon(CheckCircle2, 14)} Using</span>`
+                  : `
                 <button class="vault-row__btn vault-row__btn--open" data-action="select" data-path="${this.escapeHtml(vault.path)}">
-                  Open
+                  Switch Vault
                 </button>
               `
                 : `
@@ -863,7 +865,7 @@ export class SettingsView {
             ${
               !isCurrent
                 ? `
-              <button class="vault-row__btn vault-row__btn--delete" data-action="delete" data-path="${this.escapeHtml(vault.path)}">
+              <button class="vault-row__btn vault-row__btn--delete" data-action="delete" data-path="${this.escapeHtml(vault.path)}" title="Remove record">
                   ${this.createLucideIcon(Trash2, 14)}
               </button>
             `

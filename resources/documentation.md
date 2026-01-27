@@ -11,7 +11,8 @@ Welcome to **KnowledgeHub**, a high-performance, AI-enhanced environment designe
 3. [Core Features](#-core-features)
 4. [Keyboard Shortcuts](#-keyboard-shortcuts)
 5. [Best Practices](#-the-knowledgehub-way-best-practices)
-6. [Data Privacy & Security](#-data-privacy--security)
+6. [Vault Security & Firewall](#-vault-security--firewall)
+7. [Data Privacy](#-data-privacy)
 
 ---
 
@@ -476,6 +477,7 @@ alice@CodeDocs λ
 | **AI Configuration**          | `Ctrl + Alt + S`               |
 | **Reload Vault / Refresh UI** | `Ctrl + Shift + R`             |
 | **Choose Vault Folder**       | `Ctrl + Shift + V`             |
+| **Instant Lock Application**  | `Ctrl + L`                     |
 | **Sync Now (GitHub Gist)**    | `Ctrl + S (while in Settings)` |
 
 ### ✍️ Editor Operations
@@ -572,7 +574,34 @@ Clicking a node instantly shifts your context to that note. Use the graph to:
 
 ---
 
-## 🔐 Data Privacy & Security
+---
+
+## 🔐 Vault Security & Firewall
+
+KnowledgeHub features a professional-grade **Airlock Security Architecture** designed to protect your sensitive technical data and research from unauthorized access, even if your machine is left unattended.
+
+### 1. The Firewall Overlay
+
+When a master password is set, KnowledgeHub activates a high-performance, hardware-accelerated firewall overlay on startup and session lock.
+
+- **Airlock Event Isolation**: When locked, the system intercepts keyboard and mouse events at the "Capture Phase," preventing them from ever reaching the underlying application logic.
+- **Visual Privacy**: The application background is processed with a 20px Gaussian blur and grayscale filter, ensuring no fragments of your notes are visible while locked.
+- **Circuit Breakers**: Global keyboard shortcuts (Sidebar toggles, Console, etc.) are physically disconnected in the `KeyboardManager` until a valid unlock occurs.
+
+### 2. Cryptographic Implementation
+
+- **Zero Cloud Footprint**: Your password is never sent to any server. Authentication happens entirely on your local hardware.
+- **SHA-256 Hashing**: We use the Industry-Standard SHA-256 algorithm to hash your password. We only store the hash, never the plain-text password.
+- **One-Way Protection**: There is no "Forgot Password" feature by design. If you lose your master password, your vault remains physically on disk but the application will require a fresh configuration to access it.
+
+### 3. Session Management
+
+- **Instant Lock**: Use the sidebar lock icon or the `Ctrl + L` hotkey to immediately secure your workspace.
+- **Sensitive Action Verification**: Certain high-risk operations (like deleting items or removing vault protection) require a secondary password verification prompt to prevent accidental data loss.
+
+---
+
+## 🛡️ Data Privacy
 
 ### Local-First Architecture
 
@@ -586,12 +615,6 @@ Clicking a node instantly shifts your context to that note. Use the graph to:
 - **Encrypted Storage**: GitHub Gists support private repositories.
 - **Token Control**: You control the API token and can revoke access anytime.
 
-### Console Security
-
-- **Sandboxed Execution**: Console commands cannot access system resources.
-- **No Code Injection**: Input is sanitized and validated.
-- **Whitelisted Commands**: Only pre-approved commands can execute.
-
 ---
 
 ## 🔄 Version History
@@ -599,6 +622,8 @@ Clicking a node instantly shifts your context to that note. Use the graph to:
 ### v0.1.5 - Current
 
 - ✅ HUB Console with semantic search
+- ✅ Vault Firewall Protection (Airlock)
+- ✅ Master Password Encryption (SHA-256)
 - ✅ RAG-powered AI chat
 - ✅ Vector database integration
 - ✅ Command queuing and history
