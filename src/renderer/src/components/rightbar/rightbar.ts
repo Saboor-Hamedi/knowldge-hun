@@ -840,14 +840,7 @@ export class RightBar {
           navigator.clipboard
             .writeText(plainText)
             .then(() => {
-              // Show success feedback with green checkmark using Lucide Check icon
-              btn.classList.add('rightbar__message-action--copied')
-              const originalHTML = btn.innerHTML
-              btn.innerHTML = this.createLucideIcon(Check, 12, 2, '#22c55e')
-              setTimeout(() => {
-                btn.classList.remove('rightbar__message-action--copied')
-                btn.innerHTML = originalHTML
-              }, 2000)
+              this.showCopyFeedback(btn)
             })
             .catch(() => {
               // Fallback
@@ -861,13 +854,7 @@ export class RightBar {
               textarea.select()
               try {
                 document.execCommand('copy')
-                btn.classList.add('rightbar__message-action--copied')
-                const originalHTML = btn.innerHTML
-                btn.innerHTML = this.createLucideIcon(Check, 12, 2, '#22c55e')
-                setTimeout(() => {
-                  btn.classList.remove('rightbar__message-action--copied')
-                  btn.innerHTML = originalHTML
-                }, 2000)
+                this.showCopyFeedback(btn)
               } catch (err) {
                 console.error('Fallback copy failed', err)
               }
@@ -2311,6 +2298,29 @@ export class RightBar {
     const div = document.createElement('div')
     div.textContent = raw
     return div.innerHTML
+  }
+
+  private showCopyFeedback(button: HTMLElement): void {
+    const originalHTML = button.innerHTML
+    const isSmall = button.classList.contains('rightbar__message-action')
+    const size = isSmall ? 12 : 14
+    const stroke = isSmall ? 2 : 1.5
+    const color = isSmall ? '#22c55e' : undefined
+
+    button.innerHTML = this.createLucideIcon(Check, size, stroke, color)
+    button.classList.add(
+      isSmall ? 'rightbar__message-action--copied' : 'rightbar__code-copy--copied'
+    )
+    const originalTitle = button.title
+    button.title = 'Copied!'
+
+    setTimeout(() => {
+      button.innerHTML = originalHTML
+      button.classList.remove(
+        isSmall ? 'rightbar__message-action--copied' : 'rightbar__code-copy--copied'
+      )
+      button.title = originalTitle
+    }, 2000)
   }
 
   private createLucideIcon(

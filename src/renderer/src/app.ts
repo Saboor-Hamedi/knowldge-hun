@@ -1704,11 +1704,8 @@ class App {
       this.sidebar.startRename(meta.id)
     }, 100)
 
-    // Index new note for RAG
-    await ragService.indexNote(meta.id, '', {
-      title: meta.title,
-      path: meta.path
-    })
+    // Indexing for RAG happens automatically when the note is first saved with content.
+    // New notes are initially empty and don't need indexing.
   }
 
   private async openNote(
@@ -2061,8 +2058,9 @@ class App {
 
             m.setLoading(true)
             try {
-              await this.renameNote(activeId, newTitle)
-              m.close()
+              // We pass a callback to close the modal as soon as the core rename operation is done.
+              // renameNote then continues with refreshing the UI and re-opening the editor in the background.
+              await this.renameNote(activeId, newTitle, () => m.close())
             } catch (err) {
               m.setLoading(false)
               // The error is propagated to ErrorHandler which will open the Error modal
@@ -2085,7 +2083,11 @@ class App {
     return header
   }
 
-  private async renameNote(noteId: string, newTitle: string): Promise<void> {
+  private async renameNote(
+    noteId: string,
+    newTitle: string,
+    onCoreDone?: () => void
+  ): Promise<void> {
     const isActive = state.activeId === noteId
     let notePath: string | undefined
 
@@ -2119,6 +2121,9 @@ class App {
       // 1. Rename on disk (changes ID) - noteService handles tab/state updates
       const newMeta = await noteService.renameNote(noteId, newId, notePath)
       const actualNewId = newMeta.id
+
+      // Notify caller that core operation is done (e.g. to close modals)
+      onCoreDone?.()
 
       // 4. Update activeId if needed (noteService already updated tabs)
       if (isActive) {

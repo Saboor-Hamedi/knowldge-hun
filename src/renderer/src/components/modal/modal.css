@@ -164,6 +164,7 @@
   flex-shrink: 0;
 }
 
-.modal__footer .btn {
-  min-width: 80px;
+.modal__footer .btn:focus {
+  outline: none;
+  box-shadow: none;
 }

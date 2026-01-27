@@ -238,12 +238,22 @@ export class Modal {
   private focusInitial(): void {
     const firstInput = this.inputs.values().next().value
     if (firstInput) {
-      setTimeout(() => firstInput.focus(), 0)
+      setTimeout(() => firstInput.focus(), 50)
+      return
+    }
+
+    // Focus primary action button (e.g., Delete, Save) if no inputs exist
+    // Look specifically in the footer to avoid other buttons
+    const actionBtn = this.modal?.querySelector(
+      '.modal__footer .btn--primary, .modal__footer .btn--danger'
+    ) as HTMLElement
+    if (actionBtn) {
+      setTimeout(() => actionBtn.focus(), 50)
       return
     }
 
     const closeBtn = this.modal?.querySelector('.modal__close') as HTMLElement
-    if (closeBtn) setTimeout(() => closeBtn.focus(), 0)
+    if (closeBtn) setTimeout(() => closeBtn.focus(), 50)
   }
 
   /**
@@ -283,7 +293,9 @@ export class Modal {
       const isTextArea = activeTag === 'textarea'
       if (event.key === 'Enter' && !event.shiftKey && !isTextArea) {
         event.preventDefault()
-        const firstBtn = this.modal?.querySelector('button.btn--primary') as HTMLButtonElement
+        const firstBtn = this.modal?.querySelector(
+          'button.btn--primary, button.btn--danger'
+        ) as HTMLButtonElement
         if (firstBtn) {
           firstBtn.click()
         } else if (this.config.onSubmit) {

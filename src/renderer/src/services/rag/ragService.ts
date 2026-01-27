@@ -133,6 +133,11 @@ export class RagService {
   ): Promise<void> {
     if (!this.embeddingProvider) return
 
+    // Skip indexing if content is empty or only whitespace
+    if (!content || !content.trim()) {
+      return
+    }
+
     try {
       if (this.embeddingProvider instanceof LocalEmbeddingProvider) {
         await this.dispatch('index', { id: noteId, content, metadata })
