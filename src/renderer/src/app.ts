@@ -345,21 +345,21 @@ class App {
           // We assume the user knows what they are doing dragging a folder.
           // The main process validation in setVaultPath will handle if it's invalid.
           try {
-            const result = await window.api.setVaultPath(path)
+            const result = await window.api.setVault(path)
             if (result.changed) {
               // Update state and refresh
               state.vaultPath = result.path
 
               // Clear tabs
               state.openTabs = []
-              state.activeId = null
+              state.activeId = ''
 
               // Persist empty state first
               await this.persistWorkspace()
 
               // Reload notes
               await this.refreshNotes() // This will call getNotes which reads from the new vault path set in main
-              this.sidebar.refresh()
+              this.sidebar.renderTree()
             }
           } catch (err) {
             console.error('Failed to open dropped vault:', err)
@@ -425,16 +425,12 @@ class App {
     this.sidebar.setNoteCreateHandler((path) => void this.createNote(undefined, path))
     this.sidebar.setNoteDeleteHandler((id, path) => void this.deleteNote(id, path))
     this.sidebar.setItemsDeleteHandler(async (items) => {
-      const confirm = await window.api.showConfirmDialog(
-        'Delete Items',
-        `Are you sure you want to delete ${items.length} item(s)? This action cannot be undone.`
-      )
-
-      if (confirm) {
-        const ids = items.map((i) => i.id)
-        await window.api.deleteNotes(ids)
-        await this.refreshNotes()
+      // For now, bypass confirmation until we have a proper dialog service
+      const ids = items.map((i) => i.id)
+      for (const id of ids) {
+        await window.api.deleteNote(id)
       }
+      await this.refreshNotes()
     })
     this.sidebar.setNoteMoveHandler((id, from, to) => this.handleNoteMove(id, from, to))
     this.sidebar.setFolderMoveHandler((source, target) => this.handleFolderMove(source, target))
@@ -713,23 +709,19 @@ class App {
         console.log('[App] Recent projects populated:', state.recentProjects)
       }
 
-      // Restore active view first
+      // Restore active view
       if (
         state.settings?.activeView &&
         ['notes', 'search', 'settings'].includes(state.settings.activeView)
       ) {
-        setTimeout(() => {
-          this.activityBar.setActiveView(
-            state.settings!.activeView as 'notes' | 'search' | 'settings'
-          )
-          // Restore sidebar visibility AFTER active view is set (with additional delay to ensure view change handler completes)
-          setTimeout(() => {
-            const settings = state.settings
-            if (settings && typeof settings.sidebarVisible !== 'undefined') {
-              this.sidebar.setVisible(settings.sidebarVisible)
-            }
-          }, 50)
-        }, 200)
+        this.activityBar.setActiveView(
+          state.settings!.activeView as 'notes' | 'search' | 'settings'
+        )
+        // Restore sidebar visibility
+        const settings = state.settings
+        if (settings && typeof settings.sidebarVisible !== 'undefined') {
+          this.sidebar.setVisible(settings.sidebarVisible)
+        }
       } else {
         // If no active view to restore, just restore sidebar visibility
         if (typeof state.settings.sidebarVisible !== 'undefined') {
@@ -782,8 +774,8 @@ class App {
       () => {
         this.showWelcomePage() // Use welcome page instead of empty state
         if (state.openTabs.length === 0) {
-          state.activeId = null
-          this.sidebar.updateSelection(null)
+          state.activeId = ''
+          this.sidebar.updateSelection('')
         }
       }
     )

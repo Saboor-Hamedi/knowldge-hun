@@ -259,6 +259,7 @@ export class GraphControls {
         } else if (tool === 'folders') {
           this.toggleDropdown('folders')
         } else if (tool === 'pathfind') {
+          this.closeAllDropdowns()
           this.options.onStartPathFind()
         } else if (tool === 'theme-cycle') {
           const themes = ['default', 'spatial', 'ocean', 'grid', 'moon', 'hologram', 'nexus']
@@ -404,7 +405,10 @@ export class GraphControls {
     btn.classList.add('is-active')
 
     const rect = btn.getBoundingClientRect()
-    dropdown.style.top = `${Math.round(rect.bottom + 6)}px`
+    // Calculate relative to offsetParent to handle transforms (modal)
+    const parentRect = dropdown.offsetParent?.getBoundingClientRect() || { top: 0, left: 0 }
+
+    dropdown.style.top = `${Math.round(rect.bottom - parentRect.top + 6)}px`
 
     // Smart Directional Alignment:
     // Tools (on the right) should be right-aligned to their buttons.
@@ -412,22 +416,23 @@ export class GraphControls {
     const isTool = type === 'export' || type === 'themes'
     const dropdownWidth = dropdown.offsetWidth || (type === 'themes' ? 140 : 160)
 
-    let left = 0
+    let viewportLeft = 0
     if (isTool) {
       // Right-align tool dropdowns
-      left = rect.right - dropdownWidth
+      viewportLeft = rect.right - dropdownWidth
     } else {
       // Left-align filter dropdowns
-      left = rect.left
+      viewportLeft = rect.left
     }
 
     // Viewport safety checks
-    if (left + dropdownWidth > window.innerWidth - 10) {
-      left = window.innerWidth - dropdownWidth - 10
+    if (viewportLeft + dropdownWidth > window.innerWidth - 10) {
+      viewportLeft = window.innerWidth - dropdownWidth - 10
     }
-    if (left < 10) left = 10
+    if (viewportLeft < 10) viewportLeft = 10
 
-    dropdown.style.left = `${Math.round(left)}px`
+    // Convert to relative position
+    dropdown.style.left = `${Math.round(viewportLeft - parentRect.left)}px`
   }
 
   public setPathFindMode(active: boolean): void {

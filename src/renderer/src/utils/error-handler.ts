@@ -29,8 +29,7 @@ export class ErrorHandler {
    * Check if error is an "expected" user or validation error that shouldn't
    * trigger the scary "Application Error" modal.
    */
-  private static isExpectedUserError(error: any): boolean {
-    // eslint-disable-line @typescript-eslint/no-explicit-any
+  private static isExpectedUserError(error: unknown): boolean {
     if (!error) return false
     const message = (error as { message?: string })?.message || String(error)
 
@@ -42,8 +41,7 @@ export class ErrorHandler {
   /**
    * Check if error is Monaco's harmless "Canceled" error
    */
-  private static isMonacoCanceledError(error: any): boolean {
-    // eslint-disable-line @typescript-eslint/no-explicit-any
+  private static isMonacoCanceledError(error: unknown): boolean {
     if (!error) return false
 
     // Check for Monaco's "Canceled" error message
@@ -64,11 +62,11 @@ export class ErrorHandler {
     return false
   }
 
-  static showErrorModal(error: Error | any): void {
+  static showErrorModal(error: Error | unknown): void {
     console.error('[Global Error]', error)
 
-    const stack = error?.stack || 'No stack trace available'
-    const message = error?.message || String(error)
+    const stack = (error as Error)?.stack || 'No stack trace available'
+    const message = (error as Error)?.message || String(error)
 
     const content = document.createElement('div')
     content.className = 'error-modal-content'

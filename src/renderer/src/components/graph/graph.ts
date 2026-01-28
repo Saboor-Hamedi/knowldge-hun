@@ -47,7 +47,6 @@ export class GraphView {
   private minimapScale = 1
   private minimapMinX = 0
   private minimapMinY = 0
-  private minimapPadding = 15
 
   // D3 selections
   private linkSelection: d3.Selection<SVGLineElement, GraphLink, SVGGElement, unknown> | null = null
@@ -572,7 +571,7 @@ export class GraphView {
 
     // Create all particles at once (batch DOM operation)
     const particles = this.particleGroup
-      .selectAll<SVGCircleElement, ParticleData>('.link-particle')
+      .selectAll('.link-particle')
       .data(particleData)
       .enter()
       .append('circle')
@@ -874,11 +873,18 @@ export class GraphView {
   }
 
   private handleStartPathFind(): void {
+    if (this.pathFindMode) {
+      this.endPathFindMode()
+      return
+    }
+
     this.pathFindMode = true
     this.pathFindStart = null
     this.clearPathHighlight()
     this.controls?.setPathFindMode(true)
 
+    // Hint removed as per user request
+    /*
     const hint = this.modal.querySelector('#graph-pathfind-hint') as HTMLElement
     if (hint) {
       hint.style.display = 'flex'
@@ -888,6 +894,7 @@ export class GraphView {
     }
 
     this.updatePathFindHint('Click on a node to select the starting point.')
+    */
   }
 
   private endPathFindMode(): void {
@@ -1035,7 +1042,7 @@ export class GraphView {
       .attr('class', 'graph-minimap__svg')
 
     // Add Radar Decorations
-    const radar = (this.minimap as any).append('g').attr('class', 'minimap-decorations')
+    const radar = this.minimap!.append('g').attr('class', 'minimap-decorations')
 
     // Crosshair lines
     radar
@@ -1114,11 +1121,23 @@ export class GraphView {
     if (!this.minimapG || !this.filteredData) return
 
     this.minimapG
-      .selectAll<SVGLineElement, GraphLink>('.minimap-link')
-      .attr('x1', (d) => ((d.source as GraphNode).x! - this.minimapMinX) * this.minimapScale)
-      .attr('y1', (d) => ((d.source as GraphNode).y! - this.minimapMinY) * this.minimapScale)
-      .attr('x2', (d) => ((d.target as GraphNode).x! - this.minimapMinX) * this.minimapScale)
-      .attr('y2', (d) => ((d.target as GraphNode).y! - this.minimapMinY) * this.minimapScale)
+      .selectAll('.minimap-link')
+      .attr('x1', (d: unknown) => {
+        const link = d as GraphLink
+        return ((link.source as GraphNode).x! - this.minimapMinX) * this.minimapScale
+      })
+      .attr('y1', (d: unknown) => {
+        const link = d as GraphLink
+        return ((link.source as GraphNode).y! - this.minimapMinY) * this.minimapScale
+      })
+      .attr('x2', (d: unknown) => {
+        const link = d as GraphLink
+        return ((link.target as GraphNode).x! - this.minimapMinX) * this.minimapScale
+      })
+      .attr('y2', (d: unknown) => {
+        const link = d as GraphLink
+        return ((link.target as GraphNode).y! - this.minimapMinY) * this.minimapScale
+      })
 
     this.minimapG
       .selectAll<SVGCircleElement, GraphNode>('.minimap-node')

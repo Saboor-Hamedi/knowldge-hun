@@ -74,6 +74,9 @@ export class EditorComponent {
     this.editorHost = this.container.querySelector('.editor-host') as HTMLElement
     this.previewHost = this.container.querySelector('.preview-host') as HTMLElement
 
+    // Start loading Monaco in background immediately
+    void this.ensureEditor()
+
     // Initialize preview after DOM is ready
     setTimeout(() => {
       const previewContainer = document.getElementById('preview-container')
@@ -253,7 +256,7 @@ export class EditorComponent {
 
   private render(): void {
     this.container.innerHTML = `
-      <div class="editor-empty">Select or create a note to start writing</div>
+      <div class="editor-empty" style="display: none;">Select or create a note to start writing</div>
       <div class="editor-host" aria-label="Note editor"></div>
       <div class="preview-host" style="display: none;">
         <div id="preview-container"></div>
@@ -276,6 +279,11 @@ export class EditorComponent {
 
   public async loadNote(payload: NotePayload): Promise<void> {
     state.applyingRemote = true
+
+    // Hide empty state immediately so user doesn't see "Select a note" while loading
+    this.emptyState.style.display = 'none'
+    this.editorHost.style.display = 'block'
+
     await this.ensureEditor()
 
     // Ensure keyboard shortcuts are attached after editor is ready
@@ -589,7 +597,6 @@ export class EditorComponent {
         })
 
         this.editor.onMouseDown((e) => {
-          // ... same as before
           if (!e.target || !e.target.position) return
 
           if (e.event.ctrlKey || e.event.metaKey) {

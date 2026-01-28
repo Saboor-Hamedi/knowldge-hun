@@ -550,7 +550,7 @@
 }
 
 .graph-tooltip__title {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--text-strong);
   margin-bottom: 4px;
@@ -820,7 +820,7 @@
 .graph-controls__tools {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
 }
 
 .graph-controls__tool-btn {
@@ -859,15 +859,15 @@
   position: fixed;
   right: auto;
   left: auto;
-  top: 0;
   min-width: 160px;
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 5px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
   z-index: 150;
   display: none;
   overflow: hidden;
+ 
 }
 
 .graph-controls__export-dropdown.is-open {
