@@ -34,6 +34,7 @@ export type AppState = {
   newlyCreatedIds: Set<string>
   selectedIds: Set<string>
   cursorPositions: Map<string, { lineNumber: number; column: number }>
+  recentProjects?: { name: string; path: string }[]
 }
 
 export type AppSettings = {

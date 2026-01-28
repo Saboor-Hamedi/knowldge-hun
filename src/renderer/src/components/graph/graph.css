@@ -8,8 +8,7 @@
   left: 0;
   width: 100vw;
   height: 100vh;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(8px);
+  background: rgba(0, 0, 0, 0.5); /* Solid transparent overlay for performance */
   z-index: 9999;
   display: flex;
   align-items: center;
@@ -17,9 +16,7 @@
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
-  transition:
-    opacity 0.25s ease,
-    visibility 0.25s ease;
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .graph-modal.is-visible {
@@ -29,106 +26,123 @@
 }
 
 .graph-modal__content {
-  width: 92vw;
-  height: 90vh;
+  width: 96vw;
+  height: 94vh;
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 0;
-  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.4);
+  border-radius: 8px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
   display: flex;
   flex-direction: column;
   overflow: hidden;
   position: relative;
+  transform: scale(0.98);
+  transition: transform 0.2s ease-out;
 }
 
-/* Override window-header absolute positioning for graph modal */
-.graph-modal .window-header {
-  position: relative;
-  top: auto;
-  left: auto;
-  right: auto;
-  width: auto;
+.graph-modal.is-visible .graph-modal__content {
+  transform: scale(1);
 }
+
+.graph-modal__content .window-header {
+  position: static; /* Participate in flow to prevent toolbar overlap */
+  flex-shrink: 0;
+  background: var(--panel-strong);
+  width: 100%;
+}
+
+/* Close button - hidden in favor of header closer */
+.graph-modal__close-btn {
+  display: none !important;
+}
+
 
 /* Stats in header */
 .graph-modal__stats {
   font-size: 11px;
-  color: var(--text-soft);
-  margin-left: 12px;
-  padding-left: 12px;
-  border-left: 1px solid var(--border);
+  font-weight: 500;
+  color: var(--text-tertiary);
+  margin-left: 14px;
+  padding-left: 14px;
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+  letter-spacing: 0.02em;
 }
 
-/* ============================================
-   Toolbar / Controls
-   ============================================ */
-
+/* Toolbar / Controls */
 .graph-modal__toolbar {
   border-bottom: 1px solid var(--border);
-  background: var(--panel);
+  background: var(--panel-strong);
   flex-shrink: 0;
-  min-height: 36px;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  z-index: 10;
 }
 
 .graph-controls {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
+  gap: 12px;
+  padding: 0 16px;
   flex-wrap: wrap;
+  width: 100%;
 }
+
 
 .graph-controls__section {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
 }
 
 .graph-controls__divider {
   width: 1px;
   height: 20px;
   background: var(--border);
-  margin: 0 2px;
+  margin: 0 4px;
 }
 
 /* Search */
 .graph-controls__search {
   position: relative;
-  flex: 0 0 160px;
+  flex: 0 0 180px;
 }
 
 .graph-controls__search-icon {
   position: absolute;
-  left: 6px;
+  left: 8px;
   top: 50%;
   transform: translateY(-50%);
   color: var(--text-soft);
   pointer-events: none;
   display: flex;
+  opacity: 0.7;
 }
 
 .graph-controls__search-icon svg {
-  width: 12px;
-  height: 12px;
+  width: 13px;
+  height: 13px;
 }
 
 .graph-controls__search-input {
   width: 100%;
-  padding: 4px 22px 4px 22px;
+  height: 24px;
+  padding: 0 28px;
   border: 1px solid var(--border);
   border-radius: 4px;
-  background: var(--panel-strong);
-  color: var(--text-strong);
-  font-size: 11px;
+  background: var(--panel);
+  color: var(--text);
+  font-size: 11.5px;
   outline: none;
-  transition:
-    border-color 0.15s,
-    box-shadow 0.15s;
+  display: flex;
+  align-items: center;
+  transition: all 0.2s ease;
 }
 
 .graph-controls__search-input:focus {
-  border-color: var(--primary);
-  box-shadow: 0 0 0 1px rgba(127, 167, 255, 0.15);
+  border-color: var(--accent-primary);
+  background: rgba(0, 0, 0, 0.3);
+  box-shadow: 0 0 0 3px rgba(127, 167, 255, 0.1);
 }
 
 .graph-controls__search-clear {
@@ -165,39 +179,57 @@
 }
 
 .graph-controls__filter-btn,
-.graph-controls__toggle-btn {
-  display: flex;
+.graph-controls__toggle-btn,
+.graph-controls__tool-btn,
+.graph-controls__zoom-btn {
+  display: inline-flex;
   align-items: center;
-  gap: 3px;
-  padding: 4px 6px;
+  justify-content: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 10px;
   border: 1px solid var(--border);
   border-radius: 4px;
-  background: var(--panel-strong);
-  color: var(--text);
+  background: var(--panel);
+  color: var(--text-soft);
   font-size: 11px;
+  font-weight: 500;
   cursor: pointer;
-  transition:
-    background 0.15s,
-    border-color 0.15s,
-    color 0.15s;
+  transition: all 0.2s ease;
+  user-select: none;
+  line-height: normal;
+}
+
+.graph-controls__tool-btn,
+.graph-controls__zoom-btn {
+  padding: 0;
+  width: 24px;
 }
 
 .graph-controls__filter-btn svg,
-.graph-controls__toggle-btn svg {
+.graph-controls__toggle-btn svg,
+.graph-controls__tool-btn svg,
+.graph-controls__zoom-btn svg {
   width: 12px;
   height: 12px;
+  display: block;
 }
 
 .graph-controls__filter-btn:hover,
 .graph-controls__toggle-btn:hover {
-  background: var(--border);
-  border-color: var(--text-soft);
+  background: var(--panel-strong);
+  border-color: var(--border-strong, var(--primary));
+  color: var(--text);
 }
 
 .graph-controls__toggle-btn.is-active {
   background: var(--primary);
   border-color: var(--primary);
   color: #fff;
+}
+
+.graph-controls__toggle-btn.is-active:hover {
+  filter: brightness(1.1);
 }
 
 .graph-controls__filter-count {
@@ -331,13 +363,13 @@
 .graph-controls__slider-label {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 10px;
+  gap: 8px;
   color: var(--text-soft);
+  font-size: 11px;
+  height: 24px;
 }
 
 .graph-controls__slider {
-  width: 60px;
   height: 3px;
   border-radius: 2px;
   accent-color: var(--primary);
@@ -356,7 +388,7 @@
 
 .graph-svg {
   display: block;
-  background: radial-gradient(circle at center, var(--panel) 0%, var(--bg) 100%);
+  background: var(--bg);
 }
 
 /* ============================================
@@ -365,25 +397,22 @@
 
 /* Links */
 .link {
-  stroke: var(--text-soft);
-  stroke-opacity: 0.35;
+  stroke: var(--border);
+  stroke-opacity: 0.6;
   stroke-width: 1px;
-  transition:
-    stroke 0.2s,
-    stroke-opacity 0.2s,
-    stroke-width 0.2s;
+  transition: all 0.2s ease;
 }
 
 .link--bidirectional {
-  stroke: var(--primary);
-  stroke-opacity: 0.5;
-  stroke-width: 1.5px;
+  stroke: var(--accent-primary);
+  stroke-opacity: 0.35;
+  stroke-width: 1.2px;
 }
 
 .link--highlighted {
   stroke: var(--primary);
   stroke-opacity: 1;
-  stroke-width: 3px !important;
+  stroke-width: 2.5px !important;
 }
 
 /* Animated particles on links */
@@ -400,19 +429,17 @@
 }
 
 .node circle {
-  stroke: var(--panel);
-  stroke-width: 2px;
-  transition:
-    fill 0.2s,
-    stroke 0.2s,
-    r 0.2s,
-    filter 0.2s;
+  stroke: rgba(15, 17, 23, 0.9);
+  stroke-width: 1.5px;
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.3));
 }
 
 .node:hover circle {
-  stroke: var(--text-strong);
-  stroke-width: 2.5px;
-  filter: url(#glow);
+  stroke: #fff;
+  stroke-width: 2px;
+  transform: scale(1.15);
+  box-shadow: 0 0 15px currentColor;
 }
 
 .node--active circle {
@@ -440,22 +467,17 @@
 
 /* Labels */
 .node__label {
-  font-family: var(--font-sans, system-ui, sans-serif);
-  font-size: 11px;
-  fill: var(--text);
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 500;
+  fill: var(--text-strong); /* Automatically adapts: black on theme-light, white on theme-dark */
   pointer-events: none;
-  text-shadow:
-    0 0 3px var(--bg),
-    0 0 6px var(--bg),
-    1px 1px 2px var(--bg);
-  transition:
-    fill 0.2s,
-    font-size 0.2s;
+  transition: all 0.25s ease;
 }
 
 .node:hover .node__label {
   fill: var(--text-strong);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
 }
 
@@ -546,13 +568,14 @@
 
 .graph-modal__legend {
   position: absolute;
-  bottom: 16px;
-  left: 16px;
+  bottom: 24px;
+  left: 24px;
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 10px 14px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  padding: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  width: 160px;
 }
 
 .graph-legend__title {

@@ -92,7 +92,7 @@ export class GraphControls {
         <div class="graph-controls__section graph-controls__filters">
           <div class="graph-controls__filter-group">
             <button class="graph-controls__filter-btn" data-filter="tags" title="Filter by tags">
-              ${this.createIcon(Tag, 12)}
+              ${this.createIcon(Tag, 11)}
               <span>Tags</span>
               <span class="graph-controls__filter-count" data-count="tags">0</span>
             </button>
@@ -101,7 +101,7 @@ export class GraphControls {
           
           <div class="graph-controls__filter-group">
             <button class="graph-controls__filter-btn" data-filter="folders" title="Filter by folders">
-              ${this.createIcon(Folder, 12)}
+              ${this.createIcon(Folder, 11)}
               <span>Folders</span>
               <span class="graph-controls__filter-count" data-count="folders">0</span>
             </button>
@@ -110,7 +110,7 @@ export class GraphControls {
           
           <button class="graph-controls__toggle-btn ${this.filters.showOrphans ? 'is-active' : ''}" 
                   data-toggle="orphans" title="Toggle orphan notes">
-            ${this.createIcon(Circle, 12)}
+            ${this.createIcon(Circle, 11)}
             <span>Orphans</span>
           </button>
         </div>
@@ -120,7 +120,7 @@ export class GraphControls {
         <div class="graph-controls__section graph-controls__local">
           <button class="graph-controls__toggle-btn ${this.filters.localGraphEnabled ? 'is-active' : ''}" 
                   data-toggle="local" title="Show local graph around active note">
-            ${this.createIcon(Focus, 12)}
+            ${this.createIcon(Focus, 11)}
             <span>Local</span>
           </button>
           
@@ -136,12 +136,12 @@ export class GraphControls {
         
         <div class="graph-controls__section graph-controls__tools">
           <button class="graph-controls__tool-btn" data-tool="pathfind" title="Find path between two notes">
-            ${this.createIcon(Route, 12)}
+            ${this.createIcon(Route, 11)}
           </button>
           
           <div class="graph-controls__filter-group">
             <button class="graph-controls__tool-btn" data-tool="export" title="Export graph">
-              ${this.createIcon(Download, 12)}
+              ${this.createIcon(Download, 11)}
             </button>
             <div class="graph-controls__dropdown graph-controls__export-dropdown">
               <div class="graph-controls__dropdown-list">
@@ -157,19 +157,19 @@ export class GraphControls {
         <div class="graph-controls__section graph-controls__view">
           <button class="graph-controls__toggle-btn ${this.showLabels ? 'is-active' : ''}" 
                   data-toggle="labels" title="Toggle labels">
-            ${this.createIcon(this.showLabels ? Eye : EyeOff, 12)}
+            ${this.createIcon(this.showLabels ? Eye : EyeOff, 11)}
             <span>Labels</span>
           </button>
           
           <div class="graph-controls__zoom">
             <button class="graph-controls__zoom-btn" data-zoom="out" title="Zoom out">
-              ${this.createIcon(ZoomOut, 12)}
+              ${this.createIcon(ZoomOut, 11)}
             </button>
             <button class="graph-controls__zoom-btn" data-zoom="reset" title="Reset zoom">
-              ${this.createIcon(Maximize2, 12)}
+              ${this.createIcon(Maximize2, 11)}
             </button>
             <button class="graph-controls__zoom-btn" data-zoom="in" title="Zoom in">
-              ${this.createIcon(ZoomIn, 12)}
+              ${this.createIcon(ZoomIn, 11)}
             </button>
           </div>
         </div>
@@ -204,7 +204,7 @@ export class GraphControls {
     const searchIconContainer = this.container.querySelector(
       '.graph-controls__search-icon'
     ) as HTMLElement
-    searchIconContainer.appendChild(createElement(Search, { size: 12, 'stroke-width': 1.5 }))
+    searchIconContainer.appendChild(createElement(Search, { size: 11, 'stroke-width': 1.5 }))
 
     this.attachEvents()
   }
@@ -280,7 +280,7 @@ export class GraphControls {
         } else if (toggle === 'labels') {
           this.showLabels = !this.showLabels
           btn.classList.toggle('is-active', this.showLabels)
-          btn.innerHTML = `${this.createIcon(this.showLabels ? Eye : EyeOff, 12)}<span>Labels</span>`
+          btn.innerHTML = `${this.createIcon(this.showLabels ? Eye : EyeOff, 11)}<span>Labels</span>`
           this.options.onToggleLabels(this.showLabels)
         } else if (toggle === 'local') {
           this.filters.localGraphEnabled = !this.filters.localGraphEnabled

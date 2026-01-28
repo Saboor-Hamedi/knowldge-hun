@@ -1,4 +1,5 @@
 import './window-header.css'
+import { codicons } from '../../utils/codicons'
 
 export class WindowHeader {
   private container: HTMLElement
@@ -19,6 +20,9 @@ export class WindowHeader {
         <span class="window-header__title">${this.title}</span>
       </div>
       <div class="window-header__controls">
+        <span class="window-header__logo" style="margin-right: 12px; color: var(--text-soft); display: flex; align-items: center;">
+          ${codicons.fileCode}
+        </span>
         <button class="wh-btn wh-min" title="Minimize" aria-label="Minimize">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
         </button>
@@ -32,6 +36,7 @@ export class WindowHeader {
     `
     // Insert at the very top of the container
     this.container.insertAdjacentElement('afterbegin', header)
+
     // Asynchronously request the icon path from main and set it
     try {
       const apiAny = (window as any).api
@@ -44,7 +49,7 @@ export class WindowHeader {
           })
           .catch(() => {})
       }
-    } catch (e) {
+    } catch {
       // ignore
     }
   }

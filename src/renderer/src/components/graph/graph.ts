@@ -13,10 +13,12 @@ import {
   processGraphData,
   filterNodes,
   getNodeRadius,
+  getNodeColor,
   getGroupColor,
   findShortestPath,
   getPathLinks
 } from './graph-utils'
+import { codicons } from '../../utils/codicons'
 import './graph.css'
 import '../window-header/window-header.css'
 
@@ -64,19 +66,27 @@ export class GraphView {
   private render(): void {
     this.modal.innerHTML = `
       <div class="graph-modal__content">
-        <div class="window-header" style="flex-shrink: 0;">
+        <div class="window-header">
           <div class="window-header__brand">
             <span class="window-header__title">Vault Graph</span>
-            <span class="graph-modal__stats" id="graph-stats"></span>
           </div>
           <div class="window-header__controls">
-            <button class="wh-btn wh-close graph-modal__close" title="Close (Esc)" aria-label="Close">×</button>
+            <span class="window-header__logo" style="margin-right: 12px; color: var(--text-soft); display: flex; align-items: center;">
+              ${codicons.fileCode}
+            </span>
+            <button class="wh-btn wh-min" title="Minimize" aria-label="Minimize">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            </button>
+            <button class="wh-btn wh-close" id="graph-close" title="Close (Esc)">
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M8 8.707l3.646 3.647.708-.707L8.707 8l3.647-3.646-.707-.708L8 7.293 4.354 3.646l-.707.708L7.293 8l-3.646 3.646.707.708L8 8.707z"/>
+              </svg>
+            </button>
           </div>
         </div>
         <div class="graph-modal__toolbar" id="graph-toolbar"></div>
         <div class="graph-modal__canvas" id="graph-canvas"></div>
         <div class="graph-modal__minimap" id="graph-minimap"></div>
-        <div class="graph-modal__tooltip" id="graph-tooltip"></div>
         <div class="graph-modal__pathfind-hint" id="graph-pathfind-hint" style="display: none;">
           Click on a node to select the start point, then click another node to find the path.
           <button class="graph-modal__pathfind-cancel">Cancel</button>
@@ -85,7 +95,7 @@ export class GraphView {
       </div>
     `
 
-    this.modal.querySelector('.graph-modal__close')?.addEventListener('click', () => this.close())
+    this.modal.querySelector('#graph-close')?.addEventListener('click', () => this.close())
 
     // Initialize controls
     const toolbar = this.modal.querySelector('#graph-toolbar') as HTMLElement
@@ -124,7 +134,6 @@ export class GraphView {
 
     // Clear previous
     canvas.innerHTML = ''
-    this.hideTooltip()
 
     // Check for API availability
     if (!window.api.getGraph) {
@@ -168,7 +177,7 @@ export class GraphView {
       // Generate group colors
       const uniqueGroups = new Set(this.graphData.nodes.map((n) => n.group))
       uniqueGroups.forEach((group, index) => {
-        this.groupColors.set(group, getGroupColor(index, uniqueGroups.size))
+        this.groupColors.set(group, getGroupColor(index))
       })
 
       // Update controls with available filters
@@ -184,7 +193,6 @@ export class GraphView {
       this.initD3(canvas)
 
       // Update stats
-      this.updateStats()
     } catch (e) {
       console.error('Failed to load graph data', e)
       this.showError('Failed to load graph data.')
@@ -203,36 +211,21 @@ export class GraphView {
       .attr('height', height)
       .attr('class', 'graph-svg')
 
-    // Add defs for gradients/filters
+    // SVG definitions for markers
     const defs = this.svg.append('defs')
 
-    // Glow filter for active/hovered nodes
-    const glowFilter = defs
-      .append('filter')
-      .attr('id', 'glow')
-      .attr('x', '-50%')
-      .attr('y', '-50%')
-      .attr('width', '200%')
-      .attr('height', '200%')
-
-    glowFilter.append('feGaussianBlur').attr('stdDeviation', '3').attr('result', 'coloredBlur')
-
-    const feMerge = glowFilter.append('feMerge')
-    feMerge.append('feMergeNode').attr('in', 'coloredBlur')
-    feMerge.append('feMergeNode').attr('in', 'SourceGraphic')
-
-    // Arrow marker for directed links (smaller)
+    // Arrow marker for directed links
     defs
       .append('marker')
       .attr('id', 'arrow')
-      .attr('viewBox', '0 -3 6 6')
+      .attr('viewBox', '0 -2 5 4')
       .attr('refX', 18)
       .attr('refY', 0)
-      .attr('markerWidth', 4)
-      .attr('markerHeight', 4)
+      .attr('markerWidth', 3)
+      .attr('markerHeight', 3)
       .attr('orient', 'auto')
       .append('path')
-      .attr('d', 'M0,-3L6,0L0,3')
+      .attr('d', 'M0,-2L5,0L0,2')
       .attr('fill', 'var(--text-soft)')
       .attr('opacity', 0.6)
 
@@ -240,18 +233,18 @@ export class GraphView {
     defs
       .append('marker')
       .attr('id', 'arrow-highlighted')
-      .attr('viewBox', '0 -3 6 6')
+      .attr('viewBox', '0 -2 5 4')
       .attr('refX', 18)
       .attr('refY', 0)
-      .attr('markerWidth', 2.5) // Reduced from 4 -> arrow  lines look better
-      .attr('markerHeight', 2.5) // Reduced from 4
+      .attr('markerWidth', 3)
+      .attr('markerHeight', 3)
       .attr('orient', 'auto')
       .append('path')
-      .attr('d', 'M0,-3L6,0L0,3')
+      .attr('d', 'M0,-2L5,0L0,2')
       .attr('fill', 'var(--primary)')
 
     // Main group for zoom/pan
-    this.g = this.svg.append('g').attr('class', 'graph-container')
+    this.g = this.svg.append('g').attr('class', 'graph-main-group')
 
     // Zoom behavior
     this.zoom = d3
@@ -273,25 +266,25 @@ export class GraphView {
   private initSimulation(width: number, height: number): void {
     if (!this.filteredData) return
 
-    this.simulation = d3
-      .forceSimulation<GraphNode, GraphLink>(this.filteredData.nodes)
+    this.simulation = (d3.forceSimulation(this.filteredData.nodes) as any)
       .force(
         'link',
         d3
-          .forceLink<GraphNode, GraphLink>(this.filteredData.links)
-          .id((d) => d.id)
-          .distance((d) => (d.bidirectional ? 80 : 120))
+          .forceLink(this.filteredData.links)
+          .id((d: any) => d.id)
+          .distance(50)
+          .strength(0.15)
       )
-      .force('charge', d3.forceManyBody<GraphNode>().strength(this.forceStrength))
+      .force('charge', d3.forceManyBody().strength(this.forceStrength).distanceMax(500))
       .force('center', d3.forceCenter(width / 2, height / 2))
       .force(
         'collision',
-        d3.forceCollide<GraphNode>().radius((d) => getNodeRadius(d) + 10)
+        d3.forceCollide().radius((d: any) => getNodeRadius(d) + 5)
       )
       .force('x', d3.forceX(width / 2).strength(0.05))
       .force('y', d3.forceY(height / 2).strength(0.05))
 
-    this.simulation.on('tick', () => this.tick())
+    this.simulation?.on('tick', () => this.tick())
   }
 
   private renderGraph(): void {
@@ -339,15 +332,15 @@ export class GraphView {
     this.nodeSelection
       .append('circle')
       .attr('r', (d) => getNodeRadius(d))
-      .attr('fill', (d) => this.getNodeColor(d))
-      .attr('filter', (d) => (d.isActive ? 'url(#glow)' : null))
+      .attr('fill', (d) => this.computeNodeColor(d))
+      .style('opacity', (d) => (d.isOrphan ? 0.7 : 1))
 
     // Node labels
     this.nodeSelection
       .append('text')
       .attr('class', 'node__label')
       .attr('dx', (d) => getNodeRadius(d) + 4)
-      .attr('dy', 4)
+      .attr('dy', (d) => getNodeRadius(d) + 12)
       .text((d) => d.title)
       .style('display', this.showLabels ? 'block' : 'none')
 
@@ -363,7 +356,7 @@ export class GraphView {
     // Restart simulation
     if (this.simulation) {
       this.simulation.nodes(this.filteredData.nodes)
-      const linkForce = this.simulation.force('link') as d3.ForceLink<GraphNode, GraphLink>
+      const linkForce = this.simulation.force('link') as any
       linkForce?.links(this.filteredData.links)
       this.simulation.alpha(1).restart()
     }
@@ -381,25 +374,14 @@ export class GraphView {
     this.nodeSelection.attr('transform', (d) => `translate(${d.x || 0},${d.y || 0})`)
   }
 
-  private getNodeColor(node: GraphNode): string {
-    if (node.isActive) {
-      return '#fbbf24' // Gold for active
-    }
-    if (node.isOrphan) {
-      return '#6b7280' // Gray for orphans
-    }
-    if (node.isHub) {
-      return '#f97316' // Orange for hubs
-    }
-    return this.groupColors.get(node.group) || '#4fc1ff'
+  private computeNodeColor(node: GraphNode): string {
+    return getNodeColor(node, state.activeId, this.groupColors)
   }
 
   private handleNodeHover(node: GraphNode, isEntering: boolean): void {
     if (isEntering) {
-      this.showTooltip(node)
       this.highlightConnections(node)
     } else {
-      this.hideTooltip()
       this.clearHighlight()
     }
   }
@@ -567,48 +549,8 @@ export class GraphView {
     this.linkSelection
       ?.classed('link--highlighted', false)
       .attr('marker-end', (d) => ((d as GraphLink).bidirectional ? '' : 'url(#arrow)'))
-
     // Stop particle animations
     this.stopParticleAnimations()
-  }
-
-  private showTooltip(node: GraphNode): void {
-    const tooltip = this.modal.querySelector('#graph-tooltip') as HTMLElement
-    if (!tooltip) return
-
-    const tags =
-      node.tags.length > 0
-        ? `<div class="graph-tooltip__tags">${node.tags.map((t) => `<span class="graph-tooltip__tag">#${t}</span>`).join('')}</div>`
-        : ''
-
-    tooltip.innerHTML = `
-      <div class="graph-tooltip__title">${this.escapeHtml(node.title)}</div>
-      <div class="graph-tooltip__meta">
-        <span>${node.incomingCount} incoming</span>
-        <span>•</span>
-        <span>${node.outgoingCount} outgoing</span>
-        ${node.path ? `<span>•</span><span>${node.path}</span>` : ''}
-      </div>
-      ${tags}
-      ${node.isHub ? '<div class="graph-tooltip__badge graph-tooltip__badge--hub">Hub Note</div>' : ''}
-      ${node.isOrphan ? '<div class="graph-tooltip__badge graph-tooltip__badge--orphan">Orphan</div>' : ''}
-    `
-
-    tooltip.classList.add('is-visible')
-
-    // Position tooltip near mouse
-    const updatePosition = (e: MouseEvent): void => {
-      tooltip.style.left = `${e.clientX + 15}px`
-      tooltip.style.top = `${e.clientY + 15}px`
-    }
-
-    this.modal.addEventListener('mousemove', updatePosition)
-    tooltip.dataset.moveHandler = 'active'
-  }
-
-  private hideTooltip(): void {
-    const tooltip = this.modal.querySelector('#graph-tooltip') as HTMLElement
-    tooltip?.classList.remove('is-visible')
   }
 
   private handleNodeClick(node: GraphNode): void {
@@ -652,7 +594,7 @@ export class GraphView {
         </div>
         <div class="graph-legend__item">
           <span class="graph-legend__dot" style="background: #f97316;"></span>
-          <span>Hub Note</span>
+          <span>Hub Node</span>
         </div>
         <div class="graph-legend__item">
           <span class="graph-legend__dot" style="background: #6b7280;"></span>
@@ -1021,11 +963,5 @@ export class GraphView {
         </div>
       `
     }
-  }
-
-  private escapeHtml(text: string): string {
-    const div = document.createElement('div')
-    div.textContent = text
-    return div.innerHTML
   }
 }

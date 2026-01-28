@@ -13,7 +13,8 @@ import {
   Keyboard,
   Sparkles,
   Lock,
-  Key
+  Key,
+  CodeXml
 } from 'lucide'
 
 /**
@@ -39,8 +40,7 @@ function lucideIcon(IconComponent: any, size: number = 16, strokeWidth: number =
 export const codicons = {
   // File types
   file: '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M13.85 2.15l-3-2A.5.5 0 0 0 10.5 0h-6a.5.5 0 0 0-.5.5v15a.5.5 0 0 0 .5.5h9a.5.5 0 0 0 .5-.5v-13a.5.5 0 0 0-.15-.35zM11 1.5l2.5 2.5H11V1.5zM13 15H5V1h5v3.5a.5.5 0 0 0 .5.5H13v10z"/></svg>',
-  fileCode:
-    '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M10.5 14l4-4-4-4-.71.71L13.09 10l-3.3 3.29.71.71z"/><path d="M5.5 14l-4-4 4-4 .71.71L2.91 10l3.3 3.29-.71.71z"/></svg>',
+  fileCode: lucideIcon(CodeXml),
   json: '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M3.5 2.5c-.8 0-1.5.7-1.5 1.5v8c0 .8.7 1.5 1.5 1.5.3 0 .5-.2.5-.5s-.2-.5-.5-.5c-.3 0-.5-.2-.5-.5V4c0-.3.2-.5.5-.5.3 0 .5-.2.5-.5s-.2-.5-.5-.5z"/><path d="M12.5 2.5c.8 0 1.5.7 1.5 1.5v8c0 .8-.7 1.5-1.5 1.5-.3 0-.5-.2-.5-.5s.2-.5.5-.5c.3 0 .5-.2.5-.5V4c0-.3-.2-.5-.5-.5-.3 0-.5-.2-.5-.5s.2-.5.5-.5z"/><path d="M6 5.5h4v1H6v-1zm0 2.5h4v1H6V8zm0 2.5h4v1H6v-1z"/></svg>',
   markdown:
     '<svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M14.5 2h-13l-.5.5v11l.5.5h13l.5-.5v-11l-.5-.5zM14 13H2V3h12v10zM11 11l-1.5-1.5L8 11V5h3v6zM4 7h1v2h1V7h1v3H6V8H5v2H4V7z"/></svg>',

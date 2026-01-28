@@ -83,9 +83,10 @@ export function getFolderPath(notePath?: string): string {
 /**
  * Generate a consistent color for a folder/group
  */
-export function getGroupColor(group: number, totalGroups: number): string {
-  const hue = ((group * 360) / Math.max(totalGroups, 1)) % 360
-  return `hsl(${hue}, 70%, 55%)`
+export function getGroupColor(group: number): string {
+  // Use a refined HSL palette with better distribution
+  const hue = (group * 137.5) % 360 // Gold angle for better distribution
+  return `hsl(${hue}, 85%, 65%)`
 }
 
 /**
@@ -97,15 +98,15 @@ export function getNodeColor(
   groupColors: Map<number, string>
 ): string {
   if (node.id === activeId) {
-    return '#fbbf24' // Gold for active
+    return '#fbbf24' // Classic Amber for active
   }
   if (node.isOrphan) {
-    return '#6b7280' // Gray for orphans
+    return '#6b7280' // Standard Gray for orphans
   }
   if (node.isHub) {
-    return '#f97316' // Orange for hubs
+    return '#f97316' // Vivid Orange for hubs
   }
-  return groupColors.get(node.group) || '#4fc1ff'
+  return groupColors.get(node.group) || '#818cf8'
 }
 
 /**

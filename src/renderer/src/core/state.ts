@@ -16,5 +16,6 @@ export const state: AppState = {
   pinnedTabs: new Set<string>(),
   newlyCreatedIds: new Set<string>(),
   selectedIds: new Set<string>(),
+  recentProjects: [],
   cursorPositions: new Map<string, { lineNumber: number; column: number }>()
 }

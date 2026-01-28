@@ -239,12 +239,10 @@ class App {
       persistWorkspace: () => this.persistWorkspace()
     })
     this.vaultPicker = new VaultPicker('app')
-    this.welcomePage = new WelcomePage('editorContainer')
-    this.welcomePage.setCallbacks({
-      onOpenVault: () => this.chooseVault(),
-      onCreateVault: () => this.chooseVault(), // Re-use choose for now as it allows folder creation
-      onOpenRecent: (path) => this.handleVaultSelected(path)
-    })
+    this.welcomePage = new WelcomePage('welcomeHost')
+    this.welcomePage.setOpenFolderHandler(() => this.chooseVault())
+    this.welcomePage.setCreateNewHandler(() => this.chooseVault()) // Re-use choose for now
+    this.welcomePage.setProjectSelectHandler((path: string) => this.handleVaultSelected(path))
 
     this.hubConsole = new ConsoleComponent('consoleHost')
     this.vaultPicker.setCallbacks({
@@ -688,6 +686,7 @@ class App {
   private async initSettings(): Promise<void> {
     try {
       state.settings = await window.api.getSettings()
+      console.log('[App] Settings initialized:', state.settings)
 
       if (state.settings.expandedFolders) {
         state.expandedFolders = new Set(state.settings.expandedFolders)
@@ -703,6 +702,14 @@ class App {
 
       if (state.settings.theme) {
         themeManager.setTheme(state.settings.theme)
+      }
+
+      if (state.settings.recentVaults) {
+        state.recentProjects = state.settings.recentVaults.map((path) => {
+          const name = vaultService.getVaultName(path)
+          return { name, path }
+        })
+        console.log('[App] Recent projects populated:', state.recentProjects)
       }
 
       // Restore active view first
@@ -1541,6 +1548,11 @@ class App {
     state.vaultPath = path
     state.projectName = vaultService.getVaultName(path) || 'Vault'
 
+    // Update recent projects
+    const name = state.projectName
+    const filtered = (state.recentProjects || []).filter((p) => p.path !== path)
+    state.recentProjects = [{ name, path }, ...filtered].slice(0, 10)
+
     // Clear all tabs from the previous vault - they won't exist in the new vault
     state.openTabs = []
     state.activeId = ''
@@ -1551,9 +1563,11 @@ class App {
     this.statusBar.setStatus('Loading vault...')
     await this.refreshNotes()
 
-    if (state.notes.length > 0) {
-      // We don't auto-open a note anymore, just show the welcome page by default
-      // or let the user choose from the sidebar.
+    if (state.openTabs.length > 0) {
+      // Re-open active note or first tab
+      const activeTab = state.openTabs.find((t) => t.id === state.activeId) || state.openTabs[0]
+      await this.openNote(activeTab.id, activeTab.path)
+    } else if (state.notes.length > 0) {
       this.showWelcomePage()
       this.statusBar.setStatus(
         `Loaded ${state.notes.length} note${state.notes.length === 1 ? '' : 's'}`
@@ -1581,9 +1595,8 @@ class App {
   }
 
   private async backgroundIndexVault(): Promise<void> {
-    const notesToIndex = state.notes.filter((note) => {
+    const notesToIndex = state.notes.filter(() => {
       // Index all supported text/code files for AI context
-      const title = note.title.toLowerCase()
       // Skip very common or likely binary-adjacent files if needed, but for now allow all text extensions
       return true // Already filtered by TEXT_EXTENSIONS in main
     })
@@ -1667,6 +1680,7 @@ class App {
   }
 
   private async openSettings(): Promise<void> {
+    this.hideWelcomePage()
     state.activeId = 'settings'
 
     // Ensure "Settings" tab exists
@@ -1687,13 +1701,22 @@ class App {
   private updateViewVisibility(): void {
     const editorCont = document.getElementById('editorContainer')
     const settingsHost = document.getElementById('settingsHost')
+    const welcomeHost = document.getElementById('welcomeHost')
+
+    const isWelcomeVisible = this.welcomePage.isVisible()
 
     if (state.activeId === 'settings') {
       if (editorCont) editorCont.style.display = 'none'
       if (settingsHost) settingsHost.style.display = 'flex'
+      if (welcomeHost) welcomeHost.style.display = 'none'
+    } else if (isWelcomeVisible) {
+      if (editorCont) editorCont.style.display = 'none'
+      if (settingsHost) settingsHost.style.display = 'none'
+      if (welcomeHost) welcomeHost.style.display = 'block'
     } else {
       if (editorCont) editorCont.style.display = 'flex'
       if (settingsHost) settingsHost.style.display = 'none'
+      if (welcomeHost) welcomeHost.style.display = 'none'
       this.editor.layout() // Recalculate layout when coming back
     }
   }
@@ -2591,11 +2614,12 @@ class App {
     this.statusBar.setStatus('Welcome to Knowledge Hub')
     this.statusBar.setMeta('') // Clear meta
     tooltipManager.hide() // Clear any lingering tooltips
+    this.updateViewVisibility()
   }
 
   hideWelcomePage(): void {
     this.welcomePage.hide()
-    // No need to show editor explicitely here, as openNote/loadNote will handle showing editor host
+    this.updateViewVisibility()
   }
 }
 
