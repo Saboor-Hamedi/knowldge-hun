@@ -13,7 +13,7 @@
 
 export interface KeyBinding {
   key: string // e.g., 'Control+r', 'Cmd+s', 'Escape'
-  handler: (event: KeyboardEvent) => void | boolean
+  handler: (event: KeyboardEvent) => void | boolean | Promise<void>
   scope?: string // 'global' (default) or custom scope
   description?: string
 }

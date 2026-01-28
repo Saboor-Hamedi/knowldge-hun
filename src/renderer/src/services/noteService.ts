@@ -22,6 +22,7 @@ export class NoteService {
 
   async deleteFolder(path: string): Promise<DeleteResult> {
     try {
+      // Use deleteFolder explicitly for directories
       await window.api.deleteFolder(path)
       return { success: true }
     } catch (error: any) {
@@ -40,6 +41,7 @@ export class NoteService {
       if (item.type === 'note') {
         result = await this.deleteNote(item.id, item.path)
       } else {
+        // Must use deleteFolder for folders to avoid EISDIR (Directory not empty / Is a directory)
         result = await this.deleteFolder(item.id)
       }
 

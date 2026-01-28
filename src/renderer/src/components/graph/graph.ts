@@ -1029,7 +1029,7 @@ export class GraphView {
     this.minimapMinY = minY
 
     const padding = 25
-    this.minimapPadding = padding
+    // this.minimapPadding = padding  // Removed as property does not exist
     const scaleX = (minimapWidth - padding * 2) / (maxX - minX || 1)
     const scaleY = (minimapHeight - padding * 2) / (maxY - minY || 1)
     this.minimapScale = Math.min(scaleX, scaleY, 1)

@@ -57,7 +57,14 @@ export class ConsoleComponent {
     this.render()
     this.bodyEl = this.consoleEl.querySelector('.hub-console__body') as HTMLElement
     this.inputEl = this.consoleEl.querySelector('.hub-console__input') as HTMLInputElement
-    this.container.appendChild(this.consoleEl)
+
+    if (this.container) {
+      this.container.appendChild(this.consoleEl)
+    } else {
+      console.warn(`[Console] Container "${containerId}" not found. Appending to body.`)
+      document.body.appendChild(this.consoleEl)
+    }
+
     this.attachEvents()
     this.log('HUB Console initialized. Type "help" for a list of commands.', 'system')
 

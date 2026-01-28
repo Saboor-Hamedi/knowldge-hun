@@ -16,6 +16,11 @@ export class TabService {
   syncTabs(): void {
     state.openTabs = syncTabsWithNotes(state.openTabs, state.notes)
     state.openTabs = sortTabs(state.openTabs, state.pinnedTabs)
+
+    // Clear activeId if it's no longer in openTabs
+    if (state.activeId && !state.openTabs.some((t) => t.id === state.activeId)) {
+      state.activeId = ''
+    }
   }
 
   closeTab(id: string): void {
@@ -47,9 +52,6 @@ export class TabService {
   findNextTabToOpen(): NoteMeta | null {
     if (state.openTabs.length > 0) {
       return state.openTabs[0]
-    }
-    if (state.notes.length > 0) {
-      return state.notes[0]
     }
     return null
   }

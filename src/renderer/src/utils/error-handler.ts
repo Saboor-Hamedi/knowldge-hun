@@ -33,7 +33,7 @@ export class ErrorHandler {
     if (!error) return false
     const message = (error as { message?: string })?.message || String(error)
 
-    const patterns = ['already exists', 'File exists', 'folder exists', 'Note exists']
+    const patterns = ['already exists', 'File exists', 'folder exists', 'Note exists', 'EEXIST']
 
     return patterns.some((p) => message.toLowerCase().includes(p.toLowerCase()))
   }

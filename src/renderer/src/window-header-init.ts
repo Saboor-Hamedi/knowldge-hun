@@ -24,7 +24,7 @@ if (container) {
             <path d="M20 6L9 17l-5-5"/>
           </svg>
         </div>
-        <div class="ai-status-tooltip">Initializing AI...</div>
+        <div class="ai-status-tooltip">AI Brain: Initializing...</div>
       </div>
       <div class="window-header__separator">|</div>
       <button class="wh-btn wh-chat" id="window-header-chat" title="Open AI Chat" aria-label="Open AI Chat">

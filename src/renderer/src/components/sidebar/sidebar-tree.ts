@@ -34,7 +34,7 @@ export class SidebarTree {
   private onItemsDelete?: (items: { id: string; type: 'note' | 'folder'; path?: string }[]) => void
   private onFolderCreate?: (parentPath?: string) => void
   private editingId: string | null = null
-  private draggedItem: { type: 'note' | 'folder'; id: string; path?: string } | null = null
+  // private draggedItem: { type: 'note' | 'folder'; id: string; path?: string } | null = null
   private selectedFolderPath: string | null = null
   private selectedId: string | null = null
   private lastSelectedId: string | null = null
@@ -236,8 +236,8 @@ export class SidebarTree {
           if (tagMatch) {
             const tags = tagMatch.map((t) => t.slice(1).toLowerCase())
             filtered = notes.filter((n: NoteMeta) => {
-              if (!n.content) return false
-              return tags.every((tag) => n.content.toLowerCase().includes(`#${tag}`))
+              if (!(n as any).content) return false
+              return tags.every((tag) => (n as any).content.toLowerCase().includes(`#${tag}`))
             })
           }
           if (filtered.length === 0) {
@@ -262,15 +262,15 @@ export class SidebarTree {
             results.innerHTML = filtered
               .map((n: NoteMeta) => {
                 const title = highlight(n.title || n.id, qNoTags)
-                let content = n.content || ''
+                let content = (n as any).content || ''
                 if (qNoTags) content = highlight(content.slice(0, 120), qNoTags)
                 // Tag highlight
                 let tagHtml = ''
                 const tagMatch = query.match(/#(\w+)/g)
-                if (tagMatch && n.content) {
+                if (tagMatch && (n as any).content) {
                   tagHtml = tagMatch
                     .map((tag) =>
-                      n.content.toLowerCase().includes(tag.toLowerCase())
+                      (n as any).content.toLowerCase().includes(tag.toLowerCase())
                         ? `<mark style="background:var(--primary);color:var(--bg);padding:0 2px;border-radius:2px;">${tag}</mark>`
                         : ''
                     )

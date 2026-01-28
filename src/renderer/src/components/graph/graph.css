@@ -867,7 +867,6 @@
   z-index: 150;
   display: none;
   overflow: hidden;
- 
 }
 
 .graph-controls__export-dropdown.is-open {
@@ -1067,8 +1066,6 @@
   height: 14px;
   stroke-width: 2px;
 }
-
-
 
 /* Improve Toolbar Aesthetics */
 .graph-modal__toolbar {

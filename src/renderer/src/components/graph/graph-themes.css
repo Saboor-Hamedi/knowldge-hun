@@ -22,11 +22,14 @@
 .theme-3d-spatial .graph-svg,
 .theme-3d-spatial .graph-minimap__svg {
   background-color: #0b0c10;
-  background-image: 
+  background-image:
     radial-gradient(circle at 50% 50%, rgba(138, 180, 248, 0.05) 0%, transparent 80%),
     linear-gradient(rgba(138, 180, 248, 0.06) 1px, transparent 1px),
     linear-gradient(90deg, rgba(138, 180, 248, 0.06) 1px, transparent 1px);
-  background-size: 100% 100%, 25px 25px, 25px 25px;
+  background-size:
+    100% 100%,
+    25px 25px,
+    25px 25px;
 }
 
 .theme-3d-spatial .node circle {
@@ -82,11 +85,14 @@
 .theme-3d-ocean .graph-svg,
 .theme-3d-ocean .graph-minimap__svg {
   background-color: #010409;
-  background-image: 
+  background-image:
     radial-gradient(circle at 100% 0%, rgba(76, 201, 240, 0.03) 0%, transparent 50%),
     linear-gradient(rgba(76, 201, 240, 0.05) 1px, transparent 1px),
     linear-gradient(90deg, rgba(76, 201, 240, 0.05) 1px, transparent 1px);
-  background-size: 100% 100%, 30px 30px, 30px 30px;
+  background-size:
+    100% 100%,
+    30px 30px,
+    30px 30px;
 }
 
 .theme-3d-ocean .node circle {
@@ -121,14 +127,14 @@
   --text: #00ffff;
   --text-soft: #002244;
   --text-strong: #d1efff;
-  
+
   font-family: 'JetBrains Mono', 'Fira Code', monospace;
 }
 
 .theme-3d-grid .graph-svg,
 .theme-3d-grid .graph-minimap__svg {
   background-color: #000000;
-  background-image: 
+  background-image:
     linear-gradient(rgba(0, 128, 255, 0.05) 1px, transparent 1px),
     linear-gradient(90deg, rgba(0, 128, 255, 0.05) 1px, transparent 1px);
   background-size: 20px 20px;
@@ -151,8 +157,6 @@
   stroke-opacity: 0.1;
 }
 
-
-
 /* 
    THEME: MOONLIGHT (Lunar Technical)
    Concept: High-contrast technical, lunar surface inspired.
@@ -163,8 +167,8 @@
   --panel-strong: #010205;
   --border: rgba(125, 211, 252, 0.15);
   --border-strong: #7dd3fc;
-  --primary: #7dd3fc;          /* Sky Blue */
-  --accent-primary: #a855f7;   /* Purple */
+  --primary: #7dd3fc; /* Sky Blue */
+  --accent-primary: #a855f7; /* Purple */
   --text: #f1f5f9;
   --text-soft: #475569;
   --text-strong: #ffffff;
@@ -173,11 +177,14 @@
 .theme-3d-moon .graph-svg,
 .theme-3d-moon .graph-minimap__svg {
   background-color: #02040a;
-  background-image: 
+  background-image:
     radial-gradient(circle at 50% 50%, rgba(125, 211, 252, 0.03) 0%, transparent 80%),
     linear-gradient(rgba(125, 211, 252, 0.08) 1px, transparent 1px),
     linear-gradient(90deg, rgba(125, 211, 252, 0.08) 1px, transparent 1px);
-  background-size: 100% 100%, 15px 15px, 15px 15px;
+  background-size:
+    100% 100%,
+    15px 15px,
+    15px 15px;
 }
 
 .theme-3d-moon .node circle {
@@ -236,11 +243,14 @@
 .theme-3d-hologram .graph-svg,
 .theme-3d-hologram .graph-minimap__svg {
   background-color: #050b16;
-  background-image: 
+  background-image:
     radial-gradient(circle at center, rgba(0, 210, 255, 0.05) 0%, transparent 70%),
     linear-gradient(rgba(0, 210, 255, 0.1) 1px, transparent 1px),
     linear-gradient(90deg, rgba(0, 210, 255, 0.1) 1px, transparent 1px);
-  background-size: 100% 100%, 25px 25px, 25px 25px;
+  background-size:
+    100% 100%,
+    25px 25px,
+    25px 25px;
 }
 
 .theme-3d-hologram .node circle {
@@ -259,7 +269,6 @@
   stroke: #00d2ff;
   stroke-opacity: 0.1;
 }
-
 
 /* 
    THEME: NEXUS (System Core)
@@ -283,7 +292,7 @@
 .theme-3d-nexus .graph-minimap__svg {
   background-color: #030712;
   /* Small, tight grids */
-  background-image: 
+  background-image:
     linear-gradient(rgba(99, 102, 241, 0.08) 1px, transparent 1px),
     linear-gradient(90deg, rgba(99, 102, 241, 0.08) 1px, transparent 1px);
   background-size: 15px 15px;
@@ -329,4 +338,3 @@
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
-

@@ -442,7 +442,7 @@ export class VaultManager {
   public async deleteNote(id: string): Promise<void> {
     const fullPath = join(this.rootPath, id)
     if (existsSync(fullPath)) {
-      await rm(fullPath)
+      await rm(fullPath, { recursive: true, force: true })
     }
 
     this.notes.delete(id)
@@ -475,22 +475,45 @@ export class VaultManager {
     return newId
   }
 
-  public async moveNote(id: string, fromPath?: string, toPath?: string): Promise<NoteMeta> {
-    const oldDir = fromPath ? join(this.rootPath, fromPath.replace(/\\/g, '/')) : this.rootPath
-    const newDir = toPath ? join(this.rootPath, toPath.replace(/\\/g, '/')) : this.rootPath
+  public async moveNote(id: string, _fromPath?: string, toPath?: string): Promise<NoteMeta> {
+    const sourceNorm = id.replace(/\\/g, '/')
+    const targetDirNorm = (toPath || '').replace(/\\/g, '/')
+    const sourceFullPath = join(this.rootPath, sourceNorm)
+    const targetDirFullPath = join(this.rootPath, targetDirNorm)
 
-    const filename = `${basename(id)}.md`
-    const oldFullPath = join(oldDir, filename)
-    const newFullPath = join(newDir, filename)
+    const filename = basename(sourceNorm)
+    let newFullPath = join(targetDirFullPath, filename)
 
-    if (oldFullPath === newFullPath) {
+    if (sourceFullPath === newFullPath) {
       const existing = this.notes.get(id)
       if (!existing) throw new Error(`Note ${id} not found`)
       return existing
     }
 
-    await mkdir(newDir, { recursive: true })
-    await rename(oldFullPath, newFullPath)
+    if (!existsSync(sourceFullPath)) {
+      throw new Error(`Source file not found: ${id}`)
+    }
+
+    // Handle name collisions at destination
+    const ext = filename.includes('.') ? `.${filename.split('.').pop()}` : ''
+    const baseName = ext ? filename.slice(0, -ext.length) : filename
+    let counter = 1
+    while (existsSync(newFullPath)) {
+      const suffixedName = `${baseName} ${counter}${ext}`
+      newFullPath = join(targetDirFullPath, suffixedName)
+      counter++
+    }
+
+    await mkdir(targetDirFullPath, { recursive: true })
+
+    try {
+      // Try rename first (fastest)
+      await rename(sourceFullPath, newFullPath)
+    } catch {
+      // Fallback: cross-drive copy
+      await copyFile(sourceFullPath, newFullPath)
+      await rm(sourceFullPath)
+    }
 
     // Update cache
     this.notes.delete(id)
@@ -502,11 +525,6 @@ export class VaultManager {
 
     if (!newMeta) {
       throw new Error(`Failed to index moved note: ${newId}`)
-    }
-
-    // Ensure title is set (should be set by indexFile, but add safety check)
-    if (!newMeta.title) {
-      newMeta.title = basename(newId)
     }
 
     return newMeta
