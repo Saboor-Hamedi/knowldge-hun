@@ -1,7 +1,7 @@
 // --- App Update Integration ---
 import { setupUpdateApp } from '../renderer/src/components/updateApp/updateApp'
 import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
-import { join, basename, dirname } from 'path'
+import { join, basename, dirname, isAbsolute, resolve } from 'path'
 import { writeFile, mkdir, readFile } from 'fs/promises'
 import { existsSync, mkdirSync, cpSync, readdirSync } from 'fs'
 import { userInfo } from 'os'
@@ -235,9 +235,9 @@ app.whenReady().then(async () => {
     await ensureVault()
     return vault.moveNote(id, fromPath, toPath)
   })
-  ipcMain.handle('notes:rename', async (_event, id: string, newId: string, path?: string) => {
+  ipcMain.handle('notes:rename', async (_event, id: string, newId: string) => {
     await ensureVault()
-    const newName = await vault.renameNote(id, newId, path)
+    const newName = await vault.renameNote(id, newId)
     const note = await vault.getNote(newName)
     return note
   })
@@ -268,10 +268,32 @@ app.whenReady().then(async () => {
     return { path, name: basename(path) }
   })
 
-  ipcMain.handle('vault:reveal', async () => {
+  ipcMain.handle('vault:reveal', async (_event, targetPath?: string) => {
     let root = vault.getRootPath()
     if (!root) root = resolveVaultPath()
-    if (root && existsSync(root)) await shell.openPath(root)
+
+    console.log('[Reveal] Root:', root)
+    console.log('[Reveal] Target Path:', targetPath)
+
+    if (targetPath && root) {
+      // Ensure target path is absolute and normalized
+      const fullPath = isAbsolute(targetPath) ? targetPath : resolve(root, targetPath)
+
+      console.log('[Reveal] Resolved Full Path:', fullPath)
+
+      if (existsSync(fullPath)) {
+        console.log('[Reveal] Path exists, showing...')
+        shell.showItemInFolder(fullPath)
+        return
+      } else {
+        console.warn('[Reveal] Path does NOT exist:', fullPath)
+      }
+    }
+
+    if (root && existsSync(root)) {
+      console.log('[Reveal] Falling back to vault root')
+      await shell.openPath(root)
+    }
   })
 
   ipcMain.handle('vault:choose', async () => {

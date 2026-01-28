@@ -13,6 +13,8 @@ import { modalManager } from './components/modal/modal'
 import { ActivityBar } from './components/activitybar/activitybar'
 import { SidebarTree } from './components/sidebar/sidebar-tree'
 import { TabBar } from './components/tabbar/tabbar'
+import { Breadcrumbs } from './components/breadcrumbs/breadcrumbs'
+import { tooltipManager } from './components/tooltip/tooltip'
 import { EditorComponent } from './components/editor/editor'
 import { StatusBar } from './components/statusbar/statusbar'
 import { RightBar } from './components/rightbar/rightbar'
@@ -174,6 +176,7 @@ class App {
   private activityBar: ActivityBar
   private sidebar: SidebarTree
   private tabBar: TabBar
+  private breadcrumbs: Breadcrumbs
   private editor: EditorComponent
   private statusBar: StatusBar
   private settingsView: SettingsView
@@ -194,6 +197,7 @@ class App {
     this.activityBar = new ActivityBar('activityBar')
     this.sidebar = new SidebarTree('sidebar')
     this.tabBar = new TabBar('tabBar')
+    this.breadcrumbs = new Breadcrumbs('breadcrumbs')
     this.editor = new EditorComponent('editorContainer')
     this.statusBar = new StatusBar('statusBar')
     this.attachSyncEvents()
@@ -233,6 +237,18 @@ class App {
       onVaultLocated: (originalPath, newPath) => this.handleVaultLocated(originalPath, newPath),
       onChooseNew: () => this.chooseVault()
     })
+
+    this.breadcrumbs.setNoteOpenHandler((id) => this.openNote(id))
+
+    // Handle focus folder from breadcrumbs
+    window.addEventListener('knowledge-hub:focus-folder', (e: any) => {
+      const path = e.detail?.path
+      if (path) {
+        this.revealPathInSidebar(path, true)
+        this.sidebar.scrollToActive(false)
+      }
+    })
+
     this.wireComponents()
     this.registerGlobalShortcuts()
     this.setupMobileEvents()
@@ -1285,6 +1301,9 @@ class App {
    * 4. Restore Workspace (Tabs, Last Active Note)
    */
   async init(): Promise<void> {
+    // Warm up tooltip manager
+    console.log('[App] Tooltip system status:', !!tooltipManager)
+
     this.statusBar.setStatus('Initializing...')
     // Pulls from: main/index.ts -> settings.json
     await this.initSettings()
@@ -1781,6 +1800,7 @@ class App {
       }
     }
 
+    this.breadcrumbs.render()
     this.tabBar.render()
     void this.persistWorkspace()
   }
@@ -1794,7 +1814,7 @@ class App {
 
     parts.forEach((part, index) => {
       if (!part) return
-      currentPath = currentPath ? `${currentPath}-${part}` : part
+      currentPath = currentPath ? `${currentPath}/${part}` : part
 
       if (index < parts.length - 1 || isFolder) {
         const folderId = currentPath

@@ -18,6 +18,7 @@ import {
   Folder,
   Files
 } from 'lucide'
+import { setTooltip } from '../tooltip/tooltip'
 import './sidebar-tree.css'
 
 export class SidebarTree {
@@ -411,13 +412,13 @@ export class SidebarTree {
           <span class="sidebar__title-text">EXPLORER</span>
         </div>
         <div class="sidebar__actions">
-          <button class="sidebar__action" title="New Folder" data-action="new-folder">
+          <button class="sidebar__action" data-tooltip="New Folder" data-action="new-folder">
             ${newFolderIcon}
           </button>
-          <button class="sidebar__action" title="New Note (Ctrl+N)" data-action="new">
+          <button class="sidebar__action" data-tooltip="New Note (Ctrl+N)" data-action="new">
             ${newNoteIcon}
           </button>
-          <button class="sidebar__action" title="Reveal in Explorer" data-action="reveal">
+          <button class="sidebar__action" data-tooltip="Reveal in Explorer" data-action="reveal">
             ${revealIcon}
           </button>
         </div>
@@ -521,6 +522,8 @@ export class SidebarTree {
     el.dataset.type = 'folder'
     if (folder.path) el.dataset.path = folder.path
     el.dataset.depth = String(depth)
+    const fullFolderPath = state.vaultPath ? `${state.vaultPath}/${folder.id}` : folder.id
+    setTooltip(el, fullFolderPath.replace(/\\/g, '/'))
     el.draggable = true
     el.tabIndex = 0
 
@@ -568,6 +571,9 @@ export class SidebarTree {
     el.dataset.type = 'note'
     if (note.path) el.dataset.path = note.path
     el.dataset.depth = String(depth)
+    const relativePath = note.path || note.id
+    const fullNotePath = state.vaultPath ? `${state.vaultPath}/${relativePath}` : relativePath
+    setTooltip(el, fullNotePath.replace(/\\/g, '/'))
     el.draggable = true
     el.tabIndex = 0
 
@@ -623,7 +629,7 @@ export class SidebarTree {
       } else if (action === 'new-folder') {
         this.onFolderCreate?.(this.getDefaultParentPath())
       } else if (action === 'reveal') {
-        void window.api.revealVault()
+        void window.api.revealVault(state.activeId || undefined)
       } else if (action === 'graph') {
         this.onGraphClick?.()
       }
@@ -1393,7 +1399,7 @@ export class SidebarTree {
         {
           label: 'Reveal in Explorer',
           icon: icons.reveal,
-          onClick: () => window.api.revealVault?.()
+          onClick: () => window.api.revealVault?.(id)
         },
         { separator: true },
         {
@@ -1447,7 +1453,7 @@ export class SidebarTree {
         {
           label: 'Reveal in Explorer',
           icon: icons.reveal,
-          onClick: () => window.api.revealVault?.()
+          onClick: () => window.api.revealVault?.(id)
         },
         { separator: true },
         {

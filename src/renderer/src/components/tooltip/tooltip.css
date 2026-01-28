@@ -1,0 +1,22 @@
+.custom-tooltip {
+  position: fixed;
+  z-index: 10000;
+  padding: 4px 8px;
+  background: var(--panel-strong);
+  color: var(--text-strong);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 11px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.1s;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  white-space: nowrap;
+  max-width: 400px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.custom-tooltip.is-visible {
+  opacity: 1;
+}

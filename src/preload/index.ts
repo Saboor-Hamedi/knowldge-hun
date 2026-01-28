@@ -83,7 +83,7 @@ const api = {
   getVault: (): Promise<VaultInfo> => ipcRenderer.invoke('vault:get'),
   chooseVault: (): Promise<VaultInfo> => ipcRenderer.invoke('vault:choose'),
   setVault: (dir: string): Promise<VaultInfo> => ipcRenderer.invoke('vault:set', dir),
-  revealVault: (): Promise<void> => ipcRenderer.invoke('vault:reveal'),
+  revealVault: (path?: string): Promise<void> => ipcRenderer.invoke('vault:reveal', path),
   validateVaultPath: (path: string): Promise<{ exists: boolean; lastOpened?: number }> =>
     ipcRenderer.invoke('vault:validate', path),
   locateMovedVault: (originalPath: string): Promise<{ foundPath: string | null }> =>

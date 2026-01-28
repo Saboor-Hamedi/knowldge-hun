@@ -3,6 +3,7 @@ import { codicons } from '../../utils/codicons'
 import getFileIcon from '../../utils/fileIconMappers'
 import { createElement, Eye, Pin } from 'lucide'
 import './tabbar.css'
+import { setTooltip } from '../tooltip/tooltip'
 
 export class TabBar {
   private container: HTMLElement
@@ -67,7 +68,15 @@ export class TabBar {
       button.dataset.id = tab.id
       button.dataset.ext = ext
 
-      if (isPinned) button.title = `${tab.title} (Pinned)`
+      // Add tooltip with full path
+      if (tab.id !== 'settings' && !tab.id.startsWith('preview-')) {
+        const fullPath = state.vaultPath ? `${state.vaultPath}/${tab.id}` : tab.id
+        setTooltip(button, fullPath.replace(/\\/g, '/'))
+      } else if (tab.id === 'settings') {
+        setTooltip(button, 'Application Settings')
+      } else if (tab.id.startsWith('preview-')) {
+        setTooltip(button, `Preview: ${tab.title}`)
+      }
 
       const icon = document.createElement('span')
       icon.className = 'tab__icon'
