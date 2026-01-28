@@ -7,6 +7,7 @@ export class WelcomePage {
   private onProjectSelect?: (path: string) => void
   private onOpenFolder?: () => void
   private onCreateNew?: () => void
+  private onOpenDocs?: () => void
 
   constructor(containerId: string) {
     this.container = document.getElementById(containerId) as HTMLElement
@@ -23,6 +24,10 @@ export class WelcomePage {
 
   setCreateNewHandler(handler: () => void): void {
     this.onCreateNew = handler
+  }
+
+  setOpenDocsHandler(handler: () => void): void {
+    this.onOpenDocs = handler
   }
 
   /**
@@ -88,8 +93,7 @@ export class WelcomePage {
 
               <div class="welcome-footer">
                 <div class="footer-links">
-                  <a href="https://github.com/Saboor-Hamedi/knowledge-hub/wiki" class="footer-link" id="welcome-docs">Documentation</a>
-                  <a href="https://github.com/Saboor-Hamedi/knowledge-hub#shortcuts" class="footer-link" id="welcome-shortcuts">Shortcuts</a>
+                  <button class="footer-link" id="welcome-docs">Documentation <span class="footer-link__shortcut" style="font-size: 8px">Ctrl+Shift+\\</span></button>
                 </div>
               </div>
             </div>
@@ -133,14 +137,12 @@ export class WelcomePage {
     // Footer links
     this.container.querySelector('#welcome-docs')?.addEventListener('click', (e) => {
       e.preventDefault()
-      const url = (e.currentTarget as HTMLAnchorElement).href
-      window.electron?.ipcRenderer?.send('open-external-url', url)
+      this.onOpenDocs?.()
     })
 
     this.container.querySelector('#welcome-shortcuts')?.addEventListener('click', (e) => {
       e.preventDefault()
-      const url = (e.currentTarget as HTMLAnchorElement).href
-      window.electron?.ipcRenderer?.send('open-external-url', url)
+      this.onOpenDocs?.()
     })
   }
 }

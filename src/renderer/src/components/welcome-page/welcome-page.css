@@ -169,6 +169,10 @@
   color: var(--text-tertiary);
   text-decoration: none;
   transition: color 0.2s;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
 }
 
 .footer-link:hover {

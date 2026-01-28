@@ -243,6 +243,7 @@ class App {
     this.welcomePage.setOpenFolderHandler(() => this.chooseVault())
     this.welcomePage.setCreateNewHandler(() => this.chooseVault()) // Re-use choose for now
     this.welcomePage.setProjectSelectHandler((path: string) => this.handleVaultSelected(path))
+    this.welcomePage.setOpenDocsHandler(() => this.documentationModal.open())
 
     this.hubConsole = new ConsoleComponent('consoleHost')
     this.vaultPicker.setCallbacks({
