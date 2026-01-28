@@ -47,8 +47,10 @@ export class WelcomePage {
             <div class="welcome-logo">
               ${codicons.fileCode}
             </div>
-            <h1>Knowledge Hub</h1>
-            <p>Your beautiful, connected second brain.</p>
+            <div class="welcome-header__info">
+              <h1>Knowledge Hub</h1>
+              <p>Your beautiful, connected second brain.</p>
+            </div>
           </div>
 
           <div class="welcome-sections">

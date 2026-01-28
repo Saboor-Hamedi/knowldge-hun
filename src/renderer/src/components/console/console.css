@@ -21,7 +21,7 @@
   pointer-events: auto;
 }
 
-.hub-console.is-maximized {
+.hub-console.is-open.is-maximized {
   height: calc(100vh - 32px - var(--statusbar-height)) !important;
   bottom: var(--statusbar-height);
 }

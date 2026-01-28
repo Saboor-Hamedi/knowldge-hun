@@ -1,6 +1,16 @@
 import './window-header.css'
 import { codicons } from '../../utils/codicons'
 
+interface ElectronAPI {
+  window: {
+    minimize: () => void
+    maximize: () => void
+    unmaximize: () => void
+    close: () => void
+    isMaximized: () => Promise<boolean>
+  }
+}
+
 export class WindowHeader {
   private container: HTMLElement
   private title: string
@@ -17,12 +27,12 @@ export class WindowHeader {
     header.className = 'window-header'
     header.innerHTML = `
       <div class="window-header__brand">
+        <span class="window-header__logo" style="margin-right: 8px; color: var(--text-soft); display: flex; align-items: center;">
+          ${codicons.fileCode}
+        </span>
         <span class="window-header__title">${this.title}</span>
       </div>
       <div class="window-header__controls">
-        <span class="window-header__logo" style="margin-right: 12px; color: var(--text-soft); display: flex; align-items: center;">
-          ${codicons.fileCode}
-        </span>
         <button class="wh-btn wh-min" title="Minimize" aria-label="Minimize">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
         </button>
@@ -36,22 +46,6 @@ export class WindowHeader {
     `
     // Insert at the very top of the container
     this.container.insertAdjacentElement('afterbegin', header)
-
-    // Asynchronously request the icon path from main and set it
-    try {
-      const apiAny = (window as any).api
-      if (apiAny && typeof apiAny.getAppIcon === 'function') {
-        void apiAny
-          .getAppIcon()
-          .then((url: string) => {
-            const img = header.querySelector('#app-icon') as HTMLImageElement | null
-            if (img && url) img.src = url
-          })
-          .catch(() => {})
-      }
-    } catch {
-      // ignore
-    }
   }
 
   private attachEvents(): void {
@@ -61,28 +55,34 @@ export class WindowHeader {
     const closeBtn = header.querySelector('.wh-close') as HTMLButtonElement
 
     minBtn.addEventListener('click', () => {
-      void window.api.window.minimize()
+      const api = (window as unknown as { api: ElectronAPI }).api
+      if (api?.window?.minimize) api.window.minimize()
     })
 
     const updateMaxButton = async (): Promise<void> => {
-      const isMax = await window.api.window.isMaximized()
-      maxBtn.textContent = isMax ? '❐' : '□'
-      maxBtn.title = isMax ? 'Restore' : 'Maximize'
-      maxBtn.setAttribute('aria-label', isMax ? 'Restore' : 'Maximize')
+      const api = (window as unknown as { api: ElectronAPI }).api
+      if (api?.window?.isMaximized) {
+        const isMax = await api.window.isMaximized()
+        maxBtn.title = isMax ? 'Restore' : 'Maximize'
+      }
     }
 
     maxBtn.addEventListener('click', async () => {
-      const isMax = await window.api.window.isMaximized()
-      if (isMax) {
-        await window.api.window.unmaximize()
-      } else {
-        await window.api.window.maximize()
+      const api = (window as unknown as { api: ElectronAPI }).api
+      if (api?.window) {
+        const isMax = await api.window.isMaximized()
+        if (isMax) {
+          await api.window.unmaximize()
+        } else {
+          await api.window.maximize()
+        }
+        await updateMaxButton()
       }
-      await updateMaxButton()
     })
 
     closeBtn.addEventListener('click', () => {
-      void window.api.window.close()
+      const api = (window as unknown as { api: ElectronAPI }).api
+      if (api?.window?.close) api.window.close()
     })
 
     // Initialize state

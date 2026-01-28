@@ -264,8 +264,8 @@ body {
   padding: 0 10px;
 }
 
-.editor-container, 
-.welcome-host, 
+.editor-container,
+.welcome-host,
 .settings-host {
   flex: 1;
   min-height: 0;

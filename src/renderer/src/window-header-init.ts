@@ -8,8 +8,11 @@ if (container) {
   header.style.left = '0'
   header.style.right = '0'
   header.innerHTML = `
-    <div class="window-header__brand">
-      <span class="window-header__title">Knowledge Hub</span>
+    <div class="window-header__brand" style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; overflow: hidden;">
+      <span class="window-header__logo" style="display: flex; align-items: center; flex-shrink: 0; color: var(--text-soft); opacity: 0.8;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-code-xml"><path d="m18 16 4-4-4-4"/><path d="m6 8-4 4 4 4"/><path d="m14.5 4-5 16"/></svg>
+      </span>
+      <span class="window-header__title" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 600;">Knowledge Hub</span>
     </div>
     <div class="window-header__actions">
       <div class="window-header__ai-status" id="ai-status-indicator" style="display: none;">

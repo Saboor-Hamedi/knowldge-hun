@@ -123,13 +123,14 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
+  margin-top: 28px; /* More space between content text and labels */
   margin-bottom: 12px;
 }
 
 .modal__input-wrapper {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px; /* Tighter gap */
 }
 
 .modal__label {
@@ -171,6 +172,15 @@
   justify-content: flex-end;
   flex-shrink: 0;
   background: rgba(0, 0, 0, 0.1);
+}
+
+.modal__footer .btn {
+  padding: 6px 12px;
+  font-size: 12px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .modal__footer .btn:focus {

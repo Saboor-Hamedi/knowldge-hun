@@ -1182,6 +1182,8 @@ class App {
         this.hubConsole.log('close         - Close the console')
         this.hubConsole.log('debug-rag     - Show RAG engine internals')
         this.hubConsole.log('index-vault   - Force re-index of all notes')
+        this.hubConsole.log('lock          - Lock the application immediately')
+        this.hubConsole.log('unlock        - Deactivate password protection')
       }
     })
 
@@ -1342,6 +1344,38 @@ class App {
       description: 'Close console',
       action: () => {
         this.hubConsole.setVisible(false)
+      }
+    })
+
+    this.hubConsole.registerCommand({
+      name: 'lock',
+      description: 'Lock the application',
+      action: async () => {
+        this.hubConsole.log('Locking vault...', 'system')
+        setTimeout(() => {
+          this.hubConsole.setVisible(false)
+          void securityService.promptAndLock()
+        }, 500)
+      }
+    })
+
+    this.hubConsole.registerCommand({
+      name: 'unlock',
+      description: 'Deactivate password protection',
+      action: async () => {
+        if (!securityService.hasPassword()) {
+          this.hubConsole.log('No password is currently set.', 'system')
+          return
+        }
+
+        this.hubConsole.log('Opening security settings to remove password...', 'system')
+        const confirm = await securityService.verifyAction()
+        if (confirm) {
+          await securityService.removePassword()
+          this.hubConsole.log('Password protection deactivated successfully.', 'system')
+        } else {
+          this.hubConsole.log('Action cancelled or verification failed.', 'error')
+        }
       }
     })
   }

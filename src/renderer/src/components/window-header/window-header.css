@@ -74,6 +74,7 @@
 
 .wh-close {
   color: var(--text);
+  -webkit-app-region: no-drag;
 }
 
 .wh-close:hover {
@@ -89,6 +90,19 @@
 }
 
 /* Header app icon */
+.window-header__logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-soft);
+  opacity: 0.8;
+}
+
+.window-header__logo svg {
+  width: 16px;
+  height: 16px;
+}
+
 .window-header__icon {
   display: inline-block;
   width: 20px;

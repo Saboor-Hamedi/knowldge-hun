@@ -49,13 +49,13 @@
   flex-shrink: 0;
   background: var(--panel-strong);
   width: 100%;
+  z-index: 20;
 }
 
 /* Close button - hidden in favor of header closer */
 .graph-modal__close-btn {
   display: none !important;
 }
-
 
 /* Stats in header */
 .graph-modal__stats {
@@ -76,7 +76,7 @@
   min-height: 48px;
   display: flex;
   align-items: center;
-  z-index: 10;
+  z-index: 20;
 }
 
 .graph-controls {
@@ -87,7 +87,6 @@
   flex-wrap: wrap;
   width: 100%;
 }
-
 
 .graph-controls__section {
   display: flex;

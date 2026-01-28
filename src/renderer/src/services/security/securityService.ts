@@ -366,8 +366,20 @@ export class SecurityService {
         content: 'You must set a master password before you can lock the application.',
         size: 'sm',
         inputs: [
-          { name: 'p1', label: 'New Password', type: 'password', required: true },
-          { name: 'p2', label: 'Confirm Password', type: 'password', required: true }
+          {
+            name: 'p1',
+            label: 'New Password',
+            type: 'password',
+            placeholder: '••••••••',
+            required: true
+          },
+          {
+            name: 'p2',
+            label: 'Confirm Password',
+            type: 'password',
+            placeholder: '••••••••',
+            required: true
+          }
         ],
         buttons: [
           { label: 'Cancel', variant: 'ghost', onClick: (m) => m.close() },

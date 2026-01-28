@@ -25,7 +25,9 @@
   cursor: pointer;
   padding: 2px 4px;
   border-radius: 4px;
-  transition: background 0.1s, color 0.1s;
+  transition:
+    background 0.1s,
+    color 0.1s;
 }
 
 .breadcrumb-item:hover {

@@ -108,48 +108,56 @@ export class ErrorHandler {
       title: 'Application Error',
       customContent: content,
       size: 'md',
+      closeOnEscape: false,
+      closeOnBackdrop: false,
       buttons: [
         {
-          label: 'Refresh Workspace',
+          label: 'Refresh',
           variant: 'primary',
           onClick: () => window.location.reload()
         },
         {
-          label: 'Copy Logs',
-          variant: 'ghost',
-          onClick: () => {
-            const text = `Error: ${message}\n\nStack:\n${stack}`
-            navigator.clipboard.writeText(text).catch(() => {
-              const textarea = document.createElement('textarea')
-              textarea.value = text
-              textarea.style.position = 'fixed'
-              textarea.style.left = '-9999px'
-              textarea.style.top = '0'
-              document.body.appendChild(textarea)
-              textarea.focus()
-              textarea.select()
-              try {
-                document.execCommand('copy')
-                notificationManager.show('Error logs copied to clipboard', 'info')
-              } catch (err) {
-                console.error('Fallback copy failed', err)
-              }
-              document.body.removeChild(textarea)
-            })
-          }
-        },
-        {
-          label: 'Hard Reset',
+          label: 'Restore',
           variant: 'danger',
           onClick: async () => {
             if (
               confirm(
-                'Are you sure? This will wipe all local settings and workspace state. Your notes will remain safe on disk.'
+                'Restore application to default settings? Your notes will be preserved, but UI preferences will be reset.'
               )
             ) {
               await window.api.resetSettings()
               window.location.reload()
             }
+          }
+        },
+        {
+          label: 'Copy',
+          variant: 'ghost',
+          onClick: () => {
+            const text = `Error: ${message}\n\nStack:\n${stack}`
+            navigator.clipboard
+              .writeText(text)
+              .then(() => {
+                notificationManager.show('Error logs copied to clipboard', 'info')
+              })
+              .catch(() => {
+                // Fallback for older browsers or restricted contexts
+                const textarea = document.createElement('textarea')
+                textarea.value = text
+                textarea.style.position = 'fixed'
+                textarea.style.left = '-9999px'
+                textarea.style.top = '0'
+                document.body.appendChild(textarea)
+                textarea.focus()
+                textarea.select()
+                try {
+                  document.execCommand('copy')
+                  notificationManager.show('Error logs copied to clipboard', 'info')
+                } catch (err) {
+                  console.error('Fallback copy failed', err)
+                }
+                document.body.removeChild(textarea)
+              })
           }
         }
       ]

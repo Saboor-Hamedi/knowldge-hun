@@ -70,20 +70,13 @@ export class GraphView {
           <div class="window-header__brand">
             <span class="window-header__title">Vault Graph</span>
           </div>
-          <div class="window-header__controls">
-            <span class="window-header__logo" style="margin-right: 12px; color: var(--text-soft); display: flex; align-items: center;">
-              ${codicons.fileCode}
-            </span>
-            <button class="wh-btn wh-min" title="Minimize" aria-label="Minimize">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-            </button>
-            <button class="wh-btn wh-close" id="graph-close" title="Close (Esc)">
-              <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
-                <path d="M8 8.707l3.646 3.647.708-.707L8.707 8l3.647-3.646-.707-.708L8 7.293 4.354 3.646l-.707.708L7.293 8l-3.646 3.646.707.708L8 8.707z"/>
-              </svg>
-            </button>
-          </div>
+          <button class="wh-btn wh-close" id="graph-close" title="Close (Esc)" style="-webkit-app-region: no-drag;">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M8 8.707l3.646 3.647.708-.707L8.707 8l3.647-3.646-.707-.708L8 7.293 4.354 3.646l-.707.708L7.293 8l-3.646 3.646.707.708L8 8.707z"/>
+            </svg>
+          </button>
         </div>
+
         <div class="graph-modal__toolbar" id="graph-toolbar"></div>
         <div class="graph-modal__canvas" id="graph-canvas"></div>
         <div class="graph-modal__minimap" id="graph-minimap"></div>

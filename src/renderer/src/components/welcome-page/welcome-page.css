@@ -23,42 +23,61 @@
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .welcome-header {
   margin-bottom: 48px;
   text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  position: relative;
+  width: 100%;
+  margin-top: -20px; /* Move slightly up */
 }
 
 .welcome-logo {
-  position: absolute;
-  top: 40px;
-  left: 40px;
-  width: 48px;
-  height: 48px;
+  width: 40px; /* Smaller container */
+  height: 40px;
   color: var(--text-strong);
   display: flex;
   align-items: center;
   justify-content: center;
+  background: rgba(127, 167, 255, 0.05);
+  border: 1px solid rgba(127, 167, 255, 0.1);
+  border-radius: 12px;
+  flex-shrink: 0;
 }
 
 .welcome-logo svg {
-  width: 32px;
-  height: 32px;
+  width: 20px; /* Smaller icon */
+  height: 20px;
   display: block;
 }
 
 .welcome-header h1 {
   font-size: 32px;
   font-weight: 600;
-  margin: 0 0 8px 0;
+  margin: 0;
   letter-spacing: -0.02em;
 }
 
+.welcome-header__info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 .welcome-header p {
-  font-size: 16px;
+  font-size: 14px;
   color: var(--text-secondary);
   margin: 0;
 }
