@@ -1,0 +1,307 @@
+/* ============================================
+   3D Themes for Graph View
+   ============================================ */
+
+/* 
+   THEME: SPATIAL (Futuristic & Minimal)
+   Concept: Apple Vision Pro inspired 'Glass' aesthetic.
+   Colors: Translucent glass panels, soft frost, and clean white nodes.
+*/
+.theme-3d-spatial {
+  --bg: #808080; /* Fallback */
+  
+  /* Glassmorphism background - DARK version */
+  --panel: rgba(30, 30, 40, 0.65);
+  --panel-strong: rgba(20, 20, 30, 0.85);
+  --border: rgba(255, 255, 255, 0.15);
+  --border-strong: rgba(255, 255, 255, 0.3);
+  --primary: #0a84ff;          /* iOS Blue Dark Mode */
+  --accent-primary: #64d2ff;   /* iOS Cyan Dark Mode */
+  --text: #ffffff;             
+  --text-soft: #8e8e93;
+  --text-strong: #ffffff;
+  
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+/* Target BOTH the main graph and the minimap for backgrounds */
+.theme-3d-spatial .graph-svg,
+.theme-3d-spatial .graph-minimap__svg {
+  /* Complex mesh gradient background */
+  background: 
+    radial-gradient(at 0% 0%, hsla(253,16%,7%,1) 0, transparent 50%), 
+    radial-gradient(at 50% 0%, hsla(225,39%,30%,1) 0, transparent 50%), 
+    radial-gradient(at 100% 0%, hsla(339,49%,30%,1) 0, transparent 50%);
+  background-color: #1e1e1e; /* Deep fallback */
+}
+
+/* Nodes: Floating glass orbs - Dark Tinted Glass */
+/* Nodes: Floating glass orbs - Dark Tinted Glass */
+.theme-3d-spatial .node circle {
+  fill: rgba(70, 70, 80, 0.6);   
+  stroke: rgba(10, 132, 255, 0.5); 
+  stroke-width: 1px;
+  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.5)); 
+}
+
+.theme-3d-spatial .node--active circle {
+  stroke: #ffcc00; /* Gold for active */
+  stroke-width: 2px;
+  fill: rgba(255, 204, 0, 0.1);
+  filter: drop-shadow(0 0 8px rgba(255, 204, 0, 0.6));
+}
+
+.theme-3d-spatial .node--hub circle {
+  stroke: #5ac8fa; /* Cyan for hubs */
+  stroke-width: 1.5px;
+  stroke-dasharray: 4 2;
+}
+
+.theme-3d-spatial .node--orphan circle {
+  opacity: 0.4;
+  stroke-dasharray: 2 2;
+}
+
+.theme-3d-spatial .node:hover circle {
+  fill: rgba(10, 132, 255, 0.2);
+  stroke: #0a84ff;
+  stroke-width: 2px;
+  transform: scale(1.15);
+  filter: drop-shadow(0 0 15px rgba(10, 132, 255, 0.6));
+}
+
+.theme-3d-spatial .link {
+  stroke: rgba(255, 255, 255, 0.2);
+  stroke-width: 0.8px;
+}
+
+.theme-3d-spatial .link--highlighted {
+  stroke: #007aff;
+  stroke-width: 1.5px !important;
+  stroke-opacity: 0.8;
+}
+
+.theme-3d-spatial .node__label {
+  fill: rgba(255, 255, 255, 0.9);
+  font-weight: 500;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+}
+
+
+/* 
+   THEME: OCEAN (Deep Sea Immersion)
+   Concept: Bioluminescent creatures in the abyss.
+   Colors: Deep navy -> Black gradient, glowing cyan/teal nodes.
+*/
+.theme-3d-ocean {
+  --bg: #001e2b;
+  --panel: rgba(0, 30, 43, 0.9);
+  --panel-strong: #001219;
+  --border: rgba(0, 95, 115, 0.3);
+  --border-strong: #0a9396;
+  --primary: #4cc9f0;          /* Electric Cyan */
+  --accent-primary: #4895ef;   /* Deep Blue */
+  --text: #e0fbfc;             /* Pale Cyan White */
+  --text-soft: #94d2bd;
+  --text-strong: #ffffff;
+}
+
+.theme-3d-ocean .graph-svg,
+.theme-3d-ocean .graph-minimap__svg {
+  background: radial-gradient(circle at center, #00293d 0%, #00080a 100%);
+}
+
+/* Nodes: Bioluminescent jelly-like */
+/* Nodes: Bioluminescent jelly-like */
+.theme-3d-ocean .node circle {
+  fill: rgba(76, 201, 240, 0.15); 
+  stroke: #4cc9f0;
+  stroke-width: 1.5px;
+  filter: drop-shadow(0 0 4px rgba(76, 201, 240, 0.4)); 
+}
+
+.theme-3d-ocean .node--active circle {
+  stroke: #f72585; /* Neon Pink/Coral for active */
+  fill: rgba(247, 37, 133, 0.2);
+  filter: drop-shadow(0 0 12px rgba(247, 37, 133, 0.8));
+}
+
+.theme-3d-ocean .node--hub circle {
+  stroke: #4895ef;
+  stroke-dasharray: 3 4; /* Dashed bioluminescence */
+  stroke-width: 2px;
+}
+
+.theme-3d-ocean .node--orphan circle {
+  opacity: 0.3;
+  filter: none;
+}
+
+.theme-3d-ocean .node:hover circle {
+  fill: rgba(76, 201, 240, 0.8);
+  stroke: #e0fbfc;
+  box-shadow: 0 0 20px rgba(76, 201, 240, 0.8);
+  filter: drop-shadow(0 0 8px rgba(76, 201, 240, 1));
+}
+
+.theme-3d-ocean .link {
+  stroke: #4895ef;
+  stroke-opacity: 0.15;
+}
+
+.theme-3d-ocean .link--bidirectional {
+  stroke: #4cc9f0;
+  stroke-opacity: 0.3;
+}
+
+.theme-3d-ocean .link-particle {
+  fill: #e0fbfc;
+  filter: drop-shadow(0 0 2px #fff);
+}
+
+
+/* 
+   THEME: SPACE GRID (Holodeck/Sci-Fi)
+   Concept: Technical, precise, infinite grid.
+   Colors: Deep void black/blue, thin crisp grid lines.
+*/
+.theme-3d-grid {
+  --bg: #050510;
+  --panel: rgba(10, 10, 20, 0.9);
+  --panel-strong: #050510;
+  --border: rgba(100, 100, 255, 0.2);
+  --border-strong: #4444ff;
+  --primary: #5865F2;          /* Blurple */
+  --accent-primary: #ffffff;
+  --text: #ffffff;
+  --text-soft: #8899ac;
+  --text-strong: #ffffff;
+  
+  font-family: 'JetBrains Mono', 'Fira Code', monospace; /* Tech font */
+}
+
+/* Prevent toolbar layout shift by resetting font to system default for UI */
+.theme-3d-grid .window-header,
+.theme-3d-grid .graph-controls {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+.theme-3d-grid .graph-svg,
+.theme-3d-grid .graph-minimap__svg {
+  background-color: #050510;
+  /* Thin, performant grid lines */
+  background-image: 
+    linear-gradient(rgba(88, 101, 242, 0.1) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(88, 101, 242, 0.1) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+.theme-3d-grid .node circle {
+  fill: rgba(20, 20, 40, 0.8); /* Visible dark blue fill */
+  stroke: #7289da;            /* Lighter Blurple */
+  stroke-width: 1.5px;
+  filter: drop-shadow(0 0 5px rgba(114, 137, 218, 0.6)); /* Constant Glow */
+}
+
+.theme-3d-grid .node:hover circle {
+  fill: #5865F2;
+  stroke: #fff;
+  box-shadow: 0 0 15px #5865F2;
+}
+
+.theme-3d-grid .node--active circle {
+  stroke: #fff;
+  fill: rgba(255, 255, 255, 0.2);
+  filter: drop-shadow(0 0 8px #fff);
+  stroke-width: 2px;
+}
+
+.theme-3d-grid .link {
+  stroke: #5865F2;
+  stroke-opacity: 0.2;
+}
+
+.theme-3d-grid .link--bidirectional {
+  stroke: #fff;
+  stroke-opacity: 0.4;
+}
+
+.theme-3d-grid .node__label {
+  font-size: 10px;
+  letter-spacing: 0.5px;
+}
+
+
+/* 
+   THEME: MOONLIGHT MIRTH
+   Concept: Silvery night, mystical, calm.
+   Colors: Midnight blue, silver, soft pearl white.
+*/
+.theme-3d-moon {
+  --bg: #0f1729;
+  --panel: rgba(15, 23, 41, 0.9);
+  --panel-strong: #0a0f1c;
+  --border: rgba(148, 163, 184, 0.2);
+  --border-strong: #94a3b8;
+  --primary: #6366f1;          /* Indigo 500 - Visible buttons */
+  --accent-primary: #818cf8;   /* Indigo 400 */
+  --text: #f8fafc;
+  --text-soft: #cbd5e1;
+  --text-strong: #ffffff;
+}
+
+.theme-3d-moon .graph-svg,
+.theme-3d-moon .graph-minimap__svg {
+  background: radial-gradient(circle at 50% 10%, #1e293b 0%, #020617 100%);
+  background-color: #020617;
+}
+
+.theme-3d-moon .node circle {
+  fill: rgba(30, 41, 59, 0.8); /* Dark Slate fill, not white */
+  stroke: #94a3b8;             /* Silver rim */
+  stroke-width: 1px;
+  /* Subtle glow */
+  filter: drop-shadow(0 0 4px rgba(148, 163, 184, 0.3));
+}
+
+.theme-3d-moon .node:hover circle {
+  fill: #fff;
+  stroke: #fff;
+  box-shadow: 0 0 20px #fff;
+  filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.8));
+}
+
+/* Active: The "Full Moon" */
+.theme-3d-moon .node--active circle {
+  stroke: #fef3c7; /* Pale Yellow */
+  fill: #fffbeb;
+  stroke-width: 2px;
+  filter: drop-shadow(0 0 15px rgba(254, 243, 199, 0.7));
+}
+
+.theme-3d-moon .node--hub circle {
+  stroke: #cbd5e1;
+  stroke-width: 1.5px;
+  stroke-dasharray: 0; /* Solid rings for moons */
+}
+
+.theme-3d-moon .node--orphan circle {
+  opacity: 0.3;
+  fill: #475569;
+  filter: none;
+}
+
+.theme-3d-moon .link {
+  stroke: #94a3b8;
+  stroke-opacity: 0.15;
+}
+
+.theme-3d-moon .link--bidirectional {
+  stroke: #e2e8f0;
+  stroke-opacity: 0.4;
+}
+
+.theme-3d-moon .link-particle {
+  fill: #fff;
+  filter: drop-shadow(0 0 3px #fff);
+}

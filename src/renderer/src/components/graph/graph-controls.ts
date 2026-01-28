@@ -17,7 +17,8 @@ import {
   EyeOff,
   Download,
   Focus,
-  Route
+  Route,
+  Palette
 } from 'lucide'
 
 export interface GraphControlsOptions {
@@ -32,6 +33,7 @@ export interface GraphControlsOptions {
   onToggleLocalGraph: (enabled: boolean) => void
   onExport: (format: 'svg' | 'png') => void
   onStartPathFind: () => void
+  onThemeChange: (theme: string) => void
 }
 
 export interface GraphFilters {
@@ -150,6 +152,10 @@ export class GraphControls {
               </div>
             </div>
           </div>
+
+          <button class="graph-controls__tool-btn" data-tool="theme-cycle" title="Cycle Theme (3D)">
+            ${this.createIcon(Palette, 11)}
+          </button>
         </div>
         
         <div class="graph-controls__divider"></div>
@@ -248,6 +254,14 @@ export class GraphControls {
           this.toggleDropdown('export')
         } else if (tool === 'pathfind') {
           this.options.onStartPathFind()
+        } else if (tool === 'theme-cycle') {
+          const themes = ['default', 'spatial', 'ocean', 'grid', 'moon']
+          const currentTheme = document.body.getAttribute('data-graph-theme') || 'default'
+          const nextIndex = (themes.indexOf(currentTheme) + 1) % themes.length
+          const nextTheme = themes[nextIndex]
+
+          document.body.setAttribute('data-graph-theme', nextTheme) // Store state
+          this.options.onThemeChange(nextTheme)
         }
       })
     })

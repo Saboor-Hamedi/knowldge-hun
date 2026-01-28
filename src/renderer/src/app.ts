@@ -1084,7 +1084,7 @@ class App {
     })
 
     keyboardManager.register({
-      key: 'Control+Shift+,',
+      key: 'Control+Shift+<',
       scope: 'global',
       description: 'Select theme',
       handler: () => {

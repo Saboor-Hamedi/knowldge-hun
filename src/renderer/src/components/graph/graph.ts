@@ -20,6 +20,7 @@ import {
 } from './graph-utils'
 import { codicons } from '../../utils/codicons'
 import './graph.css'
+import './graph-themes.css'
 import '../window-header/window-header.css'
 
 export class GraphView {
@@ -104,7 +105,8 @@ export class GraphView {
         onDepthChange: (depth) => this.handleDepthChange(depth),
         onToggleLocalGraph: (enabled) => this.handleToggleLocalGraph(enabled),
         onExport: (format) => this.handleExport(format),
-        onStartPathFind: () => this.handleStartPathFind()
+        onStartPathFind: () => this.handleStartPathFind(),
+        onThemeChange: (theme) => this.handleThemeChange(theme)
       })
     }
   }
@@ -804,6 +806,26 @@ export class GraphView {
     }
   }
 
+  private handleThemeChange(theme: string): void {
+    const content = this.modal.querySelector('.graph-modal__content')
+    if (content) {
+      // Remove existing theme classes
+      content.classList.forEach((cls) => {
+        if (cls.startsWith('theme-3d-')) {
+          content.classList.remove(cls)
+        }
+      })
+
+      // Add new theme class
+      if (theme !== 'default') {
+        content.classList.add(`theme-3d-${theme}`)
+      }
+
+      // Update minimap colors
+      this.updateMinimap()
+    }
+  }
+
   private highlightPathNode(nodeId: string, type: 'start' | 'end' | 'path'): void {
     this.nodeSelection?.each((d, i, nodes) => {
       if (d.id === nodeId) {
@@ -934,6 +956,11 @@ export class GraphView {
     if (!event.active) this.simulation?.alphaTarget(0.3).restart()
     d.fx = d.x
     d.fy = d.y
+    d.isActive = true
+    d3.select(event.sourceEvent.target).classed('grabbing', true)
+
+    // Performance: Stop particle animations during interaction
+    this.stopParticleAnimations()
   }
 
   private dragged(event: d3.D3DragEvent<SVGGElement, GraphNode, GraphNode>, d: GraphNode): void {
