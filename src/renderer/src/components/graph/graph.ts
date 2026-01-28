@@ -144,7 +144,9 @@ export class GraphView {
 
       // Load note contents for tag extraction
       const noteContents = new Map<string, string>()
-      const notesToLoad = allNotes.filter((n) => n.type !== 'folder').slice(0, 200) // Limit for performance
+      const notesToLoad = allNotes.filter((n) => n.type !== 'folder').slice(0, 2000) // Increased limit
+
+      console.log(`[Graph] Loading content for ${notesToLoad.length} files...`)
 
       await Promise.all(
         notesToLoad.map(async (note) => {
@@ -241,8 +243,8 @@ export class GraphView {
       .attr('viewBox', '0 -3 6 6')
       .attr('refX', 18)
       .attr('refY', 0)
-      .attr('markerWidth', 5)
-      .attr('markerHeight', 5)
+      .attr('markerWidth', 2.5) // Reduced from 4 -> arrow  lines look better
+      .attr('markerHeight', 2.5) // Reduced from 4
       .attr('orient', 'auto')
       .append('path')
       .attr('d', 'M0,-3L6,0L0,3')
