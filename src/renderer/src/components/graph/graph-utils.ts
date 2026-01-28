@@ -98,15 +98,16 @@ export function getNodeColor(
   groupColors: Map<number, string>
 ): string {
   if (node.id === activeId) {
-    return '#fbbf24' // Classic Amber for active
+    return '#00ffcc' // Vibrant Cyan for active (Nexus feel)
   }
   if (node.isOrphan) {
-    return '#6b7280' // Standard Gray for orphans
+    return '#4a4a4a' // Darker Gray for orphans
   }
   if (node.isHub) {
-    return '#f97316' // Vivid Orange for hubs
+    return '#be00ff' // Electric Purple for hubs
   }
-  return groupColors.get(node.group) || '#818cf8'
+  // Standard connected node
+  return groupColors.get(node.group) || '#4cc9f0'
 }
 
 /**

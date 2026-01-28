@@ -7,9 +7,6 @@ import {
   createElement,
   Search,
   X,
-  ZoomIn,
-  ZoomOut,
-  Maximize2,
   Tag,
   Folder,
   Circle,
@@ -34,6 +31,7 @@ export interface GraphControlsOptions {
   onExport: (format: 'svg' | 'png') => void
   onStartPathFind: () => void
   onThemeChange: (theme: string) => void
+  onDropdownOpen?: () => void
 }
 
 export interface GraphFilters {
@@ -153,9 +151,22 @@ export class GraphControls {
             </div>
           </div>
 
-          <button class="graph-controls__tool-btn" data-tool="theme-cycle" title="Cycle Theme (3D)">
-            ${this.createIcon(Palette, 11)}
-          </button>
+          <div class="graph-controls__filter-group">
+            <button class="graph-controls__tool-btn" data-tool="themes" title="Select Theme">
+              ${this.createIcon(Palette, 11)}
+            </button>
+            <div class="graph-controls__dropdown graph-controls__themes-dropdown">
+              <div class="graph-controls__dropdown-list">
+                <button class="graph-controls__dropdown-item" data-theme="default">Default</button>
+                <button class="graph-controls__dropdown-item" data-theme="spatial">Spatial</button>
+                <button class="graph-controls__dropdown-item" data-theme="ocean">Ocean</button>
+                <button class="graph-controls__dropdown-item" data-theme="grid">Grid</button>
+                <button class="graph-controls__dropdown-item" data-theme="moon">Moonlight</button>
+                <button class="graph-controls__dropdown-item" data-theme="hologram">Hologram</button>
+                <button class="graph-controls__dropdown-item" data-theme="nexus">Nexus</button>
+              </div>
+            </div>
+          </div>
         </div>
         
         <div class="graph-controls__divider"></div>
@@ -166,25 +177,13 @@ export class GraphControls {
             ${this.createIcon(this.showLabels ? Eye : EyeOff, 11)}
             <span>Labels</span>
           </button>
-          
-          <div class="graph-controls__zoom">
-            <button class="graph-controls__zoom-btn" data-zoom="out" title="Zoom out">
-              ${this.createIcon(ZoomOut, 11)}
-            </button>
-            <button class="graph-controls__zoom-btn" data-zoom="reset" title="Reset zoom">
-              ${this.createIcon(Maximize2, 11)}
-            </button>
-            <button class="graph-controls__zoom-btn" data-zoom="in" title="Zoom in">
-              ${this.createIcon(ZoomIn, 11)}
-            </button>
-          </div>
         </div>
         
         <div class="graph-controls__divider"></div>
         
         <div class="graph-controls__section graph-controls__force">
           <label class="graph-controls__slider-label">
-            <span>Force</span>
+            <span>Graph Force</span>
             <input type="range" class="graph-controls__slider" 
                    min="50" max="500" value="300" data-slider="force" />
           </label>
@@ -216,6 +215,7 @@ export class GraphControls {
   }
 
   private createIcon(IconComponent: any, size: number): string {
+    // eslint-disable-line @typescript-eslint/no-explicit-any
     const svg = createElement(IconComponent, { size, 'stroke-width': 1.5 })
     return svg?.outerHTML || ''
   }
@@ -252,10 +252,16 @@ export class GraphControls {
         const tool = (btn as HTMLElement).dataset.tool
         if (tool === 'export') {
           this.toggleDropdown('export')
+        } else if (tool === 'themes') {
+          this.toggleDropdown('themes')
+        } else if (tool === 'tags') {
+          this.toggleDropdown('tags')
+        } else if (tool === 'folders') {
+          this.toggleDropdown('folders')
         } else if (tool === 'pathfind') {
           this.options.onStartPathFind()
         } else if (tool === 'theme-cycle') {
-          const themes = ['default', 'spatial', 'ocean', 'grid', 'moon']
+          const themes = ['default', 'spatial', 'ocean', 'grid', 'moon', 'hologram', 'nexus']
           const currentTheme = document.body.getAttribute('data-graph-theme') || 'default'
           const nextIndex = (themes.indexOf(currentTheme) + 1) % themes.length
           const nextTheme = themes[nextIndex]
@@ -263,6 +269,15 @@ export class GraphControls {
           document.body.setAttribute('data-graph-theme', nextTheme) // Store state
           this.options.onThemeChange(nextTheme)
         }
+      })
+    })
+
+    // Theme select buttons
+    this.container.querySelectorAll('[data-theme]').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation()
+        const theme = (btn as HTMLElement).dataset.theme as string
+        this.options.onThemeChange(theme)
       })
     })
 
@@ -324,47 +339,132 @@ export class GraphControls {
 
     // Force slider
     const forceSlider = this.container.querySelector('[data-slider="force"]') as HTMLInputElement
+    const debouncedForce = this.debounce(
+      (val: number) => this.options.onForceStrengthChange(val),
+      50
+    )
     forceSlider?.addEventListener('input', () => {
-      this.options.onForceStrengthChange(parseInt(forceSlider.value, 10))
+      debouncedForce(parseInt(forceSlider.value, 10))
     })
 
     // Depth slider
+    const debouncedDepth = this.debounce((val: number) => this.options.onDepthChange(val), 50)
     this.depthSlider?.addEventListener('input', () => {
       const depth = parseInt(this.depthSlider.value, 10)
       this.filters.localGraphDepth = depth
       const depthValue = this.container.querySelector('.graph-controls__depth-value')
       if (depthValue) depthValue.textContent = String(depth)
-      this.options.onDepthChange(depth)
+      debouncedDepth(depth)
     })
 
     // Close dropdowns on outside click
     document.addEventListener('click', () => {
       this.closeAllDropdowns()
     })
+
+    // ESC key to close
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        this.closeAllDropdowns()
+      }
+    })
   }
 
-  private toggleDropdown(type: 'tags' | 'folders' | 'export'): void {
+  private toggleDropdown(type: 'tags' | 'folders' | 'export' | 'themes'): void {
     let dropdown: HTMLElement | null = null
-    if (type === 'tags') dropdown = this.tagsDropdown
-    else if (type === 'folders') dropdown = this.foldersDropdown
-    else if (type === 'export')
-      dropdown = this.container.querySelector('.graph-controls__export-dropdown')
+    let btn: HTMLElement | null = null
 
-    if (!dropdown) return
+    if (type === 'tags') {
+      dropdown = this.tagsDropdown
+      btn = this.container.querySelector('[data-filter="tags"]')
+    } else if (type === 'folders') {
+      dropdown = this.foldersDropdown
+      btn = this.container.querySelector('[data-filter="folders"]')
+    } else if (type === 'export') {
+      dropdown = this.container.querySelector('.graph-controls__export-dropdown')
+      btn = this.container.querySelector('[data-tool="export"]')
+    } else if (type === 'themes') {
+      dropdown = this.container.querySelector('.graph-controls__themes-dropdown')
+      btn = this.container.querySelector('[data-tool="themes"]')
+    }
+
+    if (!dropdown || !btn) return
 
     const isOpen = dropdown.classList.contains('is-open')
 
+    // Always close all first to ensure mutual exclusion
     this.closeAllDropdowns()
 
-    if (!isOpen) {
-      dropdown.classList.add('is-open')
+    // 2. If it was already open, then it's now closed (by step 1)
+    if (isOpen) return
+
+    // 3. Open and position correctly
+    this.options.onDropdownOpen?.()
+    dropdown.classList.add('is-open')
+    btn.classList.add('is-active')
+
+    const rect = btn.getBoundingClientRect()
+    dropdown.style.top = `${Math.round(rect.bottom + 6)}px`
+
+    // Smart Directional Alignment:
+    // Tools (on the right) should be right-aligned to their buttons.
+    // Filters (on the left) should be left-aligned to their buttons.
+    const isTool = type === 'export' || type === 'themes'
+    const dropdownWidth = dropdown.offsetWidth || (type === 'themes' ? 140 : 160)
+
+    let left = 0
+    if (isTool) {
+      // Right-align tool dropdowns
+      left = rect.right - dropdownWidth
+    } else {
+      // Left-align filter dropdowns
+      left = rect.left
+    }
+
+    // Viewport safety checks
+    if (left + dropdownWidth > window.innerWidth - 10) {
+      left = window.innerWidth - dropdownWidth - 10
+    }
+    if (left < 10) left = 10
+
+    dropdown.style.left = `${Math.round(left)}px`
+  }
+
+  public setPathFindMode(active: boolean): void {
+    const btn = this.container.querySelector('[data-tool="pathfind"]')
+    if (btn) {
+      btn.classList.toggle('is-active', active)
+    }
+  }
+
+  private debounce(fn: (...args: any[]) => void, delay: number): (...args: any[]) => void {
+    let timeoutId: number | null = null
+    return (...args: any[]) => {
+      if (timeoutId) window.clearTimeout(timeoutId)
+      timeoutId = window.setTimeout(() => fn(...args), delay)
     }
   }
 
   private closeAllDropdowns(): void {
-    this.tagsDropdown?.classList.remove('is-open')
-    this.foldersDropdown?.classList.remove('is-open')
-    this.container.querySelector('.graph-controls__export-dropdown')?.classList.remove('is-open')
+    const dropdowns = this.container.querySelectorAll('.graph-controls__dropdown')
+    dropdowns.forEach((d) => {
+      d.classList.remove('is-open')
+      // Reset position to avoid flash next time
+      const de = d as HTMLElement
+      de.style.top = '0'
+      de.style.left = '0'
+    })
+
+    // Remove highlight from buttons that aren't persistent toggles
+    this.container
+      .querySelectorAll('.graph-controls__filter-btn, .graph-controls__tool-btn')
+      .forEach((btn) => {
+        const b = btn as HTMLElement
+        // Only remove if it's not the pathfind button (handled by state)
+        if (b.dataset.tool !== 'pathfind') {
+          b.classList.remove('is-active')
+        }
+      })
   }
 
   private updateTagsDropdown(): void {

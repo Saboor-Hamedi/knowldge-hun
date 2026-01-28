@@ -5,7 +5,7 @@ import { notificationManager } from '../components/notification/notification'
  * Robust Error handling utility for Knowledge Hub
  */
 export class ErrorHandler {
-  static init() {
+  static init(): void {
     window.addEventListener('error', (event) => {
       // Suppress Monaco Editor's "Canceled" errors and expected user errors
       if (this.isMonacoCanceledError(event.error) || this.isExpectedUserError(event.error)) {
@@ -30,8 +30,9 @@ export class ErrorHandler {
    * trigger the scary "Application Error" modal.
    */
   private static isExpectedUserError(error: any): boolean {
+    // eslint-disable-line @typescript-eslint/no-explicit-any
     if (!error) return false
-    const message = error?.message || String(error)
+    const message = (error as { message?: string })?.message || String(error)
 
     const patterns = ['already exists', 'File exists', 'folder exists', 'Note exists']
 
@@ -42,13 +43,15 @@ export class ErrorHandler {
    * Check if error is Monaco's harmless "Canceled" error
    */
   private static isMonacoCanceledError(error: any): boolean {
+    // eslint-disable-line @typescript-eslint/no-explicit-any
     if (!error) return false
 
     // Check for Monaco's "Canceled" error message
-    const message = error?.message || String(error)
+    const err = error as { message?: string; stack?: string }
+    const message = err.message || String(error)
     if (message === 'Canceled') {
       // Additional check: ensure it's from Monaco (check stack trace)
-      const stack = error?.stack || ''
+      const stack = err.stack || ''
       if (
         stack.includes('monaco') ||
         stack.includes('UniqueContainer') ||
@@ -61,7 +64,7 @@ export class ErrorHandler {
     return false
   }
 
-  static showErrorModal(error: Error | any) {
+  static showErrorModal(error: Error | any): void {
     console.error('[Global Error]', error)
 
     const stack = error?.stack || 'No stack trace available'
@@ -112,26 +115,12 @@ export class ErrorHandler {
       closeOnBackdrop: false,
       buttons: [
         {
-          label: 'Refresh',
+          label: 'Restart',
           variant: 'primary',
           onClick: () => window.location.reload()
         },
         {
-          label: 'Restore',
-          variant: 'danger',
-          onClick: async () => {
-            if (
-              confirm(
-                'Restore application to default settings? Your notes will be preserved, but UI preferences will be reset.'
-              )
-            ) {
-              await window.api.resetSettings()
-              window.location.reload()
-            }
-          }
-        },
-        {
-          label: 'Copy',
+          label: 'Copy logs',
           variant: 'ghost',
           onClick: () => {
             const text = `Error: ${message}\n\nStack:\n${stack}`

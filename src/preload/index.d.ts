@@ -45,6 +45,7 @@ type AppSettings = {
   gistId?: string
   rightPanelWidth?: number
   rightPanelVisible?: boolean
+  graphTheme?: string
 }
 
 type WindowApi = {

@@ -8,11 +8,12 @@
   left: 0;
   width: 100vw;
   height: 100vh;
-  background: rgba(0, 0, 0, 0.5); /* Solid transparent overlay for performance */
-  z-index: 9999;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 12000;
   display: flex;
-  align-items: center;
+  align-items: flex-start; /* Move up */
   justify-content: center;
+  padding-top: 40px; /* Offset from top */
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
@@ -26,22 +27,22 @@
 }
 
 .graph-modal__content {
-  width: 96vw;
-  height: 94vh;
+  width: 94vw;
+  height: calc(100vh - 120px); /* Slightly shorter to feel higher */
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+  border-radius: 12px;
+  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.6);
   display: flex;
   flex-direction: column;
   overflow: hidden;
   position: relative;
-  transform: scale(0.98);
-  transition: transform 0.2s ease-out;
+  transform: translateY(20px) scale(0.98);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .graph-modal.is-visible .graph-modal__content {
-  transform: scale(1);
+  transform: translateY(0) scale(1);
 }
 
 .graph-modal__content .window-header {
@@ -84,21 +85,30 @@
   align-items: center;
   gap: 12px;
   padding: 0 16px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap; /* Prevent wrapping */
   width: 100%;
+  height: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.graph-controls::-webkit-scrollbar {
+  display: none; /* Hide scrollbar for a cleaner look */
 }
 
 .graph-controls__section {
   display: flex;
   align-items: center;
   gap: 6px;
+  flex-shrink: 0;
 }
 
 .graph-controls__divider {
   width: 1px;
-  height: 20px;
+  height: 14px;
   background: var(--border);
-  margin: 0 4px;
+  margin: 0 2px;
+  flex-shrink: 0;
 }
 
 /* Search */
@@ -215,7 +225,9 @@
 }
 
 .graph-controls__filter-btn:hover,
-.graph-controls__toggle-btn:hover {
+.graph-controls__toggle-btn:hover,
+.graph-controls__tool-btn:hover,
+.graph-controls__zoom-btn:hover {
   background: var(--panel-strong);
   border-color: var(--border-strong, var(--primary));
   color: var(--text);
@@ -251,19 +263,25 @@
 
 /* Dropdowns */
 .graph-controls__dropdown {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  min-width: 200px;
-  max-height: 300px;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
-  z-index: 100;
+  position: fixed;
+  z-index: 1000;
   display: none;
   flex-direction: column;
   overflow: hidden;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+  min-width: 200px;
+  max-height: 400px;
+  /* Remove any default positioning to rely on JS */
+  top: 0;
+  left: 0;
+}
+
+.graph-controls__dropdown-item:hover {
+  background: var(--panel-strong) !important;
+  color: var(--text-strong) !important;
 }
 
 .graph-controls__dropdown.is-open {
@@ -362,21 +380,42 @@
 .graph-controls__slider-label {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   color: var(--text-soft);
-  font-size: 11px;
+  font-size: 10px;
   height: 24px;
+  white-space: nowrap;
 }
 
 .graph-controls__slider {
+  width: 80px;
   height: 3px;
   border-radius: 2px;
   accent-color: var(--primary);
 }
 
+.graph-controls__depth-slider {
+  width: 50px;
+}
+
+.graph-controls__depth-value {
+  min-width: 12px;
+  font-size: 10px;
+  color: var(--primary);
+  font-weight: 600;
+}
+
 /* ============================================
-   Canvas
+   Graph View Area & Canvas
    ============================================ */
+
+.graph-modal__view-area {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
 
 .graph-modal__canvas {
   flex: 1;
@@ -565,16 +604,29 @@
    Legend
    ============================================ */
 
-.graph-modal__legend {
+.graph-modal__side-panels {
   position: absolute;
   bottom: 24px;
   left: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  z-index: 100;
+  pointer-events: none;
+}
+
+.graph-modal__side-panels > div {
+  pointer-events: auto;
+}
+
+.graph-modal__legend {
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 12px;
+  border-radius: 5px;
+  padding: 10px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
   width: 160px;
+  backdrop-filter: blur(8px);
 }
 
 .graph-legend__title {
@@ -583,13 +635,13 @@
   color: var(--text-soft);
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .graph-legend__items {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
 }
 
 .graph-legend__item {
@@ -695,19 +747,70 @@
    ============================================ */
 
 .graph-modal__minimap {
-  position: absolute;
-  bottom: 16px;
-  right: 16px;
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 20px; /* Nice rounded corners, not full circle */
   overflow: hidden;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(12px);
+  width: 160px;
+  height: 140px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Stronger background for better contrast */
+  background: rgba(15, 17, 23, 0.85);
+}
+
+.graph-modal__minimap::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(circle at center, transparent 40%, rgba(138, 180, 248, 0.05) 100%);
+  border-radius: 50%;
+  pointer-events: none;
 }
 
 .graph-minimap__svg {
   display: block;
-  background: var(--bg);
+  background: transparent;
+  border-radius: 50%;
+}
+
+.minimap-viewport {
+  fill: rgba(138, 180, 248, 0.04);
+  stroke: var(--primary);
+  stroke-width: 1.2px;
+  stroke-dasharray: 6 3; /* Viewfinder look */
+  pointer-events: none;
+  filter: drop-shadow(0 0 4px rgba(138, 180, 248, 0.4));
+  transition: all 0.1s ease-out;
+}
+
+.minimap-node {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.minimap-node.is-active {
+  fill: #fff;
+  filter: drop-shadow(0 0 6px #fff) drop-shadow(0 0 10px var(--primary));
+  r: 3px !important;
+}
+
+.minimap-radar-ring {
+  fill: none;
+  stroke: var(--primary);
+  stroke-opacity: 0.1;
+  stroke-width: 0.8px;
+}
+
+.minimap-radar-line {
+  stroke: var(--primary);
+  stroke-opacity: 0.08;
+  stroke-width: 0.8px;
 }
 
 /* ============================================
@@ -753,10 +856,10 @@
 
 /* Export Dropdown */
 .graph-controls__export-dropdown {
-  position: absolute;
-  top: calc(100% + 6px);
-  right: 0;
+  position: fixed;
+  right: auto;
   left: auto;
+  top: 0;
   min-width: 160px;
   background: var(--panel);
   border: 1px solid var(--border);
@@ -877,4 +980,137 @@
   .graph-legend__items {
     gap: 4px;
   }
+}
+.graph-controls__themes-dropdown {
+  position: fixed;
+  right: auto;
+  left: auto;
+  top: 0;
+  min-width: 140px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  z-index: 151;
+  display: none;
+  overflow: hidden;
+}
+
+.graph-controls__themes-dropdown.is-open {
+  display: block;
+}
+
+.graph-controls__themes-dropdown .graph-controls__dropdown-list {
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.graph-controls__themes-dropdown .graph-controls__dropdown-item {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-soft);
+  font-size: 11px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+/* ============================================
+   Zoom HUD
+   ============================================ */
+
+.graph-modal__zoom-hud {
+  position: absolute;
+  bottom: 24px;
+  right: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  z-index: 100;
+  backdrop-filter: blur(8px);
+}
+
+.zoom-hud__btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--text-soft);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.zoom-hud__btn:hover {
+  background: var(--panel-strong);
+  color: var(--primary);
+  transform: scale(1.05);
+}
+
+.zoom-hud__btn svg {
+  width: 14px;
+  height: 14px;
+  stroke-width: 2px;
+}
+
+
+
+/* Improve Toolbar Aesthetics */
+.graph-modal__toolbar {
+  background: var(--panel-strong);
+  padding: 0 4px;
+  border-bottom: 1px solid var(--border);
+  height: 40px; /* Slightly more compact */
+}
+
+.graph-controls {
+  gap: 8px;
+}
+
+.graph-controls__divider {
+  height: 16px;
+  opacity: 0.5;
+}
+
+.graph-controls__search-input {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 6px;
+  height: 28px;
+}
+
+.graph-controls__filter-btn,
+.graph-controls__toggle-btn,
+.graph-controls__tool-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  height: 28px;
+  padding: 0 8px;
+}
+
+.graph-controls__filter-btn:hover,
+.graph-controls__toggle-btn:hover,
+.graph-controls__tool-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--border);
+}
+
+.graph-controls__toggle-btn.is-active {
+  background: var(--primary);
+  color: #000; /* High contrast for active state */
 }

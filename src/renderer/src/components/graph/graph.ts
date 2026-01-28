@@ -6,6 +6,7 @@
 import * as d3 from 'd3'
 import { state } from '../../core/state'
 import { GraphControls, type GraphFilters } from './graph-controls'
+import { createElement, ZoomIn, ZoomOut, Maximize2 } from 'lucide'
 import {
   type GraphNode,
   type GraphLink,
@@ -18,7 +19,6 @@ import {
   findShortestPath,
   getPathLinks
 } from './graph-utils'
-import { codicons } from '../../utils/codicons'
 import './graph.css'
 import './graph-themes.css'
 import '../window-header/window-header.css'
@@ -42,6 +42,12 @@ export class GraphView {
   private pathFindMode = false
   private pathFindStart: string | null = null
   private minimap: d3.Selection<SVGSVGElement, unknown, null, undefined> | null = null
+  private minimapG: d3.Selection<SVGGElement, unknown, null, undefined> | null = null
+  private minimapViewport: d3.Selection<SVGRectElement, unknown, null, undefined> | null = null
+  private minimapScale = 1
+  private minimapMinX = 0
+  private minimapMinY = 0
+  private minimapPadding = 15
 
   // D3 selections
   private linkSelection: d3.Selection<SVGLineElement, GraphLink, SVGGElement, unknown> | null = null
@@ -79,17 +85,41 @@ export class GraphView {
         </div>
 
         <div class="graph-modal__toolbar" id="graph-toolbar"></div>
-        <div class="graph-modal__canvas" id="graph-canvas"></div>
-        <div class="graph-modal__minimap" id="graph-minimap"></div>
-        <div class="graph-modal__pathfind-hint" id="graph-pathfind-hint" style="display: none;">
-          Click on a node to select the start point, then click another node to find the path.
-          <button class="graph-modal__pathfind-cancel">Cancel</button>
+        <div class="graph-modal__view-area">
+          <div class="graph-modal__canvas" id="graph-canvas"></div>
+          <div class="graph-modal__side-panels">
+            <div class="graph-modal__minimap" id="graph-minimap"></div>
+            <div class="graph-modal__legend" id="graph-legend"></div>
+          </div>
+          <div class="graph-modal__pathfind-hint" id="graph-pathfind-hint" style="display: none;">
+            Click on a node to select the start point, then click another node to find the path.
+            <button class="graph-modal__pathfind-cancel">Cancel</button>
+          </div>
+          <div class="graph-modal__zoom-hud">
+            <button class="zoom-hud__btn" id="zoom-in" title="Zoom In"></button>
+            <button class="zoom-hud__btn" id="zoom-reset" title="Reset Zoom"></button>
+            <button class="zoom-hud__btn" id="zoom-out" title="Zoom Out"></button>
+          </div>
         </div>
-        <div class="graph-modal__legend" id="graph-legend"></div>
       </div>
     `
 
     this.modal.querySelector('#graph-close')?.addEventListener('click', () => this.close())
+
+    // Initialize Zoom HUD Icons
+    const zoomInBtn = this.modal.querySelector('#zoom-in') as HTMLElement
+    const zoomResetBtn = this.modal.querySelector('#zoom-reset') as HTMLElement
+    const zoomOutBtn = this.modal.querySelector('#zoom-out') as HTMLElement
+
+    if (zoomInBtn) zoomInBtn.appendChild(createElement(ZoomIn, { size: 14, 'stroke-width': 2 }))
+    if (zoomResetBtn)
+      zoomResetBtn.appendChild(createElement(Maximize2, { size: 14, 'stroke-width': 2 }))
+    if (zoomOutBtn) zoomOutBtn.appendChild(createElement(ZoomOut, { size: 14, 'stroke-width': 2 }))
+
+    // Zoom HUD Events
+    zoomInBtn?.addEventListener('click', () => this.handleZoom(1.3))
+    zoomResetBtn?.addEventListener('click', () => this.handleZoomReset())
+    zoomOutBtn?.addEventListener('click', () => this.handleZoom(0.7))
 
     // Initialize controls
     const toolbar = this.modal.querySelector('#graph-toolbar') as HTMLElement
@@ -106,13 +136,17 @@ export class GraphView {
         onToggleLocalGraph: (enabled) => this.handleToggleLocalGraph(enabled),
         onExport: (format) => this.handleExport(format),
         onStartPathFind: () => this.handleStartPathFind(),
-        onThemeChange: (theme) => this.handleThemeChange(theme)
+        onThemeChange: (theme) => this.handleThemeChange(theme),
+        onDropdownOpen: () => this.endPathFindMode()
       })
     }
   }
 
   async open(): Promise<void> {
     this.modal.classList.add('is-visible')
+    if (state.settings?.graphTheme) {
+      this.handleThemeChange(state.settings.graphTheme)
+    }
     await this.initGraph()
   }
 
@@ -206,8 +240,61 @@ export class GraphView {
       .attr('height', height)
       .attr('class', 'graph-svg')
 
-    // SVG definitions for markers
+    // SVG definitions for markers, filters and gradients
     const defs = this.svg.append('defs')
+
+    // Glow filter for nodes and links
+    const filter = defs
+      .append('filter')
+      .attr('id', 'glow')
+      .attr('x', '-100%')
+      .attr('y', '-100%')
+      .attr('width', '300%')
+      .attr('height', '300%')
+
+    filter.append('feGaussianBlur').attr('stdDeviation', '3').attr('result', 'blur')
+    const feMerge = filter.append('feMerge')
+    feMerge.append('feMergeNode').attr('in', 'blur')
+    feMerge.append('feMergeNode').attr('in', 'SourceGraphic')
+
+    // 3D Lighting Filter for robust sphere look
+    const lightingFilter = defs.append('filter').attr('id', 'sphere-lighting')
+
+    const diffuse = lightingFilter
+      .append('feDiffuseLighting')
+      .attr('in', 'SourceGraphic')
+      .attr('result', 'diffuse')
+      .attr('lighting-color', 'white')
+
+    diffuse.append('feDistantLight').attr('azimuth', '45').attr('elevation', '45')
+
+    const specular = lightingFilter
+      .append('feSpecularLighting')
+      .attr('in', 'SourceGraphic')
+      .attr('result', 'specular')
+      .attr('specularExponent', '20')
+      .attr('lighting-color', 'white')
+
+    specular.append('feDistantLight').attr('azimuth', '45').attr('elevation', '45')
+
+    lightingFilter
+      .append('feComposite')
+      .attr('in', 'SourceGraphic')
+      .attr('in2', 'diffuse')
+      .attr('operator', 'arithmetic')
+      .attr('k1', '1')
+      .attr('k2', '0')
+      .attr('k3', '0')
+      .attr('k4', '0')
+
+    lightingFilter
+      .append('feComposite')
+      .attr('in', 'specular')
+      .attr('operator', 'arithmetic')
+      .attr('k1', '0')
+      .attr('k2', '1')
+      .attr('k3', '1')
+      .attr('k4', '0')
 
     // Arrow marker for directed links
     defs
@@ -247,6 +334,8 @@ export class GraphView {
       .scaleExtent([0.1, 4])
       .on('zoom', (event) => {
         this.g?.attr('transform', event.transform)
+        // Perform a lightweight viewport-only update to avoid flickering
+        this.updateMinimapViewport()
       })
 
     this.svg.call(this.zoom)
@@ -261,20 +350,21 @@ export class GraphView {
   private initSimulation(width: number, height: number): void {
     if (!this.filteredData) return
 
-    this.simulation = (d3.forceSimulation(this.filteredData.nodes) as any)
+    this.simulation = d3
+      .forceSimulation<GraphNode, GraphLink>(this.filteredData.nodes)
       .force(
         'link',
         d3
-          .forceLink(this.filteredData.links)
-          .id((d: any) => d.id)
+          .forceLink<GraphNode, GraphLink>(this.filteredData.links)
+          .id((d) => d.id)
           .distance(50)
           .strength(0.15)
       )
-      .force('charge', d3.forceManyBody().strength(this.forceStrength).distanceMax(500))
+      .force('charge', d3.forceManyBody<GraphNode>().strength(this.forceStrength).distanceMax(500))
       .force('center', d3.forceCenter(width / 2, height / 2))
       .force(
         'collision',
-        d3.forceCollide().radius((d: any) => getNodeRadius(d) + 5)
+        d3.forceCollide<GraphNode>().radius((d) => getNodeRadius(d) + 5)
       )
       .force('x', d3.forceX(width / 2).strength(0.05))
       .force('y', d3.forceY(height / 2).strength(0.05))
@@ -291,24 +381,24 @@ export class GraphView {
     this.g.selectAll('.particles').remove()
 
     // Links
-    const linkGroup = this.g.append('g').attr('class', 'links')
-    this.linkSelection = linkGroup
-      .selectAll<SVGLineElement, GraphLink>('line')
+    const linkGroup = (this.g as any).append('g').attr('class', 'links')
+    this.linkSelection = (linkGroup as any)
+      .selectAll('line')
       .data(this.filteredData.links)
       .enter()
       .append('line')
-      .attr('class', (d) => `link ${d.bidirectional ? 'link--bidirectional' : ''}`)
-      .attr('stroke-width', (d) => (d.bidirectional ? 2 : 1))
-      .attr('marker-end', (d) => (d.bidirectional ? '' : 'url(#arrow)'))
+      .attr('class', (d: any) => `link ${d.bidirectional ? 'link--bidirectional' : ''}`)
+      .attr('stroke-width', (d: any) => (d.bidirectional ? 2 : 1))
+      .attr('marker-end', (d: any) => (d.bidirectional ? '' : 'url(#arrow)'))
 
     // Nodes
-    const nodeGroup = this.g.append('g').attr('class', 'nodes')
-    this.nodeSelection = nodeGroup
-      .selectAll<SVGGElement, GraphNode>('g')
+    const nodeGroup = (this.g as any).append('g').attr('class', 'nodes')
+    this.nodeSelection = (nodeGroup as any)
+      .selectAll('g')
       .data(this.filteredData.nodes)
       .enter()
       .append('g')
-      .attr('class', (d) => {
+      .attr('class', (d: any) => {
         let classes = 'node'
         if (d.isActive) classes += ' node--active'
         if (d.isOrphan) classes += ' node--orphan'
@@ -318,9 +408,15 @@ export class GraphView {
       .call(
         d3
           .drag<SVGGElement, GraphNode>()
-          .on('start', (event, d) => this.dragStarted(event, d))
-          .on('drag', (event, d) => this.dragged(event, d))
-          .on('end', (event, d) => this.dragEnded(event, d))
+          .on('start', (event: d3.D3DragEvent<SVGGElement, GraphNode, GraphNode>, d: GraphNode) =>
+            this.dragStarted(event, d)
+          )
+          .on('drag', (event: d3.D3DragEvent<SVGGElement, GraphNode, GraphNode>, d: GraphNode) =>
+            this.dragged(event, d)
+          )
+          .on('end', (event: d3.D3DragEvent<SVGGElement, GraphNode, GraphNode>, d: GraphNode) =>
+            this.dragEnded(event, d)
+          )
       )
 
     // Node circles
@@ -351,7 +447,7 @@ export class GraphView {
     // Restart simulation
     if (this.simulation) {
       this.simulation.nodes(this.filteredData.nodes)
-      const linkForce = this.simulation.force('link') as any
+      const linkForce = this.simulation.force('link') as d3.ForceLink<GraphNode, GraphLink>
       linkForce?.links(this.filteredData.links)
       this.simulation.alpha(1).restart()
     }
@@ -367,6 +463,9 @@ export class GraphView {
       .attr('y2', (d) => (d.target as GraphNode).y || 0)
 
     this.nodeSelection.attr('transform', (d) => `translate(${d.x || 0},${d.y || 0})`)
+
+    // Update minimap live
+    this.updateMinimapPositions()
   }
 
   private computeNodeColor(node: GraphNode): string {
@@ -778,6 +877,7 @@ export class GraphView {
     this.pathFindMode = true
     this.pathFindStart = null
     this.clearPathHighlight()
+    this.controls?.setPathFindMode(true)
 
     const hint = this.modal.querySelector('#graph-pathfind-hint') as HTMLElement
     if (hint) {
@@ -793,6 +893,7 @@ export class GraphView {
   private endPathFindMode(): void {
     this.pathFindMode = false
     this.pathFindStart = null
+    this.controls?.setPathFindMode(false)
 
     const hint = this.modal.querySelector('#graph-pathfind-hint') as HTMLElement
     if (hint) hint.style.display = 'none'
@@ -807,7 +908,7 @@ export class GraphView {
   }
 
   private handleThemeChange(theme: string): void {
-    const content = this.modal.querySelector('.graph-modal__content')
+    const content = this.modal.querySelector('.graph-modal__view-area')
     if (content) {
       // Remove existing theme classes
       content.classList.forEach((cls) => {
@@ -819,6 +920,12 @@ export class GraphView {
       // Add new theme class
       if (theme !== 'default') {
         content.classList.add(`theme-3d-${theme}`)
+      }
+
+      // Save to settings
+      if (state.settings) {
+        state.settings.graphTheme = theme
+        window.api.updateSettings({ graphTheme: theme }).catch(console.error)
       }
 
       // Update minimap colors
@@ -891,10 +998,11 @@ export class GraphView {
     // Clear existing minimap
     minimapContainer.innerHTML = ''
 
-    const minimapWidth = 150
-    const minimapHeight = 100
+    const minimapWidth = 160
+    const minimapHeight = 140
+    const center = minimapWidth / 2
 
-    // Calculate bounds
+    // Calculate bounds for fit
     let minX = Infinity,
       maxX = -Infinity,
       minY = Infinity,
@@ -910,10 +1018,14 @@ export class GraphView {
 
     if (!isFinite(minX)) return
 
-    const padding = 20
+    this.minimapMinX = minX
+    this.minimapMinY = minY
+
+    const padding = 25
+    this.minimapPadding = padding
     const scaleX = (minimapWidth - padding * 2) / (maxX - minX || 1)
     const scaleY = (minimapHeight - padding * 2) / (maxY - minY || 1)
-    const scale = Math.min(scaleX, scaleY, 1)
+    this.minimapScale = Math.min(scaleX, scaleY, 1)
 
     this.minimap = d3
       .select(minimapContainer)
@@ -922,30 +1034,122 @@ export class GraphView {
       .attr('height', minimapHeight)
       .attr('class', 'graph-minimap__svg')
 
-    const g = this.minimap.append('g').attr('transform', `translate(${padding}, ${padding})`)
+    // Add Radar Decorations
+    const radar = (this.minimap as any).append('g').attr('class', 'minimap-decorations')
+
+    // Crosshair lines
+    radar
+      .append('line')
+      .attr('class', 'minimap-radar-line')
+      .attr('x1', 0)
+      .attr('y1', minimapHeight / 2)
+      .attr('x2', minimapWidth)
+      .attr('y2', minimapHeight / 2)
+    radar
+      .append('line')
+      .attr('class', 'minimap-radar-line')
+      .attr('x1', center)
+      .attr('y1', 0)
+      .attr('x2', center)
+      .attr('y2', minimapHeight)
+
+    // Rings
+    radar
+      .append('circle')
+      .attr('class', 'minimap-radar-ring')
+      .attr('cx', center)
+      .attr('cy', minimapHeight / 2)
+      .attr('r', minimapHeight / 4)
+    radar
+      .append('circle')
+      .attr('class', 'minimap-radar-ring')
+      .attr('cx', center)
+      .attr('cy', minimapHeight / 2)
+      .attr('r', minimapHeight / 2 - 2)
+
+    this.minimapG = (this.minimap as any)
+      .append('g')
+      .attr('transform', `translate(${padding}, ${padding})`)
 
     // Draw links
-    g.selectAll('line')
+    const linkGroup = (this.minimapG as any).append('g').attr('class', 'minimap-links')
+    linkGroup
+      .selectAll('.minimap-link')
       .data(this.filteredData.links)
       .enter()
       .append('line')
-      .attr('x1', (d) => ((d.source as GraphNode).x! - minX) * scale)
-      .attr('y1', (d) => ((d.source as GraphNode).y! - minY) * scale)
-      .attr('x2', (d) => ((d.target as GraphNode).x! - minX) * scale)
-      .attr('y2', (d) => ((d.target as GraphNode).y! - minY) * scale)
+      .attr('class', 'minimap-link')
+      .attr('x1', (d: any) => ((d.source as GraphNode).x! - minX) * this.minimapScale)
+      .attr('y1', (d: any) => ((d.source as GraphNode).y! - minY) * this.minimapScale)
+      .attr('x2', (d: any) => ((d.target as GraphNode).x! - minX) * this.minimapScale)
+      .attr('y2', (d: any) => ((d.target as GraphNode).y! - minY) * this.minimapScale)
       .attr('stroke', 'var(--text-soft)')
-      .attr('stroke-opacity', 0.3)
+      .attr('stroke-opacity', 0.15)
       .attr('stroke-width', 0.5)
 
     // Draw nodes
-    g.selectAll('circle')
+    const nodeGroup = (this.minimapG as any).append('g').attr('class', 'minimap-nodes')
+    nodeGroup
+      .selectAll('.minimap-node')
       .data(this.filteredData.nodes)
       .enter()
       .append('circle')
-      .attr('cx', (d) => (d.x! - minX) * scale)
-      .attr('cy', (d) => (d.y! - minY) * scale)
-      .attr('r', 2)
-      .attr('fill', (d) => (d.isActive ? '#fbbf24' : 'var(--primary)'))
+      .attr('class', (d: any) => `minimap-node ${d.isActive ? 'is-active' : ''}`)
+      .attr('cx', (d: any) => (d.x! - minX) * this.minimapScale)
+      .attr('cy', (d: any) => (d.y! - minY) * this.minimapScale)
+      .attr('r', (d: any) => (d.isActive ? 2.5 : 1.2))
+      .attr('fill', (d: any) => (d.isActive ? '#fbbf24' : 'var(--primary)'))
+
+    // Draw viewport rect
+    this.minimapViewport = (this.minimapG as any)
+      .append('rect')
+      .attr('class', 'minimap-viewport')
+      .attr('rx', 3)
+      .attr('ry', 3)
+
+    this.updateMinimapViewport()
+  }
+
+  private updateMinimapPositions(): void {
+    if (!this.minimapG || !this.filteredData) return
+
+    this.minimapG
+      .selectAll<SVGLineElement, GraphLink>('.minimap-link')
+      .attr('x1', (d) => ((d.source as GraphNode).x! - this.minimapMinX) * this.minimapScale)
+      .attr('y1', (d) => ((d.source as GraphNode).y! - this.minimapMinY) * this.minimapScale)
+      .attr('x2', (d) => ((d.target as GraphNode).x! - this.minimapMinX) * this.minimapScale)
+      .attr('y2', (d) => ((d.target as GraphNode).y! - this.minimapMinY) * this.minimapScale)
+
+    this.minimapG
+      .selectAll<SVGCircleElement, GraphNode>('.minimap-node')
+      .attr('cx', (d) => (d.x! - this.minimapMinX) * this.minimapScale)
+      .attr('cy', (d) => (d.y! - this.minimapMinY) * this.minimapScale)
+  }
+
+  private updateMinimapViewport(): void {
+    if (!this.minimapViewport || !this.svg || !this.g) return
+
+    const transform = d3.zoomTransform(this.svg.node()!)
+    const canvas = this.modal.querySelector('#graph-canvas') as HTMLElement
+    if (!canvas) return
+
+    const width = canvas.clientWidth
+    const height = canvas.clientHeight
+
+    // The transform translates and scales the entire group 'g'
+    // To find the viewport in the coordinate space of the nodes:
+    // x_node = (x_screen - transform.x) / transform.k
+
+    const x1 = (0 - transform.x) / transform.k
+    const y1 = (0 - transform.y) / transform.k
+    const x2 = (width - transform.x) / transform.k
+    const y2 = (height - transform.y) / transform.k
+
+    this.minimapViewport
+      .attr('x', (x1 - this.minimapMinX) * this.minimapScale)
+      .attr('y', (y1 - this.minimapMinY) * this.minimapScale)
+      .attr('width', (x2 - x1) * this.minimapScale)
+      .attr('height', (y2 - y1) * this.minimapScale)
   }
 
   // Drag handlers

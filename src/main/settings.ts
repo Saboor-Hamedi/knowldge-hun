@@ -36,6 +36,7 @@ export type Settings = {
   caretEnabled?: boolean
   caretMaxWidth?: number
   cursorPositions?: Record<string, { lineNumber: number; column: number }>
+  graphTheme?: string
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -50,7 +51,8 @@ export const DEFAULT_SETTINGS: Settings = {
   caretEnabled: true,
   caretMaxWidth: 2,
   recentVaults: [],
-  expandedFolders: []
+  expandedFolders: [],
+  graphTheme: 'default'
 }
 
 export function loadSettings(): Settings {

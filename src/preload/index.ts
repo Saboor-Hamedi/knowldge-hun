@@ -49,6 +49,7 @@ type AppSettings = {
   // Caret settings
   caretEnabled?: boolean
   caretMaxWidth?: number
+  graphTheme?: string
 }
 
 const api = {

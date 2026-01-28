@@ -72,4 +72,5 @@ export type AppSettings = {
   caretEnabled?: boolean
   caretMaxWidth?: number
   cursorPositions?: Record<string, { lineNumber: number; column: number }>
+  graphTheme?: string
 }
