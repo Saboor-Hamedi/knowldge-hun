@@ -78,7 +78,8 @@ const TEXT_EXTENSIONS = [
   '.sass',
   '.mdx',
   'dockerfile',
-  'makefile'
+  'makefile',
+  '.ipynb'
 ]
 
 const IGNORED_NAMES = [

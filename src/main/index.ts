@@ -1,6 +1,6 @@
 // --- App Update Integration ---
 import { setupUpdateApp } from '../renderer/src/components/updateApp/updateApp'
-import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, dialog, Menu } from 'electron'
 import { join, basename, dirname, isAbsolute, resolve } from 'path'
 import { writeFile, mkdir, readFile } from 'fs/promises'
 import { existsSync, mkdirSync, cpSync, readdirSync } from 'fs'
@@ -130,7 +130,7 @@ function getVaultRoot(): string {
   return root
 }
 
-function createWindow(): void {
+function createWindow(isNewInstance = false): void {
   const settings = loadSettings()
   const bounds = settings.windowBounds || { width: 1200, height: 800 }
 
@@ -147,7 +147,8 @@ function createWindow(): void {
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,
-      webSecurity: true
+      webSecurity: true,
+      additionalArguments: isNewInstance ? ['--new-instance'] : []
     }
   })
   mainWindowRef = mainWindow
@@ -199,10 +200,14 @@ function createWindow(): void {
     }
   })
 
+  const query = isNewInstance ? '?newInstance=true' : ''
+
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-    mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
+    mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'] + query)
   } else {
-    mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
+    mainWindow.loadFile(join(__dirname, '../renderer/index.html'), {
+      search: isNewInstance ? 'newInstance=true' : ''
+    })
   }
 }
 
@@ -214,6 +219,27 @@ app.whenReady().then(async () => {
       optimizer.watchWindowShortcuts(window)
     }
   })
+
+  // Set up Application Menu
+  const isMac = process.platform === 'darwin'
+  const template: any[] = [
+    {
+      label: 'File',
+      submenu: [
+        {
+          label: 'New Window',
+          accelerator: 'CommandOrControl+Shift+N',
+          click: () => createWindow(true) // Pass true for new instance
+        },
+        isMac ? { role: 'close' } : { role: 'quit' }
+      ]
+    },
+    { role: 'editMenu' },
+    { role: 'viewMenu' },
+    { role: 'windowMenu' }
+  ]
+  const menu = Menu.buildFromTemplate(template)
+  Menu.setApplicationMenu(menu)
 
   ipcMain.handle('notes:list', async () => vault.getNotes())
   ipcMain.handle('notes:load', async (_event, id: string) => vault.getNote(id))
@@ -603,25 +629,28 @@ app.whenReady().then(async () => {
     }
   })
 
-  ipcMain.handle('window:minimize', async () => {
-    const win = BrowserWindow.getFocusedWindow() || mainWindowRef
-    win?.minimize()
+  ipcMain.handle('window:minimize', async (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (win && !win.isDestroyed()) win.minimize()
   })
-  ipcMain.handle('window:maximize', async () => {
-    const win = BrowserWindow.getFocusedWindow() || mainWindowRef
-    win?.maximize()
+  ipcMain.handle('window:maximize', async (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (win && !win.isDestroyed()) win.maximize()
   })
-  ipcMain.handle('window:unmaximize', async () => {
-    const win = BrowserWindow.getFocusedWindow() || mainWindowRef
-    win?.unmaximize()
+  ipcMain.handle('window:unmaximize', async (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (win && !win.isDestroyed()) win.unmaximize()
   })
-  ipcMain.handle('window:isMaximized', async () => {
-    const win = BrowserWindow.getFocusedWindow() || mainWindowRef
-    return win?.isMaximized()
+  ipcMain.handle('window:isMaximized', async (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (win && !win.isDestroyed()) {
+      return win.isMaximized()
+    }
+    return false
   })
-  ipcMain.handle('window:close', async () => {
-    const win = BrowserWindow.getFocusedWindow() || mainWindowRef
-    win?.close()
+  ipcMain.handle('window:close', async (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (win && !win.isDestroyed()) win.close()
   })
 
   // Session Storage Backup/Restore for Updates

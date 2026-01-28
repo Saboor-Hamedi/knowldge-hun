@@ -39,6 +39,7 @@ import { WikiLinkService } from './components/wikilink/wikilinkService'
 import { PreviewHandlers } from './handlers/previewHandlers'
 import { vaultService } from './services/vaultService'
 import { VaultPicker } from './components/vault-picker/vault-picker'
+import { WelcomePage } from './components/welcome-page/welcome-page'
 import { ragService } from './services/rag/ragService'
 import { aiStatusManager } from './core/aiStatusManager'
 import { securityService } from './services/security/securityService'
@@ -192,6 +193,8 @@ class App {
   private vaultPicker!: VaultPicker
   private hubConsole: ConsoleComponent
   private pendingPersist?: number
+  private welcomePage: WelcomePage
+  private isNewInstance = false
 
   constructor() {
     this.activityBar = new ActivityBar('activityBar')
@@ -221,6 +224,11 @@ class App {
       getEditorValue: () => this.editor.getValue(),
       setStatus: (message) => this.statusBar.setStatus(message)
     })
+
+    // Check if new instance
+    const urlParams = new URLSearchParams(window.location.search)
+    this.isNewInstance = urlParams.get('newInstance') === 'true'
+
     this.previewHandlers = new PreviewHandlers({
       showPreview: (content) => this.editor.showPreview(content),
       updateViewVisibility: () => this.updateViewVisibility(),
@@ -231,6 +239,13 @@ class App {
       persistWorkspace: () => this.persistWorkspace()
     })
     this.vaultPicker = new VaultPicker('app')
+    this.welcomePage = new WelcomePage('editorContainer')
+    this.welcomePage.setCallbacks({
+      onOpenVault: () => this.chooseVault(),
+      onCreateVault: () => this.chooseVault(), // Re-use choose for now as it allows folder creation
+      onOpenRecent: (path) => this.handleVaultSelected(path)
+    })
+
     this.hubConsole = new ConsoleComponent('consoleHost')
     this.vaultPicker.setCallbacks({
       onVaultSelected: (path) => this.handleVaultSelected(path),
@@ -312,46 +327,53 @@ class App {
     })
   }
 
-  private setupMobileEvents(): void {
-    // Disabled mobile-specific behavior (floating sidebar, auto-close) as per user request to keep sidebar attached
-    /*
-    const handleCheck = (): void => {
-      const isSmall = window.matchMedia('(max-width: 800px)').matches
-      const shell = document.querySelector('.vscode-shell')
+  private setupGlobalDragAndDrop(): void {
+    window.addEventListener('dragover', (e) => {
+      e.preventDefault()
+      e.stopPropagation()
+    })
 
-      if (!shell) return
+    window.addEventListener('drop', async (e) => {
+      e.preventDefault()
+      e.stopPropagation()
 
-      if (isSmall) {
-        shell.classList.add('sidebar-hidden')
-      }
-      // Do NOT auto-open on large screens. Let the user decide.
-    }
+      if (e.dataTransfer?.files?.length) {
+        const file = e.dataTransfer.files[0]
+        // Basic check if it's likely a folder (no extension, generic assumption for web File API limitation)
+        // Ideally we use Electron's full path which we have access to via 'path' property on File object (Electron quirk)
+        const path = (file as any).path
+        if (path) {
+          // We assume the user knows what they are doing dragging a folder.
+          // The main process validation in setVaultPath will handle if it's invalid.
+          try {
+            const result = await window.api.setVaultPath(path)
+            if (result.changed) {
+              // Update state and refresh
+              state.vaultPath = result.path
 
-    // Run once on init
-    handleCheck()
+              // Clear tabs
+              state.openTabs = []
+              state.activeId = null
 
-    // Check on resize
-    window.addEventListener('resize', handleCheck)
+              // Persist empty state first
+              await this.persistWorkspace()
 
-    // Close sidebar when clicking outside on mobile
-    document.addEventListener('click', (e) => {
-      // Only run on mobile/small screens
-      if (!window.matchMedia('(max-width: 800px)').matches) return
-
-      const target = e.target as HTMLElement
-      // Do not close if clicking inside sidebar, activity bar, modal, or context menu
-      if (target.closest('.sidebar') || target.closest('.activitybar') || target.closest('.graph-modal') || target.closest('.context-menu')) return
-
-      // Do not close if clicking the specific toggle button (usually in activity bar, but just in case)
-      if (target.closest('[data-action="toggle-sidebar"]')) return
-
-      const shell = document.querySelector('.vscode-shell')
-      // If sidebar is visible (shell does NOT have .sidebar-hidden), hide it
-      if (shell && !shell.classList.contains('sidebar-hidden')) {
-        this.sidebar.hide()
+              // Reload notes
+              await this.refreshNotes() // This will call getNotes which reads from the new vault path set in main
+              this.sidebar.refresh()
+            }
+          } catch (err) {
+            console.error('Failed to open dropped vault:', err)
+            notificationManager.show('Failed to open dropped folder', 'error')
+          }
+        }
       }
     })
-    */
+  }
+
+  private setupMobileEvents(): void {
+    // Disabled mobile-specific behavior...
+    /* ... */
   }
 
   private wireComponents(): void {
@@ -403,7 +425,18 @@ class App {
     this.sidebar.setNoteSelectHandler((id, path) => void this.openNote(id, path, 'editor'))
     this.sidebar.setNoteCreateHandler((path) => void this.createNote(undefined, path))
     this.sidebar.setNoteDeleteHandler((id, path) => void this.deleteNote(id, path))
-    this.sidebar.setItemsDeleteHandler((items) => void this.deleteItems(items))
+    this.sidebar.setItemsDeleteHandler(async (items) => {
+      const confirm = await window.api.showConfirmDialog(
+        'Delete Items',
+        `Are you sure you want to delete ${items.length} item(s)? This action cannot be undone.`
+      )
+
+      if (confirm) {
+        const ids = items.map((i) => i.id)
+        await window.api.deleteNotes(ids)
+        await this.refreshNotes()
+      }
+    })
     this.sidebar.setNoteMoveHandler((id, from, to) => this.handleNoteMove(id, from, to))
     this.sidebar.setFolderMoveHandler((source, target) => this.handleFolderMove(source, target))
     this.sidebar.setFolderCreateHandler((parentPath) => void this.createFolder(parentPath))
@@ -527,7 +560,7 @@ class App {
           },
           () => this.refreshNotes(),
           (id, path) => this.openNote(id, path),
-          () => this.editor.showEmpty()
+          () => this.showWelcomePage() // Use welcome page instead of empty state
         )
     )
     this.tabBar.setTabContextMenuHandler((id, e) => {
@@ -634,6 +667,12 @@ class App {
         this.pendingPersist = undefined
       }
 
+      // Don't persist workspace if we are on the welcome page AND no vault is loaded
+      // This protects the global openTabs settings from being wiped by a fresh "New Window"
+      if (state.openTabs.length === 0 && !state.vaultPath) {
+        return
+      }
+
       await window.api.updateSettings({
         openTabs: state.openTabs.map((t) => ({ id: t.id, path: t.path, title: t.title })),
         activeId: state.activeId,
@@ -732,7 +771,13 @@ class App {
       },
       () => this.refreshNotes(),
       (id, path) => this.openNote(id, path),
-      () => this.editor.showEmpty()
+      () => {
+        this.showWelcomePage() // Use welcome page instead of empty state
+        if (state.openTabs.length === 0) {
+          state.activeId = null
+          this.sidebar.updateSelection(null)
+        }
+      }
     )
   }
 
@@ -1327,6 +1372,18 @@ class App {
     }
 
     // 🔓 APP IS NOW AUTHORIZED - PROCEED WITH LOADING SENSITIVE DATA
+
+    // If this is a new instance, skip auto-loading the vault
+    if (this.isNewInstance) {
+      // Clean the URL so refresh doesn't trigger new instance again
+      const url = new URL(window.location.href)
+      url.searchParams.delete('newInstance')
+      window.history.replaceState({}, '', url.toString())
+
+      this.showWelcomePage()
+      return // Stop initialization here
+    }
+
     await this.initVault()
 
     if (state.settings?.openTabs && state.settings.openTabs.length > 0) {
@@ -1359,18 +1416,12 @@ class App {
 
         if (noteToOpen) {
           await this.openNote(noteToOpen.id, noteToOpen.path)
-        } else if (state.notes.length > 0) {
-          await this.openNote(state.notes[0].id)
         } else {
-          this.editor.showEmpty()
+          this.showWelcomePage()
         }
       }
-    } else if (state.notes.length > 0) {
-      await this.openNote(state.notes[0].id)
     } else {
-      this.editor.showEmpty()
-      this.statusBar.setStatus('No notes yet')
-      this.statusBar.setMeta('Create a note to begin')
+      this.showWelcomePage()
     }
 
     this.tabBar.render()
@@ -1501,16 +1552,19 @@ class App {
     await this.refreshNotes()
 
     if (state.notes.length > 0) {
-      await this.openNote(state.notes[0].id)
+      // We don't auto-open a note anymore, just show the welcome page by default
+      // or let the user choose from the sidebar.
+      this.showWelcomePage()
       this.statusBar.setStatus(
         `Loaded ${state.notes.length} note${state.notes.length === 1 ? '' : 's'}`
       )
     } else {
       state.activeId = ''
-      this.editor.showEmpty()
+      this.showWelcomePage()
       this.statusBar.setStatus('Empty vault')
       this.statusBar.setMeta('Create a note to begin')
     }
+
     this.updateViewVisibility()
     this.statusBar.setMeta(`📁 ${path}`)
 
@@ -1725,6 +1779,8 @@ class App {
     path?: string,
     focusTarget: 'editor' | 'sidebar' | 'none' = 'editor'
   ): Promise<void> {
+    this.hideWelcomePage() // Ensure welcome page is hidden
+
     // Only switch to notes view if sidebar is already visible
     // This prevents auto-opening sidebar when switching tabs
     const shell = document.querySelector('.vscode-shell')
@@ -2527,6 +2583,19 @@ class App {
   }
   private async reindexAllNotes(): Promise<void> {
     return this.backgroundIndexVault()
+  }
+  showWelcomePage(): void {
+    this.welcomePage.show()
+    this.editor.hideAll()
+    this.breadcrumbs.clear() // Clear breadcrumbs on welcome page
+    this.statusBar.setStatus('Welcome to Knowledge Hub')
+    this.statusBar.setMeta('') // Clear meta
+    tooltipManager.hide() // Clear any lingering tooltips
+  }
+
+  hideWelcomePage(): void {
+    this.welcomePage.hide()
+    // No need to show editor explicitely here, as openNote/loadNote will handle showing editor host
   }
 }
 

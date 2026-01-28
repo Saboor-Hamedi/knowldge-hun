@@ -63,7 +63,7 @@ export class TooltipManager {
     }, 300)
   }
 
-  private hide(): void {
+  public hide(): void {
     clearTimeout(this.timeout)
     this.el.classList.remove('is-visible')
   }

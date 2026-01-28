@@ -16,6 +16,13 @@ export class Breadcrumbs {
     this.onNoteOpen = handler
   }
 
+  clear(): void {
+    if (this.container) {
+      this.container.innerHTML = ''
+      this.container.style.display = 'none'
+    }
+  }
+
   render(): void {
     if (!this.container) return
     this.container.innerHTML = ''

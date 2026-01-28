@@ -31,13 +31,11 @@ export class TabBar {
   render(): void {
     this.container.innerHTML = ''
     if (state.openTabs.length === 0) {
-      const empty = document.createElement('div')
-      empty.className = 'tabbar__empty'
-      empty.textContent = 'No open editors'
-      this.container.appendChild(empty)
+      this.container.style.display = 'none'
       return
     }
 
+    this.container.style.display = 'flex'
     state.openTabs.forEach((tab) => {
       const isPinned = state.pinnedTabs.has(tab.id)
       const title = tab.title || ''

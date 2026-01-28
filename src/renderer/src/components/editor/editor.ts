@@ -391,6 +391,14 @@ export class EditorComponent {
     }
   }
 
+  hideAll(): void {
+    this.emptyState.style.display = 'none'
+    this.editorHost.style.display = 'none'
+    if (this.previewHost) {
+      this.previewHost.style.display = 'none'
+    }
+  }
+
   getValue(): string {
     return this.editor?.getValue() ?? ''
   }
@@ -448,6 +456,7 @@ export class EditorComponent {
       yml: 'yaml',
       sh: 'shell',
       bash: 'shell',
+      ipynb: 'json',
       cpp: 'cpp',
       c: 'c',
       cs: 'csharp',

@@ -605,6 +605,7 @@ const getFileIcon = (title, language) => {
     lock: Lock,
     twig: FileCode,
     'blade.php': FileCode,
+    ipynb: Notebook,
 
     // Markdown (only if no code extension found)
     md: Hash,
@@ -725,6 +726,7 @@ const getIconColor = (icon: any, title: string = '', extension: string = ''): st
   if (extension === 'toml') return '#9c4221' // TOML Brown
   if (extension === 'lock') return '#a4a4a4' // Lock Gray
   if (extension === 'env') return '#f59e0b' // Env Amber
+  if (extension === 'ipynb') return '#da5b0b' // Jupyter Orange
 
   // 2. Specialized Folder Icons
   if (icon === FolderOpen || titleLower === 'src') return '#4d90fe' // Source Blue
