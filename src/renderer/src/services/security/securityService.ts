@@ -65,40 +65,62 @@ export class SecurityService {
    * This method manually manipulates the DOM to ensure it overlays even
    * logic-based components.
    */
-  private showFirewall(options: { onSuccess: () => void }): void {
+  private async showFirewall(options: { onSuccess: () => void }): Promise<void> {
     // 0. Prevent duplicate firewalls
     if (document.querySelector('.security-firewall')) return
 
-    // 1. Apply visual isolation (20px blur + grayscale)
-    // Target: General app container defined in app.ts
+    // 1. Apply instant visual isolation
     const app = document.querySelector('.vscode-shell')
-    if (app) app.classList.add('is-blurred')
+    if (app) {
+      app.classList.add('is-blurred')
+      // Disable transitions to prevent flickering during lock
+      Object.assign((app as HTMLElement).style, {
+        transition: 'none',
+        filter: 'blur(20px) grayscale(0.2)'
+      })
+    }
 
     // 2. Create the standalone Login Screen
     const firewall = document.createElement('div')
     firewall.className = 'security-firewall'
-    firewall.tabIndex = 0 // Required to capture keyboard focus early
+
+    // Critical inline styles to prevent startup flicker/misalignment
+    Object.assign(firewall.style, {
+      position: 'fixed',
+      top: '0',
+      left: '0',
+      width: '100%',
+      height: '100%',
+      zIndex: '2147483647',
+      display: 'grid',
+      placeItems: 'center',
+      background: 'rgba(10, 15, 25, 0.9)',
+      backdropFilter: 'blur(30px) saturate(150%)',
+      webkitBackdropFilter: 'blur(30px) saturate(150%)'
+    })
+
+    firewall.tabIndex = 0
+
+    // Display the computer user name
+    const username = await window.api.getUsername().catch(() => 'User')
+
     firewall.innerHTML = `
       <div class="security-firewall__content">
         <div class="security-firewall__profile">
           <div class="security-firewall__avatar">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
               <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
               <circle cx="12" cy="7" r="4"></circle>
             </svg>
           </div>
-        </div>
-        <div class="security-firewall__header">
-          <h1 class="security-firewall__title">Welcome Back</h1>
-          <p class="security-firewall__message">Enter password to unlock vault</p>
+          <div class="security-firewall__username">${username}</div>
         </div>
         
         <div class="security-firewall__input-group">
           <input type="password" class="security-firewall__input" placeholder="Password" autofocus autocomplete="current-password">
           <button class="security-firewall__btn security-firewall__btn--primary">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="5" y1="12" x2="19" y2="12"></line>
-              <polyline points="12 5 19 12 12 19"></polyline>
+              <polyline points="9 18 15 12 9 6"></polyline>
             </svg>
           </button>
           <div class="security-firewall__error"></div>
@@ -170,7 +192,12 @@ export class SecurityService {
         window.removeEventListener('contextmenu', blockEvents, true)
 
         firewall.classList.add('is-leaving')
-        document.querySelector('.vscode-shell')?.classList.remove('is-blurred')
+        const appShell = document.querySelector('.vscode-shell') as HTMLElement
+        if (appShell) {
+          appShell.classList.remove('is-blurred')
+          appShell.style.filter = ''
+          appShell.style.transition = ''
+        }
 
         // Remove from DOM after transition finishes
         setTimeout(() => {
