@@ -182,33 +182,25 @@ export class VaultManager {
       const relativeDir = dirPath === '.' ? '' : dirPath
 
       const existingMeta = this.notes.get(id)
-      // Use the earliest reasonable timestamp as createdAt
       const birthtime = stats.birthtimeMs
       const mtime = stats.mtimeMs
       const existingCreatedAt = existingMeta?.createdAt
 
-      // Preserve existing createdAt if it exists and is reasonable
       let createdAt: number
-      if (
-        existingCreatedAt &&
-        existingCreatedAt > 0 &&
-        existingCreatedAt < Date.now() &&
-        existingCreatedAt < mtime + 1000
-      ) {
-        // Existing createdAt is valid and not newer than mtime (with 1s tolerance)
+      if (existingCreatedAt && existingCreatedAt > 0 && existingCreatedAt <= mtime + 1000) {
         createdAt = existingCreatedAt
       } else {
-        // Use birthtime if it's reasonable, otherwise use mtime
         const now = Date.now()
-        const oneYearAgo = now - 365 * 24 * 60 * 60 * 1000
-        createdAt =
-          birthtime > oneYearAgo && birthtime <= now && birthtime <= mtime ? birthtime : mtime
+        // Use birthtime if valid and not in the future, otherwise mtime
+        createdAt = birthtime > 0 && birthtime <= now ? birthtime : mtime
+        // Final fallback to now if everything is 0
+        if (createdAt === 0) createdAt = now
       }
 
       const extractedTitle = this.extractTitle(content, id)
       const meta: NoteMeta = {
         id,
-        title: extractedTitle || basename(id) || 'Untitled', // Ensure title is never empty
+        title: extractedTitle || basename(id) || 'Untitled',
         updatedAt: mtime,
         createdAt: createdAt,
         path: relativeDir,
@@ -316,19 +308,35 @@ export class VaultManager {
 
   // --- Public API for Renderer ---
 
-  public getNotes(): NoteMeta[] {
+  public async getNotes(): Promise<NoteMeta[]> {
     const notes = Array.from(this.notes.values())
-    const folderMetas = Array.from(this.folders).map((path) => {
+    const folderMetas: NoteMeta[] = []
+
+    for (const path of this.folders) {
       const dir = dirname(path)
       const parentPath = dir === '.' ? '' : dir.replace(/\\/g, '/')
-      return {
-        id: path, // Use full path for folder ID to ensure uniqueness
+      const fullPath = join(this.rootPath, path)
+
+      let createdAt = 0
+      let updatedAt = 0
+
+      try {
+        const stats = await stat(fullPath)
+        createdAt = stats.birthtimeMs || stats.mtimeMs
+        updatedAt = stats.mtimeMs
+      } catch {
+        // Fallback if folder disappears or can't be stat'd
+      }
+
+      folderMetas.push({
+        id: path,
         title: basename(path),
-        updatedAt: 0,
+        updatedAt,
+        createdAt,
         path: parentPath,
         type: 'folder'
-      } as NoteMeta
-    })
+      })
+    }
     return [...notes, ...folderMetas]
   }
 
@@ -559,9 +567,9 @@ export class VaultManager {
 
   public async createFolder(
     name: string,
-    parentPath = ''
+    parentPath = '.'
   ): Promise<{ name: string; path: string }> {
-    const targetDir = parentPath ? join(this.rootPath, parentPath) : this.rootPath
+    const targetDir = join(this.rootPath, parentPath)
     let safeName = name || 'New Folder'
     let folderPath = join(targetDir, safeName)
 

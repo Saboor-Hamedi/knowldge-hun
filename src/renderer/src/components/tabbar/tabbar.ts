@@ -94,7 +94,7 @@ export class TabBar {
 
       const label = document.createElement('span')
       label.className = 'tab__label'
-      label.textContent = tab.title
+      label.textContent = tab.title.replace(/\.md$/i, '')
 
       button.appendChild(icon)
       button.appendChild(label)

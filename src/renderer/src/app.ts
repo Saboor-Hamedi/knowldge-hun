@@ -83,7 +83,8 @@ class App {
       welcomePage: this.welcomePage,
       tabBar: this.tabBar,
       statusBar: this.statusBar,
-      activityBar: this.activityBar
+      activityBar: this.activityBar,
+      breadcrumbs: this.breadcrumbs
     })
 
     this.vaultHandler = new VaultHandler(

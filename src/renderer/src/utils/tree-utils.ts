@@ -1,45 +1,28 @@
-import { state } from '../core/state'
 import type { NoteMeta, TreeItem } from '../core/types'
 
 export function sortTreeItems<T extends NoteMeta>(items: T[]): T[] {
-  const newlyCreatedIds = state.newlyCreatedIds
-
   return [...items].sort((a, b) => {
-    // 1. Folders first
-    const aIsFolder = a.type === 'folder' || 'children' in a
-    const bIsFolder = b.type === 'folder' || 'children' in b
+    // 1. Sort strictly by creation time (Ascending: older at top, newest at bottom)
+    const aTime = a.createdAt || 0
+    const bTime = b.createdAt || 0
 
-    if (aIsFolder && !bIsFolder) return -1
-    if (!aIsFolder && bIsFolder) return 1
-
-    // 2. Priority for newly created items (within type)
-    // NEW: Only apply to notes, not folders
-    if (!aIsFolder && !bIsFolder) {
-      const aNew = newlyCreatedIds.has(a.id)
-      const bNew = newlyCreatedIds.has(b.id)
-      if (aNew && !bNew) return 1
-      if (!aNew && bNew) return -1
+    if (aTime !== bTime) {
+      return aTime - bTime
     }
 
-    // 3. Then alphabetical
+    // 2. Fallback: alphabetical if timestamps are identical
     return (a.title || '').localeCompare(b.title || '')
   })
 }
 
 export function sortTreeRecursive(list: TreeItem[]): void {
-  sortTreeItems(list) // Note: this returns a new array, but we want to sort in place or update reference
-  // Actually, let's make it more robust
-  list.sort((a, b) => {
-    if (a.type !== b.type) return a.type === 'folder' ? -1 : 1
+  // Sort the current level using unified logic
+  const sorted = sortTreeItems(list)
+  // Update the list elements in place
+  list.length = 0
+  list.push(...sorted)
 
-    const newlyCreatedIds = state.newlyCreatedIds
-    const aNew = newlyCreatedIds.has(a.id)
-    const bNew = newlyCreatedIds.has(b.id)
-    if (aNew && !bNew) return -1
-    if (!aNew && bNew) return 1
-    return (a.title || '').localeCompare(b.title || '')
-  })
-
+  // Recursively sort children
   list.forEach((i) => {
     if (i.children && i.children.length > 0) {
       sortTreeRecursive(i.children)

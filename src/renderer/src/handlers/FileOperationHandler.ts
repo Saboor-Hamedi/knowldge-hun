@@ -98,14 +98,16 @@ export class FileOperationHandler {
 
           window.dispatchEvent(new CustomEvent('vault-changed'))
 
-          const ancoraActive = state.openTabs.find((t) => t.id === state.activeId)
-          if (!ancoraActive) {
+          tabService.syncTabs()
+
+          if (!state.activeId || !state.openTabs.some((t) => t.id === state.activeId)) {
             const nextTab = tabService.findNextTabToOpen()
             if (nextTab) {
               await this.callbacks.openNote(nextTab.id, nextTab.path)
             } else {
               state.activeId = ''
               this.components.editor.showEmpty()
+              this.callbacks.updateViewVisibility()
             }
           }
 

@@ -1,4 +1,5 @@
 import { state } from '../../core/state'
+import { tabService } from '../../services/tabService'
 import type { NoteMeta, FolderItem } from '../../core/types'
 import { getFolderIcon, codicons } from '../../utils/codicons'
 import { sortTreeItems } from '../../utils/tree-utils'
@@ -599,7 +600,7 @@ export class SidebarTree {
 
     const label = document.createElement('span')
     label.className = 'tree-item__label'
-    label.textContent = note.title
+    label.textContent = note.title.replace(/\.md$/i, '')
     label.dataset.noteId = note.id
 
     el.appendChild(indent)
@@ -1169,6 +1170,10 @@ export class SidebarTree {
       state.selectedIds.clear()
       this.selectedId = null
       this.updateSelectionStates()
+
+      // Force tab sync and view update after deletion
+      tabService.syncTabs()
+      window.dispatchEvent(new CustomEvent('knowledge-hub:tabs-changed'))
       return
     }
 

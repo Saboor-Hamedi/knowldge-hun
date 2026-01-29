@@ -75,7 +75,7 @@ export class Breadcrumbs {
 
     const text = document.createElement('span')
     text.className = 'breadcrumb-item__label'
-    text.textContent = label
+    text.textContent = type === 'note' ? label.replace(/\.md$/i, '') : label
 
     item.appendChild(icon)
     item.appendChild(text)

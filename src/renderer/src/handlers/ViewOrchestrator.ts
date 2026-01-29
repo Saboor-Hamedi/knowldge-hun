@@ -19,6 +19,7 @@ export class ViewOrchestrator {
       tabBar: { render: () => void }
       statusBar: { setStatus: (msg: string) => void }
       activityBar: { setActiveView: (view: 'notes' | 'search' | 'settings') => void }
+      breadcrumbs: { render: () => void }
     }
   ) {}
 
@@ -43,6 +44,9 @@ export class ViewOrchestrator {
       if (welcomeHost) welcomeHost.style.display = 'none'
       this.components.editor.layout()
     }
+
+    // Refresh breadcrumbs whenever visibility state changes
+    this.components.breadcrumbs.render()
   }
 
   public async toggleRightSidebar(): Promise<void> {
