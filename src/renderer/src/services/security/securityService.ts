@@ -105,6 +105,11 @@ export class SecurityService {
     const username = await window.api.getUsername().catch(() => 'User')
 
     firewall.innerHTML = `
+      <div class="security-firewall__clock-container">
+        <div class="security-firewall__time"></div>
+        <div class="security-firewall__date"></div>
+      </div>
+
       <div class="security-firewall__content">
         <div class="security-firewall__profile">
           <div class="security-firewall__avatar">
@@ -117,13 +122,23 @@ export class SecurityService {
         </div>
         
         <div class="security-firewall__input-group">
-          <input type="password" class="security-firewall__input" placeholder="Password" autofocus autocomplete="current-password">
+          <div class="security-firewall__input-wrapper">
+            <input type="password" class="security-firewall__input" placeholder="Password" autofocus autocomplete="current-password">
+            <button class="security-firewall__toggle-visibility" title="Toggle Visibility">
+              <svg class="eye-open" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+              <svg class="eye-closed" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+            </button>
+          </div>
           <button class="security-firewall__btn security-firewall__btn--primary">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
               <polyline points="9 18 15 12 9 6"></polyline>
             </svg>
           </button>
-          <div class="security-firewall__error"></div>
+          <div class="security-firewall__caps-lock">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 14h5l-8-8-8 8h5v10h6V14z"/></svg>
+            <span>Caps Lock is on</span>
+          </div>
+          <div class="security-firewall__error" style="display: none;"></div>
         </div>
       </div>
     `
@@ -132,7 +147,50 @@ export class SecurityService {
 
     const input = firewall.querySelector('.security-firewall__input') as HTMLInputElement
     const btn = firewall.querySelector('.security-firewall__btn--primary') as HTMLButtonElement
-    const errorDisplay = firewall.querySelector('.security-firewall__error') as HTMLElement
+    const avatar = firewall.querySelector('.security-firewall__avatar') as HTMLElement
+    const capsWarning = firewall.querySelector('.security-firewall__caps-lock') as HTMLElement
+    const visibilityBtn = firewall.querySelector(
+      '.security-firewall__toggle-visibility'
+    ) as HTMLButtonElement
+    const timeEl = firewall.querySelector('.security-firewall__time') as HTMLElement
+    const dateEl = firewall.querySelector('.security-firewall__date') as HTMLElement
+
+    // Clock Logic
+    const updateClock = (): void => {
+      const now = new Date()
+      timeEl.textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      dateEl.textContent = now.toLocaleDateString([], {
+        weekday: 'long',
+        month: 'long',
+        day: 'numeric'
+      })
+    }
+    updateClock()
+    const clockInterval = setInterval(updateClock, 1000)
+
+    // Visibility Toggle
+    visibilityBtn.addEventListener('click', () => {
+      const isPassword = input.type === 'password'
+      input.type = isPassword ? 'text' : 'password'
+      visibilityBtn
+        .querySelector('.eye-open')!
+        .setAttribute('style', isPassword ? 'display:none' : 'display:block')
+      visibilityBtn
+        .querySelector('.eye-closed')!
+        .setAttribute('style', isPassword ? 'display:block' : 'display:none')
+      input.focus()
+    })
+
+    // Caps Lock Detection
+    const checkCapsLock = (e: KeyboardEvent): void => {
+      if (e.getModifierState('CapsLock')) {
+        capsWarning.classList.add('is-visible')
+      } else {
+        capsWarning.classList.remove('is-visible')
+      }
+    }
+    window.addEventListener('keydown', checkCapsLock)
+    window.addEventListener('keyup', checkCapsLock)
 
     /**
      * GLOBAL EVENT ISOLATION (THE "AIRLOCK"):
@@ -214,10 +272,11 @@ export class SecurityService {
           </svg>
         `
         input.classList.add('is-invalid')
-        errorDisplay.textContent = 'Wrong password'
         input.value = ''
         input.focus()
-        setTimeout(() => input.classList.remove('is-invalid'), 500)
+        setTimeout(() => {
+          input.classList.remove('is-invalid')
+        }, 500)
       }
     }
 
@@ -232,6 +291,15 @@ export class SecurityService {
 
     // Immediate focus for faster typing
     setTimeout(() => input.focus(), 100)
+
+    // Cleanup when firewall is removed
+    const originalOnSuccess = options.onSuccess
+    options.onSuccess = () => {
+      clearInterval(clockInterval)
+      window.removeEventListener('keydown', checkCapsLock)
+      window.removeEventListener('keyup', checkCapsLock)
+      originalOnSuccess()
+    }
   }
 
   /**
