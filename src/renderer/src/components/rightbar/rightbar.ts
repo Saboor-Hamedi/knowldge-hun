@@ -1572,6 +1572,16 @@ export class RightBar {
       return
     }
 
+    // Check if there's a character before the trigger (must be space or start of line)
+    if (triggerIndex > 0) {
+      const charBefore = textBeforeCursor[triggerIndex - 1]
+      if (!/[\s\n]/.test(charBefore)) {
+        this.hideAutocomplete()
+        this.removeTypingHighlight()
+        return
+      }
+    }
+
     // Check if there's a space or newline after the trigger (unless it's start of line)
     // Also ensure / is at the start of a line or only whitespace before it
     if (triggerChar === '/') {
@@ -1776,9 +1786,9 @@ export class RightBar {
     let items: any[] = []
 
     if (triggerChar === '@') {
-      items = this.allNotes
+      items = state.notes
         .filter((note) => {
-          const titleLower = note.title.toLowerCase()
+          const titleLower = (note.title || note.id).toLowerCase()
           return titleLower.includes(query) || titleLower.startsWith(query)
         })
         .slice(0, 8)

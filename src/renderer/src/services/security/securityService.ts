@@ -419,6 +419,71 @@ export class SecurityService {
       })
     })
   }
+
+  /**
+   * Securely change the master password via nested verification.
+   */
+  async promptChangePassword(): Promise<void> {
+    if (!this.hasPassword()) {
+      return this.promptAndLock()
+    }
+
+    // 1. Verify existing password first
+    const verified = await this.verifyAction()
+    if (!verified) return
+
+    // 2. Prompt for new password
+    return new Promise((resolve) => {
+      modalManager.open({
+        title: 'Change Master Password',
+        content: 'Enter your new master password below. This will be used for all future logins.',
+        size: 'sm',
+        onClose: () => resolve(),
+        inputs: [
+          {
+            name: 'p1',
+            label: 'New Password',
+            type: 'password',
+            placeholder: '••••••••',
+            required: true
+          },
+          {
+            name: 'p2',
+            label: 'Confirm Password',
+            type: 'password',
+            placeholder: '••••••••',
+            required: true
+          }
+        ],
+        buttons: [
+          { label: 'Cancel', variant: 'ghost', onClick: (m) => m.close() },
+          {
+            label: 'Update Password',
+            variant: 'primary',
+            onClick: async (m) => {
+              const values = m.getValues()
+              const p1 = values.p1 as string
+              const p2 = values.p2 as string
+
+              if (p1 !== p2) {
+                notificationManager.show('Passwords do not match', 'error')
+                return
+              }
+              if (p1.length < 4) {
+                notificationManager.show('Min 4 characters', 'warning')
+                return
+              }
+
+              await this.setPassword(p1)
+              notificationManager.show('Password updated successfully', 'success')
+              m.close()
+              resolve()
+            }
+          }
+        ]
+      })
+    })
+  }
 }
 
 // Singleton export - accessible as securityService.

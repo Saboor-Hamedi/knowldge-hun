@@ -86,7 +86,7 @@ export function registerWikiLinkProviders(
 
   // 2. Completion Provider (Autocomplete)
   const completionProvider = {
-    triggerCharacters: ['['],
+    triggerCharacters: ['[', '@'],
     provideCompletionItems: (model: any, position: any) => {
       try {
         const textUntilPosition = model.getValueInRange({
@@ -96,10 +96,16 @@ export function registerWikiLinkProviders(
           endColumn: position.column
         })
 
-        const match = /\[\[([^\]]*)$/.exec(textUntilPosition)
-        if (!match) return { suggestions: [] }
+        // Check for [[ trigger
+        const wikiMatch = /\[\[([^\]]*)$/.exec(textUntilPosition)
+        // Check for @ trigger
+        const mentionMatch = /@([^@\s]*)$/.exec(textUntilPosition)
 
-        const search = match[1].toLowerCase()
+        if (!wikiMatch && !mentionMatch) return { suggestions: [] }
+
+        const isMention = !!mentionMatch && !wikiMatch
+        const match = wikiMatch || mentionMatch
+        const search = match![1].toLowerCase()
 
         const textAfterPosition = model.getValueInRange({
           startLineNumber: position.lineNumber,
@@ -109,56 +115,48 @@ export function registerWikiLinkProviders(
         })
         const hasClosing = textAfterPosition.startsWith(']]')
 
-        const startCol = match.index + 3
+        // Calculate range to replace:
+        // For [[, replace from match.index + 3 (after [[)
+        // For @, replace from match.index + 2 (after @)
+        const startCol = match!.index + (isMention ? 2 : 3)
         const endCol = position.column
         const range = new monaco.Range(position.lineNumber, startCol, position.lineNumber, endCol)
 
         const suggestions = state.notes
-          .filter((n) => n.title.toLowerCase().includes(search))
+          .filter((n) => (n.title || n.id).toLowerCase().includes(search))
           .map((n) => {
-            const name = n.title
+            const name = n.title || n.id
             return {
-              label: name,
+              label: isMention ? `@${name}` : name,
               kind: monaco.languages.CompletionItemKind.File,
-              insertText: hasClosing ? name : name + ']]',
-              detail: '', // Remove folder path to "solve" the cluttered view
-              documentation: 'WikiLink',
+              // If it's a mention, we still want to insert a wiki-link for functionality
+              insertText: isMention ? `[[${name}]]` : hasClosing ? name : name + ']]',
+              detail: '',
+              documentation: '',
               range: range,
-              filterText: name,
+              filterText: isMention ? `@${name}` : name,
               sortText: '1-' + name
             }
           })
 
         if (search.trim().length > 0) {
-          const createLabel = `Create "${match[1]}"`
-          if (!suggestions.find((s) => s.label === match[1])) {
+          const query = match![1]
+          if (!suggestions.find((s) => s.label === query || s.label === `@${query}`)) {
             suggestions.push({
-              label: createLabel,
+              label: `Create "${query}"`,
               kind: monaco.languages.CompletionItemKind.Constructor,
-              insertText: hasClosing ? match[1] : match[1] + ']]',
-              detail: 'New Note',
-              documentation: 'Link to a non-existent note',
+              insertText: isMention ? `[[${query}]]` : hasClosing ? query : query + ']]',
+              detail: '',
+              documentation: '',
               range: range,
-              sortText: '0-' + match[1],
-              filterText: match[1]
+              sortText: '0-' + query,
+              filterText: query
             })
           }
-        } else if (suggestions.length === 0) {
-          suggestions.push({
-            label: 'No notes found',
-            kind: monaco.languages.CompletionItemKind.Text,
-            insertText: '',
-            detail: 'Vault is empty',
-            range: range,
-            documentation: 'Add notes to your vault to see them here',
-            filterText: 'no notes',
-            sortText: '9-empty'
-          })
         }
 
         return { suggestions }
       } catch (err) {
-        // Suppress Monaco's "Canceled" errors when accepting suggestions
         if (err && typeof err === 'object' && 'message' in err && err.message !== 'Canceled') {
           console.error('[WikiLink] Completion Error:', err)
         }

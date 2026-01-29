@@ -876,6 +876,15 @@ class App {
         }
       },
       {
+        id: 'security-change',
+        label: 'Security: Change Password',
+        description: 'Update your master vault password',
+        handler: async () => {
+          await securityService.promptChangePassword()
+          this.settingsView.update()
+        }
+      },
+      {
         id: 'index-vault',
         label: 'AI: Re-index Vault',
         description: 'Update AI search index',
