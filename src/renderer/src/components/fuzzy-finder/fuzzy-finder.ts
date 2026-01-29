@@ -16,10 +16,12 @@ export class FuzzyFinder {
   private modal: HTMLElement | null = null
   private input: HTMLInputElement | null = null
   private list: HTMLElement | null = null
-  private isOpen = false
-  private backdrop: HTMLElement | null = null
   private selectedIndex = 0
   private visibleItems: any[] = []
+
+  public get isVisible(): boolean {
+    return this.isOpen
+  }
   private onSelect?: (
     id: string,
     path?: string,

@@ -41,6 +41,18 @@ export class TooltipManager {
   private show(text: string, target: HTMLElement): void {
     clearTimeout(this.timeout)
     this.timeout = setTimeout(() => {
+      // Safety: check if target is still in document and visible
+      if (!document.body.contains(target)) {
+        this.hide()
+        return
+      }
+
+      const style = window.getComputedStyle(target)
+      if (style.display === 'none' || style.visibility === 'hidden') {
+        this.hide()
+        return
+      }
+
       this.el.textContent = text
       this.el.classList.add('is-visible')
 

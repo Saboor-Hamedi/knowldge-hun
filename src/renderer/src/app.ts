@@ -53,7 +53,7 @@ class App {
   private previewHandlers!: PreviewHandlers
   private vaultPicker!: VaultPicker
   private hubConsole: ConsoleComponent
-  private pendingPersist?: any
+  private pendingPersist: number | null = null
   private welcomePage: WelcomePage
 
   private vaultHandler: VaultHandler
@@ -256,7 +256,10 @@ class App {
 
   private schedulePersist(): void {
     if (this.pendingPersist) window.clearTimeout(this.pendingPersist)
-    this.pendingPersist = window.setTimeout(() => void this.vaultHandler.persistWorkspace(), 300)
+    this.pendingPersist = window.setTimeout(
+      () => void this.vaultHandler.persistWorkspace(),
+      300
+    ) as unknown as number
   }
 
   private wireComponents(): void {
@@ -640,7 +643,7 @@ class App {
         this.hubConsole.setVisible(false)
         return true
       }
-      if ((this.fuzzyFinder as any).isOpen) {
+      if (this.fuzzyFinder.isVisible) {
         this.fuzzyFinder.close()
         return true
       }
@@ -768,7 +771,7 @@ class App {
           const verified = await securityService.verifyAction()
           if (verified) {
             await securityService.removePassword()
-            this.hubConsole.log('Vault protection disabled.', 'success')
+            this.hubConsole.log('Vault protection disabled.', 'system')
           }
           return
         }
@@ -804,6 +807,130 @@ class App {
         }
       }
     })
+
+    // Sync commands to FuzzyFinder (Command Palette)
+    const sharedCommands = [
+      {
+        id: 'help',
+        label: 'Help: List Commands',
+        description: 'Show available console commands',
+        handler: () => this.hubConsole.toggle()
+      },
+      {
+        id: 'stats',
+        label: 'Vault: Show Statistics',
+        description: 'Display notes, tabs, and vault path',
+        handler: () => {
+          this.hubConsole.setVisible(true)
+          // Look up 'stats' command and execute it
+          const cmd = (this.hubConsole as any).commands.get('stats')
+          if (cmd) cmd.action([])
+        }
+      },
+      {
+        id: 'clear',
+        label: 'Console: Clear',
+        description: 'Clear the application console',
+        handler: () => {
+          const b = document.querySelector('.hub-console__body')
+          if (b) b.innerHTML = ''
+        }
+      },
+      {
+        id: 'security-lock',
+        label: 'Security: Lock screen',
+        description: 'Immediately secure the application',
+        handler: () => {
+          securityService.lock()
+          void securityService.requestUnlock()
+        }
+      },
+      {
+        id: 'security-enable',
+        label: 'Security: Enable Lock',
+        description: 'Turn on vault protection (Setup password)',
+        handler: async () => {
+          if (securityService.hasPassword()) {
+            return notificationManager.show('Protection is already enabled', 'info')
+          }
+          await securityService.promptAndLock()
+          // Re-render settings to show 'checked'
+          this.settingsView.update()
+        }
+      },
+      {
+        id: 'security-disable',
+        label: 'Security: Disable Lock',
+        description: 'Turn off vault protection (Remove password)',
+        handler: async () => {
+          if (!securityService.hasPassword()) {
+            return notificationManager.show('No password is set', 'info')
+          }
+          const verified = await securityService.verifyAction()
+          if (verified) {
+            await securityService.removePassword()
+            notificationManager.show('Vault protection disabled', 'success')
+            // Re-render settings to show 'unchecked'
+            this.settingsView.update()
+          }
+        }
+      },
+      {
+        id: 'index-vault',
+        label: 'AI: Re-index Vault',
+        description: 'Update AI search index',
+        handler: () => this.vaultHandler.backgroundIndexVault()
+      },
+      {
+        id: 'toggle-sidebar',
+        label: 'View: Toggle Sidebar',
+        description: 'Show or hide the primary left sidebar',
+        handler: () => void this.viewOrchestrator.toggleSidebar()
+      },
+      {
+        id: 'toggle-right-sidebar',
+        label: 'View: Toggle Right Sidebar',
+        description: 'Show or hide the AI assistant (Right Panel)',
+        handler: () => void this.viewOrchestrator.toggleRightSidebar()
+      },
+      {
+        id: 'settings',
+        label: 'Settings: Open',
+        description: 'Open application settings',
+        handler: () => this.viewOrchestrator.openSettings()
+      },
+      {
+        id: 'theme',
+        label: 'Theme: Select',
+        description: 'Choose a different UI theme',
+        handler: () => this.themeModal.open()
+      },
+      {
+        id: 'sync-backup',
+        label: 'Sync: Backup Vault',
+        description: 'Upload vault contents to GitHub Gist',
+        handler: () => this.backupVault()
+      },
+      {
+        id: 'sync-restore',
+        label: 'Sync: Restore Vault',
+        description: 'Pull latest backup from GitHub',
+        handler: () => this.restoreVault()
+      },
+      {
+        id: 'reset-settings',
+        label: 'System: Reset Settings',
+        description: 'Restore factory defaults (Warning: Reloads App)',
+        handler: async () => {
+          if (confirm('Reset all settings to defaults? This will reload the application.')) {
+            await window.api.resetSettings()
+            window.location.reload()
+          }
+        }
+      }
+    ]
+
+    this.fuzzyFinder.registerCommands(sharedCommands)
   }
 
   private async reloadVault(): Promise<void> {
@@ -813,6 +940,54 @@ class App {
       this.statusBar.setStatus('Vault reloaded')
     } catch {
       notificationManager.show('Reload failed', 'error')
+    }
+  }
+
+  private async backupVault(): Promise<void> {
+    const settings = (await window.api.getSettings()) as any
+    const { gistToken, gistId } = settings
+    if (!gistToken) return notificationManager.show('GitHub token missing in settings', 'warning')
+
+    notificationManager.show('Backing up vault...', 'info')
+    try {
+      const vaultData = await window.api.listNotes()
+      const notes = (
+        await Promise.all(
+          vaultData.filter((n) => n.type !== 'folder').map((n) => window.api.loadNote(n.id))
+        )
+      ).filter((n) => n !== null)
+
+      const res = await window.api.syncBackup(gistToken, gistId, notes)
+      if (res.success) {
+        notificationManager.show(res.message, 'success')
+        if (res.gistId) await window.api.updateSettings({ gistId: res.gistId } as any)
+      } else {
+        notificationManager.show(res.message, 'error')
+      }
+    } catch {
+      notificationManager.show('Backup process failed', 'error')
+    }
+  }
+
+  private async restoreVault(): Promise<void> {
+    const settings = (await window.api.getSettings()) as any
+    const { gistToken, gistId } = settings
+    if (!gistToken) return notificationManager.show('GitHub token missing in settings', 'warning')
+    if (!gistId) return notificationManager.show('No Gist ID found to restore from', 'warning')
+
+    if (!confirm('Restore will replace your current local vault. Continue?')) return
+
+    notificationManager.show('Restoring vault...', 'info')
+    try {
+      const res = await window.api.syncRestore(gistToken, gistId)
+      if (res.success && res.data) {
+        await this.vaultHandler.restoreVaultFromBackup(res.data)
+        notificationManager.show('Restored successfully', 'success')
+      } else {
+        notificationManager.show(res.message, 'error')
+      }
+    } catch {
+      notificationManager.show('Restore process failed', 'error')
     }
   }
 }

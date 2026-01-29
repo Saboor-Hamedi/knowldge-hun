@@ -3,17 +3,12 @@ import { tabService } from '../services/tabService'
 import { estimateReadTime, extractWikiLinks, extractTags, timeAgo } from '../utils/helpers'
 import { detailsModal } from '../components/details-modal/details-modal'
 import type { AppSettings } from '../core/types'
+import { tooltipManager } from '../components/tooltip/tooltip'
 
 export class ViewOrchestrator {
   constructor(
     private components: {
-      editor: {
-        layout: () => void
-        getValue: () => string
-        showEmpty: () => void
-        isPreviewMode: boolean
-        [key: string]: any
-      }
+      editor: any
       settingsView: { update: () => void; updateVaultPath: () => void }
       welcomePage: { isVisible: () => boolean; show: () => void; hide: () => void }
       tabBar: { render: () => void }
@@ -27,21 +22,32 @@ export class ViewOrchestrator {
     const editorCont = document.getElementById('editorContainer')
     const settingsHost = document.getElementById('settingsHost')
     const welcomeHost = document.getElementById('welcomeHost')
+    const tabBar = document.getElementById('tabBar')
+    const breadcrumbs = document.getElementById('breadcrumbs')
 
     const isWelcomeVisible = this.components.welcomePage.isVisible()
+
+    // Always clear tooltips when view significantly changes
+    tooltipManager.hide()
 
     if (state.activeId === 'settings') {
       if (editorCont) editorCont.style.display = 'none'
       if (settingsHost) settingsHost.style.display = 'flex'
       if (welcomeHost) welcomeHost.style.display = 'none'
+      if (tabBar) tabBar.style.display = 'flex'
+      if (breadcrumbs) breadcrumbs.style.display = 'none'
     } else if (isWelcomeVisible) {
       if (editorCont) editorCont.style.display = 'none'
       if (settingsHost) settingsHost.style.display = 'none'
       if (welcomeHost) welcomeHost.style.display = 'block'
+      if (tabBar) tabBar.style.display = 'none'
+      if (breadcrumbs) breadcrumbs.style.display = 'none'
     } else {
       if (editorCont) editorCont.style.display = 'flex'
       if (settingsHost) settingsHost.style.display = 'none'
       if (welcomeHost) welcomeHost.style.display = 'none'
+      if (tabBar) tabBar.style.display = 'flex'
+      if (breadcrumbs) breadcrumbs.style.display = 'flex'
       this.components.editor.layout()
     }
 
@@ -49,13 +55,35 @@ export class ViewOrchestrator {
     this.components.breadcrumbs.render()
   }
 
-  public async toggleRightSidebar(): Promise<void> {
+  public async setSidebarVisible(visible: boolean): Promise<void> {
+    const shell = document.querySelector('.vscode-shell') as HTMLElement
+    if (!shell) return
+
+    if (visible) {
+      shell.classList.remove('sidebar-hidden')
+    } else {
+      shell.classList.add('sidebar-hidden')
+    }
+
+    void window.api.updateSettings({ sidebarVisible: visible })
+  }
+
+  public toggleSidebar(): Promise<void> {
+    const shell = document.querySelector('.vscode-shell') as HTMLElement
+    const isVisible = !shell?.classList.contains('sidebar-hidden')
+    return this.setSidebarVisible(!isVisible)
+  }
+
+  public async setRightSidebarVisible(visible: boolean): Promise<void> {
     const shell = document.querySelector('.vscode-shell') as HTMLElement
     const rightPanel = document.getElementById('rightPanel') as HTMLElement
     if (!rightPanel || !shell) return
 
-    const isVisible = rightPanel.style.display !== 'none'
-    if (isVisible) {
+    // Use getComputedStyle for accurate initial state detection
+    const isActuallyVisible = window.getComputedStyle(rightPanel).display !== 'none'
+    if (isActuallyVisible === visible) return
+
+    if (!visible) {
       const currentWidth = parseInt(
         getComputedStyle(shell).getPropertyValue('--right-panel-width') || '270',
         10
@@ -74,6 +102,13 @@ export class ViewOrchestrator {
       shell.style.setProperty('--right-panel-width', `${Math.max(200, Math.min(800, w))}px`)
       void window.api.updateSettings({ rightPanelVisible: true })
     }
+  }
+
+  public toggleRightSidebar(): Promise<void> {
+    const rightPanel = document.getElementById('rightPanel')
+    if (!rightPanel) return Promise.resolve()
+    const isVisible = window.getComputedStyle(rightPanel).display !== 'none'
+    return this.setRightSidebarVisible(!isVisible)
   }
 
   public showDetailsModal(): void {

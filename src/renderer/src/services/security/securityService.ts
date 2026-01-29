@@ -2,6 +2,7 @@ import { state } from '../../core/state'
 import { modalManager } from '../../components/modal/modal'
 import type { AppSettings } from '../../core/types'
 import { keyboardManager } from '../../core/keyboardManager'
+import { notificationManager } from '../../components/notification/notification'
 
 /**
  * SECURITY ARCHITECTURE OVERVIEW:
@@ -331,7 +332,7 @@ export class SecurityService {
     if (state.settings) {
       state.settings.passwordHash = null
     }
-    this.isUnlocked = false
+    this.isUnlocked = true
   }
 
   /**
@@ -362,13 +363,16 @@ export class SecurityService {
     if (this.hasPassword()) {
       this.lock()
       // Trigger the firewall overlay without a reload
-      void this.requestUnlock()
-    } else {
-      // Lazy import notificationManager if needed, or just use modalManager
+      await this.requestUnlock()
+      return
+    }
+
+    return new Promise((resolve) => {
       modalManager.open({
         title: 'Setup Vault Protection',
         content: 'You must set a master password before you can lock the application.',
         size: 'sm',
+        onClose: () => resolve(),
         inputs: [
           {
             name: 'p1',
@@ -395,18 +399,25 @@ export class SecurityService {
               const p1 = values.p1 as string
               const p2 = values.p2 as string
 
-              if (p1 !== p2) return // Error handling usually via notificationManager
-              if (p1.length < 4) return
+              if (p1 !== p2) {
+                notificationManager.show('Passwords do not match', 'error')
+                return
+              }
+              if (p1.length < 4) {
+                notificationManager.show('Min 4 characters', 'warning')
+                return
+              }
 
               await this.setPassword(p1)
               m.close()
               this.lock()
               void this.requestUnlock()
+              resolve()
             }
           }
         ]
       })
-    }
+    })
   }
 }
 
