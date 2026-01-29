@@ -493,9 +493,6 @@ export class RightBar {
           <div class="rightbar__header-actions">
             <div id="rightbar-model-badge" class="rightbar__model-badge"></div>
             <button class="rightbar__header-ai-menu" id="rightbar-header-ai-menu" title="More options" aria-label="AI chat menu"></button>
-            <button class="rightbar__header-close" id="rightbar-header-close" title="Close (Ctrl+I)" aria-label="Close panel">
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>
-            </button>
           </div>
         </div>
         <div class="rightbar__chat-container" id="rightbar-chat-container">
@@ -665,7 +662,13 @@ export class RightBar {
         grok: 'Grok'
       }[provider] || provider
 
-    badge.textContent = `modal:${model}`
+    const checkIcon = `
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="#22c55e" style="margin-left: 4px;">
+        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+      </svg>
+    `
+
+    badge.innerHTML = `${model}${checkIcon}`
     badge.title = `Current Provider: ${providerName}\nModel: ${model}`
   }
 

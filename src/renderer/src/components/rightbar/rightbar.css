@@ -328,11 +328,11 @@
 .rightbar__model-badge {
   font-size: 10px;
   padding: 2px 7px;
-  background: var(--panel-strong);
-  border: 1px solid var(--border);
+  background: transparent;
+  border: none;
   color: var(--text-soft);
   border-radius: 2px;
-  font-weight: 500;
+  font-weight: 600;
   max-width: 150px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -341,6 +341,7 @@
   align-items: center;
   transition: all 0.2s ease;
   cursor: default;
+  opacity: 0.7;
 }
 
 /* ---- Markdown elements in assistant messages ---- */

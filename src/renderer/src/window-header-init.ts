@@ -62,9 +62,12 @@ if (container) {
 
     const isVisible = rightPanel.style.display !== 'none'
     if (isVisible) {
-      const chatInput = rightPanel.querySelector('#rightbar-chat-input') as HTMLTextAreaElement
-      chatInput?.focus()
+      // Toggle OFF: Close it
+      rightPanel.style.display = 'none'
+      shell.style.setProperty('--right-panel-width', '0px')
+      void window.api.updateSettings({ rightPanelVisible: false })
     } else {
+      // Toggle ON: Open it
       const s = await window.api.getSettings()
       const w = (s as { rightPanelWidth?: number }).rightPanelWidth ?? 270
       rightPanel.style.display = 'block'

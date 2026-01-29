@@ -746,6 +746,7 @@ export class AIService {
     const identityPrompt =
       `You are Knowledge Hub AI, an intelligent personal assistant fully integrated into the user's note-taking application.\n` +
       `Your current engine: ${provider.toUpperCase()} (Model: ${model === 'default-recommended' ? 'System Default' : model}).\n` +
+      `You have access to the user's currently open note (context) and can read their entire vault if needed.\n` +
       `When the user asks who you are, what model you are, or what powers you, answer accurately as Knowledge Hub AI using ${provider} ${model === 'default-recommended' ? '' : `(${model})`}.`
 
     const messagesForAPI: AIMessage[] = []
