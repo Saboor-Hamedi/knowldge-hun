@@ -637,6 +637,7 @@ class App {
     })
     reg('Control+j', 'Toggle Console', () => this.hubConsole.toggle())
     reg('Control+l', 'Lock Application', () => void securityService.promptAndLock())
+    reg('Alt+l', 'Lock Application', () => void securityService.promptAndLock())
     reg('Escape', 'Close UI', () => {
       if (this.hubConsole.isVisible) {
         this.hubConsole.setVisible(false)
@@ -840,10 +841,7 @@ class App {
         id: 'security-lock',
         label: 'Security: Lock screen',
         description: 'Immediately secure the application',
-        handler: () => {
-          securityService.lock()
-          void securityService.requestUnlock()
-        }
+        handler: () => void securityService.promptAndLock()
       },
       {
         id: 'security-enable',

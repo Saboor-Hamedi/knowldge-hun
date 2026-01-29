@@ -477,7 +477,7 @@ alice@CodeDocs λ
 | **AI Configuration**          | `Ctrl + Alt + S`               |
 | **Reload Vault / Refresh UI** | `Ctrl + Shift + R`             |
 | **Choose Vault Folder**       | `Ctrl + Shift + V`             |
-| **Instant Lock Application**  | `Ctrl + L`                     |
+| **Instant Lock Application**  | `Ctrl + L` / `Alt + L`         |
 | **Sync Now (GitHub Gist)**    | `Ctrl + S (while in Settings)` |
 
 ### ✍️ Editor Operations
@@ -596,7 +596,7 @@ When a master password is set, KnowledgeHub activates a high-performance, hardwa
 
 ### 3. Session Management
 
-- **Instant Lock**: Use the sidebar lock icon or the `Ctrl + L` hotkey to immediately secure your workspace.
+- **Instant Lock**: Use the sidebar lock icon or the `Ctrl + L` / `Alt + L` hotkeys to immediately secure your workspace.
 - **Sensitive Action Verification**: Certain high-risk operations (like deleting items or removing vault protection) require a secondary password verification prompt to prevent accidental data loss.
 
 ---
