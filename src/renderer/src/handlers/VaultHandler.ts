@@ -1,5 +1,5 @@
 import { state } from '../core/state'
-import type { TreeItem, NoteMeta, AppSettings, NotePayload } from '../core/types'
+import type { TreeItem, NoteMeta, AppSettings } from '../core/types'
 import { sortNotes } from '../utils/helpers'
 import { sortTreeRecursive } from '../utils/tree-utils'
 import { vaultService } from '../services/vaultService'
@@ -10,7 +10,7 @@ import { notificationManager } from '../components/notification/notification'
 
 export class VaultHandler {
   constructor(
-    private components: {
+    public components: {
       sidebar: {
         renderTree: (filter?: string) => void
         updateSelection: (id: string) => void
@@ -336,99 +336,6 @@ export class VaultHandler {
     } else {
       aiStatusManager.setReady('AI Brain: Up to date')
     }
-  }
-
-  public async restoreVaultFromBackup(backupData: any): Promise<void> {
-    if (!backupData || !backupData.notes || !Array.isArray(backupData.notes)) {
-      throw new Error('Invalid backup data format')
-    }
-
-    await this.refreshNotes()
-
-    const notes = backupData.notes as NotePayload[]
-    console.log(`[Restore] Starting restoration of ${notes.length} notes...`)
-    const createdFolders = new Set<string>()
-    let successCount = 0
-    let failCount = 0
-
-    for (const backupNote of notes) {
-      try {
-        // Correct folderPath: the Gist already contains the relative folder path
-        const folderPath = backupNote.path || undefined
-        const noteTitle = backupNote.title || backupNote.id
-
-        // Case-insensitive ID check for Windows to prevent duplicates
-        const existingNote = state.notes.find(
-          (n) => n.id.toLowerCase() === backupNote.id.toLowerCase()
-        )
-
-        if (existingNote) {
-          console.log(`[Restore] Updating existing note: ${backupNote.id}`)
-          await window.api.saveNote({
-            id: existingNote.id,
-            title: noteTitle,
-            content: backupNote.content || '',
-            path: folderPath,
-            updatedAt: backupNote.updatedAt || Date.now(),
-            createdAt: backupNote.createdAt || existingNote.createdAt || Date.now()
-          })
-        } else {
-          console.log(`[Restore] Creating new note: ${noteTitle} in ${folderPath || 'root'}`)
-          if (folderPath && !createdFolders.has(folderPath)) {
-            const folderParts = folderPath.split('/')
-            let currentPath = ''
-            for (const folderName of folderParts) {
-              const nextPath = currentPath ? `${currentPath}/${folderName}` : folderName
-              if (!createdFolders.has(nextPath)) {
-                try {
-                  const folderExists = state.notes.some(
-                    (n) => n.type === 'folder' && n.path === nextPath
-                  )
-                  if (!folderExists) {
-                    console.log(`[Restore] Creating folder: ${nextPath}`)
-                    await window.api.createFolder(folderName, currentPath || undefined)
-                  }
-                  createdFolders.add(nextPath)
-                } catch (err) {
-                  console.warn(`[Restore] Folder creation failed or exists: ${nextPath}`, err)
-                  createdFolders.add(nextPath)
-                }
-              }
-              currentPath = nextPath
-            }
-          }
-
-          const created = await window.api.createNote(noteTitle, folderPath)
-          await window.api.saveNote({
-            id: created.id,
-            title: noteTitle,
-            content: backupNote.content || '',
-            path: folderPath,
-            updatedAt: backupNote.updatedAt || Date.now(),
-            createdAt: backupNote.createdAt || Date.now()
-          })
-        }
-        successCount++
-      } catch (error) {
-        failCount++
-        console.error(`[Restore] Failed to restore note ${backupNote.id}:`, error)
-      }
-    }
-
-    console.log(`[Restore] Finished. Success: ${successCount}, Failed: ${failCount}`)
-    await this.refreshNotes()
-    this.components.sidebar.renderTree()
-
-    if (state.activeId) {
-      const activeNote = state.notes.find((n) => n.id === state.activeId)
-      if (activeNote) {
-        const noteData = await window.api.loadNote(activeNote.id)
-        if (noteData) void this.components.editor.loadNote(noteData)
-      }
-    }
-
-    // Background the indexing so the UI can proceed
-    void this.backgroundIndexVault()
   }
 
   public async handleVaultSelected(path: string): Promise<void> {

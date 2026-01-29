@@ -33,6 +33,7 @@ import { securityService } from './services/security/securityService'
 import { VaultHandler } from './handlers/VaultHandler'
 import { FileOperationHandler } from './handlers/FileOperationHandler'
 import { ViewOrchestrator } from './handlers/ViewOrchestrator'
+import { SyncHandler } from './services/sync/syncHandler'
 
 class App {
   private activityBar: ActivityBar
@@ -59,6 +60,7 @@ class App {
   private vaultHandler: VaultHandler
   private fileOps: FileOperationHandler
   private viewOrchestrator: ViewOrchestrator
+  private syncHandler: SyncHandler
 
   constructor() {
     this.activityBar = new ActivityBar('activityBar')
@@ -145,6 +147,8 @@ class App {
     })
 
     this.vaultPicker = new VaultPicker('app')
+    this.syncHandler = new SyncHandler(this.vaultHandler)
+
     this.vaultPicker.setCallbacks({
       onVaultSelected: (path) => this.vaultHandler.handleVaultSelected(path),
       onVaultLocated: (orig, newP) => this.vaultHandler.handleVaultLocated(orig, newP),
@@ -162,7 +166,7 @@ class App {
     this.registerGlobalShortcuts()
     this.wireUpdateEvents()
     this.attachSyncEvents()
-    // URL params handling removed (unused)
+    this.registerGlobalCommands()
 
     window.addEventListener('resize', () => this.editor.layout())
     window.addEventListener('delete-active-note', () => {
@@ -551,7 +555,7 @@ class App {
   private attachSyncEvents(): void {
     window.addEventListener('restore-vault', async (e: any) => {
       if (e.detail?.backupData) {
-        await this.vaultHandler.restoreVaultFromBackup(e.detail.backupData)
+        await this.syncHandler.restoreVaultFromBackup(e.detail.backupData)
       }
     })
 
@@ -559,9 +563,9 @@ class App {
     statusBarEl?.addEventListener('sync-action', async (e: any) => {
       const { action } = e.detail
       if (action === 'backup') {
-        void this.backupVault()
+        void this.syncHandler.backupVault()
       } else if (action === 'restore') {
-        void this.restoreVault()
+        void this.syncHandler.restoreVault()
       }
     })
   }
@@ -802,7 +806,9 @@ class App {
         }
       }
     })
+  }
 
+  private registerGlobalCommands(): void {
     // Sync commands to FuzzyFinder (Command Palette)
     const sharedCommands = [
       {
@@ -817,7 +823,6 @@ class App {
         description: 'Display notes, tabs, and vault path',
         handler: () => {
           this.hubConsole.setVisible(true)
-          // Look up 'stats' command and execute it
           const cmd = (this.hubConsole as any).commands.get('stats')
           if (cmd) cmd.action([])
         }
@@ -849,7 +854,6 @@ class App {
             return notificationManager.show('Protection is already enabled', 'info')
           }
           await securityService.promptAndLock()
-          // Re-render settings to show 'checked'
           this.settingsView.update()
         }
       },
@@ -865,7 +869,6 @@ class App {
           if (verified) {
             await securityService.removePassword()
             notificationManager.show('Vault protection disabled', 'success')
-            // Re-render settings to show 'unchecked'
             this.settingsView.update()
           }
         }
@@ -913,13 +916,13 @@ class App {
         id: 'sync-backup',
         label: 'Sync: Backup Vault',
         description: 'Upload vault contents to GitHub Gist',
-        handler: () => this.backupVault()
+        handler: () => this.syncHandler.backupVault()
       },
       {
         id: 'sync-restore',
         label: 'Sync: Restore Vault',
         description: 'Pull latest backup from GitHub',
-        handler: () => this.restoreVault()
+        handler: () => this.syncHandler.restoreVault()
       },
       {
         id: 'reset-settings',
@@ -945,90 +948,6 @@ class App {
     } catch {
       notificationManager.show('Reload failed', 'error')
     }
-  }
-
-  private async backupVault(): Promise<void> {
-    const settings = (await window.api.getSettings()) as any
-    const { gistToken, gistId } = settings
-    if (!gistToken)
-      return notificationManager.show('GitHub token missing in settings', 'warning', {
-        title: 'Sync'
-      })
-
-    notificationManager.show('Backing up vault...', 'info', { title: 'Sync' })
-    try {
-      const vaultData = await window.api.listNotes()
-      const notes = (
-        await Promise.all(
-          vaultData.filter((n) => n.type !== 'folder').map((n) => window.api.loadNote(n.id))
-        )
-      ).filter((n) => n !== null)
-
-      const res = await window.api.syncBackup(gistToken, gistId, notes)
-      if (res.success) {
-        notificationManager.show(res.message, 'success', { title: 'Sync' })
-        if (res.gistId) await window.api.updateSettings({ gistId: res.gistId } as any)
-      } else {
-        notificationManager.show(res.message, 'error', { title: 'Sync' })
-      }
-    } catch (err: any) {
-      console.error('Backup failed:', err)
-      notificationManager.show('Backup process failed', 'error', { title: 'Sync' })
-    }
-  }
-
-  private async restoreVault(): Promise<void> {
-    const settings = (await window.api.getSettings()) as any
-    const { gistToken, gistId } = settings
-    if (!gistToken)
-      return notificationManager.show('GitHub token missing in settings', 'warning', {
-        title: 'Sync'
-      })
-    if (!gistId)
-      return notificationManager.show('No Gist ID found to restore from', 'warning', {
-        title: 'Sync'
-      })
-
-    modalManager.open({
-      title: 'Restore Vault',
-      content:
-        'This will replace your current local notes with the version from GitHub. This action cannot be undone. Are you sure you want to proceed?',
-      buttons: [
-        {
-          label: 'Okay',
-          variant: 'primary',
-          onClick: async (m) => {
-            m.close()
-            try {
-              notificationManager.show('Restoring backup...', 'info', { title: 'Sync' })
-              const res = await window.api.syncRestore(gistToken, gistId)
-              if (res.success && res.data) {
-                await this.vaultHandler.restoreVaultFromBackup(res.data)
-                notificationManager.show('Restore completed successfully', 'success', {
-                  title: 'Sync'
-                })
-              } else {
-                notificationManager.show(res.message || 'Restore failed', 'error', {
-                  title: 'Sync'
-                })
-              }
-            } catch (err: any) {
-              console.error('Restore action failed:', err)
-              notificationManager.show(
-                `Restore failed: ${err.message || 'Unknown error'}`,
-                'error',
-                { title: 'Sync' }
-              )
-            }
-          }
-        },
-        {
-          label: 'Cancel',
-          variant: 'ghost',
-          onClick: (m) => m.close()
-        }
-      ]
-    })
   }
 }
 
