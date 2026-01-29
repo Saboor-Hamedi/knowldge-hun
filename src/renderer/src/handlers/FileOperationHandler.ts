@@ -23,12 +23,17 @@ export class FileOperationHandler {
     }
   ) {}
 
-  public async createNote(title?: string, path?: string): Promise<void> {
+  public async createNote(title?: string, content?: string, path?: string): Promise<void> {
     const meta = await window.api.createNote(title || '', path)
     state.newlyCreatedIds.add(meta.id)
 
     if (path) {
       state.expandedFolders.add(path)
+    }
+
+    // Save content if provided
+    if (content) {
+      await window.api.saveNote({ id: meta.id, content, title: meta.title } as any)
     }
 
     await this.callbacks.refreshNotes()
@@ -37,14 +42,16 @@ export class FileOperationHandler {
 
     await this.callbacks.openNote(meta.id, meta.path, 'editor')
 
-    setTimeout(() => {
-      this.components.sidebar.startRename(meta.id)
-    }, 100)
+    if (!content) {
+      setTimeout(() => {
+        this.components.sidebar.startRename(meta.id)
+      }, 100)
+    }
   }
 
-  public async createFolder(parentPath?: string): Promise<void> {
+  public async createFolder(name: string = 'New Folder', parentPath?: string): Promise<void> {
     try {
-      const result = await window.api.createFolder('New Folder', parentPath)
+      const result = await window.api.createFolder(name, parentPath)
       state.newlyCreatedIds.add(result.path)
 
       if (parentPath) {
@@ -54,9 +61,11 @@ export class FileOperationHandler {
       await this.callbacks.refreshNotes()
       this.components.statusBar.setStatus(`Created folder "${result.name}"`)
 
-      setTimeout(() => {
-        this.components.sidebar.startRename(result.path)
-      }, 100)
+      if (name === 'New Folder') {
+        setTimeout(() => {
+          this.components.sidebar.startRename(result.path)
+        }, 100)
+      }
     } catch (error) {
       this.components.statusBar.setStatus(`Failed: ${(error as Error).message}`)
     }

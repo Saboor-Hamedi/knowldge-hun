@@ -1,6 +1,26 @@
+import { state } from '../../core/state'
+import type { AppSettings } from '../../core/types'
 import { securityService } from '../../services/security/securityService'
 import { notificationManager } from '../notification/notification'
-import { createElement, KeyRound, ShieldCheck, ShieldAlert, LogOut, Info } from 'lucide'
+import {
+  createElement,
+  KeyRound,
+  ShieldCheck,
+  ShieldAlert,
+  LogOut,
+  Info,
+  User,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  Layout
+} from 'lucide'
+
+declare global {
+  interface Window {
+    onSettingChange?: (settings: Partial<AppSettings>) => void
+  }
+}
 
 /**
  * SECURITY UI COMPONENT:
@@ -65,6 +85,45 @@ export class SecuritySection {
             <button class="settings-button settings-button--sm settings-button--secondary" id="security-change-password">
               Update
             </button>
+          </div>
+        </div>
+
+        <div class="settings-divider"></div>
+        <div class="settings-view__section-header" style="border: none; margin-top: 16px;">
+          <h3 class="settings-view__section-title">Lock Screen Appearance</h3>
+        </div>
+
+        <!-- Lock Screen Name -->
+        <div class="settings-row">
+          <div class="settings-row__icon">${this.createLucideIcon(User, 18)}</div>
+          <div class="settings-row__info">
+            <label class="settings-row__label">Displayed Name</label>
+            <p class="settings-row__hint">The name shown on the lock screen. Leave empty for system username.</p>
+          </div>
+          <div class="settings-row__action" style="flex: 1; max-width: 250px;">
+            <input type="text" class="settings-input" data-firewall-setting="lockScreenName" placeholder="Enter display name..." value="${state.settings?.fireWall?.lockScreenName || ''}" />
+          </div>
+        </div>
+
+        <!-- DateTime Alignment -->
+        <div class="settings-row">
+          <div class="settings-row__icon">${this.createLucideIcon(Layout, 18)}</div>
+          <div class="settings-row__info">
+            <label class="settings-row__label">Clock Alignment</label>
+            <p class="settings-row__hint">Positioning of the time and date display.</p>
+          </div>
+          <div class="settings-row__action">
+            <div class="settings-alignment-picker">
+              <button class="alignment-btn ${state.settings?.fireWall?.lockScreenAlignment === 'left' ? 'is-active' : ''}" data-alignment="left" title="Align Left">
+                ${this.createLucideIcon(AlignLeft, 16)}
+              </button>
+              <button class="alignment-btn ${state.settings?.fireWall?.lockScreenAlignment === 'center' || !state.settings?.fireWall?.lockScreenAlignment ? 'is-active' : ''}" data-alignment="center" title="Align Center">
+                ${this.createLucideIcon(AlignCenter, 16)}
+              </button>
+              <button class="alignment-btn ${state.settings?.fireWall?.lockScreenAlignment === 'right' ? 'is-active' : ''}" data-alignment="right" title="Align Right">
+                ${this.createLucideIcon(AlignRight, 16)}
+              </button>
+            </div>
           </div>
         </div>
         `
@@ -161,8 +220,56 @@ export class SecuritySection {
         .security-alert-box__icon {
           flex-shrink: 0;
         }
+
+        .settings-alignment-picker {
+          display: flex;
+          background: var(--panel-bg);
+          border: 1px solid var(--border);
+          border-radius: 6px;
+          padding: 2px;
+          gap: 2px;
+        }
+
+        .alignment-btn {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 32px;
+          height: 28px;
+          border: none;
+          background: transparent;
+          color: var(--text-muted);
+          border-radius: 4px;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+
+        .alignment-btn:hover {
+          background: var(--hover-bg);
+          color: var(--text-soft);
+        }
+
+        .alignment-btn.is-active {
+          background: var(--primary);
+          color: white;
+          box-shadow: 0 0 12px rgba(var(--primary-rgb), 0.3);
+        }
+
+        .settings-input[data-setting="lockScreenName"] {
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .settings-input[data-firewall-setting="lockScreenName"]:focus {
+          border-color: var(--primary);
+          box-shadow: 0 0 0 3px rgba(var(--primary-rgb), 0.1);
+          transform: translateY(-1px);
+        }
       </style>
     `
+  }
+
+  private get onSettingChange(): ((settings: Partial<AppSettings>) => void) | undefined {
+    return window.onSettingChange
   }
 
   attachEvents(container: HTMLElement, onUpdate: () => void): void {
@@ -206,6 +313,31 @@ export class SecuritySection {
 
     lockNowBtn?.addEventListener('click', async () => {
       void securityService.promptAndLock()
+    })
+
+    // Handle alignment picker
+    container.querySelectorAll('.alignment-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const alignment = (btn as HTMLElement).dataset.alignment as 'left' | 'center' | 'right'
+        if (alignment && this.onSettingChange) {
+          const fireWall = { ...(state.settings?.fireWall || {}), lockScreenAlignment: alignment }
+          this.onSettingChange({ fireWall })
+          onUpdate() // Re-render this section
+        }
+      })
+    })
+
+    // Handle firewall text inputs
+    container.querySelectorAll('[data-firewall-setting]').forEach((input) => {
+      input.addEventListener('change', (e) => {
+        const el = e.target as HTMLInputElement
+        const key = el.dataset.firewallSetting
+        if (key && this.onSettingChange) {
+          const fireWall = { ...(state.settings?.fireWall || {}), [key]: el.value }
+          this.onSettingChange({ fireWall })
+          onUpdate()
+        }
+      })
     })
   }
 }

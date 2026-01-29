@@ -207,7 +207,7 @@ export class VaultManager {
       const extractedTitle = this.extractTitle(content, id)
       const meta: NoteMeta = {
         id,
-        title: extractedTitle || basename(id) || 'Untitled',
+        title: this.sanitizeFilename(extractedTitle) || basename(id) || 'Untitled',
         updatedAt: mtime,
         createdAt: createdAt,
         path: relativeDir,
@@ -303,6 +303,20 @@ export class VaultManager {
   private extractTitle(_content: string, id: string): string {
     // Title is ALWAYS the filename (basename of id)
     return basename(id)
+  }
+
+  private sanitizeFilename(name: string): string {
+    // Windows forbidden chars: < > : " / \ | ? *
+    // Also remove control characters and trim trailing dots/spaces
+    return (
+      name
+        .replace(/[<>:"/\\|?*]/g, ' ') // Replace forbidden chars with space
+        // eslint-disable-next-line no-control-regex
+        .replace(/[\x00-\x1f]/g, '') // Remove control characters
+        .trim()
+        .replace(/[.\s]+$/, '') // Remove trailing dots and spaces
+        .substring(0, 250)
+    ) // Basic length limit for Windows
   }
 
   private updateLinks(sourceId: string, content: string): void {
@@ -433,14 +447,28 @@ export class VaultManager {
   }
 
   public async createNote(title: string, folderPath?: string): Promise<NoteMeta> {
-    const safeTitle = title.trim() || 'Untitled'
-    const targetDir = folderPath ? join(this.rootPath, folderPath) : this.rootPath
+    const rawTitle = title.trim() || 'Untitled'
+    const safeTitle = this.sanitizeFilename(rawTitle)
+    let targetDir = folderPath ? join(this.rootPath, folderPath) : this.rootPath
 
-    // Ensure target directory exists
+    // If title itself contains a path (e.g. "Sub/Note.md"), extract the subdirectory
+    const normalizedTitlePath = safeTitle.replace(/\\/g, '/')
+    const titleParts = normalizedTitlePath.split('/')
+    let filename = titleParts.pop()!
+    const titleSubDir = titleParts.join('/')
+
+    if (titleSubDir) {
+      targetDir = join(targetDir, titleSubDir)
+    }
+
+    // Ensure target directory exists (including any subdirs from the title)
     await mkdir(targetDir, { recursive: true })
 
-    // If title doesn't have an extension, default to .md
-    let filename = safeTitle.includes('.') ? safeTitle : `${safeTitle}.md`
+    // If filename doesn't have an extension, default to .md
+    if (!filename.includes('.')) {
+      filename = `${filename}.md`
+    }
+
     let fullPath = join(targetDir, filename)
     let counter = 1
 
@@ -481,9 +509,10 @@ export class VaultManager {
 
     // Ensure extension remains or is added
     const oldExt = id.split('.').pop()
-    let newFilename = newTitle
+    const safeTitle = this.sanitizeFilename(newTitle)
+    let newFilename = safeTitle
     if (!newFilename.includes('.') && oldExt) {
-      newFilename = `${newTitle}.${oldExt}`
+      newFilename = `${safeTitle}.${oldExt}`
     }
 
     const newId = dir === '.' || dir === '' ? newFilename : `${dir}/${newFilename}`
@@ -505,7 +534,8 @@ export class VaultManager {
     const targetDirFullPath = join(this.rootPath, targetDirNorm)
 
     const filename = basename(sourceNorm)
-    let newFullPath = join(targetDirFullPath, filename)
+    const safeFilename = this.sanitizeFilename(filename)
+    let newFullPath = join(targetDirFullPath, safeFilename)
 
     if (sourceFullPath === newFullPath) {
       const existing = this.notes.get(id)
@@ -585,7 +615,8 @@ export class VaultManager {
     parentPath = '.'
   ): Promise<{ name: string; path: string }> {
     const targetDir = join(this.rootPath, parentPath)
-    let safeName = name || 'New Folder'
+    const sanitizedName = this.sanitizeFilename(name) || 'New Folder'
+    let safeName = sanitizedName
     let folderPath = join(targetDir, safeName)
 
     let counter = 1

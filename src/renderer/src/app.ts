@@ -22,6 +22,7 @@ import { themeManager } from './core/themeManager'
 import { ErrorHandler } from './utils/error-handler'
 import { notificationManager } from './components/notification/notification'
 import { aiService } from './services/aiService'
+import { workspaceAgentService } from './services/workspaceAgentService'
 import { TabHandlersImpl } from './handlers/tabHandlers'
 import { WikiLinkService } from './components/wikilink/wikilinkService'
 import { PreviewHandlers } from './handlers/previewHandlers'
@@ -35,6 +36,12 @@ import { VaultHandler } from './handlers/VaultHandler'
 import { FileOperationHandler } from './handlers/FileOperationHandler'
 import { ViewOrchestrator } from './handlers/ViewOrchestrator'
 import { SyncHandler } from './services/sync/syncHandler'
+
+declare global {
+  interface Window {
+    onSettingChange?: (settings: Partial<AppSettings>) => void
+  }
+}
 
 class App {
   private activityBar: ActivityBar
@@ -201,6 +208,14 @@ class App {
       void this.vaultHandler.openNote(id, path)
     }) as EventListener)
     window.addEventListener('toggle-documentation-modal', () => this.documentationModal.toggle())
+    window.addEventListener('knowledge-hub:insert-at-cursor', ((
+      e: CustomEvent<{ content: string }>
+    ) => {
+      if (e.detail?.content) {
+        this.editor.insertAtCursor(e.detail.content)
+      }
+    }) as EventListener)
+
     window.addEventListener('knowledge-hub:focus-folder', ((e: CustomEvent<{ path: string }>) => {
       const path = e.detail?.path
       if (path) {
@@ -252,12 +267,14 @@ class App {
         state.cursorPositions = new Map(Object.entries(state.settings.cursorPositions))
       if (state.settings.openTabs) {
         // Map basic tab info to NoteMeta format expected by state.openTabs
-        state.openTabs = state.settings.openTabs.map((t) => ({
-          id: t.id,
-          path: t.path,
-          title: t.title || t.id, // Use saved title if available
-          updatedAt: 0
-        }))
+        state.openTabs = state.settings.openTabs.map(
+          (t: { id: string; path?: string; title?: string }) => ({
+            id: t.id,
+            path: t.path || '',
+            title: t.title || t.id, // Use saved title if available
+            updatedAt: 0
+          })
+        )
         console.log(`[App] Restored ${state.openTabs.length} tabs from settings`)
       }
       if (state.settings.activeId) state.activeId = state.settings.activeId
@@ -355,18 +372,10 @@ class App {
       onVaultLocated: (o, n) => this.vaultHandler.handleVaultLocated(o, n)
     })
 
-    this.settingsView.setSettingChangeHandler(async (newSettings) => {
-      if (state.settings) {
-        state.settings = { ...state.settings, ...newSettings }
-        this.editor.applySettings(state.settings)
-        void window.api.updateSettings(newSettings as Partial<AppSettings>)
-        this.statusBar.setStatus('Settings auto-saved')
-        if (newSettings.deepseekApiKey !== undefined) {
-          await aiService.loadApiKey()
-          await this.rightBar.refreshApiKey()
-        }
-      }
-    })
+    this.settingsView.setSettingChangeHandler((newSettings) =>
+      this.handleSettingChange(newSettings)
+    )
+    window.onSettingChange = (s) => this.handleSettingChange(s)
 
     this.editor.setContentChangeHandler(() => {
       this.statusBar.setStatus('Unsaved changes')
@@ -400,6 +409,19 @@ class App {
         return null
       }
     )
+  }
+
+  private async handleSettingChange(newSettings: Partial<AppSettings>): Promise<void> {
+    if (state.settings) {
+      state.settings = { ...state.settings, ...newSettings }
+      this.editor.applySettings(state.settings)
+      void window.api.updateSettings(newSettings)
+      this.statusBar.setStatus('Settings auto-saved')
+      if (newSettings.deepseekApiKey !== undefined) {
+        await aiService.loadApiKey()
+        await this.rightBar.refreshApiKey()
+      }
+    }
   }
 
   private async closeTab(id: string, force = false): Promise<void> {
@@ -440,8 +462,8 @@ class App {
               try {
                 if (type === 'note') await this.fileOps.renameNote(id, newTitle, () => m.close())
                 else await this.fileOps.renameFolder(id, newTitle, () => m.close())
-              } catch (err: any) {
-                notificationManager.show(err.message || 'Rename failed', 'error')
+              } catch (err: unknown) {
+                notificationManager.show((err as Error).message || 'Rename failed', 'error')
               }
             } else {
               m.close()
@@ -566,21 +588,23 @@ class App {
   }
 
   private attachSyncEvents(): void {
-    window.addEventListener('restore-vault', async (e: any) => {
+    window.addEventListener('restore-vault', ((e: CustomEvent<{ backupData: string }>) => {
       if (e.detail?.backupData) {
-        await this.syncHandler.restoreVaultFromBackup(e.detail.backupData)
+        void this.syncHandler.restoreVaultFromBackup(e.detail.backupData)
       }
-    })
+    }) as unknown as EventListener)
 
     const statusBarEl = document.getElementById('statusBar')
-    statusBarEl?.addEventListener('sync-action', async (e: any) => {
+    statusBarEl?.addEventListener('sync-action', ((
+      e: CustomEvent<{ action: 'backup' | 'restore' }>
+    ) => {
       const { action } = e.detail
       if (action === 'backup') {
         void this.syncHandler.backupVault()
       } else if (action === 'restore') {
         void this.syncHandler.restoreVault()
       }
-    })
+    }) as unknown as EventListener)
   }
 
   private registerGlobalShortcuts(): void {
@@ -683,8 +707,11 @@ class App {
         this.hubConsole.log('  lock         - Lock the application')
         this.hubConsole.log('  unlock       - Show unlock prompt')
         this.hubConsole.log('  ping         - Test console latency')
-        this.hubConsole.log('  clear        - Clear console output')
+        this.hubConsole.log('  clear        - Clear console output & memory')
         this.hubConsole.log('  close        - Close console panel')
+        this.hubConsole.log('  mkdir <name> - Create a new folder')
+        this.hubConsole.log('  touch <file> - Create a new note')
+        this.hubConsole.log('  rm <path>    - Delete a note or folder')
       }
     })
     this.hubConsole.registerCommand({
@@ -727,7 +754,17 @@ class App {
       action: (args) => {
         const query = args.join(' ')
         this.activityBar.setActiveView('search')
-        // We don't have a direct "set search query" yet, but we can switch view
+
+        // Use a small delay to ensure the search view is rendered
+        setTimeout(() => {
+          const searchInput = document.querySelector('#global-search-input') as HTMLInputElement
+          if (searchInput) {
+            searchInput.value = query
+            searchInput.dispatchEvent(new Event('input'))
+            searchInput.focus()
+          }
+        }, 100)
+
         this.hubConsole.log(`Search for: ${query}`)
       }
     })
@@ -735,8 +772,7 @@ class App {
       name: 'clear',
       description: 'Clear console output',
       action: () => {
-        const b = document.querySelector('.hub-console__body')
-        if (b) b.innerHTML = ''
+        this.hubConsole.clear()
       }
     })
     this.hubConsole.registerCommand({
@@ -806,6 +842,96 @@ class App {
       }
     })
     this.hubConsole.registerCommand({
+      name: 'mkdir',
+      description: 'Create a new folder',
+      action: async (args) => {
+        if (!args.length) {
+          this.hubConsole.log('Usage: mkdir <folder name>', 'error')
+          return
+        }
+        const name = args.join(' ')
+        const parent = this.sidebar.getSelectedFolderPath() || undefined
+        await this.fileOps.createFolder(name, parent)
+        this.hubConsole.log(`Created folder: "${name}"`, 'system')
+      }
+    })
+    this.hubConsole.registerCommand({
+      name: 'touch',
+      description: 'Create a new note',
+      action: async (args) => {
+        if (!args.length) {
+          this.hubConsole.log('Usage: touch <note title>', 'error')
+          return
+        }
+        const title = args.join(' ')
+        const parent = this.sidebar.getSelectedFolderPath() || undefined
+        await this.fileOps.createNote(title, '', parent)
+        this.hubConsole.log(`Created note: "${title}" ${parent ? `in ${parent}` : ''}`, 'system')
+      }
+    })
+    this.hubConsole.registerCommand({
+      name: 'write',
+      description: 'Create or update a note (Use quotes for title)',
+      action: async (args) => {
+        if (args.length < 2) {
+          this.hubConsole.log('Usage: write <title> <content>', 'error')
+          return
+        }
+        const titleInput = args[0]
+        const content = args.slice(1).join(' ')
+        const parent = this.sidebar.getSelectedFolderPath() || undefined
+
+        const result = await workspaceAgentService.smartWrite(titleInput, content, parent)
+        if (result.isNew) {
+          this.hubConsole.log(`Created new note: "${result.title}"`, 'system')
+        } else {
+          this.hubConsole.log(`Updated note: "${result.title}"`, 'system')
+        }
+        await this.fileOps['callbacks'].openNote(result.id, result.path, 'editor')
+      }
+    })
+    this.hubConsole.registerCommand({
+      name: 'append',
+      description: 'Append content to a note (Use quotes for title)',
+      action: async (args) => {
+        if (args.length < 2) {
+          this.hubConsole.log('Usage: append <title> <content>', 'error')
+          return
+        }
+        const titleInput = args[0]
+        const content = args.slice(1).join(' ')
+
+        const noteId = await workspaceAgentService.smartAppend(titleInput, content)
+        if (noteId) {
+          const note = state.notes.find((n) => n.id === noteId)
+          this.hubConsole.log(`Appended to note: "${note?.title || titleInput}"`, 'system')
+          if (note) await this.fileOps['callbacks'].openNote(note.id, note.path, 'editor')
+        } else {
+          this.hubConsole.log(`Note "${titleInput}" not found to append.`, 'error')
+        }
+      }
+    })
+    this.hubConsole.registerCommand({
+      name: 'rm',
+      description: 'Delete a note or folder',
+      action: async (args) => {
+        if (!args.length) {
+          this.hubConsole.log('Usage: rm <path or title>', 'error')
+          return
+        }
+        const query = args.join(' ').toLowerCase()
+        const note = state.notes.find(
+          (n) => n.id.toLowerCase() === query || n.title.toLowerCase() === query
+        )
+        if (note) {
+          await this.fileOps.deleteItems([{ id: note.id, type: 'note', path: note.path }])
+          this.hubConsole.log(`Deleted: ${note.title}`, 'system')
+        } else {
+          this.hubConsole.log(`File not found: ${query}`, 'error')
+        }
+      }
+    })
+    this.hubConsole.registerCommand({
       name: 'disable-protection',
       description: 'Remove vault password',
       action: async () => {
@@ -838,8 +964,7 @@ class App {
         description: 'Display notes, tabs, and vault path',
         handler: () => {
           this.hubConsole.setVisible(true)
-          const cmd = (this.hubConsole as any).commands.get('stats')
-          if (cmd) cmd.action([])
+          void this.hubConsole.execute('stats', false)
         }
       },
       {
@@ -847,8 +972,7 @@ class App {
         label: 'Console: Clear',
         description: 'Clear the application console',
         handler: () => {
-          const b = document.querySelector('.hub-console__body')
-          if (b) b.innerHTML = ''
+          this.hubConsole.clear()
         }
       },
       {

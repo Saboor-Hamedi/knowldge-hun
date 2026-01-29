@@ -37,6 +37,11 @@ export type Settings = {
   caretMaxWidth?: number
   cursorPositions?: Record<string, { lineNumber: number; column: number }>
   graphTheme?: string
+  fireWall?: {
+    passwordHash?: string | null
+    lockScreenAlignment?: 'left' | 'center' | 'right'
+    lockScreenName?: string
+  }
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -54,7 +59,12 @@ export const DEFAULT_SETTINGS: Settings = {
   expandedFolders: [],
   sidebarVisible: true,
   rightPanelVisible: false,
-  graphTheme: 'default'
+  graphTheme: 'default',
+  fireWall: {
+    passwordHash: null,
+    lockScreenAlignment: 'center',
+    lockScreenName: ''
+  }
 }
 
 export function loadSettings(): Settings {
@@ -84,6 +94,21 @@ export function loadSettings(): Settings {
     if (merged.caretMaxWidth && (merged.caretMaxWidth < 1 || merged.caretMaxWidth > 10)) {
       merged.caretMaxWidth = DEFAULT_SETTINGS.caretMaxWidth
     }
+
+    // Migrate old settings to fireWall
+    if (!merged.fireWall) merged.fireWall = { ...DEFAULT_SETTINGS.fireWall }
+
+    const oldKeys = ['passwordHash', 'lockScreenAlignment', 'lockScreenName']
+    const loadedAny = loaded as Record<string, unknown>
+    const mergedAny = merged as Record<string, unknown>
+    const firewallAny = merged.fireWall as Record<string, unknown>
+
+    oldKeys.forEach((key) => {
+      if (loadedAny[key] !== undefined) {
+        firewallAny[key] = loadedAny[key]
+        delete mergedAny[key]
+      }
+    })
 
     return merged
   } catch (error) {

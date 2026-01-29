@@ -14,7 +14,18 @@ import {
   Sparkles,
   Lock,
   Key,
-  CodeXml
+  CodeXml,
+  Square,
+  FilePlus,
+  Maximize2,
+  Minimize2,
+  X,
+  ChevronDown,
+  Terminal,
+  Search,
+  Settings,
+  User,
+  Zap
 } from 'lucide'
 
 /**
@@ -116,7 +127,15 @@ export const codicons = {
   keyboard: lucideIcon(Keyboard),
   sparkles: lucideIcon(Sparkles),
   lock: lucideIcon(Lock),
-  key: lucideIcon(Key)
+  key: lucideIcon(Key),
+  stop: lucideIcon(Square, 14, 2),
+  insert: lucideIcon(FilePlus, 14, 2),
+  maximize: lucideIcon(Maximize2, 14, 2),
+  minimize: lucideIcon(Minimize2, 14, 2),
+  closeX: lucideIcon(X, 14, 2),
+  chevronDownLucide: lucideIcon(ChevronDown, 14, 2),
+  terminal: lucideIcon(Terminal, 14, 2),
+  agent: lucideIcon(Sparkles, 14, 2)
 }
 
 // Folder type detector based on folder name

@@ -70,6 +70,10 @@ export class OllamaProvider implements AIProvider {
     let buffer = ''
 
     while (true) {
+      if (config.signal?.aborted) {
+        await reader.cancel()
+        break
+      }
       const { done, value } = await reader.read()
       if (done) break
 
@@ -82,7 +86,7 @@ export class OllamaProvider implements AIProvider {
           try {
             const data = JSON.parse(line)
             if (data.message?.content) yield data.message.content
-          } catch (e) {
+          } catch {
             // Partial JSON?
           }
         }
@@ -96,7 +100,7 @@ export class OllamaProvider implements AIProvider {
       const response = await fetch(`${baseUrl}/api/tags`)
       if (!response.ok) return []
       const data = await response.json()
-      return data.models?.map((m: any) => m.name) || []
+      return data.models?.map((m: { name: string }) => m.name) || []
     } catch {
       return []
     }

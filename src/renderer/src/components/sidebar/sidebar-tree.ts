@@ -1646,6 +1646,21 @@ export class SidebarTree {
     return this.searchEl.value
   }
 
+  getSelectedFolderPath(): string | null {
+    if (this.selectedFolderPath) return this.selectedFolderPath
+
+    // Fallback: Use the folder of the active note
+    if (state.activeId) {
+      const activeTab = state.openTabs.find((t) => t.id === state.activeId)
+      if (activeTab && activeTab.path) return activeTab.path
+
+      const note = (state.notes as NoteMeta[]).find((n) => n.id === state.activeId)
+      if (note && note.path) return note.path
+    }
+
+    return null
+  }
+
   private getDefaultParentPath(): string | undefined {
     return this.selectedFolderPath || undefined
   }

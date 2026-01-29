@@ -1,4 +1,8 @@
 import './console.css'
+import { codicons } from '../../utils/codicons'
+import type { ChatMessage } from '../../services/aiService'
+import { workspaceAgentService } from '../../services/workspaceAgentService'
+import { state } from '../../core/state'
 
 export interface Command {
   name: string
@@ -23,9 +27,6 @@ export interface Command {
  *
  * 3. **Controlled Actions**: Each command's action is defined by the application developer
  *    and runs within the Electron renderer process with limited permissions.
- *
- * 4. **No File System Access**: Commands cannot directly access the file system. All file
- *    operations go through the secure IPC bridge to the main process with validation.
  *
  * 5. **Input Sanitization**: Command arguments are parsed as simple strings - no eval(),
  *    no code injection, no shell expansion.
@@ -57,6 +58,7 @@ export class ConsoleComponent {
   private commands: Map<string, Command> = new Map()
   private vaultUnsubscribe?: () => void
   private aiAbortController: AbortController | null = null
+  private chatHistory: ChatMessage[] = []
 
   constructor(containerId: string) {
     this.container = document.getElementById(containerId) as HTMLElement
@@ -90,6 +92,11 @@ export class ConsoleComponent {
       this.height = parseInt(savedHeight, 10)
       this.updateHeight()
     }
+
+    const savedMode = localStorage.getItem('hub-console-mode')
+    if (savedMode === 'ai' || savedMode === 'terminal') {
+      this.setMode(savedMode)
+    }
   }
 
   private async initUsername(): Promise<void> {
@@ -103,7 +110,13 @@ export class ConsoleComponent {
 
       const promptEl = this.consoleEl.querySelector('.hub-console__prompt')
       if (promptEl) {
-        promptEl.textContent = `${sanitizedUsername}@${vaultName} λ`
+        if (this.currentMode === 'ai') {
+          promptEl.textContent = 'AGENT >'
+          promptEl.classList.add('hub-console__prompt--ai')
+        } else {
+          promptEl.textContent = `${sanitizedUsername}@${vaultName} λ`
+          promptEl.classList.remove('hub-console__prompt--ai')
+        }
       }
 
       // Listen for vault changes and update prompt dynamically
@@ -134,34 +147,42 @@ export class ConsoleComponent {
         </div>
         <div class="hub-console__actions">
           <button class="hub-console__action-btn hub-console__chevron-btn" title="Toggle Console (Ctrl+J)">
-            <svg viewBox="0 0 16 16" fill="currentColor">
-              <path d="M4.427 7.427l3.396 3.396a.25.25 0 00.354 0l3.396-3.396A.25.25 0 0011.396 7H4.604a.25.25 0 00-.177.427z"/>
-            </svg>
+            ${codicons.chevronDownLucide}
           </button>
           <button class="hub-console__action-btn hub-console__maximize-btn" title="Maximize Panel">
-            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
-              <rect x="3" y="3" width="10" height="10" rx="1"/>
-            </svg>
+            <span class="hub-console__maximize-icon">${codicons.maximize}</span>
           </button>
           <button class="hub-console__close-btn" title="Close (Esc)">
-            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-              <line x1="12" y1="4" x2="4" y2="12"/>
-              <line x1="4" y1="4" x2="12" y2="12"/>
-            </svg>
+            <span class="hub-console__close-icon">${codicons.closeX}</span>
           </button>
         </div>
       </div>
       <div class="hub-console__body"></div>
       <div class="hub-console__footer">
         <div class="hub-console__mode-switcher">
-          <select class="hub-console__mode-select" title="Switch Mode">
-            <option value="terminal">Terminal</option>
-            <option value="ai">Agent</option>
+          <button class="hub-console__mode-btn ${this.currentMode === 'terminal' ? 'is-active' : ''}" data-mode="terminal" title="Terminal Mode">
+            ${codicons.terminal}
+          </button>
+          <button class="hub-console__mode-btn ${this.currentMode === 'ai' ? 'is-active' : ''}" data-mode="ai" title="AI Agent">
+            ${codicons.agent}
+          </button>
+          <select class="hub-console__capability-select" title="AI Capability" style="display: ${this.currentMode === 'ai' ? 'block' : 'none'};">
+            <option value="balanced">Balanced</option>
+            <option value="thinking">Thinking</option>
+            <option value="code">Code</option>
+            <option value="precise">Precise</option>
+            <option value="creative">Creative</option>
           </select>
         </div>
         <div class="hub-console__prompt-wrapper">
           <span class="hub-console__prompt">λ</span>
           <input type="text" class="hub-console__input" placeholder="Type a command..." spellcheck="false" autocomplete="off">
+        </div>
+        <div class="hub-console__actions">
+          <button class="hub-console__stop-btn" title="Stop generating">
+            <div class="stop-core"></div>
+            <div class="spinner-ring"></div>
+          </button>
         </div>
       </div>
     `
@@ -183,9 +204,46 @@ export class ConsoleComponent {
     this.setVisible(!this.isOpen)
   }
 
+  public setMode(mode: 'terminal' | 'ai'): void {
+    this.currentMode = mode
+    localStorage.setItem('hub-console-mode', mode)
+
+    const switcher = this.consoleEl.querySelector('.hub-console__mode-switcher')
+    if (switcher) {
+      switcher.querySelectorAll('.hub-console__mode-btn').forEach((btn) => {
+        btn.classList.toggle('is-active', (btn as HTMLElement).dataset.mode === mode)
+      })
+
+      const capabilitySelect = switcher.querySelector(
+        '.hub-console__capability-select'
+      ) as HTMLElement
+      if (capabilitySelect) {
+        capabilitySelect.style.display = mode === 'ai' ? 'block' : 'none'
+      }
+    }
+
+    const prompt = this.consoleEl.querySelector('.hub-console__prompt')
+    if (prompt) {
+      // Re-init prompt text logic
+      void this.initUsername()
+    }
+
+    this.inputEl.placeholder = mode === 'ai' ? 'Ask AI anything...' : 'Type a command...'
+    this.inputEl.focus()
+  }
+
   public setVisible(visible: boolean): void {
+    const wasOpen = this.isOpen
     this.isOpen = visible
     this.consoleEl.classList.toggle('is-open', this.isOpen)
+
+    // If closing via UI, abort active AI
+    if (wasOpen && !visible && this.isBusy && this.aiAbortController) {
+      this.aiAbortController.abort()
+      this.isBusy = false
+      const stopBtn = this.consoleEl.querySelector('.hub-console__stop-btn') as HTMLElement
+      if (stopBtn) stopBtn.style.display = 'none'
+    }
 
     try {
       localStorage.setItem('hub-console-open', String(this.isOpen))
@@ -200,6 +258,10 @@ export class ConsoleComponent {
         }
       }, 50)
     }
+  }
+
+  public clearHistory(): void {
+    this.chatHistory = []
   }
 
   public destroy(): void {
@@ -275,24 +337,51 @@ export class ConsoleComponent {
       this.inputEl.focus()
     })
 
-    // Mode switcher
-    const modeSelect = this.consoleEl.querySelector(
-      '.hub-console__mode-select'
+    // Mode switcher buttons
+    const modeBtns = this.consoleEl.querySelectorAll('.hub-console__mode-btn')
+    modeBtns.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const mode = (btn as HTMLElement).dataset.mode as 'terminal' | 'ai'
+        this.setMode(mode)
+      })
+    })
+
+    const capabilitySelect = this.consoleEl.querySelector(
+      '.hub-console__capability-select'
     ) as HTMLSelectElement
 
     // Crucial: Stop click/mousedown from bubbling up to consoleEl and stealing focus
-    modeSelect?.addEventListener('mousedown', (e) => e.stopPropagation())
-    modeSelect?.addEventListener('click', (e) => e.stopPropagation())
+    const stopBubbling = (el: HTMLElement | null): void => {
+      el?.addEventListener('mousedown', (e) => e.stopPropagation())
+      el?.addEventListener('click', (e) => e.stopPropagation())
+    }
 
-    modeSelect?.addEventListener('change', () => {
-      this.currentMode = modeSelect.value as 'terminal' | 'ai'
-      const prompt = this.consoleEl.querySelector('.hub-console__prompt')
-      if (prompt) {
-        prompt.textContent = this.currentMode === 'ai' ? '?' : 'λ'
+    stopBubbling(capabilitySelect as HTMLElement)
+
+    modeBtns.forEach((btn) => stopBubbling(btn as HTMLElement))
+
+    capabilitySelect?.addEventListener('change', () => {
+      import('../../services/aiService').then(({ aiService, CHAT_MODES }) => {
+        const mode = capabilitySelect.value as import('../../services/aiService').ChatMode
+        if (CHAT_MODES.some((m) => m.id === mode)) {
+          aiService.setMode(mode)
+          this.log(`AI Capability switched to: ${mode}`, 'system')
+        }
+      })
+    })
+
+    // Handle stop button
+    const stopBtn = this.consoleEl.querySelector('.hub-console__stop-btn') as HTMLElement
+    stopBtn?.addEventListener('click', () => {
+      if (this.aiAbortController) {
+        this.aiAbortController.abort()
+        this.isBusy = false
+        if (stopBtn) stopBtn.style.display = 'none'
+
+        // Clean up thinking indicator immediately
+        const thinking = this.bodyEl.querySelector('.hub-console__line--thinking')
+        if (thinking) thinking.remove()
       }
-      this.inputEl.placeholder =
-        this.currentMode === 'ai' ? 'Ask AI anything...' : 'Type a command...'
-      this.inputEl.focus()
     })
 
     // Handle chevron button click (toggle)
@@ -352,6 +441,15 @@ export class ConsoleComponent {
     this.consoleEl.style.setProperty('--console-height', `${this.height}px`)
   }
 
+  public clear(): void {
+    const body = this.consoleEl.querySelector('.hub-console__body')
+    if (body) body.innerHTML = ''
+    this.chatHistory = []
+    this.history = []
+    this.historyIndex = -1
+    this.log('Console cleared.', 'system')
+  }
+
   private handleTabCompletion(): void {
     if (this.currentMode !== 'terminal') return
 
@@ -379,47 +477,68 @@ export class ConsoleComponent {
     this.consoleEl.classList.toggle('is-maximized', this.isMaximized)
 
     // Update maximize button icon
-    const maximizeBtn = this.consoleEl.querySelector('.hub-console__maximize-btn')
-    if (maximizeBtn) {
-      maximizeBtn.innerHTML = this.isMaximized
-        ? `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
-             <rect x="3" y="5" width="10" height="8" rx="1"/>
-             <path d="M5 5V3a1 1 0 011-1h7a1 1 0 011 1v7a1 1 0 01-1 1h-2"/>
-           </svg>`
-        : `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
-             <rect x="3" y="3" width="10" height="10" rx="1"/>
-           </svg>`
-      maximizeBtn.setAttribute('title', this.isMaximized ? 'Restore Panel' : 'Maximize Panel')
+    const icon = this.consoleEl.querySelector('.hub-console__maximize-icon')
+    if (icon) {
+      icon.innerHTML = this.isMaximized ? codicons.minimize : codicons.maximize
+      const maximizeBtn = this.consoleEl.querySelector('.hub-console__maximize-btn')
+      maximizeBtn?.setAttribute('title', this.isMaximized ? 'Restore Panel' : 'Maximize Panel')
     }
   }
 
-  private async execute(rawLine: string): Promise<void> {
-    this.history.push(rawLine)
-    this.historyIndex = -1
+  public async execute(rawLine: string, addToHistory = true): Promise<void> {
+    if (addToHistory) {
+      this.history.push(rawLine)
+      this.historyIndex = -1
+    }
     this.log(rawLine, 'command')
 
-    const parts = rawLine.split(/\s+/)
-    const commandName = parts[0].toLowerCase()
-    const args = parts.slice(1)
+    const subCommands = rawLine.split('&&').map((s) => s.trim())
 
-    const cmd = this.commands.get(commandName)
-    if (cmd) {
-      this.isBusy = true
-      this.inputEl.disabled = true
-      this.inputEl.placeholder = 'Command running...'
+    this.isBusy = true
+    this.inputEl.disabled = true
+    this.inputEl.placeholder = 'Executing...'
 
-      try {
-        await cmd.action(args)
-      } catch (err) {
-        this.log(`Error: ${(err as Error).message}`, 'error')
-      } finally {
-        this.isBusy = false
-        this.inputEl.disabled = false
-        this.inputEl.placeholder = 'Type a command...'
-        this.inputEl.focus()
+    try {
+      for (const sub of subCommands) {
+        if (!sub) continue
+
+        // Improved parsing for quoted strings (to support space in titles/content)
+        const parts: string[] = []
+        let currentPart = ''
+        let inQuotes = false
+        for (let i = 0; i < sub.length; i++) {
+          const char = sub[i]
+          if (char === '"') {
+            inQuotes = !inQuotes
+          } else if (char === ' ' && !inQuotes) {
+            if (currentPart) {
+              parts.push(currentPart)
+              currentPart = ''
+            }
+          } else {
+            currentPart += char
+          }
+        }
+        if (currentPart) parts.push(currentPart)
+
+        const commandName = parts[0].toLowerCase()
+        const args = parts.slice(1)
+
+        const cmd = this.commands.get(commandName)
+        if (cmd) {
+          await cmd.action(args)
+        } else {
+          this.log(`Unknown command: ${commandName}`, 'error')
+          break // Stop chain on error
+        }
       }
-    } else {
-      this.log(`Unknown command: ${commandName}. Type "help" for assistance.`, 'error')
+    } catch (err) {
+      this.log(`Command failed: ${(err as Error).message}`, 'error')
+    } finally {
+      this.isBusy = false
+      this.inputEl.disabled = false
+      this.inputEl.placeholder = 'Type a command...'
+      this.inputEl.focus()
     }
   }
 
@@ -433,7 +552,11 @@ export class ConsoleComponent {
     outputLine.className = 'hub-console__line hub-console__line--ai'
     this.bodyEl.appendChild(outputLine)
 
-    // Thinking indicator - placed INSIDE the output line so it appears after the prefix
+    // Show stop button
+    const stopBtn = this.consoleEl.querySelector('.hub-console__stop-btn') as HTMLElement
+    if (stopBtn) stopBtn.style.display = 'flex'
+
+    // Thinking indicator
     const thinkingEl = document.createElement('span')
     thinkingEl.className = 'hub-console__line--thinking'
     thinkingEl.innerHTML = `<span></span><span></span><span></span>`
@@ -443,27 +566,130 @@ export class ConsoleComponent {
 
     this.aiAbortController = new AbortController()
     let fullText = ''
+    const currentController = this.aiAbortController
 
     try {
-      const context = await aiService.buildContextMessage(input)
+      const response = await aiService.buildContextMessage(input)
+      const context = response.context
+
       await aiService.callDeepSeekAPIStream(
-        [],
+        this.chatHistory,
         context,
         (chunk) => {
-          // Clear dots and switch to text on first chunk
-          if (fullText === '') {
-            outputLine.innerHTML = ''
+          if (currentController?.signal.aborted) return
+
+          // Clear dots on first chunk
+          if (fullText === '' && thinkingEl.parentNode) {
+            thinkingEl.remove()
           }
           fullText += chunk
 
-          // Clean markdown symbols for raw console look
-          const cleanText = fullText.replace(/[*_`#]/g, '')
-          outputLine.textContent = cleanText
+          // We display the text without [RUN: ...] tags but keep other formatting
+          // Also hide partial tags during streaming
+          const visibleText = fullText.replace(/\[RUN:[^\]]*(\]|(?=$))/g, '').trim()
+          outputLine.textContent = visibleText
 
           this.bodyEl.scrollTop = this.bodyEl.scrollHeight
         },
         this.aiAbortController.signal
       )
+
+      // Ensure thinking dots are gone
+      if (thinkingEl.parentNode) thinkingEl.remove()
+
+      if (fullText.trim() && !this.aiAbortController?.signal.aborted) {
+        const actionArea = document.createElement('div')
+        actionArea.className = 'hub-console__ai-actions'
+
+        // 2. Identify and handle [RUN: ...] commands
+        const runMatches = Array.from(fullText.matchAll(/\[RUN:\s*(.+?)\]/g))
+        const commandsToRun: string[] = []
+
+        runMatches.forEach((match) => {
+          const cmdString = match[1].trim()
+
+          // AUTO-EXECUTION: Always run "writing" commands propose by AI for the vault
+          const isSafeAutoCmd =
+            cmdString.startsWith('mkdir') ||
+            cmdString.startsWith('touch') ||
+            cmdString.startsWith('write') ||
+            cmdString.startsWith('append')
+
+          // If it's a safe command proposed by AI, we auto-execute it to be agentic
+          if (isSafeAutoCmd) {
+            commandsToRun.push(cmdString)
+          } else {
+            // Otherwise show as a button
+            const runBtn = document.createElement('button')
+            runBtn.className = 'hub-console__ai-action-btn hub-console__ai-action-btn--run'
+            runBtn.title = `Execute: ${cmdString}`
+            runBtn.innerHTML = `${codicons.terminal || '▶'} Run: ${cmdString}`
+            runBtn.addEventListener('click', () => {
+              void this.execute(cmdString)
+              runBtn.remove()
+            })
+            actionArea.appendChild(runBtn)
+          }
+        })
+
+        // Execute auto-run commands
+        if (commandsToRun.length > 0) {
+          this.log(`Auto-executing: ${commandsToRun.join(' && ')}`, 'system')
+          // Wait for auto-commands so isBusy stays true during execution
+          await this.execute(commandsToRun.join(' && '), false)
+        }
+
+        // 3. NEW: Insert at Cursor button (Replaces standard insert)
+        const insertBtn = document.createElement('button')
+        insertBtn.className = 'hub-console__ai-action-btn'
+        insertBtn.title = 'Insert this response at the current cursor position'
+        insertBtn.innerHTML = `${codicons.insert || '🖋️'} Insert at Cursor`
+        insertBtn.addEventListener('click', () => {
+          window.dispatchEvent(
+            new CustomEvent('knowledge-hub:insert-at-cursor', {
+              detail: { content: fullText.replace(/\[RUN:\s*(.+?)\]/g, '').trim() }
+            })
+          )
+          this.log(`Inserted into active note.`, 'system')
+          actionArea.remove()
+        })
+        actionArea.appendChild(insertBtn)
+
+        const archiveBtn = document.createElement('button')
+        archiveBtn.className = 'hub-console__ai-action-btn'
+        archiveBtn.title = 'Create a new note with this response'
+        archiveBtn.innerHTML = `${codicons.file || '📄'} Archive to New Note`
+        archiveBtn.addEventListener('click', async () => {
+          const noteId = await workspaceAgentService.archiveResponse(fullText, input)
+          this.log(`Archived to new note.`, 'system')
+          // Open the note via custom event
+          const note = state.notes.find((n) => n.id === noteId)
+          if (note) {
+            window.dispatchEvent(
+              new CustomEvent('knowledge-hub:open-note', {
+                detail: { id: note.id, path: note.path }
+              })
+            )
+          }
+          actionArea.remove()
+        })
+        actionArea.appendChild(archiveBtn)
+
+        if (actionArea.children.length > 0) {
+          this.bodyEl.appendChild(actionArea)
+        }
+
+        // Final text update to ensure clean look
+        const finalText = fullText.replace(/\[RUN:\s*(.+?)\]/g, '').trim()
+        outputLine.textContent = finalText
+
+        // Update History
+        this.chatHistory.push({ role: 'user', content: input, timestamp: Date.now() })
+        this.chatHistory.push({ role: 'assistant', content: fullText, timestamp: Date.now() })
+
+        if (this.chatHistory.length > 20) this.chatHistory = this.chatHistory.slice(-20)
+        this.bodyEl.scrollTop = this.bodyEl.scrollHeight
+      }
     } catch (err) {
       if ((err as Error).name === 'AbortError') {
         this.log('AI request cancelled.', 'system')
@@ -471,8 +697,10 @@ export class ConsoleComponent {
         this.log(`AI Error: ${(err as Error).message}`, 'error')
       }
     } finally {
+      if (thinkingEl.parentNode) thinkingEl.remove()
       this.isBusy = false
       this.aiAbortController = null
+      if (stopBtn) stopBtn.style.display = 'none'
     }
   }
 }

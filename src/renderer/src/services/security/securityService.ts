@@ -28,7 +28,7 @@ export class SecurityService {
    * Pulls from: state.ts -> AppSettings
    */
   hasPassword(): boolean {
-    return !!(state.settings as AppSettings)?.passwordHash
+    return !!(state.settings as AppSettings)?.fireWall?.passwordHash
   }
 
   /**
@@ -101,11 +101,14 @@ export class SecurityService {
 
     firewall.tabIndex = 0
 
-    // Display the computer user name
-    const username = await window.api.getUsername().catch(() => 'User')
+    // Display the computer user name or custom name
+    const sysUsername = await window.api.getUsername().catch(() => 'User')
+    const firewallSettings = state.settings?.fireWall
+    const displayName = firewallSettings?.lockScreenName || sysUsername
+    const alignment = firewallSettings?.lockScreenAlignment || 'center'
 
     firewall.innerHTML = `
-      <div class="security-firewall__clock-container">
+      <div class="security-firewall__clock-container security-firewall__clock-container--${alignment}">
         <div class="security-firewall__time"></div>
         <div class="security-firewall__date"></div>
       </div>
@@ -118,7 +121,7 @@ export class SecurityService {
               <circle cx="12" cy="7" r="4"></circle>
             </svg>
           </div>
-          <div class="security-firewall__username">${username}</div>
+          <div class="security-firewall__username">${displayName}</div>
         </div>
         
         <div class="security-firewall__input-group">
@@ -403,7 +406,7 @@ export class SecurityService {
    * Logic: Hash(Input) === StoredHash
    */
   async verifyPassword(password: string): Promise<boolean> {
-    const hash = (state.settings as AppSettings)?.passwordHash
+    const hash = (state.settings as AppSettings)?.fireWall?.passwordHash
     if (!hash) return true
 
     const computedHash = await this.hashPassword(password)
@@ -416,11 +419,12 @@ export class SecurityService {
    */
   async setPassword(password: string): Promise<void> {
     const hash = await this.hashPassword(password)
+    const fireWall = { ...(state.settings?.fireWall || {}), passwordHash: hash }
     // Send to main process via window.api (Electron IPC)
-    await window.api.updateSettings({ passwordHash: hash } as Partial<AppSettings>)
+    await window.api.updateSettings({ fireWall } as Partial<AppSettings>)
     // Update global state immediately (state.ts)
     if (state.settings) {
-      state.settings.passwordHash = hash
+      state.settings.fireWall = fireWall
     }
     this.isUnlocked = true
   }
@@ -430,9 +434,10 @@ export class SecurityService {
    * Wipe hash from disk and local memory.
    */
   async removePassword(): Promise<void> {
-    await window.api.updateSettings({ passwordHash: null } as Partial<AppSettings>)
+    const fireWall = { ...(state.settings?.fireWall || {}), passwordHash: null }
+    await window.api.updateSettings({ fireWall } as Partial<AppSettings>)
     if (state.settings) {
-      state.settings.passwordHash = null
+      state.settings.fireWall = fireWall
     }
     this.isUnlocked = true
   }

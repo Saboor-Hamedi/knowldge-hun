@@ -18,9 +18,23 @@
   top: 10vh;
   left: 0;
   width: 100%;
-  text-align: center;
+  padding: 0 5vw;
+  box-sizing: border-box;
   color: #fff;
   z-index: 5;
+  transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.security-firewall__clock-container--left {
+  text-align: left;
+}
+
+.security-firewall__clock-container--center {
+  text-align: center;
+}
+
+.security-firewall__clock-container--right {
+  text-align: right;
 }
 
 .security-firewall__time {

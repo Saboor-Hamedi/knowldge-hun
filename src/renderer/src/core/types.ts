@@ -74,4 +74,10 @@ export type AppSettings = {
   caretMaxWidth?: number
   cursorPositions?: Record<string, { lineNumber: number; column: number }>
   graphTheme?: string
+  // Security & Lock screen settings
+  fireWall?: {
+    passwordHash?: string | null
+    lockScreenAlignment?: 'left' | 'center' | 'right'
+    lockScreenName?: string
+  }
 }

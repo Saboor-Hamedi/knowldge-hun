@@ -75,6 +75,10 @@ export abstract class OpenAIBaseProvider implements AIProvider {
     let buffer = ''
 
     while (true) {
+      if (config.signal?.aborted) {
+        await reader.cancel()
+        break
+      }
       const { done, value } = await reader.read()
       if (done) break
 
@@ -90,7 +94,7 @@ export abstract class OpenAIBaseProvider implements AIProvider {
             const data = JSON.parse(trimmed.slice(6))
             const content = data.choices[0]?.delta?.content
             if (content) yield content
-          } catch (e) {
+          } catch {
             console.warn('Failed to parse SSE line:', trimmed)
           }
         }

@@ -137,7 +137,7 @@ export class AIService {
 
   async loadApiKey(): Promise<void> {
     try {
-      const settings = (await window.api.getSettings()) as Record<string, any>
+      const settings = (await window.api.getSettings()) as Record<string, unknown>
       // We check for any valid configuration now
       const hasConfig =
         settings.deepseekApiKey ||
@@ -716,6 +716,7 @@ export class AIService {
       })
 
       for await (const chunk of stream) {
+        if (signal?.aborted) break
         fullText += chunk
         onChunk(chunk)
       }
@@ -744,10 +745,22 @@ export class AIService {
 
     // Identity injection: We tell the AI who it is and what it's running on
     const identityPrompt =
-      `You are Knowledge Hub AI, an intelligent personal assistant fully integrated into the user's note-taking application.\n` +
+      `You are Knowledge Hub AI, an ultra-intelligent agentic personal assistant fully integrated into the user's note-taking application.\n` +
       `Your current engine: ${provider.toUpperCase()} (Model: ${model === 'default-recommended' ? 'System Default' : model}).\n` +
       `You have access to the user's currently open note (context) and can read their entire vault if needed.\n` +
-      `When the user asks who you are, what model you are, or what powers you, answer accurately as Knowledge Hub AI using ${provider} ${model === 'default-recommended' ? '' : `(${model})`}.`
+      `YOU ARE AN AGENT: You can propose and EXECUTE action commands. Wrap them in [RUN: command].\n` +
+      `Available commands:\n` +
+      `- mkdir <name> (create folder)\n` +
+      `- touch <title> (create empty note)\n` +
+      `- write "<title>" <content> (create OR overwrite note with content. ALWAYS use quotes for the title).\n` +
+      `- append "<title>" <content> (add content to end of existing note. ALWAYS use quotes for the title).\n` +
+      `Example: "I'll create that research note for you: [RUN: write "Deep Learning" Here is my analysis of...]"\n` +
+      `CRITICAL COMMAND RULES:\n` +
+      `1. When the user asks you to write, create, or update a note, YOU MUST use a [RUN: ...] command.\n` +
+      `2. NEVER just output the text as a chat message if the user intended to save it to a note.\n` +
+      `3. If you are updating a note, use "write" (to overwrite) or "append" (to add to the end).\n` +
+      `4. ALWAYS put the title in double quotes: [RUN: write "My Note" content...].\n` +
+      `When the user asks who you are, answer accurately as Knowledge Hub AI using ${provider} ${model === 'default-recommended' ? '' : `(${model})`}.`
 
     const messagesForAPI: AIMessage[] = []
 
@@ -758,8 +771,8 @@ export class AIService {
       content: `${identityPrompt}\n\n${basePrompt}`
     })
 
-    // 2. Add History (exclude last user message as it's replaced by the context-aware one)
-    const history = messages.slice(0, -1).map((m) => ({
+    // 2. Add History
+    const history = messages.map((m) => ({
       role: m.role as 'user' | 'assistant',
       content: m.content
     }))
