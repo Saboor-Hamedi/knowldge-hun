@@ -3,6 +3,7 @@ import { modalManager } from '../../components/modal/modal'
 import type { AppSettings } from '../../core/types'
 import { keyboardManager } from '../../core/keyboardManager'
 import { notificationManager } from '../../components/notification/notification'
+import './security.css'
 
 /**
  * SECURITY ARCHITECTURE OVERVIEW:
@@ -94,11 +95,13 @@ export class SecurityService {
         
         <div class="security-firewall__input-group">
           <input type="password" class="security-firewall__input" placeholder="Password" autofocus autocomplete="current-password">
+          <button class="security-firewall__btn security-firewall__btn--primary">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+              <polyline points="12 5 19 12 12 19"></polyline>
+            </svg>
+          </button>
           <div class="security-firewall__error"></div>
-        </div>
-
-        <div class="security-firewall__actions">
-          <button class="security-firewall__btn security-firewall__btn--primary">Unlock</button>
         </div>
       </div>
     `
@@ -156,7 +159,7 @@ export class SecurityService {
 
       // Visual feedback during hashing/crypto work
       btn.disabled = true
-      btn.innerHTML = `<span class="security-firewall__spinner"></span> Verifying...`
+      btn.innerHTML = `<span class="security-firewall__spinner"></span>`
 
       const isValid = await this.verifyPassword(password)
       if (isValid) {
@@ -177,7 +180,12 @@ export class SecurityService {
       } else {
         // Handle incorrect attempt
         btn.disabled = false
-        btn.textContent = 'Unlock'
+        btn.innerHTML = `
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+            <polyline points="12 5 19 12 12 19"></polyline>
+          </svg>
+        `
         input.classList.add('is-invalid')
         errorDisplay.textContent = 'Wrong password'
         input.value = ''
