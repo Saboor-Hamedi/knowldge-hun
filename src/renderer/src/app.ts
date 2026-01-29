@@ -652,10 +652,6 @@ class App {
     reg('Control+l', 'Lock Application', () => void securityService.promptAndLock())
     reg('Alt+l', 'Lock Application', () => void securityService.promptAndLock())
     reg('Escape', 'Close UI', () => {
-      if (this.hubConsole.isVisible) {
-        this.hubConsole.setVisible(false)
-        return true
-      }
       if (this.fuzzyFinder.isVisible) {
         this.fuzzyFinder.close()
         return true

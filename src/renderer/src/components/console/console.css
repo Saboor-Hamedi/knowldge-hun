@@ -16,9 +16,47 @@
   pointer-events: none;
 }
 
+.hub-console.is-resizing {
+  transition: none !important;
+}
+
 .hub-console.is-open {
-  height: 300px !important;
+  height: var(--console-height, 300px);
   pointer-events: auto;
+}
+
+.hub-console__resizer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  cursor: ns-resize;
+  z-index: 100;
+  transition: background 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hub-console__resizer::after {
+  content: '';
+  width: 40px;
+  height: 4px;
+  background: var(--border);
+  border-radius: 4px;
+  opacity: 0.5;
+  transition: all 0.2s ease;
+}
+
+.hub-console__resizer:hover::after {
+  opacity: 1;
+  width: 60px;
+  background: var(--primary);
+}
+
+.hub-console.is-maximized .hub-console__resizer {
+  display: none;
 }
 
 .hub-console.is-open.is-maximized {

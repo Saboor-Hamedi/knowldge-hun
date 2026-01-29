@@ -42,6 +42,10 @@ export class ConsoleComponent {
   private consoleEl: HTMLElement
   private inputEl: HTMLInputElement
   private bodyEl: HTMLElement
+  private height = 300
+  private isDragging = false
+  private startY = 0
+  private startHeight = 0
   private isOpen = false
   private isMaximized = false
   private isBusy = false
@@ -75,6 +79,12 @@ export class ConsoleComponent {
     const savedState = localStorage.getItem('hub-console-open')
     if (savedState === 'true') {
       this.setVisible(true)
+    }
+
+    const savedHeight = localStorage.getItem('hub-console-height')
+    if (savedHeight) {
+      this.height = parseInt(savedHeight, 10)
+      this.updateHeight()
     }
   }
 
@@ -112,6 +122,7 @@ export class ConsoleComponent {
 
   private render(): void {
     this.consoleEl.innerHTML = `
+      <div class="hub-console__resizer"></div>
       <div class="hub-console__header">
         <div class="hub-console__title">
           <span class="hub-console__title-icon">▶</span>
@@ -250,6 +261,41 @@ export class ConsoleComponent {
       e.stopPropagation() // Prevent triggering the focus listener above
       this.toggle()
     })
+
+    // Handle Resizing
+    const resizer = this.consoleEl.querySelector('.hub-console__resizer') as HTMLElement
+    resizer?.addEventListener('mousedown', (e) => {
+      e.preventDefault()
+      e.stopPropagation()
+      this.isDragging = true
+      this.startY = e.clientY
+      this.startHeight = this.height
+      this.consoleEl.classList.add('is-resizing')
+      document.body.style.cursor = 'ns-resize'
+
+      const onMouseMove = (moveEvent: MouseEvent): void => {
+        if (!this.isDragging) return
+        const delta = this.startY - moveEvent.clientY
+        this.height = Math.max(150, Math.min(window.innerHeight - 100, this.startHeight + delta))
+        this.updateHeight()
+      }
+
+      const onMouseUp = (): void => {
+        this.isDragging = false
+        this.consoleEl.classList.remove('is-resizing')
+        document.body.style.cursor = ''
+        localStorage.setItem('hub-console-height', String(this.height))
+        window.removeEventListener('mousemove', onMouseMove)
+        window.removeEventListener('mouseup', onMouseUp)
+      }
+
+      window.addEventListener('mousemove', onMouseMove)
+      window.addEventListener('mouseup', onMouseUp)
+    })
+  }
+
+  private updateHeight(): void {
+    this.consoleEl.style.setProperty('--console-height', `${this.height}px`)
   }
 
   private toggleMaximize(): void {
