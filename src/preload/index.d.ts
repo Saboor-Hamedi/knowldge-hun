@@ -26,6 +26,7 @@ type VaultInfo = {
 type AppSettings = {
   vaultPath?: string
   theme?: string
+  sidebarVisible?: boolean
   autoSave?: boolean
   autoSaveDelay?: number
   fontSize?: number
@@ -35,16 +36,28 @@ type AppSettings = {
   recentVaults?: string[]
   lastOpenedNote?: string
   expandedFolders?: string[]
-  openTabs?: { id: string; path?: string }[]
+  openTabs?: { id: string; path?: string; title?: string }[]
   pinnedTabs?: string[]
   activeId?: string
   activeView?: 'notes' | 'search' | 'settings'
   windowBounds?: { width: number; height: number; x?: number; y?: number }
   deepseekApiKey?: string
+  openaiApiKey?: string
+  claudeApiKey?: string
+  grokApiKey?: string
+  ollamaBaseUrl?: string
+  aiProvider?: 'deepseek' | 'openai' | 'claude' | 'grok' | 'ollama'
+  aiModel?: string
   gistToken?: string
   gistId?: string
   rightPanelWidth?: number
   rightPanelVisible?: boolean
+  passwordHash?: string | null
+  activeSettingsSection?: string
+  // Caret settings
+  caretEnabled?: boolean
+  caretMaxWidth?: number
+  cursorPositions?: Record<string, { lineNumber: number; column: number }>
   graphTheme?: string
 }
 

@@ -232,6 +232,17 @@ class App {
       if (state.settings.pinnedTabs) state.pinnedTabs = new Set(state.settings.pinnedTabs)
       if (state.settings.cursorPositions)
         state.cursorPositions = new Map(Object.entries(state.settings.cursorPositions))
+      if (state.settings.openTabs) {
+        // Map basic tab info to NoteMeta format expected by state.openTabs
+        state.openTabs = state.settings.openTabs.map((t) => ({
+          id: t.id,
+          path: t.path,
+          title: t.title || t.id, // Use saved title if available
+          updatedAt: 0
+        }))
+        console.log(`[App] Restored ${state.openTabs.length} tabs from settings`)
+      }
+      if (state.settings.activeId) state.activeId = state.settings.activeId
     }
 
     if (state.settings.theme) themeManager.setTheme(state.settings.theme)
@@ -273,6 +284,10 @@ class App {
       this.sidebar.setVisible(isSidebarView)
       this.sidebar.setMode(view === 'search' ? 'search' : 'explorer')
       this.editor.layout()
+    })
+
+    this.sidebar.setVisibilityChangeHandler((visible) => {
+      void window.api.updateSettings({ sidebarVisible: visible })
     })
 
     this.sidebar.setNoteSelectHandler(

@@ -17,7 +17,7 @@ export type Settings = {
   recentVaults?: string[]
   lastOpenedNote?: string
   expandedFolders?: string[]
-  openTabs?: { id: string; path?: string }[]
+  openTabs?: { id: string; path?: string; title?: string }[]
   activeId?: string
   activeView?: 'notes' | 'search' | 'settings'
   windowBounds?: { width: number; height: number; x?: number; y?: number }
@@ -52,6 +52,8 @@ export const DEFAULT_SETTINGS: Settings = {
   caretMaxWidth: 2,
   recentVaults: [],
   expandedFolders: [],
+  sidebarVisible: true,
+  rightPanelVisible: false,
   graphTheme: 'default'
 }
 

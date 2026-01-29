@@ -59,6 +59,8 @@ export class VaultHandler {
 
     // Initialize AI in background
     this.backgroundIndexVault().catch((err) => console.error('Background indexing failed:', err))
+
+    state.isLoading = false
   }
 
   public async chooseVault(): Promise<void> {
@@ -263,6 +265,7 @@ export class VaultHandler {
 
   public async persistWorkspace(): Promise<void> {
     try {
+      if (state.isLoading) return
       if (state.openTabs.length === 0 && !state.vaultPath) return
 
       await window.api.updateSettings({

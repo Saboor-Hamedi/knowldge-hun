@@ -33,8 +33,9 @@ export type AppState = {
   pinnedTabs: Set<string>
   newlyCreatedIds: Set<string>
   selectedIds: Set<string>
-  cursorPositions: Map<string, { lineNumber: number; column: number }>
   recentProjects?: { name: string; path: string }[]
+  cursorPositions: Map<string, { lineNumber: number; column: number }>
+  isLoading: boolean
 }
 
 export type AppSettings = {
@@ -50,7 +51,7 @@ export type AppSettings = {
   recentVaults?: string[]
   lastOpenedNote?: string
   expandedFolders?: string[]
-  openTabs?: { id: string; path?: string }[]
+  openTabs?: { id: string; path?: string; title?: string }[]
   pinnedTabs?: string[]
   activeId?: string
   activeView?: 'notes' | 'search' | 'settings'
