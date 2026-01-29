@@ -122,14 +122,7 @@ export class SessionSidebar {
     const sidebarHTML = `
       <div class="rightbar__session-sidebar" id="rightbar-session-sidebar" style="width: ${this.sidebarWidth}px;">
         <div class="rightbar__session-sidebar-resize" id="rightbar-session-sidebar-resize"></div>
-        <div class="rightbar__session-sidebar-header">
-          <h3 class="rightbar__session-sidebar-title">Sessions</h3>
-          <button class="rightbar__session-sidebar-close" id="rightbar-session-sidebar-close" title="Close sidebar" aria-label="Close sidebar">
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-              <path d="M4 4l8 8M12 4l-8 8"/>
-            </svg>
-          </button>
-        </div>
+        <div class="rightbar__session-sidebar-resize" id="rightbar-session-sidebar-resize"></div>
         <div class="rightbar__session-sidebar-actions">
           <div class="rightbar__session-sidebar-search">
             <div class="rightbar__session-sidebar-search-icon">
@@ -598,13 +591,12 @@ export class SessionSidebar {
     const rightbar = this.container.closest('.rightbar')
     if (!rightbar) return
 
-    const header = rightbar.querySelector('.rightbar__header') as HTMLElement
+    // Only push chat container and input wrapper, NOT header
     const chatContainer = rightbar.querySelector('.rightbar__chat-container') as HTMLElement
     const chatInputWrapper = rightbar.querySelector('.rightbar__chat-input-wrapper') as HTMLElement
 
     const marginValue = `${this.sidebarWidth}px`
 
-    if (header) header.style.marginLeft = marginValue
     if (chatContainer) chatContainer.style.marginLeft = marginValue
     if (chatInputWrapper) chatInputWrapper.style.marginLeft = marginValue
   }
@@ -613,11 +605,9 @@ export class SessionSidebar {
     const rightbar = this.container.closest('.rightbar')
     if (!rightbar) return
 
-    const header = rightbar.querySelector('.rightbar__header') as HTMLElement
     const chatContainer = rightbar.querySelector('.rightbar__chat-container') as HTMLElement
     const chatInputWrapper = rightbar.querySelector('.rightbar__chat-input-wrapper') as HTMLElement
 
-    if (header) header.style.marginLeft = ''
     if (chatContainer) chatContainer.style.marginLeft = ''
     if (chatInputWrapper) chatInputWrapper.style.marginLeft = ''
   }

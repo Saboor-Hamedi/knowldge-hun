@@ -40,11 +40,12 @@
   justify-content: space-between;
   gap: 8px;
   height: var(--tab-height);
-  padding: 0 12px 0 16px;
+  padding: 0 12px 0 44px; /* Increased left padding for absolute button */
   border-bottom: 1px solid var(--border);
   background: var(--panel);
   min-width: 0;
   flex-shrink: 0;
+  position: relative;
 }
 
 .rightbar__title {
@@ -91,7 +92,10 @@
 }
 
 .rightbar__header-sessions {
-  flex-shrink: 0;
+  position: absolute;
+  left: 8px;
+  top: 50%;
+  transform: translateY(-50%);
   width: 28px;
   height: 28px;
   padding: 0;
@@ -106,6 +110,12 @@
   transition:
     color 0.15s,
     background 0.15s;
+  z-index: 5;
+}
+
+.rightbar__header-sessions svg {
+  width: 16px;
+  height: 16px;
 }
 
 .rightbar__header-sessions:hover {
@@ -685,6 +695,7 @@
   background: var(--panel);
   min-width: 0;
   flex-shrink: 0;
+  transition: margin-left 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .rightbar__chat-input-container {
@@ -1061,18 +1072,19 @@
 /* ---- Session Sidebar ---- */
 .rightbar__session-sidebar {
   position: absolute;
-  top: 0;
+  top: var(--tab-height);
   /* width is set dynamically via JS */
   left: 0;
   width: 280px;
-  height: 100%;
+  height: calc(100% - var(--tab-height));
   background: var(--panel);
-  border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   transform: translateX(-100%);
-  transition: transform 0.2s ease;
-  z-index: 1000; /* Higher than rightbar (0) but lower than menus */
+  transition:
+    transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+    visibility 0s linear 0.2s; /* Wait for slide out to finish before hiding */
+  z-index: 20; /* Higher than rightbar (0) but lower than menus */
   box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
   visibility: hidden;
 }
@@ -1080,6 +1092,9 @@
 .rightbar__session-sidebar--visible {
   transform: translateX(0);
   visibility: visible;
+  transition:
+    transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+    visibility 0s linear 0s; /* Show immediately on open */
 }
 
 /* Session sidebar resize handle */
@@ -1216,21 +1231,19 @@
 .rightbar__session-sidebar-new,
 .rightbar__session-sidebar-archived {
   flex: 1;
-  padding: 8px 12px;
+  padding: 4px 8px;
   border: 1px solid var(--border);
   border-radius: 6px;
   background: var(--panel-strong);
   color: var(--text-strong);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  transition:
-    background 0.15s,
-    border-color 0.15s;
+  transition: all 0.15s ease;
 }
 
 .rightbar__session-sidebar-new:hover,
@@ -1503,4 +1516,97 @@
   .rightbar__session-sidebar {
     width: 240px;
   }
+}
+/* ---- AI Host (Tabbed View) ---- */
+.ai-host {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg);
+  position: relative;
+  height: 100%; /* Ensure it fills parent */
+  width: 100%;
+}
+
+.ai-host .rightbar {
+  border-left: none;
+  box-shadow: none;
+}
+
+.ai-host .rightbar__resize-handle {
+  display: none;
+}
+
+.ai-host .rightbar__header {
+  border-top: 1px solid var(--border);
+}
+
+.ai-host .rightbar__title {
+  display: none;
+}
+
+/* Back to Sidebar Button in Header */
+.rightbar__back-to-sidebar {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--panel);
+  color: var(--text-soft);
+  cursor: pointer;
+  transition: all 0.2s;
+  padding: 0;
+}
+
+.rightbar__back-to-sidebar span {
+  display: none;
+}
+
+.rightbar__back-to-sidebar svg {
+  width: 14px;
+  height: 14px;
+}
+
+.ai-host .rightbar__back-to-sidebar {
+  display: flex;
+}
+
+.rightbar__back-to-sidebar:hover {
+  background: var(--border);
+  color: var(--text-strong);
+}
+
+.rightbar__title-open-tab {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-soft);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  margin-right: auto; /* Push actions to the right */
+}
+
+.rightbar__title-open-tab svg {
+  width: 14px;
+  height: 14px;
+}
+
+.rightbar__title-open-tab:hover {
+  color: var(--text-strong);
+  background: var(--border);
+}
+
+.ai-host .rightbar__title-open-tab {
+  display: none;
 }

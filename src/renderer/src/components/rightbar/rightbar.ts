@@ -21,7 +21,9 @@ import {
   Settings,
   Info,
   Archive,
-  Plus
+  Plus,
+  PanelLeft,
+  PanelRight
 } from 'lucide'
 import './rightbar.css'
 import './ai-menu.css'
@@ -475,22 +477,25 @@ export class RightBar {
   }
 
   private render(): void {
+    const sessionIcon = createElement(PanelRight, {
+      size: 16,
+      'stroke-width': 2
+    }).outerHTML
+
     this.container.innerHTML = `
       <div class="rightbar">
         <div class="rightbar__resize-handle" id="rightbar-resize-handle"></div>
         <div class="rightbar__header">
-          <h3 class="rightbar__title">AI Chat</h3>
+          <button class="rightbar__header-sessions" id="rightbar-header-sessions" title="Sessions" aria-label="Toggle sessions">
+            ${sessionIcon}
+          </button>
+          <h3 class="rightbar__title"></h3>
           <div class="rightbar__header-actions">
             <div id="rightbar-model-badge" class="rightbar__model-badge"></div>
             <button class="rightbar__header-ai-menu" id="rightbar-header-ai-menu" title="More options" aria-label="AI chat menu"></button>
-            <button class="rightbar__header-sessions" id="rightbar-header-sessions" title="Sessions" aria-label="Toggle sessions">
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M3 2h10M3 6h10M3 10h10M3 14h10"/>
-              </svg>
+            <button class="rightbar__header-close" id="rightbar-header-close" title="Close (Ctrl+I)" aria-label="Close panel">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>
             </button>
-          <button class="rightbar__header-close" id="rightbar-header-close" title="Close (Ctrl+I)" aria-label="Close panel">
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>
-          </button>
           </div>
         </div>
         <div class="rightbar__chat-container" id="rightbar-chat-container">
@@ -595,9 +600,20 @@ export class RightBar {
       const sessionsBtn = this.container.querySelector(
         '#rightbar-header-sessions'
       ) as HTMLButtonElement
+
+      let isSidebarOpen = false
       sessionsBtn?.addEventListener('click', () => {
         if (this.sessionSidebar) {
           this.sessionSidebar.toggle()
+          isSidebarOpen = !isSidebarOpen
+
+          const newIcon = createElement(isSidebarOpen ? PanelLeft : PanelRight, {
+            size: 16,
+            'stroke-width': 2
+          })
+
+          sessionsBtn.innerHTML = ''
+          sessionsBtn.appendChild(newIcon)
         }
       })
 
