@@ -214,9 +214,10 @@ class App {
     // Clear initial loading overlay before security check so user can see the firewall
     document.body.classList.remove('is-loading')
 
+    this.registerConsoleCommands()
+
     await securityService.requestUnlock()
     await this.vaultHandler.init()
-    this.registerConsoleCommands()
     this.wireUpdateEvents()
   }
 
@@ -660,18 +661,61 @@ class App {
       name: 'help',
       description: 'List commands',
       action: () => {
-        this.hubConsole.log(
-          'help, open, find, stats, clear, close, index-vault, debug-rag, lock, unlock'
-        )
+        this.hubConsole.log('Available Commands:', 'system')
+        this.hubConsole.log('  help         - List all commands')
+        this.hubConsole.log('  open <note>  - Open a note by title')
+        this.hubConsole.log('  find <query> - Search in notes')
+        this.hubConsole.log('  stats        - Show vault statistics')
+        this.hubConsole.log('  index-vault  - Re-index for AI search')
+        this.hubConsole.log('  lock         - Lock the application')
+        this.hubConsole.log('  unlock       - Show unlock prompt')
+        this.hubConsole.log('  ping         - Test console latency')
+        this.hubConsole.log('  clear        - Clear console output')
+        this.hubConsole.log('  close        - Close console panel')
+      }
+    })
+    this.hubConsole.registerCommand({
+      name: 'ping',
+      description: 'Test console latency',
+      action: () => {
+        this.hubConsole.log('pong! 🏓', 'system')
       }
     })
     this.hubConsole.registerCommand({
       name: 'stats',
       description: 'Show vault statistics',
       action: () => {
-        this.hubConsole.log(
-          `Notes: ${state.notes.length}, Tabs: ${state.openTabs.length}, Path: ${state.vaultPath}`
-        )
+        this.hubConsole.log(`Notes: ${state.notes.length}`)
+        this.hubConsole.log(`Tabs:  ${state.openTabs.length}`)
+        this.hubConsole.log(`Path:  ${state.vaultPath || 'No vault open'}`)
+      }
+    })
+    this.hubConsole.registerCommand({
+      name: 'open',
+      description: 'Open a note by title',
+      action: (args) => {
+        if (!args.length) {
+          this.hubConsole.log('Usage: open <note title>', 'error')
+          return
+        }
+        const query = args.join(' ').toLowerCase()
+        const note = state.notes.find((n) => n.title.toLowerCase().includes(query))
+        if (note) {
+          void this.vaultHandler.openNote(note.id, note.path)
+          this.hubConsole.log(`Opening note: ${note.title}`)
+        } else {
+          this.hubConsole.log(`Note not found: ${query}`, 'error')
+        }
+      }
+    })
+    this.hubConsole.registerCommand({
+      name: 'find',
+      description: 'Search in notes',
+      action: (args) => {
+        const query = args.join(' ')
+        this.activityBar.setActiveView('search')
+        // We don't have a direct "set search query" yet, but we can switch view
+        this.hubConsole.log(`Search for: ${query}`)
       }
     })
     this.hubConsole.registerCommand({
@@ -690,7 +734,75 @@ class App {
     this.hubConsole.registerCommand({
       name: 'index-vault',
       description: 'Re-index vault for AI',
-      action: () => this.vaultHandler.backgroundIndexVault()
+      action: async () => {
+        this.hubConsole.log('Starting background indexing...', 'system')
+        await this.vaultHandler.backgroundIndexVault()
+        this.hubConsole.log('Indexing finished', 'system')
+      }
+    })
+    this.hubConsole.registerCommand({
+      name: 'lock',
+      description: 'Lock the application',
+      action: () => {
+        if (!securityService.hasPassword()) {
+          this.hubConsole.log(
+            'No password set. Please set one in Settings > Security first.',
+            'error'
+          )
+          return
+        }
+        this.hubConsole.log('Locking application...', 'system')
+        void securityService.promptAndLock()
+      }
+    })
+    this.hubConsole.registerCommand({
+      name: 'unlock',
+      description: 'Unlock session or remove protection',
+      action: async () => {
+        if (securityService.isAppUnlocked()) {
+          if (!securityService.hasPassword()) {
+            this.hubConsole.log('Application is already unprotected.', 'system')
+            return
+          }
+          this.hubConsole.log('Already unlocked. Verifying to remove protection...', 'system')
+          const verified = await securityService.verifyAction()
+          if (verified) {
+            await securityService.removePassword()
+            this.hubConsole.log('Vault protection disabled.', 'success')
+          }
+          return
+        }
+
+        this.hubConsole.log('Opening unlock prompt...', 'system')
+        const success = await securityService.requestUnlock()
+        if (success) {
+          this.hubConsole.log('Unlocked successfully.', 'system')
+        }
+      }
+    })
+    this.hubConsole.registerCommand({
+      name: 'de-protect',
+      description: 'Shortcut to remove password',
+      action: async () => {
+        const cmd = this.hubConsole['commands'].get('unlock')
+        if (cmd) await cmd.action([])
+      }
+    })
+    this.hubConsole.registerCommand({
+      name: 'disable-protection',
+      description: 'Remove vault password',
+      action: async () => {
+        if (!securityService.hasPassword()) {
+          this.hubConsole.log('No password set.', 'system')
+          return
+        }
+        this.hubConsole.log('Verifying credentials to disable protection...', 'system')
+        const verified = await securityService.verifyAction()
+        if (verified) {
+          await securityService.removePassword()
+          this.hubConsole.log('Vault protection disabled. (Master password removed)', 'system')
+        }
+      }
     })
   }
 
