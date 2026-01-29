@@ -209,23 +209,30 @@ class App {
   }
 
   async init(): Promise<void> {
+    ErrorHandler.init()
     await this.initSettings()
+    // Clear initial loading overlay before security check so user can see the firewall
+    document.body.classList.remove('is-loading')
+
+    await securityService.requestUnlock()
     await this.vaultHandler.init()
     this.registerConsoleCommands()
     this.wireUpdateEvents()
-    ErrorHandler.init()
-
-    // Clear initial loading overlay
-    document.body.classList.remove('is-loading')
   }
 
   private async initSettings(): Promise<void> {
     state.settings = await window.api.getSettings()
-    if (state.settings.expandedFolders)
-      state.expandedFolders = new Set(state.settings.expandedFolders)
-    if (state.settings.pinnedTabs) state.pinnedTabs = new Set(state.settings.pinnedTabs)
-    if (state.settings.cursorPositions)
-      state.cursorPositions = new Map(Object.entries(state.settings.cursorPositions))
+
+    const isNewInstance = window.location.search.includes('newInstance=true')
+
+    if (!isNewInstance) {
+      if (state.settings.expandedFolders)
+        state.expandedFolders = new Set(state.settings.expandedFolders)
+      if (state.settings.pinnedTabs) state.pinnedTabs = new Set(state.settings.pinnedTabs)
+      if (state.settings.cursorPositions)
+        state.cursorPositions = new Map(Object.entries(state.settings.cursorPositions))
+    }
+
     if (state.settings.theme) themeManager.setTheme(state.settings.theme)
 
     if (state.settings.recentVaults) {
@@ -237,7 +244,12 @@ class App {
 
     if (state.settings) {
       this.editor.applySettings(state.settings)
-      this.viewOrchestrator.restoreLayout(state.settings)
+      // Always restore layout, but force sidebars hidden for new instances
+      this.viewOrchestrator.restoreLayout({
+        ...state.settings,
+        rightPanelVisible: isNewInstance ? false : state.settings.rightPanelVisible,
+        sidebarVisible: isNewInstance ? false : state.settings.sidebarVisible
+      })
     }
   }
 
@@ -623,7 +635,7 @@ class App {
     reg('Control+j', 'Toggle Console', () => this.hubConsole.toggle())
     reg('Control+l', 'Lock Application', () => void securityService.promptAndLock())
     reg('Escape', 'Close UI', () => {
-      if ((this.hubConsole as any).isOpen) {
+      if (this.hubConsole.isVisible) {
         this.hubConsole.setVisible(false)
         return true
       }

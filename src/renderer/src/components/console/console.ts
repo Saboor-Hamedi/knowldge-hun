@@ -152,6 +152,10 @@ export class ConsoleComponent {
     this.commands.set(command.name.toLowerCase().trim(), command)
   }
 
+  public get isVisible(): boolean {
+    return this.isOpen
+  }
+
   public toggle(): void {
     this.setVisible(!this.isOpen)
   }

@@ -174,7 +174,11 @@ export class RightBar {
       this.isInitialized = true
 
       // Try to restore last active session
-      const lastSessionId = localStorage.getItem('knowledgeHub_currentSessionId')
+      const isNewInstance = window.location.search.includes('newInstance=true')
+      const lastSessionId = isNewInstance
+        ? null
+        : localStorage.getItem('knowledgeHub_currentSessionId')
+
       if (lastSessionId && this.sessionSidebar) {
         try {
           const session = await sessionStorageService.getSession(lastSessionId)
@@ -564,7 +568,7 @@ export class RightBar {
 
     const closeBtn = this.container.querySelector('#rightbar-header-close') as HTMLButtonElement
     closeBtn?.addEventListener('click', () => {
-      window.dispatchEvent(new CustomEvent('knowledge-hub:toggle-right-sidebar'))
+      window.dispatchEvent(new CustomEvent('toggle-right-sidebar'))
     })
 
     // Initialize character counter

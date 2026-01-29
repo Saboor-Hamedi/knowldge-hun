@@ -101,7 +101,7 @@ const IGNORED_NAMES = [
 export class VaultManager {
   private rootPath: string = ''
   private watcher: FSWatcher | null = null
-  private mainWindow: BrowserWindow | null = null
+  private windows = new Set<BrowserWindow>()
 
   // In-memory cache
   private notes = new Map<string, NoteMeta>()
@@ -109,8 +109,15 @@ export class VaultManager {
   private links = new Map<string, Set<string>>() // Source -> Targets
   private backlinks = new Map<string, Set<string>>() // Target -> Sources
 
-  public setMainWindow(window: BrowserWindow): void {
-    this.mainWindow = window
+  public addWindow(window: BrowserWindow): void {
+    this.windows.add(window)
+    window.on('closed', () => {
+      this.windows.delete(window)
+    })
+  }
+
+  public removeWindow(window: BrowserWindow): void {
+    this.windows.delete(window)
   }
 
   public getRootPath(): string {
@@ -256,11 +263,15 @@ export class VaultManager {
       await this.indexFile(fullPath)
     }
 
-    // Notify Frontend
-    this.mainWindow?.webContents.send('vault-changed', {
-      event,
-      id,
-      meta: this.notes.get(id)
+    // Notify all windows looking at this vault
+    this.windows.forEach((win) => {
+      if (!win.isDestroyed()) {
+        win.webContents.send('vault-changed', {
+          event,
+          id,
+          meta: this.notes.get(id)
+        })
+      }
     })
   }
 
@@ -273,8 +284,12 @@ export class VaultManager {
     } else {
       this.folders.delete(normalizedPath)
     }
-    // Notify Frontend to refresh list
-    this.mainWindow?.webContents.send('vault-changed', { event: 'refresh' })
+    // Notify all windows for refresh
+    this.windows.forEach((win) => {
+      if (!win.isDestroyed()) {
+        win.webContents.send('vault-changed', { event: 'refresh' })
+      }
+    })
   }
 
   // --- Helpers ---
@@ -800,5 +815,3 @@ export class VaultManager {
     return links
   }
 }
-
-export const vault = new VaultManager()

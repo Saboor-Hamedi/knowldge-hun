@@ -156,6 +156,12 @@ export class ViewOrchestrator {
     const rightPanel = document.getElementById('rightPanel') as HTMLElement
     if (!shell || !rightPanel) return
 
+    if (settings.sidebarVisible === false) {
+      shell.classList.add('sidebar-hidden')
+    } else {
+      shell.classList.remove('sidebar-hidden')
+    }
+
     if (settings.rightPanelVisible) {
       rightPanel.style.display = 'block'
       const width = settings.rightPanelWidth ?? 270

@@ -211,10 +211,14 @@ export class SecuritySection {
   }
 
   private promptSetPassword(onSuccess: () => void, onCancel?: () => void): void {
+    let confirmed = false
     modalManager.open({
       title: 'Setup Vault Protection',
       content: 'Choose a master password. This password stays on your machine.',
       size: 'sm',
+      onClose: () => {
+        if (!confirmed) onCancel?.()
+      },
       inputs: [
         { name: 'p1', label: 'New Password', type: 'password', required: true },
         { name: 'p2', label: 'Confirm Password', type: 'password', required: true }
@@ -225,7 +229,6 @@ export class SecuritySection {
           variant: 'ghost',
           onClick: (m) => {
             m.close()
-            onCancel?.()
           }
         },
         {
@@ -247,6 +250,7 @@ export class SecuritySection {
             }
 
             await securityService.setPassword(p1)
+            confirmed = true
             m.close()
             onSuccess()
           }

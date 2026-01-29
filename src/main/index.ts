@@ -8,7 +8,7 @@ import { userInfo } from 'os'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { version } from '../../package.json'
 import icon from '../../resources/icon.ico?asset'
-import { vault } from './vault'
+import { VaultManager } from './vault'
 import type { NotePayload } from './vault'
 import {
   loadSettings,
@@ -19,6 +19,7 @@ import {
 } from './settings'
 
 let mainWindowRef: BrowserWindow | null = null
+const freshWindows = new Set<number>()
 
 function addRecentVault(path: string): void {
   const settings = loadSettings()
@@ -90,14 +91,48 @@ function resolveVaultPath(): string {
   return defaultPath
 }
 
-async function ensureVault(): Promise<void> {
-  if (vault.getRootPath()) return
-  const path = resolveVaultPath()
-  await vault.setVaultPath(path)
+const vaultManagers = new Map<string, VaultManager>()
+const windowVaultPaths = new Map<number, string>()
+
+async function getOrCreateVaultManager(path: string): Promise<VaultManager> {
+  const normPath = resolve(path)
+  let manager = vaultManagers.get(normPath)
+  if (!manager) {
+    manager = new VaultManager()
+    await manager.setVaultPath(normPath)
+    vaultManagers.set(normPath, manager)
+  }
+  return manager
 }
 
-async function chooseVault(): Promise<{ path: string; name: string; changed: boolean }> {
-  const currentPath = vault.getRootPath() || resolveVaultPath()
+function getVaultManager(sender: Electron.WebContents): VaultManager | null {
+  const win = BrowserWindow.fromWebContents(sender)
+  if (!win) return null
+  const path = windowVaultPaths.get(win.id)
+  if (!path) return null
+  return vaultManagers.get(resolve(path)) || null
+}
+
+async function ensureVault(sender: Electron.WebContents): Promise<VaultManager> {
+  const manager = getVaultManager(sender)
+  if (manager) return manager
+
+  const path = resolveVaultPath()
+  const newManager = await getOrCreateVaultManager(path)
+  const win = BrowserWindow.fromWebContents(sender)
+  if (win) {
+    windowVaultPaths.set(win.id, path)
+    newManager.addWindow(win)
+  }
+  return newManager
+}
+
+async function chooseVault(
+  sender: Electron.WebContents
+): Promise<{ path: string; name: string; changed: boolean }> {
+  const manager = getVaultManager(sender)
+  const currentPath = manager?.getRootPath() || resolveVaultPath()
+
   const result = await dialog.showOpenDialog({
     title: 'Select Knowledge Hub Vault',
     properties: ['openDirectory', 'createDirectory'],
@@ -115,19 +150,22 @@ async function chooseVault(): Promise<{ path: string; name: string; changed: boo
   }
 
   try {
-    await vault.setVaultPath(selected)
+    const newManager = await getOrCreateVaultManager(selected)
+    const win = BrowserWindow.fromWebContents(sender)
+    if (win) {
+      if (manager) manager.removeWindow(win)
+      windowVaultPaths.set(win.id, selected)
+      newManager.addWindow(win)
+      // Once a vault is chosen, it's no longer a "fresh" window
+      freshWindows.delete(win.id)
+    }
+
     updateSettings({ vaultPath: selected })
     addRecentVault(selected)
     return { path: selected, name: basename(selected), changed: true }
   } catch (error) {
     throw new Error(`Cannot use selected folder: ${(error as Error).message}`)
   }
-}
-
-function getVaultRoot(): string {
-  const root = vault.getRootPath()
-  if (!root) throw new Error('Vault not open')
-  return root
 }
 
 function createWindow(isNewInstance = false): void {
@@ -175,10 +213,13 @@ function createWindow(isNewInstance = false): void {
     }, 500)
   })
 
-  mainWindow.on('ready-to-show', () => {
+  mainWindow.on('ready-to-show', async () => {
     mainWindow.maximize()
     mainWindow.show()
-    vault.setMainWindow(mainWindow)
+    if (!isNewInstance) {
+      const v = await ensureVault(mainWindow.webContents)
+      v.addWindow(mainWindow)
+    }
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
@@ -199,6 +240,11 @@ function createWindow(isNewInstance = false): void {
       shell.openExternal(url)
     }
   })
+
+  if (isNewInstance) {
+    freshWindows.add(mainWindow.id)
+    mainWindow.on('closed', () => freshWindows.delete(mainWindow.id))
+  }
 
   const query = isNewInstance ? '?newInstance=true' : ''
 
@@ -229,7 +275,7 @@ app.whenReady().then(async () => {
         {
           label: 'New Window',
           accelerator: 'CommandOrControl+Shift+N',
-          click: () => createWindow(true) // Pass true for new instance
+          click: (): void => createWindow(true) // Pass true for new instance
         },
         isMac ? { role: 'close' } : { role: 'quit' }
       ]
@@ -241,93 +287,112 @@ app.whenReady().then(async () => {
   const menu = Menu.buildFromTemplate(template)
   Menu.setApplicationMenu(menu)
 
-  ipcMain.handle('notes:list', async () => vault.getNotes())
-  ipcMain.handle('notes:load', async (_event, id: string) => vault.getNote(id))
-  ipcMain.handle('notes:exportAll', async () => vault.exportAllNotes())
-  ipcMain.handle('notes:create', async (_event, title?: string, path?: string) => {
-    await ensureVault()
-    return vault.createNote(title || 'Untitled', path)
+  ipcMain.handle('notes:list', async (event) => {
+    const v = getVaultManager(event.sender)
+    return v ? v.getNotes() : []
   })
-  ipcMain.handle('notes:save', async (_event, payload: NotePayload) => {
-    await ensureVault()
-    return vault.saveNote(payload.id, payload.content, payload.title)
+  ipcMain.handle('notes:load', async (event, id: string) => {
+    const v = getVaultManager(event.sender)
+    return v ? v.getNote(id) : null
   })
-  ipcMain.handle('notes:delete', async (_event, id: string) => {
-    await ensureVault()
-    await vault.deleteNote(id)
+  ipcMain.handle('notes:exportAll', async (event) => {
+    const v = getVaultManager(event.sender)
+    return v ? v.exportAllNotes() : null
+  })
+  ipcMain.handle('notes:create', async (event, title?: string, path?: string) => {
+    const v = await ensureVault(event.sender)
+    return v.createNote(title || 'Untitled', path)
+  })
+  ipcMain.handle('notes:save', async (event, payload: NotePayload) => {
+    const v = await ensureVault(event.sender)
+    return v.saveNote(payload.id, payload.content, payload.title)
+  })
+  ipcMain.handle('notes:delete', async (event, id: string) => {
+    const v = await ensureVault(event.sender)
+    await v.deleteNote(id)
     return { id }
   })
-  ipcMain.handle('notes:move', async (_event, id: string, fromPath?: string, toPath?: string) => {
-    await ensureVault()
-    return vault.moveNote(id, fromPath, toPath)
+  ipcMain.handle('notes:move', async (event, id: string, fromPath?: string, toPath?: string) => {
+    const v = await ensureVault(event.sender)
+    return v.moveNote(id, fromPath, toPath)
   })
-  ipcMain.handle('notes:rename', async (_event, id: string, newId: string) => {
-    await ensureVault()
-    const newName = await vault.renameNote(id, newId)
-    const note = await vault.getNote(newName)
+  ipcMain.handle('notes:rename', async (event, id: string, newId: string) => {
+    const v = await ensureVault(event.sender)
+    const newName = await v.renameNote(id, newId)
+    const note = await v.getNote(newName)
     return note
   })
-  ipcMain.handle('notes:import', async (_event, filePath: string, folderPath?: string) => {
-    await ensureVault()
-    return vault.importNote(filePath, folderPath)
+  ipcMain.handle('notes:import', async (event, filePath: string, folderPath?: string) => {
+    const v = await ensureVault(event.sender)
+    return v.importNote(filePath, folderPath)
   })
-  ipcMain.handle('folder:create', async (_event, name: string, parentPath?: string) => {
-    await ensureVault()
-    return vault.createFolder(name, parentPath)
+  ipcMain.handle('folder:create', async (event, name: string, parentPath?: string) => {
+    const v = await ensureVault(event.sender)
+    return v.createFolder(name, parentPath)
   })
-  ipcMain.handle('folder:delete', async (_event, path: string) => {
-    await ensureVault()
-    await vault.deleteFolder(path)
+  ipcMain.handle('folder:delete', async (event, path: string) => {
+    const v = await ensureVault(event.sender)
+    await v.deleteFolder(path)
     return { path }
   })
-  ipcMain.handle('folder:rename', async (_event, path: string, newName: string) => {
-    await ensureVault()
-    return vault.renameFolder(path, newName)
+  ipcMain.handle('folder:rename', async (event, path: string, newName: string) => {
+    const v = await ensureVault(event.sender)
+    return v.renameFolder(path, newName)
   })
-  ipcMain.handle('folder:move', async (_event, sourcePath: string, targetPath: string) => {
-    await ensureVault()
-    return vault.moveFolder(sourcePath, targetPath)
+  ipcMain.handle('folder:move', async (event, sourcePath: string, targetPath: string) => {
+    const v = await ensureVault(event.sender)
+    return v.moveFolder(sourcePath, targetPath)
   })
 
-  ipcMain.handle('vault:get', async () => {
-    const path = vault.getRootPath() || resolveVaultPath()
+  ipcMain.handle('vault:get', async (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win) return { path: null, name: null }
+
+    if (freshWindows.has(win.id) && !windowVaultPaths.has(win.id)) {
+      return { path: null, name: null }
+    }
+
+    const v = await ensureVault(event.sender)
+    const path = v.getRootPath()
     return { path, name: basename(path) }
   })
 
-  ipcMain.handle('vault:reveal', async (_event, targetPath?: string) => {
-    let root = vault.getRootPath()
-    if (!root) root = resolveVaultPath()
+  ipcMain.handle('vault:reveal', async (event, targetPath?: string) => {
+    const v = getVaultManager(event.sender)
+    const root = v?.getRootPath() || resolveVaultPath()
 
     console.log('[Reveal] Root:', root)
     console.log('[Reveal] Target Path:', targetPath)
 
     if (targetPath && root) {
-      // Ensure target path is absolute and normalized
       const fullPath = isAbsolute(targetPath) ? targetPath : resolve(root, targetPath)
-
       console.log('[Reveal] Resolved Full Path:', fullPath)
-
       if (existsSync(fullPath)) {
-        console.log('[Reveal] Path exists, showing...')
         shell.showItemInFolder(fullPath)
         return
-      } else {
-        console.warn('[Reveal] Path does NOT exist:', fullPath)
       }
     }
 
     if (root && existsSync(root)) {
-      console.log('[Reveal] Falling back to vault root')
       await shell.openPath(root)
     }
   })
 
-  ipcMain.handle('vault:choose', async () => {
-    return await chooseVault()
+  ipcMain.handle('vault:choose', async (event) => {
+    return await chooseVault(event.sender)
   })
 
-  ipcMain.handle('vault:set', async (_event, dir: string) => {
-    await vault.setVaultPath(dir)
+  ipcMain.handle('vault:set', async (event, dir: string) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    const oldManager = getVaultManager(event.sender)
+    const newManager = await getOrCreateVaultManager(dir)
+
+    if (win) {
+      if (oldManager) oldManager.removeWindow(win)
+      windowVaultPaths.set(win.id, dir)
+      newManager.addWindow(win)
+    }
+
     updateSettings({ vaultPath: dir })
     addRecentVault(dir)
     return { path: dir, name: basename(dir), changed: true }
@@ -443,14 +508,22 @@ app.whenReady().then(async () => {
     return { foundPath: null }
   })
 
-  ipcMain.handle('notes:search', async (_event, query: string) => vault.search(query))
-  ipcMain.handle('notes:getBacklinks', async (_event, id: string) => vault.getBacklinks(id))
-  ipcMain.handle('graph:get', async () => {
-    return { links: vault.getAllLinks() }
+  ipcMain.handle('notes:search', async (event, query: string) => {
+    const v = getVaultManager(event.sender)
+    return v ? v.search(query) : []
+  })
+  ipcMain.handle('notes:getBacklinks', async (event, id: string) => {
+    const v = getVaultManager(event.sender)
+    return v ? v.getBacklinks(id) : []
+  })
+  ipcMain.handle('graph:get', async (event) => {
+    const v = getVaultManager(event.sender)
+    return v ? { links: v.getAllLinks() } : { links: [] }
   })
 
-  ipcMain.handle('assets:save', async (_event, buffer: ArrayBuffer, name: string) => {
-    const root = getVaultRoot()
+  ipcMain.handle('assets:save', async (event, buffer: ArrayBuffer, name: string) => {
+    const v = getVaultManager(event.sender)
+    const root = v?.getRootPath() || resolveVaultPath()
     const assetsDir = join(root, 'assets')
     await mkdir(assetsDir, { recursive: true })
     const filePath = join(assetsDir, name)
@@ -480,7 +553,7 @@ app.whenReady().then(async () => {
           {
             version: 1,
             timestamp: Date.now(),
-            vaultPath: vault.getRootPath(),
+            vaultPath: getVaultManager(_event.sender)?.getRootPath(),
             notes: vaultData
           },
           null,
@@ -736,8 +809,9 @@ app.whenReady().then(async () => {
   })
 
   try {
+    // Initialize default vault manager for main window
     const savedPath = resolveVaultPath()
-    await vault.setVaultPath(savedPath)
+    await getOrCreateVaultManager(savedPath)
   } catch (err) {
     console.error('Failed to initialize vault:', err)
   }

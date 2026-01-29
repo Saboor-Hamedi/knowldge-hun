@@ -225,10 +225,14 @@ export class SecurityService {
     onSuccess: () => void
     onCancel: () => void
   }): void {
+    let confirmed = false
     modalManager.open({
       title: options.title,
       content: options.message,
       size: 'sm',
+      onClose: () => {
+        if (!confirmed) options.onCancel()
+      },
       inputs: [
         {
           name: 'password',
@@ -244,7 +248,6 @@ export class SecurityService {
           variant: 'ghost',
           onClick: (m) => {
             m.close()
-            options.onCancel()
           }
         },
         {
@@ -256,6 +259,7 @@ export class SecurityService {
 
             const isValid = await this.verifyPassword(input)
             if (isValid) {
+              confirmed = true
               m.close()
               options.onSuccess()
             } else {
