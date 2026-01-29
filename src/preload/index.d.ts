@@ -70,6 +70,7 @@ type WindowApi = {
 }
 
 type NoteApi = {
+  requestUpdate: () => void
   listNotes: () => Promise<TreeItem[]>
   loadNote: (id: string, path?: string) => Promise<NotePayload | null>
   createNote: (title?: string, path?: string) => Promise<NoteMeta>

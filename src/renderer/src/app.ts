@@ -30,6 +30,7 @@ import { VaultPicker } from './components/vault-picker/vault-picker'
 import { WelcomePage } from './components/welcome-page/welcome-page'
 import { ragService } from './services/rag/ragService'
 import { securityService } from './services/security/securityService'
+import { updateApp } from './components/updateApp/updateRender'
 import { VaultHandler } from './handlers/VaultHandler'
 import { FileOperationHandler } from './handlers/FileOperationHandler'
 import { ViewOrchestrator } from './handlers/ViewOrchestrator'
@@ -909,6 +910,20 @@ class App {
         label: 'Theme: Select',
         description: 'Choose a different UI theme',
         handler: () => this.themeModal.open()
+      },
+      {
+        id: 'documentation',
+        label: 'Help: Open Documentation',
+        description: 'Learn how to use Knowledge Hub',
+        handler: () => this.documentationModal.open()
+      },
+      {
+        id: 'check-updates',
+        label: 'System: Check for Updates',
+        description: 'Check if a newer version is available',
+        handler: () => {
+          updateApp.checkForUpdate()
+        }
       },
       {
         id: 'sync-backup',
