@@ -333,8 +333,8 @@ body {
 }
 
 .btn--primary {
-  background: linear-gradient(135deg, var(--primary), var(--primary-strong));
-  border-color: transparent;
+  background: var(--primary);
+  border: 1px solid var(--border);
   color: #0b1220;
 }
 

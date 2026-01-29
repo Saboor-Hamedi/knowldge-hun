@@ -728,28 +728,45 @@ export class SettingsView {
         notificationManager.show('No Gist ID configured. Please backup first.', 'warning')
         return
       }
-      if (!confirm('Restore will replace your current vault. Continue?')) {
-        return
-      }
-      restoreBtn.textContent = 'Restoring...'
-      restoreBtn.setAttribute('disabled', 'true')
-      try {
-        const result = await window.api.syncRestore(token, gistId)
-        if (result.success && result.data) {
-          // Trigger restore via custom event that app.ts listens to
-          window.dispatchEvent(
-            new CustomEvent('restore-vault', { detail: { backupData: result.data } })
-          )
-          notificationManager.show('Vault restored successfully', 'success')
-        } else {
-          notificationManager.show(result.message, 'error')
-        }
-      } catch (error) {
-        notificationManager.show('Restore failed', 'error')
-      } finally {
-        restoreBtn.innerHTML = `${this.createLucideIcon(CloudDownload, 16)} Restore from Gist`
-        restoreBtn.removeAttribute('disabled')
-      }
+
+      modalManager.open({
+        title: 'Restore Vault',
+        content:
+          'This will replace your current local notes with the version from GitHub. This action cannot be undone. Are you sure you want to proceed?',
+        buttons: [
+          {
+            label: 'Okay',
+            variant: 'primary',
+            onClick: async (m) => {
+              m.close()
+              try {
+                notificationManager.show('Restoring backup...', 'info', { title: 'Sync' })
+                const result = await window.api.syncRestore(token, gistId)
+                if (result.success && result.data) {
+                  // Trigger restore via custom event that app.ts listens to
+                  window.dispatchEvent(
+                    new CustomEvent('restore-vault', { detail: { backupData: result.data } })
+                  )
+                  notificationManager.show('Vault restored successfully', 'success', {
+                    title: 'Sync'
+                  })
+                } else {
+                  notificationManager.show(result.message || 'Restore failed', 'error', {
+                    title: 'Sync'
+                  })
+                }
+              } catch (error) {
+                notificationManager.show('Restore failed', 'error', { title: 'Sync' })
+              }
+            }
+          },
+          {
+            label: 'Cancel',
+            variant: 'ghost',
+            onClick: (m) => m.close()
+          }
+        ]
+      })
     })
 
     // View Ollama Refresh Button

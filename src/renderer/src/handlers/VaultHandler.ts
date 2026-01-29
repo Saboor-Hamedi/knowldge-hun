@@ -346,20 +346,26 @@ export class VaultHandler {
     await this.refreshNotes()
 
     const notes = backupData.notes as NotePayload[]
+    console.log(`[Restore] Starting restoration of ${notes.length} notes...`)
     const createdFolders = new Set<string>()
+    let successCount = 0
+    let failCount = 0
 
     for (const backupNote of notes) {
       try {
-        const folderPath = backupNote.path
-          ? backupNote.path.split('/').slice(0, -1).join('/')
-          : undefined
+        // Correct folderPath: the Gist already contains the relative folder path
+        const folderPath = backupNote.path || undefined
         const noteTitle = backupNote.title || backupNote.id
 
-        const existingNote = state.notes.find((n) => n.id === backupNote.id)
+        // Case-insensitive ID check for Windows to prevent duplicates
+        const existingNote = state.notes.find(
+          (n) => n.id.toLowerCase() === backupNote.id.toLowerCase()
+        )
 
         if (existingNote) {
+          console.log(`[Restore] Updating existing note: ${backupNote.id}`)
           await window.api.saveNote({
-            id: backupNote.id,
+            id: existingNote.id,
             title: noteTitle,
             content: backupNote.content || '',
             path: folderPath,
@@ -367,6 +373,7 @@ export class VaultHandler {
             createdAt: backupNote.createdAt || existingNote.createdAt || Date.now()
           })
         } else {
+          console.log(`[Restore] Creating new note: ${noteTitle} in ${folderPath || 'root'}`)
           if (folderPath && !createdFolders.has(folderPath)) {
             const folderParts = folderPath.split('/')
             let currentPath = ''
@@ -378,10 +385,12 @@ export class VaultHandler {
                     (n) => n.type === 'folder' && n.path === nextPath
                   )
                   if (!folderExists) {
+                    console.log(`[Restore] Creating folder: ${nextPath}`)
                     await window.api.createFolder(folderName, currentPath || undefined)
                   }
                   createdFolders.add(nextPath)
-                } catch {
+                } catch (err) {
+                  console.warn(`[Restore] Folder creation failed or exists: ${nextPath}`, err)
                   createdFolders.add(nextPath)
                 }
               }
@@ -399,11 +408,14 @@ export class VaultHandler {
             createdAt: backupNote.createdAt || Date.now()
           })
         }
+        successCount++
       } catch (error) {
-        console.error(`Failed to restore note ${backupNote.id}:`, error)
+        failCount++
+        console.error(`[Restore] Failed to restore note ${backupNote.id}:`, error)
       }
     }
 
+    console.log(`[Restore] Finished. Success: ${successCount}, Failed: ${failCount}`)
     await this.refreshNotes()
     this.components.sidebar.renderTree()
 
@@ -411,11 +423,12 @@ export class VaultHandler {
       const activeNote = state.notes.find((n) => n.id === state.activeId)
       if (activeNote) {
         const noteData = await window.api.loadNote(activeNote.id)
-        if (noteData) await this.components.editor.loadNote(noteData)
+        if (noteData) void this.components.editor.loadNote(noteData)
       }
     }
 
-    await this.backgroundIndexVault()
+    // Background the indexing so the UI can proceed
+    void this.backgroundIndexVault()
   }
 
   public async handleVaultSelected(path: string): Promise<void> {

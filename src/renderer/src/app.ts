@@ -550,38 +550,18 @@ class App {
 
   private attachSyncEvents(): void {
     window.addEventListener('restore-vault', async (e: any) => {
-      if (e.detail?.backupData) await this.vaultHandler.restoreVaultFromBackup(e.detail.backupData)
+      if (e.detail?.backupData) {
+        await this.vaultHandler.restoreVaultFromBackup(e.detail.backupData)
+      }
     })
 
     const statusBarEl = document.getElementById('statusBar')
     statusBarEl?.addEventListener('sync-action', async (e: any) => {
       const { action } = e.detail
-      const settings = (await window.api.getSettings()) as any
-      const { gistToken: token, gistId } = settings
-      if (!token) return notificationManager.show('GitHub token missing', 'warning')
-
       if (action === 'backup') {
-        notificationManager.show('Backing up...', 'info')
-        const vaultData = await window.api.listNotes()
-        const notes = (
-          await Promise.all(
-            vaultData.filter((n) => n.type !== 'folder').map((n) => window.api.loadNote(n.id))
-          )
-        ).filter((n) => n !== null)
-        const res = await window.api.syncBackup(token, gistId, notes)
-        if (res.success) {
-          notificationManager.show(res.message, 'success')
-          if (res.gistId) await window.api.updateSettings({ gistId: res.gistId } as any)
-        } else notificationManager.show(res.message, 'error')
+        void this.backupVault()
       } else if (action === 'restore') {
-        if (!gistId) return notificationManager.show('No Gist ID', 'warning')
-        if (!confirm('Restore will replace your current vault. Continue?')) return
-        notificationManager.show('Restoring...', 'info')
-        const res = await window.api.syncRestore(token, gistId)
-        if (res.success && res.data) {
-          await this.vaultHandler.restoreVaultFromBackup(res.data)
-          notificationManager.show('Restored', 'success')
-        } else notificationManager.show(res.message, 'error')
+        void this.restoreVault()
       }
     })
   }
@@ -970,9 +950,12 @@ class App {
   private async backupVault(): Promise<void> {
     const settings = (await window.api.getSettings()) as any
     const { gistToken, gistId } = settings
-    if (!gistToken) return notificationManager.show('GitHub token missing in settings', 'warning')
+    if (!gistToken)
+      return notificationManager.show('GitHub token missing in settings', 'warning', {
+        title: 'Sync'
+      })
 
-    notificationManager.show('Backing up vault...', 'info')
+    notificationManager.show('Backing up vault...', 'info', { title: 'Sync' })
     try {
       const vaultData = await window.api.listNotes()
       const notes = (
@@ -983,36 +966,69 @@ class App {
 
       const res = await window.api.syncBackup(gistToken, gistId, notes)
       if (res.success) {
-        notificationManager.show(res.message, 'success')
+        notificationManager.show(res.message, 'success', { title: 'Sync' })
         if (res.gistId) await window.api.updateSettings({ gistId: res.gistId } as any)
       } else {
-        notificationManager.show(res.message, 'error')
+        notificationManager.show(res.message, 'error', { title: 'Sync' })
       }
-    } catch {
-      notificationManager.show('Backup process failed', 'error')
+    } catch (err: any) {
+      console.error('Backup failed:', err)
+      notificationManager.show('Backup process failed', 'error', { title: 'Sync' })
     }
   }
 
   private async restoreVault(): Promise<void> {
     const settings = (await window.api.getSettings()) as any
     const { gistToken, gistId } = settings
-    if (!gistToken) return notificationManager.show('GitHub token missing in settings', 'warning')
-    if (!gistId) return notificationManager.show('No Gist ID found to restore from', 'warning')
+    if (!gistToken)
+      return notificationManager.show('GitHub token missing in settings', 'warning', {
+        title: 'Sync'
+      })
+    if (!gistId)
+      return notificationManager.show('No Gist ID found to restore from', 'warning', {
+        title: 'Sync'
+      })
 
-    if (!confirm('Restore will replace your current local vault. Continue?')) return
-
-    notificationManager.show('Restoring vault...', 'info')
-    try {
-      const res = await window.api.syncRestore(gistToken, gistId)
-      if (res.success && res.data) {
-        await this.vaultHandler.restoreVaultFromBackup(res.data)
-        notificationManager.show('Restored successfully', 'success')
-      } else {
-        notificationManager.show(res.message, 'error')
-      }
-    } catch {
-      notificationManager.show('Restore process failed', 'error')
-    }
+    modalManager.open({
+      title: 'Restore Vault',
+      content:
+        'This will replace your current local notes with the version from GitHub. This action cannot be undone. Are you sure you want to proceed?',
+      buttons: [
+        {
+          label: 'Okay',
+          variant: 'primary',
+          onClick: async (m) => {
+            m.close()
+            try {
+              notificationManager.show('Restoring backup...', 'info', { title: 'Sync' })
+              const res = await window.api.syncRestore(gistToken, gistId)
+              if (res.success && res.data) {
+                await this.vaultHandler.restoreVaultFromBackup(res.data)
+                notificationManager.show('Restore completed successfully', 'success', {
+                  title: 'Sync'
+                })
+              } else {
+                notificationManager.show(res.message || 'Restore failed', 'error', {
+                  title: 'Sync'
+                })
+              }
+            } catch (err: any) {
+              console.error('Restore action failed:', err)
+              notificationManager.show(
+                `Restore failed: ${err.message || 'Unknown error'}`,
+                'error',
+                { title: 'Sync' }
+              )
+            }
+          }
+        },
+        {
+          label: 'Cancel',
+          variant: 'ghost',
+          onClick: (m) => m.close()
+        }
+      ]
+    })
   }
 }
 

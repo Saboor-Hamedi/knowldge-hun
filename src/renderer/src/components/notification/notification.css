@@ -1,6 +1,6 @@
 .notification-container {
   position: fixed;
-  bottom: 24px;
+  bottom: 48px;
   right: 24px;
   display: flex;
   flex-direction: column;
@@ -107,5 +107,13 @@
   to {
     opacity: 0;
     transform: translateX(20px);
+  }
+}
+@keyframes notification-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
   }
 }
