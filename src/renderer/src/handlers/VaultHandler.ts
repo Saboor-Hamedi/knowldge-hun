@@ -339,8 +339,22 @@ export class VaultHandler {
   }
 
   public async handleVaultSelected(path: string): Promise<void> {
+    // Create transition overlay
+    const overlay = document.createElement('div')
+    overlay.className = 'vault-transition-overlay'
+    overlay.innerHTML = `
+      <div class="vault-transition-spinner"></div>
+      <div class="vault-transition-text">Switching Vault...</div>
+    `
+    document.body.appendChild(overlay)
+
+    // Trigger visibility
+    requestAnimationFrame(() => overlay.classList.add('is-active'))
+
     const result = await vaultService.openVault(path)
     if (!result.success) {
+      overlay.classList.remove('is-active')
+      setTimeout(() => overlay.remove(), 300)
       this.components.statusBar.setStatus(`⚠️ ${result.error || 'Failed to open vault'}`)
       return
     }
@@ -375,8 +389,14 @@ export class VaultHandler {
     this.callbacks.updateViewVisibility()
     this.components.statusBar.setMeta(`📁 ${path}`)
 
-    this.components.statusBar.setStatus('Initializing AI...')
-    await ragService.init()
+    // End transition early so user sees the content immediately
+    const activeOverlay = document.querySelector('.vault-transition-overlay')
+    if (activeOverlay) {
+      activeOverlay.classList.remove('is-active')
+      setTimeout(() => activeOverlay.remove(), 300)
+    }
+
+    // RAG Initialization & Indexing (Handled via Header status)
     this.backgroundIndexVault().catch((err) => console.error('Background indexing failed:', err))
   }
 }

@@ -1,9 +1,12 @@
 import { state } from '../../core/state'
 import { codicons } from '../../utils/codicons'
+import { vaultService, VaultInfo } from '../../services/vaultService'
+import { modalManager } from '../modal/modal'
 import './welcome-page.css'
 
 export class WelcomePage {
   private container: HTMLElement
+  private recentVaults: VaultInfo[] = []
   private onProjectSelect?: (path: string) => void
   private onOpenFolder?: () => void
   private onCreateNew?: () => void
@@ -38,8 +41,6 @@ export class WelcomePage {
   }
 
   render(): void {
-    const recentProjects = state.recentProjects || []
-
     this.container.innerHTML = `
       <div class="welcome-container">
         <div class="welcome-content">
@@ -58,22 +59,48 @@ export class WelcomePage {
               <h2>Recent Projects</h2>
               <div class="recent-list">
                 ${
-                  recentProjects.length > 0
-                    ? recentProjects
-                        .slice(0, 3)
-                        .map(
-                          (p) => `
-                  <div class="recent-item" data-path="${p.path}">
-                    <div class="recent-item__icon">
-                      ${codicons.folder}
+                  this.recentVaults.length > 0
+                    ? this.recentVaults
+                        .slice(0, 5)
+                        .map((p) => {
+                          const isCurrent = p.path === state.vaultPath
+                          return `
+                    <div class="recent-item ${isCurrent ? 'is-active' : ''} ${!p.exists ? 'is-missing' : ''}" data-path="${p.path}">
+                      <div class="recent-item__icon">
+                        ${p.exists ? codicons.folder : codicons.error}
+                      </div>
+                      <div class="recent-item__info">
+                        <div class="recent-item__name">
+                          ${this.escapeHtml(p.name)}
+                          ${isCurrent ? '<span class="recent-item__badge">Active</span>' : ''}
+                        </div>
+                        <div class="recent-item__path" title="${this.escapeHtml(p.path)}">${this.escapeHtml(p.path)}</div>
+                      </div>
+                      <div class="recent-item__actions">
+                        ${
+                          p.exists
+                            ? isCurrent
+                              ? `<span class="recent-item__current-label">${codicons.check} Using</span>`
+                              : `
+                            <button class="recent-item__btn recent-item__btn--open" data-action="select" data-path="${this.escapeHtml(p.path)}">
+                              Switch
+                            </button>
+                          `
+                            : ''
+                        }
+                        ${
+                          !isCurrent
+                            ? `
+                          <button class="recent-item__btn recent-item__btn--delete" data-action="delete" data-path="${this.escapeHtml(p.path)}" title="Remove record">
+                              ${codicons.trash}
+                          </button>
+                        `
+                            : ''
+                        }
+                      </div>
                     </div>
-                    <div class="recent-item__info">
-                      <div class="recent-item__name">${p.name}</div>
-                      <div class="recent-item__path">${p.path}</div>
-                    </div>
-                  </div>
-                `
-                        )
+                  `
+                        })
                         .join('')
                     : '<div class="recent-empty">No recent projects</div>'
                 }
@@ -107,9 +134,25 @@ export class WelcomePage {
     this.attachEvents()
   }
 
-  show(): void {
+  async show(): Promise<void> {
     this.container.style.display = 'block'
-    this.render() // Re-render to show latest recent projects
+    await this.loadRecentVaults()
+  }
+
+  private async loadRecentVaults(): Promise<void> {
+    try {
+      this.recentVaults = await vaultService.getRecentVaults()
+      this.render()
+    } catch (error) {
+      console.error('[WelcomePage] Failed to load recent vaults:', error)
+      this.render()
+    }
+  }
+
+  private escapeHtml(text: string): string {
+    const div = document.createElement('div')
+    div.textContent = text
+    return div.innerHTML
   }
 
   hide(): void {
@@ -117,13 +160,61 @@ export class WelcomePage {
   }
 
   private attachEvents(): void {
-    // Recent project clicks
-    this.container.querySelectorAll('.recent-item').forEach((item) => {
-      item.addEventListener('click', () => {
-        const path = (item as HTMLElement).dataset.path
+    // Recent project action: Select/Switch
+    this.container.querySelectorAll('[data-action="select"]').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation()
+        const path = (e.currentTarget as HTMLElement).dataset.path
         if (path && this.onProjectSelect) {
           this.onProjectSelect(path)
         }
+      })
+    })
+
+    // Click on the row itself (if not already current)
+    this.container.querySelectorAll('.recent-item').forEach((item) => {
+      item.addEventListener('click', (e) => {
+        // Only trigger if we didn't click a button
+        if ((e.target as HTMLElement).closest('button')) return
+
+        const path = (item as HTMLElement).dataset.path
+        const isCurrent = path === state.vaultPath
+        if (path && !isCurrent && this.onProjectSelect) {
+          this.onProjectSelect(path)
+        }
+      })
+    })
+
+    // Delete handler
+    this.container.querySelectorAll('[data-action="delete"]').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation()
+        const path = (e.currentTarget as HTMLElement).dataset.path
+        if (!path) return
+
+        modalManager.open({
+          title: 'Remove Recent Vault',
+          content: `Are you sure you want to remove this vault from your recent list?<br/><br/><code style="font-size: 11px; opacity: 0.7;">${path}</code>`,
+          size: 'md',
+          buttons: [
+            {
+              label: 'Remove',
+              variant: 'danger',
+              onClick: async (m) => {
+                m.setLoading(true)
+                try {
+                  await vaultService.removeRecentVault(path)
+                  await this.loadRecentVaults()
+                  m.close()
+                } catch (error) {
+                  m.setLoading(false)
+                  console.error('[WelcomePage] Failed to remove recent vault:', error)
+                }
+              }
+            },
+            { label: 'Cancel', variant: 'ghost', onClick: (m) => m.close() }
+          ]
+        })
       })
     })
 

@@ -147,7 +147,6 @@ export class SecurityService {
 
     const input = firewall.querySelector('.security-firewall__input') as HTMLInputElement
     const btn = firewall.querySelector('.security-firewall__btn--primary') as HTMLButtonElement
-    const avatar = firewall.querySelector('.security-firewall__avatar') as HTMLElement
     const capsWarning = firewall.querySelector('.security-firewall__caps-lock') as HTMLElement
     const visibilityBtn = firewall.querySelector(
       '.security-firewall__toggle-visibility'
