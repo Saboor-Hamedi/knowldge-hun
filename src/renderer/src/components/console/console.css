@@ -193,33 +193,25 @@
 
 .hub-console__line--ai {
   color: var(--text-soft);
-  border-left: 2px solid var(--primary);
-  padding-left: 12px;
-  margin: 12px 4px;
-  background: rgba(255, 255, 255, 0.02);
-  border-radius: 0 4px 4px 0;
-  padding-top: 8px;
-  padding-bottom: 8px;
+  margin: 4px 0 12px 0;
+  white-space: pre-wrap;
+  line-height: 1.6;
 }
 
 .hub-console__line--ai::before {
-  content: 'AGENT';
-  display: block;
-  font-size: 10px;
+  content: 'AGENT > ';
+  font-size: 11px;
   color: var(--primary);
-  opacity: 0.8;
-  margin-bottom: 4px;
   font-weight: bold;
-  text-transform: uppercase;
-  letter-spacing: 1px;
+  font-family: monospace;
 }
 
 .hub-console__line--thinking {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 8px 12px;
-  margin: 8px 4px;
+  margin-left: 4px;
+  vertical-align: middle;
 }
 
 .hub-console__line--thinking span {

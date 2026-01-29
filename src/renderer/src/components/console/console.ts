@@ -429,18 +429,20 @@ export class ConsoleComponent {
     this.isBusy = true
     this.log(input, 'command')
 
-    // Thinking indicator
-    const thinkingEl = document.createElement('div')
-    thinkingEl.className = 'hub-console__line hub-console__line--thinking'
-    thinkingEl.innerHTML = `<span></span><span></span><span></span>`
-    this.bodyEl.appendChild(thinkingEl)
-    this.bodyEl.scrollTop = this.bodyEl.scrollHeight
-
     const outputLine = document.createElement('div')
     outputLine.className = 'hub-console__line hub-console__line--ai'
     this.bodyEl.appendChild(outputLine)
 
+    // Thinking indicator - placed INSIDE the output line so it appears after the prefix
+    const thinkingEl = document.createElement('span')
+    thinkingEl.className = 'hub-console__line--thinking'
+    thinkingEl.innerHTML = `<span></span><span></span><span></span>`
+    outputLine.appendChild(thinkingEl)
+
+    this.bodyEl.scrollTop = this.bodyEl.scrollHeight
+
     this.aiAbortController = new AbortController()
+    let fullText = ''
 
     try {
       const context = await aiService.buildContextMessage(input)
@@ -448,24 +450,27 @@ export class ConsoleComponent {
         [],
         context,
         (chunk) => {
-          // Remove thinking indicator once first chunk arrives
-          if (thinkingEl.parentNode) {
-            thinkingEl.remove()
+          // Clear dots and switch to text on first chunk
+          if (fullText === '') {
+            outputLine.innerHTML = ''
           }
-          outputLine.textContent += chunk
+          fullText += chunk
+
+          // Clean markdown symbols for raw console look
+          const cleanText = fullText.replace(/[*_`#]/g, '')
+          outputLine.textContent = cleanText
+
           this.bodyEl.scrollTop = this.bodyEl.scrollHeight
         },
         this.aiAbortController.signal
       )
     } catch (err) {
-      if (thinkingEl.parentNode) thinkingEl.remove()
       if ((err as Error).name === 'AbortError') {
         this.log('AI request cancelled.', 'system')
       } else {
         this.log(`AI Error: ${(err as Error).message}`, 'error')
       }
     } finally {
-      if (thinkingEl.parentNode) thinkingEl.remove()
       this.isBusy = false
       this.aiAbortController = null
     }
