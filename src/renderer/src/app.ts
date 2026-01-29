@@ -425,9 +425,8 @@ class App {
             const { title: newTitle } = m.getValues()
             if (newTitle && newTitle !== currentTitle) {
               try {
-                if (type === 'note') await this.fileOps.renameNote(id, newTitle)
-                else await this.fileOps.renameFolder(id, newTitle)
-                m.close()
+                if (type === 'note') await this.fileOps.renameNote(id, newTitle, () => m.close())
+                else await this.fileOps.renameFolder(id, newTitle, () => m.close())
               } catch (err: any) {
                 notificationManager.show(err.message || 'Rename failed', 'error')
               }

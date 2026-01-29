@@ -18,6 +18,8 @@ export class FuzzyFinder {
   private list: HTMLElement | null = null
   private selectedIndex = 0
   private visibleItems: any[] = []
+  private isOpen = false
+  private backdrop: HTMLElement | null = null
 
   public get isVisible(): boolean {
     return this.isOpen

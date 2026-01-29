@@ -1,11 +1,10 @@
 import { state } from '../core/state'
-import type { NotePayload, NoteMeta } from '../core/types'
+import type { NotePayload } from '../core/types'
 import { noteService } from '../services/noteService'
 import { modalManager } from '../components/modal/modal'
 import { securityService } from '../services/security/securityService'
 import { ragService } from '../services/rag/ragService'
 import { tabService } from '../services/tabService'
-import { notificationManager } from '../components/notification/notification'
 
 export class FileOperationHandler {
   constructor(
@@ -202,11 +201,16 @@ export class FileOperationHandler {
     const newId = newTitle.trim().replace(/[<>:"/\\|?*]/g, '-')
     if (noteId === newId) return
 
-    state.newlyCreatedIds.delete(noteId)
-
     try {
       const newMeta = await noteService.renameNote(noteId, newId, existing?.path)
       const actualNewId = newMeta.id
+
+      // Update newly created IDs state if applicable
+      if (state.newlyCreatedIds.has(noteId)) {
+        state.newlyCreatedIds.delete(noteId)
+        state.newlyCreatedIds.add(actualNewId)
+      }
+
       onCoreDone?.()
 
       if (isActive) tabService.setActiveTab(actualNewId)
@@ -234,9 +238,10 @@ export class FileOperationHandler {
     }
   }
 
-  public async renameFolder(id: string, newName: string): Promise<void> {
+  public async renameFolder(id: string, newName: string, onCoreDone?: () => void): Promise<void> {
     const result = await window.api.renameFolder(id, newName)
     const actualNewPath = result.path
+    onCoreDone?.()
 
     if (state.expandedFolders.has(id)) {
       state.expandedFolders.delete(id)

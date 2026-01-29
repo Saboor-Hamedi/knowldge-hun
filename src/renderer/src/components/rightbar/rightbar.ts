@@ -122,7 +122,7 @@ export class RightBar {
   private autocompleteDropdown!: HTMLElement
   private autocompleteItems: HTMLElement[] = []
   private selectedAutocompleteIndex = -1
-  private allNotes: Array<{ id: string; title: string; path?: string }> = []
+
   private typingTimeout: number | null = null
   private currentSessionId: string | null = null
   private saveTimeout: number | null = null
@@ -160,7 +160,7 @@ export class RightBar {
     // Initialize highlight.js in background
     void initHighlightJS()
     void aiService.loadApiKey()
-    void this.loadNotes()
+
     this.render()
     this.attachEvents()
     void this.initializeSession()
@@ -451,24 +451,6 @@ export class RightBar {
     return await sessionStorageService.getSession(this.currentSessionId)
   }
 
-  private async loadNotes(): Promise<void> {
-    try {
-      const notes = await window.api.listNotes()
-      // Filter primarily for notes, but folders could be added if needed
-      // Most users expect notes when using @mention
-      this.allNotes = notes
-        .filter((n) => n.type !== 'folder')
-        .map((note) => ({
-          id: note.id,
-          title: note.title,
-          path: note.path
-        }))
-    } catch (error) {
-      console.error('[RightBar] Failed to load notes:', error)
-      this.allNotes = []
-    }
-  }
-
   setEditorContext(
     getEditorContent: () => string | null,
     getActiveNoteInfo: () => { title: string; id: string } | null
@@ -580,9 +562,6 @@ export class RightBar {
 
     // Initialize mode selector
     this.initModeSelector()
-
-    // Load notes for @mention autocomplete
-    this.loadNotes()
 
     // Initialize session sidebar - append to the rightbar element
     if (rightbarElement) {
@@ -841,9 +820,6 @@ export class RightBar {
     }
 
     // Refresh notes when vault changes
-    window.addEventListener('vault-changed', () => {
-      void this.loadNotes()
-    })
 
     this.chatContainer.addEventListener('click', (e) => {
       const target = (e.target as HTMLElement).closest('[data-action]')
@@ -2557,7 +2533,7 @@ export class RightBar {
 
   async refreshApiKey(): Promise<void> {
     await aiService.loadApiKey()
-    await this.loadNotes()
+
     const wasEmpty = this.messages.length === 0
     this.render()
     this.attachEvents()
