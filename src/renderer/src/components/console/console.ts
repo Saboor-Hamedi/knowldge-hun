@@ -49,12 +49,14 @@ export class ConsoleComponent {
   private isOpen = false
   private isMaximized = false
   private isBusy = false
+  private currentMode: 'terminal' | 'ai' = 'terminal'
   private history: string[] = []
   private historyIndex = -1
   private tabMatches: string[] = []
   private tabIndex = -1
   private commands: Map<string, Command> = new Map()
   private vaultUnsubscribe?: () => void
+  private aiAbortController: AbortController | null = null
 
   constructor(containerId: string) {
     this.container = document.getElementById(containerId) as HTMLElement
@@ -151,8 +153,16 @@ export class ConsoleComponent {
       </div>
       <div class="hub-console__body"></div>
       <div class="hub-console__footer">
-        <span class="hub-console__prompt">λ</span>
-        <input type="text" class="hub-console__input" placeholder="Type a command..." spellcheck="false" autocomplete="off">
+        <div class="hub-console__mode-switcher">
+          <select class="hub-console__mode-select" title="Switch Mode">
+            <option value="terminal">Terminal</option>
+            <option value="ai">Agent</option>
+          </select>
+        </div>
+        <div class="hub-console__prompt-wrapper">
+          <span class="hub-console__prompt">λ</span>
+          <input type="text" class="hub-console__input" placeholder="Type a command..." spellcheck="false" autocomplete="off">
+        </div>
       </div>
     `
   }
@@ -216,10 +226,19 @@ export class ConsoleComponent {
         const value = this.inputEl.value.trim()
         if (value) {
           if (this.isBusy) {
-            this.log('Command already running. Please wait...', 'system')
+            if (this.currentMode === 'ai') {
+              this.log('AI is still thinking... (Press Ctrl+C to stop)', 'system')
+            } else {
+              this.log('Command already running. Please wait...', 'system')
+            }
             return
           }
-          void this.execute(value)
+
+          if (this.currentMode === 'ai') {
+            void this.handleAIRequest(value)
+          } else {
+            void this.execute(value)
+          }
           this.inputEl.value = ''
         }
       } else if (e.key === 'ArrowUp') {
@@ -247,8 +266,32 @@ export class ConsoleComponent {
       }
     })
 
-    // Focus input on click anywhere in console
-    this.consoleEl.addEventListener('click', () => {
+    // Focus input on click anywhere in console (but skip interactive elements)
+    this.consoleEl.addEventListener('click', (e) => {
+      const target = e.target as HTMLElement
+      if (target.closest('select') || target.closest('button') || target.closest('input')) {
+        return
+      }
+      this.inputEl.focus()
+    })
+
+    // Mode switcher
+    const modeSelect = this.consoleEl.querySelector(
+      '.hub-console__mode-select'
+    ) as HTMLSelectElement
+
+    // Crucial: Stop click/mousedown from bubbling up to consoleEl and stealing focus
+    modeSelect?.addEventListener('mousedown', (e) => e.stopPropagation())
+    modeSelect?.addEventListener('click', (e) => e.stopPropagation())
+
+    modeSelect?.addEventListener('change', () => {
+      this.currentMode = modeSelect.value as 'terminal' | 'ai'
+      const prompt = this.consoleEl.querySelector('.hub-console__prompt')
+      if (prompt) {
+        prompt.textContent = this.currentMode === 'ai' ? '?' : 'λ'
+      }
+      this.inputEl.placeholder =
+        this.currentMode === 'ai' ? 'Ask AI anything...' : 'Type a command...'
       this.inputEl.focus()
     })
 
@@ -310,6 +353,8 @@ export class ConsoleComponent {
   }
 
   private handleTabCompletion(): void {
+    if (this.currentMode !== 'terminal') return
+
     const value = this.inputEl.value.trim().toLowerCase()
 
     if (this.tabMatches.length === 0) {
@@ -375,6 +420,54 @@ export class ConsoleComponent {
       }
     } else {
       this.log(`Unknown command: ${commandName}. Type "help" for assistance.`, 'error')
+    }
+  }
+
+  private async handleAIRequest(input: string): Promise<void> {
+    const { aiService } = await import('../../services/aiService')
+
+    this.isBusy = true
+    this.log(input, 'command')
+
+    // Thinking indicator
+    const thinkingEl = document.createElement('div')
+    thinkingEl.className = 'hub-console__line hub-console__line--thinking'
+    thinkingEl.innerHTML = `<span></span><span></span><span></span>`
+    this.bodyEl.appendChild(thinkingEl)
+    this.bodyEl.scrollTop = this.bodyEl.scrollHeight
+
+    const outputLine = document.createElement('div')
+    outputLine.className = 'hub-console__line hub-console__line--ai'
+    this.bodyEl.appendChild(outputLine)
+
+    this.aiAbortController = new AbortController()
+
+    try {
+      const context = await aiService.buildContextMessage(input)
+      await aiService.callDeepSeekAPIStream(
+        [],
+        context,
+        (chunk) => {
+          // Remove thinking indicator once first chunk arrives
+          if (thinkingEl.parentNode) {
+            thinkingEl.remove()
+          }
+          outputLine.textContent += chunk
+          this.bodyEl.scrollTop = this.bodyEl.scrollHeight
+        },
+        this.aiAbortController.signal
+      )
+    } catch (err) {
+      if (thinkingEl.parentNode) thinkingEl.remove()
+      if ((err as Error).name === 'AbortError') {
+        this.log('AI request cancelled.', 'system')
+      } else {
+        this.log(`AI Error: ${(err as Error).message}`, 'error')
+      }
+    } finally {
+      if (thinkingEl.parentNode) thinkingEl.remove()
+      this.isBusy = false
+      this.aiAbortController = null
     }
   }
 }

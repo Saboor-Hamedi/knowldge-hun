@@ -593,6 +593,7 @@ class App {
     }
 
     reg('Alt+g', 'Open Knowledge Graph', () => this.graphView.open())
+    reg('Alt+l', 'Lock Application', () => void securityService.promptAndLock())
     reg('Control+f', 'Find in note', () => {
       this.editor.focus()
       this.editor.triggerAction('actions.find')
