@@ -216,13 +216,26 @@ class App {
   async init(): Promise<void> {
     ErrorHandler.init()
     await this.initSettings()
-    // Clear initial loading overlay before security check so user can see the firewall
-    document.body.classList.remove('is-loading')
-
     this.registerConsoleCommands()
 
-    await securityService.requestUnlock()
-    await this.vaultHandler.init()
+    // 1. Prepare data and security
+    await Promise.all([this.vaultHandler.init(), securityService.requestUnlock()])
+
+    // 2. Lock layout with no transitions, then reveal
+    document.body.classList.add('no-transitions')
+
+    // Give the browser two frames to settle the layout
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
+
+    // 3. Reveal the finished stage
+    document.body.classList.remove('is-loading')
+
+    // 4. Release transition lock after a small grace period (100ms)
+    // This ensures any JS-triggered layout changes are finished before animations are enabled.
+    setTimeout(() => {
+      document.body.classList.remove('no-transitions')
+    }, 100)
+
     this.wireUpdateEvents()
   }
 

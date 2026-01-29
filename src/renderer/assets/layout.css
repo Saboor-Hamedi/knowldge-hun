@@ -117,7 +117,7 @@ body {
   grid-row: 1;
   background: var(--panel);
   border-left: 1px solid var(--border);
-  display: block;
+  display: none;
   min-height: 0;
   width: var(--right-panel-width);
 }
@@ -234,4 +234,14 @@ body:not(.is-loading) #loadingOverlay {
 .main {
   background: var(--panel) !important;
   border-color: var(--border) !important;
+}
+/* Disable transitions globally during boot and shortly after to prevent layout "walking" */
+body.is-loading *,
+body.is-loading *:before,
+body.is-loading *:after,
+body.no-transitions *,
+body.no-transitions *:before,
+body.no-transitions *:after {
+  transition: none !important;
+  animation: none !important;
 }
