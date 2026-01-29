@@ -51,6 +51,8 @@ export class ConsoleComponent {
   private isBusy = false
   private history: string[] = []
   private historyIndex = -1
+  private tabMatches: string[] = []
+  private tabIndex = -1
   private commands: Map<string, Command> = new Map()
   private vaultUnsubscribe?: () => void
 
@@ -209,6 +211,8 @@ export class ConsoleComponent {
   private attachEvents(): void {
     this.inputEl.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
+        e.preventDefault()
+        e.stopPropagation()
         const value = this.inputEl.value.trim()
         if (value) {
           if (this.isBusy) {
@@ -233,6 +237,13 @@ export class ConsoleComponent {
           this.historyIndex = -1
           this.inputEl.value = ''
         }
+      } else if (e.key === 'Tab') {
+        e.preventDefault()
+        this.handleTabCompletion()
+      } else if (!['Control', 'Alt', 'Meta', 'Shift'].includes(e.key)) {
+        // Reset tab completion if any standard key is pressed
+        this.tabMatches = []
+        this.tabIndex = -1
       }
     })
 
@@ -296,6 +307,26 @@ export class ConsoleComponent {
 
   private updateHeight(): void {
     this.consoleEl.style.setProperty('--console-height', `${this.height}px`)
+  }
+
+  private handleTabCompletion(): void {
+    const value = this.inputEl.value.trim().toLowerCase()
+
+    if (this.tabMatches.length === 0) {
+      if (!value) return
+
+      // Find all commands starting with current input
+      const allNames = Array.from(this.commands.keys())
+      this.tabMatches = allNames.filter((name) => name.startsWith(value))
+
+      if (this.tabMatches.length === 0) return
+      this.tabIndex = 0
+    } else {
+      // Cycle through matches
+      this.tabIndex = (this.tabIndex + 1) % this.tabMatches.length
+    }
+
+    this.inputEl.value = this.tabMatches[this.tabIndex]
   }
 
   private toggleMaximize(): void {

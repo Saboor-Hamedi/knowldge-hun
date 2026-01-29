@@ -757,10 +757,14 @@ class App {
       description: 'Lock the application',
       action: () => {
         if (!securityService.hasPassword()) {
-          this.hubConsole.log(
-            'No password set. Please set one in Settings > Security first.',
-            'error'
-          )
+          this.hubConsole.log('No password set. Launching security setup...', 'system')
+          // Add a small delay to prevent Enter key leakage into the modal
+          setTimeout(() => {
+            securityService.promptSetPassword(() => {
+              this.hubConsole.log('Password set. Locking application...', 'system')
+              void securityService.promptAndLock()
+            })
+          }, 100)
           return
         }
         this.hubConsole.log('Locking application...', 'system')

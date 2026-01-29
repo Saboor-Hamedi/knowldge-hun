@@ -270,6 +270,15 @@ knowledgeHub/
 - Download progress
 - Install on quit
 
+#### 12. **HUB Console**
+
+- Secure, sandboxed terminal for system commands
+- Command history (Arrow Up/Down)
+- Tab-completion for commands with cycling support
+- Persistent, resizable UI with drag-knob
+- Custom prompt with user/vault info
+- Multi-maximize/restore functionality
+
 ---
 
 ## Key Technologies

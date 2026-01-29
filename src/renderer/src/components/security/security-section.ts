@@ -1,6 +1,5 @@
 import { securityService } from '../../services/security/securityService'
 import { notificationManager } from '../notification/notification'
-import { modalManager } from '../modal/modal'
 import { createElement, KeyRound, ShieldCheck, ShieldAlert, LogOut, Info } from 'lucide'
 
 /**
@@ -175,7 +174,7 @@ export class SecuritySection {
       const isEnabling = toggle.checked
 
       if (isEnabling) {
-        this.promptSetPassword(
+        securityService.promptSetPassword(
           () => {
             notificationManager.show('Password protection enabled', 'success')
             onUpdate()
@@ -199,7 +198,7 @@ export class SecuritySection {
     changeBtn?.addEventListener('click', async () => {
       const verified = await securityService.verifyAction()
       if (verified) {
-        this.promptSetPassword(() => {
+        securityService.promptSetPassword(() => {
           notificationManager.show('Password changed successfully', 'success')
         })
       }
@@ -207,55 +206,6 @@ export class SecuritySection {
 
     lockNowBtn?.addEventListener('click', async () => {
       void securityService.promptAndLock()
-    })
-  }
-
-  private promptSetPassword(onSuccess: () => void, onCancel?: () => void): void {
-    let confirmed = false
-    modalManager.open({
-      title: 'Setup Vault Protection',
-      content: 'Choose a master password. This password stays on your machine.',
-      size: 'sm',
-      onClose: () => {
-        if (!confirmed) onCancel?.()
-      },
-      inputs: [
-        { name: 'p1', label: 'New Password', type: 'password', required: true },
-        { name: 'p2', label: 'Confirm Password', type: 'password', required: true }
-      ],
-      buttons: [
-        {
-          label: 'Cancel',
-          variant: 'ghost',
-          onClick: (m) => {
-            m.close()
-          }
-        },
-        {
-          label: 'Protect Vault',
-          variant: 'primary',
-          onClick: async (m) => {
-            const values = m.getValues()
-            const p1 = values.p1 as string
-            const p2 = values.p2 as string
-
-            if (p1 !== p2) {
-              notificationManager.show('Passwords do not match', 'error')
-              return
-            }
-
-            if (p1.length < 4) {
-              notificationManager.show('Min 4 characters', 'warning')
-              return
-            }
-
-            await securityService.setPassword(p1)
-            confirmed = true
-            m.close()
-            onSuccess()
-          }
-        }
-      ]
     })
   }
 }

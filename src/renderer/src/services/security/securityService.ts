@@ -438,6 +438,71 @@ export class SecurityService {
   }
 
   /**
+   * Triggers the UI modal to set a new master password.
+   * shared between the Settings page and the Console 'lock' command.
+   */
+  promptSetPassword(onSuccess?: () => void, onCancel?: () => void): void {
+    let confirmed = false
+    modalManager.open({
+      title: 'Setup Vault Protection',
+      content: 'Choose a master password. This password stays on your machine.',
+      size: 'sm',
+      onClose: () => {
+        if (!confirmed) onCancel?.()
+      },
+      inputs: [
+        {
+          name: 'p1',
+          label: 'New Password',
+          type: 'password',
+          required: true,
+          placeholder: 'Enter master password...'
+        },
+        {
+          name: 'p2',
+          label: 'Confirm Password',
+          type: 'password',
+          required: true,
+          placeholder: 'Repeat password to confirm...'
+        }
+      ],
+      buttons: [
+        {
+          label: 'Cancel',
+          variant: 'ghost',
+          onClick: (m) => {
+            m.close()
+          }
+        },
+        {
+          label: 'Protect Vault',
+          variant: 'primary',
+          onClick: async (m) => {
+            const values = m.getValues()
+            const p1 = (values.p1 as string) || ''
+            const p2 = (values.p2 as string) || ''
+
+            if (!p1) {
+              notificationManager.show('Password cannot be empty', 'warning')
+              return
+            }
+
+            if (p1 !== p2) {
+              notificationManager.show('Passwords do not match', 'error')
+              return
+            }
+
+            await this.setPassword(p1)
+            confirmed = true
+            m.close()
+            onSuccess?.()
+          }
+        }
+      ]
+    })
+  }
+
+  /**
    * Cryptographic Hash (SHA-256).
    * Output: 64-character hex string.
    */

@@ -116,6 +116,7 @@
 82. **Developer tools**: Debug console, performance profiler, plugin development tools.
 83. **Custom CSS**: Allow users to inject custom CSS for advanced theming.
 84. **Webhooks**: Trigger webhooks on note events for external integrations.
+85. **Console Tab-completion**: Auto-complete commands in the HUB Console using the Tab key. ✅ _Implemented with cycling support_
 
 ## Advanced Features
 
