@@ -3,15 +3,13 @@
   align-items: center;
   justify-content: center;
   width: 100%;
-  height: 100%;
   background: var(--bg);
   color: var(--text);
   overflow: auto;
   padding: 40px;
-  position: absolute;
-  top: 0;
-  left: 0;
+  position: relative;
   z-index: 100;
+  flex: 1;
 }
 
 .welcome-content {
@@ -71,6 +69,7 @@
   letter-spacing: -0.02em;
   background: linear-gradient(135deg, var(--text-strong) 0%, var(--primary) 100%);
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
   padding-bottom: 2px;
 }

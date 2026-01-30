@@ -83,20 +83,71 @@ export const SLASH_COMMANDS: SlashMenuItem[] = [
     command: '*',
     prefix: '*',
     wrapContent: true
+  },
+  {
+    id: 'quote',
+    label: 'Blockquote',
+    detail: 'Capture a quote',
+    icon: '”',
+    command: '> ',
+    prefix: '>'
+  },
+  {
+    id: 'divider',
+    label: 'Divider',
+    detail: 'Horizontal rule',
+    icon: '―',
+    command: '\n---\n',
+    prefix: '---'
+  },
+  {
+    id: 'task',
+    label: 'Task List',
+    detail: 'Checklist item',
+    icon: '☑',
+    command: '- [ ] ',
+    prefix: '- [ ]'
+  },
+  {
+    id: 'table',
+    label: 'Table',
+    detail: 'Insert a 2x2 table',
+    icon: '▦',
+    command: '\n| Header 1 | Header 2 |\n| -------- | -------- |\n| Cell 1   | Cell 2   |\n',
+    prefix: '|'
+  },
+  {
+    id: 'link',
+    label: 'Link',
+    detail: 'Insert a link',
+    icon: '🔗',
+    command: '[]()',
+    prefix: '['
+  },
+  {
+    id: 'image',
+    label: 'Image',
+    detail: 'Insert an image',
+    icon: '🖼️',
+    command: '![]()',
+    prefix: '!['
   }
 ]
 
-import type * as monacoType from 'monaco-editor'
+import * as monaco from 'monaco-editor'
 
 export class SlashMenu {
-  private editor: monacoType.editor.IStandaloneCodeEditor
+  private editor: monaco.editor.IStandaloneCodeEditor
   private menuEl: HTMLElement | null = null
-  private items: SlashMenuItem[] = SLASH_COMMANDS
+  // Robust no duplicate: Filter unique by ID
+  private items: SlashMenuItem[] = Array.from(
+    new Map(SLASH_COMMANDS.map((item) => [item.id, item])).values()
+  )
   private selectedIndex = 0
   private isVisible = false
-  private triggerPos: monacoType.Position | null = null
+  private triggerPos: monaco.Position | null = null
 
-  constructor(editor: monacoType.editor.IStandaloneCodeEditor) {
+  constructor(editor: monaco.editor.IStandaloneCodeEditor) {
     this.editor = editor
     this.attachEvents()
   }
@@ -167,7 +218,7 @@ export class SlashMenu {
     })
   }
 
-  private show(pos: monacoType.Position): void {
+  private show(pos: monaco.Position): void {
     if (this.isVisible) return
 
     this.triggerPos = pos
@@ -193,7 +244,9 @@ export class SlashMenu {
     this.menuEl.className = 'hub-slash-menu'
 
     this.renderItems()
-    document.body.appendChild(this.menuEl)
+    if (this.menuEl) {
+      document.body.appendChild(this.menuEl)
+    }
   }
 
   private renderItems(): void {

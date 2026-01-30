@@ -38,6 +38,12 @@ export interface Command {
  * - Cannot run system commands like `rm -rf /` or `del C:\`
  * - All operations are scoped to app functionality only
  */
+interface AutocompleteContext {
+  atIndex: number
+  range: Range
+  query: string
+}
+
 export class ConsoleComponent {
   private container: HTMLElement
   private consoleEl: HTMLElement
@@ -515,8 +521,9 @@ export class ConsoleComponent {
     })
 
     // AI Selection Bridge
-    window.addEventListener('hub-ai-explain', (e: any) => {
-      const { text, prompt } = e.detail
+    window.addEventListener('hub-ai-explain', (e: Event) => {
+      const customEvent = e as CustomEvent<{ text: string; prompt: string }>
+      const { text, prompt } = customEvent.detail
       if (!this.isVisible) this.setVisible(true)
       this.setMode('ai')
       this.handleAIRequest(
@@ -527,6 +534,7 @@ export class ConsoleComponent {
 
   private updateHeight(): void {
     this.consoleEl.style.setProperty('--console-height', `${this.height}px`)
+    window.dispatchEvent(new Event('resize'))
   }
 
   public clear(): void {
@@ -873,8 +881,11 @@ export class ConsoleComponent {
 
     this.autocompleteItems = []
     this.selectedAutocompleteIndex = 0
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ;(this.autocompleteDropdown as any).__context = { atIndex, range, query }
+    ;(this.autocompleteDropdown as HTMLElement & { __context?: AutocompleteContext }).__context = {
+      atIndex,
+      range,
+      query
+    }
 
     const html = items
       .map(
@@ -919,7 +930,8 @@ export class ConsoleComponent {
     const item = this.autocompleteItems[this.selectedAutocompleteIndex]
     if (!item) return
 
-    const context = (this.autocompleteDropdown as any).__context
+    const context = (this.autocompleteDropdown as HTMLElement & { __context?: AutocompleteContext })
+      .__context
     if (!context) return
 
     const noteTitle = item.dataset.noteTitle || ''

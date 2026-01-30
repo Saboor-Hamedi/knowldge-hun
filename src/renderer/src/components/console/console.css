@@ -1,19 +1,16 @@
 .hub-console {
-  position: fixed;
-  bottom: var(--statusbar-height);
-  left: var(--activity-width);
-  right: var(--right-panel-width);
+  position: relative;
+  width: 100%;
   height: 0;
   background: var(--panel);
   border-top: 1px solid var(--border);
-  z-index: 1000;
-  transition:
-    height 0.2s ease-out,
-    right 0.2s ease;
+  z-index: 100;
+  transition: height 0.2s ease-out;
   overflow: hidden;
   display: flex;
   flex-direction: column;
   pointer-events: none;
+  flex-shrink: 0; /* Don't let editor squash it */
 }
 
 .hub-console.is-resizing {
@@ -27,12 +24,12 @@
 
 .hub-console__resizer {
   position: absolute;
-  top: 0;
+  top: -2px; /* Pull slightly up to not cover header text as much */
   left: 0;
   right: 0;
-  height: 4px;
+  height: 6px; /* Slightly larger targets */
   cursor: ns-resize;
-  z-index: 100;
+  z-index: 20; /* Above header */
   transition: background 0.2s ease;
   display: flex;
   align-items: center;
@@ -60,8 +57,14 @@
 }
 
 .hub-console.is-open.is-maximized {
-  height: calc(100vh - 32px - var(--statusbar-height)) !important;
-  bottom: var(--statusbar-height);
+  height: 100% !important;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1000;
+  border-top: none; /* No border needed when filling main */
 }
 
 .hub-console__header {
@@ -74,6 +77,8 @@
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
   user-select: none;
+  position: relative;
+  z-index: 10; /* Above console body content */
 }
 
 .hub-console__title {

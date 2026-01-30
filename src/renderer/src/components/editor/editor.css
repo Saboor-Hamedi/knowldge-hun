@@ -5,7 +5,6 @@
   background: var(--panel);
   position: relative;
   flex: 1 1 auto;
-  height: 100%;
   width: 100%;
 }
 
@@ -34,13 +33,13 @@
 .editor-host {
   position: relative;
   flex: 1;
-  min-height: 400px;
+  min-height: 0;
 }
 
 .preview-host {
   position: relative;
   flex: 1;
-  min-height: 400px;
+  min-height: 0;
   overflow-y: auto;
   background: var(--panel);
   display: none;

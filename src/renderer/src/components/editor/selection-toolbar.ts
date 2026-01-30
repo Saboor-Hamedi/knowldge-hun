@@ -1,6 +1,7 @@
 import { aiService } from '../../services/aiService'
 import { state } from '../../core/state'
 import { ICONS } from '../icons/icons'
+import * as monaco from 'monaco-editor'
 
 export interface ToolbarAction {
   id: string
@@ -11,7 +12,7 @@ export interface ToolbarAction {
 }
 
 export class SelectionToolbar {
-  private editor: any
+  private editor: monaco.editor.IStandaloneCodeEditor
   private toolbarEl: HTMLElement | null = null
   private statsEl: HTMLElement | null = null
   private dropdownEl: HTMLElement | null = null
@@ -20,7 +21,7 @@ export class SelectionToolbar {
   private isProcessing = false
   private currentAudio: HTMLAudioElement | null = null
 
-  constructor(editor: monacoType.editor.IStandaloneCodeEditor) {
+  constructor(editor: monaco.editor.IStandaloneCodeEditor) {
     this.editor = editor
     this.attachEvents()
   }
@@ -278,7 +279,11 @@ export class SelectionToolbar {
     container.appendChild(div)
   }
 
-  private toggleWrap(editor: any, sym: string, endSym?: string): void {
+  private toggleWrap(
+    editor: monaco.editor.IStandaloneCodeEditor,
+    sym: string,
+    endSym?: string
+  ): void {
     const activeEnd = endSym || sym
     const sel = editor.getSelection()
     const mod = editor.getModel()
@@ -290,7 +295,7 @@ export class SelectionToolbar {
     this.hide()
   }
 
-  private wrapWith(editor: any, pre: string, suf: string): void {
+  private wrapWith(editor: monaco.editor.IStandaloneCodeEditor, pre: string, suf: string): void {
     const sel = editor.getSelection()
     const mod = editor.getModel()
     if (!sel || !mod) return
