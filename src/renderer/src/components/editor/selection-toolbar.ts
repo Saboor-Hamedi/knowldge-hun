@@ -1,4 +1,5 @@
 import { aiService } from '../../services/aiService'
+import { state } from '../../core/state'
 
 export interface ToolbarAction {
   id: string
@@ -16,6 +17,7 @@ export class SelectionToolbar {
   private dropdownIndex = -1
   private isVisible = false
   private isProcessing = false
+  private currentAudio: HTMLAudioElement | null = null
 
   constructor(editor: monacoType.editor.IStandaloneCodeEditor) {
     this.editor = editor
@@ -187,6 +189,58 @@ export class SelectionToolbar {
 
     this.addDivider(mainContainer)
 
+    // Read Aloud (Quick Access)
+    mainContainer.appendChild(
+      this.createButton({
+        id: 'read-aloud',
+        icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>',
+        label: 'Read Aloud',
+        apply: (ed) => {
+          const sel = ed.getSelection()
+          if (!sel) return
+          const txt = ed.getModel()?.getValueInRange(sel)
+          if (txt) {
+            this.stopSpeech()
+
+            if (state.settings?.ttsVoice?.startsWith('openai:')) {
+              this.readAloudOpenAI(txt, state.settings.ttsVoice.split(':')[1])
+              return
+            }
+
+            const utterance = new SpeechSynthesisUtterance(txt)
+            if (state.settings) {
+              if (state.settings.ttsVoice) {
+                const voice = window.speechSynthesis
+                  .getVoices()
+                  .find((v) => v.voiceURI === state.settings.ttsVoice)
+                if (voice) utterance.voice = voice
+              }
+              if (state.settings.ttsSpeed) {
+                utterance.rate = state.settings.ttsSpeed
+              }
+            }
+            window.speechSynthesis.speak(utterance)
+          }
+          this.hide()
+        }
+      })
+    )
+
+    // Stop Reading button
+    mainContainer.appendChild(
+      this.createButton({
+        id: 'stop-tts',
+        icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>',
+        label: 'Stop Reading',
+        apply: () => {
+          this.stopSpeech()
+          this.hide()
+        }
+      })
+    )
+
+    this.addDivider(mainContainer)
+
     // More Button
     const moreBtn = this.createButton({
       id: 'more-trigger',
@@ -294,13 +348,61 @@ export class SelectionToolbar {
     }
   }
 
-  private toggleDropdown(type: 'ai' | 'more'): void {
-    if (this.dropdownEl && this.dropdownEl.dataset.type === type) {
+  private toggleDropdown(type: 'ai' | 'more' | 'voices', view?: string): void {
+    if (this.dropdownEl && this.dropdownEl.dataset.type === type && !view) {
       this.closeDropdown()
       return
     }
     this.closeDropdown()
-    this.renderDropdown(type)
+    this.renderDropdown(type, view)
+  }
+
+  private stopSpeech(): void {
+    window.speechSynthesis.cancel()
+    if (this.currentAudio) {
+      this.currentAudio.pause()
+      this.currentAudio = null
+    }
+  }
+
+  private async readAloudOpenAI(text: string, voice = 'alloy'): Promise<void> {
+    if (!state.settings?.openaiApiKey) {
+      alert('Please configure your OpenAI API Key in settings to use Premium Cloud Voices.')
+      return
+    }
+
+    this.isProcessing = true
+    this.toolbarEl?.classList.add('is-loading')
+    if (this.statsEl) this.statsEl.textContent = 'Generating real voice...'
+
+    try {
+      this.stopSpeech()
+      const response = await fetch('https://api.openai.com/v1/audio/speech', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${state.settings.openaiApiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: 'tts-1',
+          input: text,
+          voice: voice
+        })
+      })
+
+      if (!response.ok) throw new Error('OpenAI TTS Failed')
+
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      this.currentAudio = new Audio(url)
+      this.currentAudio.play()
+    } catch (e) {
+      console.error('[OpenAI TTS] Fail:', e)
+    } finally {
+      this.isProcessing = false
+      this.toolbarEl?.classList.remove('is-loading')
+      this.hide()
+    }
   }
 
   private closeDropdown(): void {
@@ -310,122 +412,228 @@ export class SelectionToolbar {
     }
   }
 
-  private renderDropdown(type: 'ai' | 'more'): void {
+  private renderDropdown(type: 'ai' | 'more' | 'voices', view?: string): void {
+    let items: any[] = []
+
+    if (view === 'translate') {
+      items = [
+        { l: 'Back', i: '⬅️', a: () => this.toggleDropdown('ai'), back: true },
+        { l: 'to English', i: '🇺🇸', a: () => this.handleAI('Translate this text to English.') },
+        { l: 'to Spanish', i: '🇪🇸', a: () => this.handleAI('Translate this text to Spanish.') },
+        { l: 'to French', i: '🇫🇷', a: () => this.handleAI('Translate this text to French.') },
+        { l: 'to German', i: '🇩🇪', a: () => this.handleAI('Translate this text to German.') },
+        { l: 'to Chinese', i: '🇨🇳', a: () => this.handleAI('Translate this text to Chinese.') },
+        { l: 'to Japanese', i: '🇯🇵', a: () => this.handleAI('Translate this text to Japanese.') },
+        { l: 'to Arabic', i: '🇸🇦', a: () => this.handleAI('Translate this text to Arabic.') }
+      ]
+    } else if (type === 'ai') {
+      items = [
+        {
+          l: 'Fix Grammar & Spelling',
+          i: '🛡️',
+          s: 'AI',
+          a: () =>
+            this.handleAI(
+              'Review and fix all grammar, punctuation, and spelling errors in the following text.'
+            )
+        },
+        {
+          l: 'Summarize',
+          i: '📝',
+          s: 'AI',
+          a: () => this.handleAI('Provide a concise summary of this text.')
+        },
+        {
+          l: 'Professional Tone',
+          i: '👔',
+          s: 'AI',
+          a: () => this.handleAI('Rewrite this text to sound more professional and polished.')
+        },
+        {
+          l: 'Humanize text',
+          i: '🌿',
+          s: 'AI',
+          a: () =>
+            this.handleAI(
+              'Rewrite this text to sound more natural, human-like, and conversational.'
+            )
+        },
+        {
+          l: 'Casual Tone',
+          i: '👋',
+          s: 'AI',
+          a: () => this.handleAI('Rewrite this text in a friendly, casual, and informal tone.')
+        },
+        {
+          l: 'Make it longer',
+          i: '➕',
+          s: 'AI',
+          a: () =>
+            this.handleAI(
+              'Expand on this text, adding more detail and depth while maintaining the core meaning.'
+            )
+        },
+        {
+          l: 'Make it shorter',
+          i: '➖',
+          s: 'AI',
+          a: () => this.handleAI('Make this text significantly more concise and brief.')
+        },
+        {
+          l: 'Explain Context',
+          i: '💡',
+          s: 'AI',
+          a: () => this.handleAI('Explain the following context in detail.', 'explain')
+        },
+        {
+          l: 'Translate...',
+          i: '🌐',
+          s: 'AI',
+          a: () => this.toggleDropdown('ai', 'translate')
+        }
+      ]
+    } else if (type === 'more') {
+      items = [
+        {
+          l: 'Copy text',
+          i: '📋',
+          s: 'Ctrl+C',
+          a: () => {
+            const t = this.editor.getModel()?.getValueInRange(this.editor.getSelection()!)
+            if (t) navigator.clipboard.writeText(t)
+            this.hide()
+          }
+        },
+        { l: 'WikiLink', i: '🔗', s: '[[', a: () => this.toggleWrap(this.editor, '[[', ']]') },
+        { l: 'Strikethrough', i: '~~', s: '~~', a: () => this.toggleWrap(this.editor, '~~') },
+        {
+          l: 'Quote',
+          i: '“',
+          s: '> ',
+          a: () => {
+            const sel = this.editor.getSelection()!
+            const val = this.editor.getModel()!.getValueInRange(sel)
+            this.editor.executeEdits('toolbar', [
+              { range: sel, text: `> ${val}`, forceMoveMarkers: true }
+            ])
+            this.hide()
+          }
+        },
+        {
+          l: 'Toggle Case',
+          i: 'Aa',
+          s: 'UP/lo',
+          a: () => {
+            const sel = this.editor.getSelection()!
+            const val = this.editor.getModel()!.getValueInRange(sel)
+            let rep = val
+            if (val === val.toUpperCase()) rep = val.toLowerCase()
+            else if (val === val.toLowerCase())
+              rep = val.charAt(0).toUpperCase() + val.slice(1).toLowerCase()
+            else rep = val.toUpperCase()
+            this.editor.executeEdits('toolbar', [{ range: sel, text: rep, forceMoveMarkers: true }])
+            this.hide()
+          }
+        },
+        {
+          l: 'Change Voice...',
+          i: '🗣️',
+          s: 'TTS',
+          a: () => this.toggleDropdown('voices')
+        }
+      ]
+    } else if (type === 'voices') {
+      items.push({
+        l: 'Back',
+        i: '⬅️',
+        a: () => this.toggleDropdown('more'),
+        back: true
+      })
+
+      // ONLY SHOW Cloud Voices as requested (System voices are "ugly" and problematic)
+      if (state.settings?.openaiApiKey) {
+        items.push({ l: 'Premium Voices', header: true })
+        const v = ['alloy', 'nova', 'shimmer', 'onyx', 'fable', 'echo']
+        v.forEach((name) => {
+          items.push({
+            l: `ChatGPT ${name.charAt(0).toUpperCase() + name.slice(1)}`,
+            i: '✨',
+            a: () => {
+              if (state.settings) {
+                state.settings.ttsVoice = `openai:${name}`
+                window.api.saveSettings(state.settings)
+                const sel = this.editor.getSelection()
+                const txt = this.editor.getModel()?.getValueInRange(sel)
+                if (txt) this.readAloudOpenAI(txt, name)
+              }
+            }
+          })
+        })
+      }
+
+      const voices = window.speechSynthesis.getVoices()
+      if (voices.length > 0) {
+        items.push({ l: 'System Voices', header: true })
+        voices.forEach((voice) => {
+          const cleanName = voice.name
+            .replace(/Microsoft |Desktop |Natural | - /g, ' ')
+            .replace(/\(.*?\)/g, '')
+            .trim()
+
+          items.push({
+            l: `${cleanName} (${voice.lang.split('-')[0].toUpperCase()})`,
+            i: '🗣️',
+            a: () => {
+              if (state.settings) {
+                state.settings.ttsVoice = voice.voiceURI
+                window.api.saveSettings(state.settings)
+                const sel = this.editor.getSelection()
+                const txt = this.editor.getModel()?.getValueInRange(sel)
+                if (txt) {
+                  this.stopSpeech()
+                  const u = new SpeechSynthesisUtterance(txt)
+                  u.voice = voice
+                  if (state.settings.ttsSpeed) u.rate = state.settings.ttsSpeed
+                  window.speechSynthesis.speak(u)
+                }
+              }
+              this.hide()
+            }
+          })
+        })
+      } else if (!state.settings?.openaiApiKey) {
+        items.push({
+          l: 'Setup OpenAI for Voice...',
+          i: '⚙️',
+          a: () => {
+            // Open settings to AI tab
+            if ((window as any).app?.settingsView) {
+              ;(window as any).app.settingsView.show('ai')
+            }
+          }
+        })
+      }
+    }
+
+    this.closeDropdown() // Clear old view
     this.dropdownEl = document.createElement('div')
     this.dropdownEl.className = 'hub-selection-toolbar__dropdown'
     this.dropdownEl.dataset.type = type
+    if (view) this.dropdownEl.dataset.view = view
     this.dropdownIndex = -1
 
-    const items =
-      type === 'ai'
-        ? [
-            {
-              l: 'Fix Grammar & Spelling',
-              i: '🛡️',
-              s: 'AI',
-              a: () =>
-                this.handleAI(
-                  'Review and fix all grammar, punctuation, and spelling errors in the following text.'
-                )
-            },
-            {
-              l: 'Summarize',
-              i: '📝',
-              s: 'AI',
-              a: () => this.handleAI('Provide a concise summary of this text.')
-            },
-            {
-              l: 'Professional Tone',
-              i: '👔',
-              s: 'AI',
-              a: () => this.handleAI('Rewrite this text to sound more professional and polished.')
-            },
-            {
-              l: 'Humanize text',
-              i: '🌿',
-              s: 'AI',
-              a: () =>
-                this.handleAI(
-                  'Rewrite this text to sound more natural, human-like, and conversational.'
-                )
-            },
-            {
-              l: 'Casual Tone',
-              i: '👋',
-              s: 'AI',
-              a: () => this.handleAI('Rewrite this text in a friendly, casual, and informal tone.')
-            },
-            {
-              l: 'Make it longer',
-              i: '➕',
-              s: 'AI',
-              a: () =>
-                this.handleAI(
-                  'Expand on this text, adding more detail and depth while maintaining the core meaning.'
-                )
-            },
-            {
-              l: 'Make it shorter',
-              i: '➖',
-              s: 'AI',
-              a: () => this.handleAI('Make this text significantly more concise and brief.')
-            },
-            {
-              l: 'Explain Context',
-              i: '💡',
-              s: 'AI',
-              a: () => this.handleAI('Explain the following context in detail.', 'explain')
-            }
-          ]
-        : [
-            {
-              l: 'Copy text',
-              i: '📋',
-              s: 'Ctrl+C',
-              a: () => {
-                const t = this.editor.getModel()?.getValueInRange(this.editor.getSelection()!)
-                if (t) navigator.clipboard.writeText(t)
-                this.hide()
-              }
-            },
-            { l: 'WikiLink', i: '🔗', s: '[[', a: () => this.toggleWrap(this.editor, '[[', ']]') },
-            { l: 'Strikethrough', i: '~~', s: '~~', a: () => this.toggleWrap(this.editor, '~~') },
-            {
-              l: 'Quote',
-              i: '“',
-              s: '> ',
-              a: () => {
-                const sel = this.editor.getSelection()!
-                const val = this.editor.getModel()!.getValueInRange(sel)
-                this.editor.executeEdits('toolbar', [
-                  { range: sel, text: `> ${val}`, forceMoveMarkers: true }
-                ])
-                this.hide()
-              }
-            },
-            {
-              l: 'Toggle Case',
-              i: 'Aa',
-              s: 'UP/lo',
-              a: () => {
-                const sel = this.editor.getSelection()!
-                const val = this.editor.getModel()!.getValueInRange(sel)
-                let rep = val
-                if (val === val.toUpperCase()) rep = val.toLowerCase()
-                else if (val === val.toLowerCase())
-                  rep = val.charAt(0).toUpperCase() + val.slice(1).toLowerCase()
-                else rep = val.toUpperCase()
-                this.editor.executeEdits('toolbar', [
-                  { range: sel, text: rep, forceMoveMarkers: true }
-                ])
-                this.hide()
-              }
-            }
-          ]
-
     items.forEach((item) => {
+      if (item.header) {
+        const h = document.createElement('div')
+        h.className = 'hub-selection-toolbar__dropdown-header'
+        h.textContent = item.l
+        this.dropdownEl!.appendChild(h)
+        return
+      }
+
       const el = document.createElement('div')
       el.className = 'hub-selection-toolbar__dropdown-item'
+      if (item.back) el.classList.add('is-back')
 
       const content = document.createElement('div')
       content.className = 'item-content'
@@ -492,41 +700,45 @@ export class SelectionToolbar {
     const sel = this.editor.getSelection()
     if (!sel) return
 
-    const cur = this.editor.getPosition()
-    if (!cur) return
+    // Position relative to the start of the selection to avoid "jumping to next block"
+    // which happens with triple-clicks or paragraph selections.
+    const startPos = this.editor.getScrolledVisiblePosition({
+      lineNumber: sel.startLineNumber,
+      column: sel.startColumn
+    })
+    const endPos = this.editor.getScrolledVisiblePosition({
+      lineNumber: sel.endLineNumber,
+      column: sel.endColumn
+    })
 
-    // We use the cursor's actual line and current visual column for "right at cursor" feel
-    const pos = this.editor.getScrolledVisiblePosition(cur)
     const domNode = this.editor.getDomNode()
-    if (!pos || !domNode) return
+    if (!startPos || !domNode) return
 
     const rect = domNode.getBoundingClientRect()
-    const tw = this.toolbarEl.offsetWidth || 180
+    const tw = this.toolbarEl.offsetWidth || 220
     const th = this.toolbarEl.offsetHeight || 32
 
-    // Positioning: Center over the cursor's actual visual position
-    // This makes it feel "attached" to the cursor/caret as requested.
-    let top = rect.top + pos.top - th - 12
-    let left = rect.left + pos.left - tw / 2
+    // Vertical: Above the start line
+    let top = rect.top + startPos.top - th - 12
+    let left: number
 
-    // If it's more than a couple lines, follow the cursor exactly.
-    // This addresses "must be right in my cursor" for paragraphs.
-    if (sel.endLineNumber - sel.startLineNumber > 2) {
-      top = rect.top + pos.top - th - 12
+    // Horizontal: Center over the selection span
+    if (sel.startLineNumber === sel.endLineNumber) {
+      // Single line: center between selection edges
+      left = rect.left + (startPos.left + endPos!.left) / 2 - tw / 2
     } else {
-      // Small selections: stay near the top edge for visibility
-      const selTopPos = this.editor.getScrolledVisiblePosition({
-        lineNumber: sel.startLineNumber,
-        column: sel.startColumn
-      })
-      if (selTopPos) {
-        top = rect.top + selTopPos.top - th - 12
+      // Multi-line: if it starts at col 1, it's likely a paragraph/block select.
+      // Center it to the editor width instead of sticking to the left edge.
+      if (sel.startColumn === 1) {
+        left = rect.left + rect.width / 2 - tw / 2
+      } else {
+        left = rect.left + startPos.left - tw / 2
       }
     }
 
     // Flip to bottom if no space at top
     if (top < rect.top + 10) {
-      top = rect.top + pos.top + 28
+      top = rect.top + startPos.top + 28
     }
 
     // Keep in horizontal bounds

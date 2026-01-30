@@ -220,6 +220,34 @@ export class SettingsPanel {
               </div>
               <p class="settings-field__hint">Range: 300-5000ms. Delay after typing before auto-saving</p>
             </div>
+
+            <h3 class="settings-panel__section-title" style="margin-top: 24px;">Reading Aloud (TTS)</h3>
+            
+            <div class="settings-field">
+              <label class="settings-field__label">Preferred Voice</label>
+              <select class="settings-field__input" data-setting="ttsVoice" id="tts-voice-select">
+                <option value="">Default System Voice</option>
+              </select>
+              <p class="settings-field__hint">Choose your favorite narrator.</p>
+            </div>
+
+            <div class="settings-field">
+              <label class="settings-field__label">Reading Speed</label>
+              <div class="settings-field__input-group">
+                <input 
+                  type="range" 
+                  class="settings-field__input" 
+                  data-setting="ttsSpeed"
+                  min="0.5"
+                  max="2.0"
+                  step="0.1"
+                  value="1.0"
+                  style="flex: 1"
+                  oninput="this.nextElementSibling.textContent = this.value + 'x'"
+                />
+                <span class="settings-field__unit" style="min-width: 40px; text-align: right;">1.0x</span>
+              </div>
+            </div>
           </div>
 
           <!-- AI Tab -->
@@ -388,6 +416,74 @@ export class SettingsPanel {
         }
       }
     })
+
+    // Update TTS specific UI
+    this.updateTTSVoiceList()
+    this.updateTTSSpeedUI()
+  }
+
+  private updateTTSVoiceList(): void {
+    const select = this.container.querySelector('#tts-voice-select') as HTMLSelectElement
+    if (!select) return
+
+    const voices = window.speechSynthesis.getVoices()
+    if (voices.length === 0) {
+      window.speechSynthesis.onvoiceschanged = () => this.updateTTSVoiceList()
+      return
+    }
+
+    const currentVoice = state.settings?.ttsVoice
+    select.innerHTML = '' // Remove all placeholders
+
+    // 1. Cloud Voices
+    if (state.settings?.openaiApiKey) {
+      const g = document.createElement('optgroup')
+      g.label = 'Premium Cloud Voices'
+      const v = ['alloy', 'nova', 'shimmer', 'onyx', 'fable', 'echo']
+      v.forEach((name) => {
+        const opt = document.createElement('option')
+        opt.value = `openai:${name}`
+        opt.textContent = `ChatGPT ${name.charAt(0).toUpperCase() + name.slice(1)}`
+        if (currentVoice === opt.value) opt.selected = true
+        g.appendChild(opt)
+      })
+      select.appendChild(g)
+    }
+
+    // 2. System Voices (Restored with clean names)
+    if (voices.length > 0) {
+      const systemG = document.createElement('optgroup')
+      systemG.label = 'System Voices'
+      voices.forEach((voice) => {
+        const option = document.createElement('option')
+        option.value = voice.voiceURI
+        const cleanName = voice.name
+          .replace(/Microsoft |Desktop |Natural | - /g, ' ')
+          .replace(/\(.*?\)/g, '')
+          .trim()
+        option.textContent = `${cleanName} (${voice.lang.split('-')[0].toUpperCase()})`
+        if (voice.voiceURI === currentVoice) option.selected = true
+        systemG.appendChild(option)
+      })
+      select.appendChild(systemG)
+    }
+
+    // 3. Fallback
+    if (select.options.length === 0) {
+      const opt = document.createElement('option')
+      opt.value = ''
+      opt.textContent = 'Setup OpenAI for Voice...'
+      select.appendChild(opt)
+    }
+  }
+
+  private updateTTSSpeedUI(): void {
+    const slider = this.container.querySelector('[data-setting="ttsSpeed"]') as HTMLInputElement
+    if (!slider) return
+    const speed = state.settings?.ttsSpeed || 1.0
+    slider.value = String(speed)
+    const unit = slider.nextElementSibling as HTMLElement
+    if (unit) unit.textContent = `${speed.toFixed(1)}x`
   }
 
   private attachEventListeners(): void {

@@ -43,6 +43,8 @@ export type Settings = {
     lockScreenName?: string
     autoLockTimeout?: number // In minutes, 0 to disable
   }
+  ttsVoice?: string
+  ttsSpeed?: number
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -66,7 +68,8 @@ export const DEFAULT_SETTINGS: Settings = {
     lockScreenAlignment: 'center',
     lockScreenName: '',
     autoLockTimeout: 0
-  }
+  },
+  ttsSpeed: 1.0
 }
 
 export function loadSettings(): Settings {

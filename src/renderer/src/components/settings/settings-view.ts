@@ -28,7 +28,9 @@ import {
   Save,
   Sparkles,
   Zap,
-  Cpu
+  Cpu,
+  Volume2,
+  Gauge
 } from 'lucide'
 import { renderShortcutItems } from '../../utils/shortcutUtils'
 import { SecuritySection } from '../security/security-section'
@@ -251,7 +253,7 @@ export class SettingsView {
                   <p class="settings-row__hint">Choose an aesthetic that matches your workflow and mood.</p>
                 </div>
                 <div class="settings-row__action">
-                  <select class="settings-input" data-setting="theme" style="width: 140px;">
+                  <select class="settings-select" data-setting="theme" style="width: 140px;">
                     ${Object.values(themes)
                       .map(
                         (t) => `
@@ -298,6 +300,38 @@ export class SettingsView {
                   <input type="number" class="settings-input" data-setting="autoSaveDelay" min="300" max="10000" step="100" value="${state.settings?.autoSaveDelay || 800}" style="width: 80px;" />
                 </div>
               </div>
+
+              <!-- TTS Divider -->
+              <div class="settings-divider"></div>
+              <div class="settings-view__section-header" style="border: none; margin-top: 8px;">
+                <h3 class="settings-view__section-title">Reading Aloud (TTS)</h3>
+              </div>
+
+              <!-- TTS Voice -->
+              <div class="settings-row">
+                <div class="settings-row__icon">${this.createLucideIcon(Volume2, 18)}</div>
+                <div class="settings-row__info">
+                  <label class="settings-row__label">Preferred Voice</label>
+                  <p class="settings-row__hint">Select your favorite narrator from available system voices.</p>
+                </div>
+                <div class="settings-row__action" style="flex: 1; justify-content: flex-end; display: flex;">
+                  <select class="settings-select" data-setting="ttsVoice" id="view-tts-voice-select" style="max-width: 250px;">
+                  </select>
+                </div>
+              </div>
+
+              <!-- TTS Speed -->
+              <div class="settings-row">
+                <div class="settings-row__icon">${this.createLucideIcon(Gauge, 18)}</div>
+                <div class="settings-row__info">
+                  <label class="settings-row__label">Reading Speed</label>
+                  <p class="settings-row__hint">Adjust how fast the narrator speaks (0.5x - 2.0x).</p>
+                </div>
+                <div class="settings-row__action" style="display: flex; align-items: center; gap: 12px; min-width: 200px;">
+                  <input type="range" class="settings-input" data-setting="ttsSpeed" min="0.5" max="2.0" step="0.1" value="${state.settings?.ttsSpeed || 1.0}" style="flex: 1; padding: 0;" oninput="this.nextElementSibling.textContent = parseFloat(this.value).toFixed(1) + 'x'" />
+                  <span style="font-size: 11px; opacity: 0.7; min-width: 32px; text-align: right; font-family: var(--font-mono);">${Number(state.settings?.ttsSpeed || 1.0).toFixed(1)}x</span>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -316,7 +350,7 @@ export class SettingsView {
                   <p class="settings-row__hint">Select which intelligence service powers your AI features.</p>
                 </div>
                 <div class="settings-row__action" style="flex: 1; max-width: 250px;">
-                  <select class="settings-input" data-setting="aiProvider">
+                  <select class="settings-select" data-setting="aiProvider">
                     <option value="deepseek" ${state.settings?.aiProvider === 'deepseek' ? 'selected' : ''}>DeepSeek</option>
                     <option value="openai" ${state.settings?.aiProvider === 'openai' ? 'selected' : ''}>OpenAI (GPT-4o)</option>
                     <option value="claude" ${state.settings?.aiProvider === 'claude' ? 'selected' : ''}>Anthropic Claude</option>
@@ -406,7 +440,7 @@ export class SettingsView {
                     <p class="settings-row__hint">Select the specific neural model to use for generations.</p>
                   </div>
                   <div class="settings-row__action" style="flex: 1; max-width: 250px;">
-                    <select class="settings-input" id="view-general-model-select" data-setting="aiModel">
+                    <select class="settings-select" id="view-general-model-select" data-setting="aiModel">
                       <option value="">Default (Provider Recommended)</option>
                     </select>
                   </div>
@@ -549,7 +583,63 @@ export class SettingsView {
       void this.loadRecentVaults()
     }
     void this.updateModelDropdowns()
+    this.updateTTSVoices()
     this.filterSettings()
+  }
+
+  private updateTTSVoices(): void {
+    const select = this.container.querySelector('#view-tts-voice-select') as HTMLSelectElement
+    if (!select) return
+
+    const voices = window.speechSynthesis.getVoices()
+    if (voices.length === 0) {
+      window.speechSynthesis.onvoiceschanged = () => this.updateTTSVoices()
+      return
+    }
+
+    const currentVoice = state.settings?.ttsVoice
+    select.innerHTML = '' // Remove all placeholders
+
+    // 1. Cloud Voices (Top Priority)
+    if (state.settings?.openaiApiKey) {
+      const g = document.createElement('optgroup')
+      g.label = 'Premium Cloud Voices'
+      const v = ['alloy', 'nova', 'shimmer', 'onyx', 'fable', 'echo']
+      v.forEach((name) => {
+        const opt = document.createElement('option')
+        opt.value = `openai:${name}`
+        opt.textContent = `ChatGPT ${name.charAt(0).toUpperCase() + name.slice(1)}`
+        if (currentVoice === opt.value) opt.selected = true
+        g.appendChild(opt)
+      })
+      select.appendChild(g)
+    }
+
+    // 2. System Voices (Restored with clean names)
+    if (voices.length > 0) {
+      const systemG = document.createElement('optgroup')
+      systemG.label = 'System Voices'
+      voices.forEach((voice) => {
+        const option = document.createElement('option')
+        option.value = voice.voiceURI
+        const cleanName = voice.name
+          .replace(/Microsoft |Desktop |Natural | - /g, ' ')
+          .replace(/\(.*?\)/g, '')
+          .trim()
+        option.textContent = `${cleanName} (${voice.lang.split('-')[0].toUpperCase()})`
+        if (voice.voiceURI === currentVoice) option.selected = true
+        systemG.appendChild(option)
+      })
+      select.appendChild(systemG)
+    }
+
+    // 3. Fallback if no OpenAI and no system voices (rare)
+    if (select.options.length === 0) {
+      const opt = document.createElement('option')
+      opt.value = ''
+      opt.textContent = 'Setup OpenAI for Voice...'
+      select.appendChild(opt)
+    }
   }
 
   private attachEvents(): void {

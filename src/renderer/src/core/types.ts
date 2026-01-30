@@ -81,4 +81,7 @@ export type AppSettings = {
     lockScreenName?: string
     autoLockTimeout?: number
   }
+  // TTS settings
+  ttsVoice?: string
+  ttsSpeed?: number
 }
