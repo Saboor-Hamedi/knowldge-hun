@@ -180,9 +180,30 @@ export class PreviewComponent {
     })
   }
 
+  private lastContent: string | null = null
+  private renderPending = false
+
   update(content: string): void {
+    if (this.lastContent === content) return
+    this.lastContent = content
+
+    if (this.renderPending) return
+    this.renderPending = true
+
+    requestAnimationFrame(() => {
+      if (this.lastContent !== null) {
+        this.performRender(this.lastContent)
+      }
+      this.renderPending = false
+    })
+  }
+
+  private performRender(content: string): void {
     const previewContent = this.container.querySelector('.preview-content') as HTMLElement
     if (!previewContent) return
+
+    // Save scroll position
+    const scrollTop = this.container.scrollTop
 
     // Normalize image markdown syntax (fix spaces after !)
     // Fix cases like ![ Logo.png] to ![Logo.png]
@@ -201,6 +222,9 @@ export class PreviewComponent {
     })
 
     previewContent.innerHTML = cleanHtml
+
+    // Restore scroll position
+    this.container.scrollTop = scrollTop
 
     // Resolve image paths to file:// URLs
     previewContent.querySelectorAll('img').forEach((img) => {
@@ -306,6 +330,7 @@ export class PreviewComponent {
     if (previewContent) {
       previewContent.innerHTML = ''
     }
+    this.lastContent = null
   }
 
   destroy(): void {

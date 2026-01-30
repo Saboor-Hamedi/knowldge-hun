@@ -561,7 +561,7 @@ export class SelectionToolbar {
             a: () => {
               if (state.settings) {
                 state.settings.ttsVoice = `openai:${name}`
-                window.api.saveSettings(state.settings)
+                window.api.updateSettings(state.settings)
                 const sel = this.editor.getSelection()
                 const txt = this.editor.getModel()?.getValueInRange(sel)
                 if (txt) this.readAloudOpenAI(txt, name)
@@ -586,7 +586,7 @@ export class SelectionToolbar {
             a: () => {
               if (state.settings) {
                 state.settings.ttsVoice = voice.voiceURI
-                window.api.saveSettings(state.settings)
+                window.api.updateSettings(state.settings)
                 const sel = this.editor.getSelection()
                 const txt = this.editor.getModel()?.getValueInRange(sel)
                 if (txt) {

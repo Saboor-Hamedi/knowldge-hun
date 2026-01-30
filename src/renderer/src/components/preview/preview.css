@@ -72,23 +72,30 @@
 /* Wiki link styles moved to wikilink/wikilink.css */
 
 /* Lists */
-.preview-content ul,
+.preview-content ul {
+  margin-top: 0;
+  margin-bottom: 16px;
+  padding-left: 30px;
+  list-style-type: disc;
+}
+
 .preview-content ol {
   margin-top: 0;
   margin-bottom: 16px;
   padding-left: 30px;
+  list-style-type: decimal;
 }
 
 .preview-content li {
-  margin-bottom: 8px;
+  margin-bottom: 2px;
 }
 
 .preview-content li > p {
-  margin-top: 16px;
+  margin-top: 8px;
 }
 
 .preview-content li + li {
-  margin-top: 4px;
+  margin-top: 2px;
 }
 
 /* Code block wrapper */
