@@ -31,6 +31,10 @@ export class GraphView {
   private simulation: d3.Simulation<GraphNode, GraphLink> | null = null
   private zoom: d3.ZoomBehavior<SVGSVGElement, unknown> | null = null
   private controls: GraphControls | null = null
+  private isMaximized = false
+  private isDragging = false
+  private startMousePos = { x: 0, y: 0 }
+  private initialModalPos = { x: 0, y: 0 }
 
   private graphData: GraphData | null = null
   private filteredData: GraphData | null = null
@@ -72,15 +76,28 @@ export class GraphView {
   private render(): void {
     this.modal.innerHTML = `
       <div class="graph-modal__content">
-        <div class="window-header">
+        <div class="window-header" style="cursor: move;">
           <div class="window-header__brand">
             <span class="window-header__title">Vault Graph</span>
+            <div id="graph-stats" class="graph-modal__stats"></div>
           </div>
-          <button class="wh-btn wh-close" id="graph-close" title="Close (Esc)" style="-webkit-app-region: no-drag;">
-            <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
-              <path d="M8 8.707l3.646 3.647.708-.707L8.707 8l3.647-3.646-.707-.708L8 7.293 4.354 3.646l-.707.708L7.293 8l-3.646 3.646.707.708L8 8.707z"/>
-            </svg>
-          </button>
+          <div class="window-header__controls">
+            <button class="wh-btn wh-minimize" id="graph-minimize" title="Minimize" style="-webkit-app-region: no-drag;">
+              <svg width="12" height="1" viewBox="0 0 12 1" fill="currentColor">
+                <rect width="12" height="1"></rect>
+              </svg>
+            </button>
+            <button class="wh-btn wh-maximize" id="graph-maximize" title="Maximize" style="-webkit-app-region: no-drag;">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.2">
+                <rect x="1" y="1" width="10" height="10"></rect>
+              </svg>
+            </button>
+            <button class="wh-btn wh-close" id="graph-close" title="Close (Esc)" style="-webkit-app-region: no-drag;">
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M8 8.707l3.646 3.647.708-.707L8.707 8l3.647-3.646-.707-.708L8 7.293 4.354 3.646l-.707.708L7.293 8l-3.646 3.646.707.708L8 8.707z"/>
+              </svg>
+            </button>
+          </div>
         </div>
 
         <div class="graph-modal__toolbar" id="graph-toolbar"></div>
@@ -104,6 +121,41 @@ export class GraphView {
     `
 
     this.modal.querySelector('#graph-close')?.addEventListener('click', () => this.close())
+    this.modal.querySelector('#graph-minimize')?.addEventListener('click', () => this.close())
+    this.modal
+      .querySelector('#graph-maximize')
+      ?.addEventListener('click', () => this.toggleMaximize())
+
+    const header = this.modal.querySelector('.window-header') as HTMLElement
+    const content = this.modal.querySelector('.graph-modal__content') as HTMLElement
+
+    header.addEventListener('mousedown', (e) => {
+      if (this.isMaximized) return
+      this.isDragging = true
+      this.startMousePos = { x: e.clientX, y: e.clientY }
+      const rect = content.getBoundingClientRect()
+      this.initialModalPos = { x: rect.left, y: rect.top }
+      header.classList.add('dragging')
+    })
+
+    window.addEventListener('mousemove', (e) => {
+      if (!this.isDragging) return
+      const dx = e.clientX - this.startMousePos.x
+      const dy = e.clientY - this.startMousePos.y
+
+      content.style.left = `${this.initialModalPos.x + dx}px`
+      content.style.top = `${this.initialModalPos.y + dy}px`
+      content.style.transform = 'none'
+    })
+
+    window.addEventListener('mouseup', () => {
+      this.isDragging = false
+      header.classList.remove('dragging')
+    })
+
+    header.addEventListener('dblclick', () => {
+      this.toggleMaximize()
+    })
 
     // Initialize Zoom HUD Icons
     const zoomInBtn = this.modal.querySelector('#zoom-in') as HTMLElement
@@ -1211,5 +1263,46 @@ export class GraphView {
         </div>
       `
     }
+  }
+
+  private toggleMaximize(): void {
+    this.isMaximized = !this.isMaximized
+    const content = this.modal.querySelector('.graph-modal__content') as HTMLElement
+    if (this.isMaximized) {
+      this.modal.classList.add('is-maximized')
+      content.style.width = '100vw'
+      content.style.height = '100vh'
+      content.style.left = '0'
+      content.style.top = '0'
+    } else {
+      this.modal.classList.remove('is-maximized')
+      content.style.width = '94vw'
+      content.style.height = 'calc(100vh - 120px)'
+      content.style.left = '3vw'
+      content.style.top = '40px'
+    }
+
+    // Relayout simulation
+    setTimeout(() => {
+      const canvas = this.modal.querySelector('#graph-canvas') as HTMLElement
+      if (canvas && this.simulation) {
+        const width = canvas.clientWidth
+        const height = canvas.clientHeight
+
+        // Resize SVG
+        this.svg?.attr('width', width).attr('height', height)
+
+        // Update zoom extent
+        this.zoom?.extent([
+          [0, 0],
+          [width, height]
+        ])
+
+        this.simulation.force('center', d3.forceCenter(width / 2, height / 2))
+        this.simulation.force('x', d3.forceX(width / 2).strength(0.05))
+        this.simulation.force('y', d3.forceY(height / 2).strength(0.05))
+        this.simulation.alpha(0.3).restart()
+      }
+    }, 300)
   }
 }

@@ -10,10 +10,8 @@
   height: 100vh;
   background: rgba(0, 0, 0, 0.45);
   z-index: 12000;
-  display: flex;
-  align-items: flex-start; /* Move up */
-  justify-content: center;
-  padding-top: 40px; /* Offset from top */
+  display: block; /* Change from flex to allow free movement */
+  padding: 0;
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
@@ -31,14 +29,21 @@
   height: calc(100vh - 120px); /* Slightly shorter to feel higher */
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 0;
   box-shadow: 0 32px 80px rgba(0, 0, 0, 0.6);
+  left: 3vw;
+  top: 40px;
+  position: absolute;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   position: relative;
   transform: translateY(20px) scale(0.98);
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  /* transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1); REMOVED to fix heavy dragging */
+  transition:
+    transform 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+    width 0.3s,
+    height 0.3s;
 }
 
 .graph-modal.is-visible .graph-modal__content {
@@ -51,6 +56,20 @@
   background: var(--panel-strong);
   width: 100%;
   z-index: 20;
+  cursor: move;
+  user-select: none;
+}
+
+.graph-modal.is-maximized .graph-modal__content {
+  width: 100vw !important;
+  height: 100vh !important;
+  left: 0 !important;
+  top: 0 !important;
+  transform: none !important;
+}
+
+.window-header.dragging {
+  cursor: grabbing !important;
 }
 
 /* Close button - hidden in favor of header closer */

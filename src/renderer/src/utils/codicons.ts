@@ -21,11 +21,7 @@ import {
   Minimize2,
   X,
   ChevronDown,
-  Terminal,
-  Search,
-  Settings,
-  User,
-  Zap
+  Terminal
 } from 'lucide'
 
 /**

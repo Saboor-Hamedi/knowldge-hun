@@ -10,7 +10,7 @@
   padding: 0 0 0 8px;
   background: var(--panel-strong);
   border-bottom: 1px solid var(--border);
-  -webkit-app-region: drag;
+  /* -webkit-app-region: drag; REMOVED to allow JS drag */
   z-index: 1000;
 }
 

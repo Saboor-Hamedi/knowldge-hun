@@ -1,0 +1,5 @@
+const electron = require('electron')
+console.log('Electron keys:', Object.keys(electron))
+console.log('Type of electron:', typeof electron)
+console.log('electron.app:', electron.app)
+if (electron.app) electron.app.quit()
