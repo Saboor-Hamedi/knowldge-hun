@@ -62,6 +62,8 @@ const api = {
   createNote: (title?: string, path?: string): Promise<NoteMeta> =>
     ipcRenderer.invoke('notes:create', title, path),
   saveNote: (payload: NotePayload): Promise<NoteMeta> => ipcRenderer.invoke('notes:save', payload),
+  appendNote: (id: string, content: string): Promise<NoteMeta> =>
+    ipcRenderer.invoke('notes:append', id, content),
   deleteNote: (id: string, path?: string): Promise<{ id: string }> =>
     ipcRenderer.invoke('notes:delete', id, path),
   moveNote: (id: string, fromPath?: string, toPath?: string): Promise<NoteMeta> =>

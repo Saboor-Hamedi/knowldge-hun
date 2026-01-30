@@ -231,6 +231,7 @@ class App {
   async init(): Promise<void> {
     ErrorHandler.init()
     await this.initSettings()
+    this.hubConsole.setHandlers(this.fileOps)
     this.registerConsoleCommands()
 
     // 1. Prepare data and security
@@ -337,6 +338,14 @@ class App {
     this.sidebar.setFolderMoveHandler((src, tgt) => this.fileOps.handleFolderMove(src, tgt))
     this.sidebar.setFolderCreateHandler((path) => void this.fileOps.createFolder(path))
     this.sidebar.setGraphClickHandler(() => this.graphView.open())
+
+    window.addEventListener('knowledge-hub:propose-note', async (e: any) => {
+      const { id, content } = e.detail
+      // 1. Ensure the note is open
+      await this.vaultHandler.openNote(id, undefined, 'editor')
+      // 2. Propose changes in the editor
+      this.editor.proposeChanges(content)
+    })
 
     this.fuzzyFinder.setSelectHandler(async (id, path, type, isFinal) => {
       if (type === 'folder') {
@@ -863,7 +872,7 @@ class App {
       name: 'de-protect',
       description: 'Shortcut to remove password',
       action: async () => {
-        const cmd = this.hubConsole['commands'].get('unlock')
+        const cmd = this.hubConsole.commands.get('unlock')
         if (cmd) await cmd.action([])
       }
     })
@@ -909,7 +918,7 @@ class App {
         }
         const title = args.join(' ')
         const parent = this.sidebar.getSelectedFolderPath() || undefined
-        await this.fileOps.createNote(title, '', parent)
+        await this.fileOps.createNote(title, '', parent, true)
         this.hubConsole.log(`Created note: "${title}" ${parent ? `in ${parent}` : ''}`, 'system')
       }
     })
@@ -990,12 +999,22 @@ class App {
           this.hubConsole.log('Usage: rm <path or title>', 'error')
           return
         }
+        const query = args.join(' ')
         try {
-          await agentExecutor.delete(args[0])
-          this.hubConsole.log(`Deleted: ${args[0]}`, 'system')
+          await agentExecutor.delete(query)
+          this.hubConsole.log(`Deleted: ${query}`, 'system')
+          window.dispatchEvent(new CustomEvent('vault-changed'))
         } catch (err) {
           this.hubConsole.log(`Delete failed: ${(err as Error).message}`, 'error')
         }
+      }
+    })
+    this.hubConsole.registerCommand({
+      name: 'delete',
+      description: 'Alias for rm',
+      action: async (args) => {
+        const cmd = this.hubConsole.commands.get('rm')
+        if (cmd) await cmd.action(args)
       }
     })
     this.hubConsole.registerCommand({

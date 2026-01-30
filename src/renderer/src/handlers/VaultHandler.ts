@@ -121,6 +121,20 @@ export class VaultHandler {
     tabService.syncTabs()
     this.components.sidebar.renderTree()
     this.components.tabBar.render()
+
+    // Handle case where active note was deleted
+    if (!state.activeId) {
+      const nextTab = tabService.findNextTabToOpen()
+      if (nextTab) {
+        void this.openNote(nextTab.id, nextTab.path)
+      } else {
+        this.components.editor.showEmpty()
+        this.components.breadcrumbs.clear()
+        this.callbacks.updateViewVisibility()
+      }
+    } else {
+      this.components.breadcrumbs.render()
+    }
   }
 
   private buildTree(items: NoteMeta[]): TreeItem[] {
@@ -293,9 +307,12 @@ export class VaultHandler {
     }
 
     const noteIdsInVault = new Set(notesToIndex.map((n) => n.id))
-    for (const indexedId in existingMetadata) {
-      if (!noteIdsInVault.has(indexedId)) {
-        void ragService.deleteNote(indexedId)
+    const staleIds = Object.keys(existingMetadata).filter((id) => !noteIdsInVault.has(id))
+
+    if (staleIds.length > 0) {
+      console.log(`[VaultHandler] Cleaning up ${staleIds.length} stale notes from RAG...`)
+      for (const id of staleIds) {
+        await ragService.deleteNote(id)
       }
     }
 

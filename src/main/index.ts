@@ -307,6 +307,10 @@ app.whenReady().then(async () => {
     const v = await ensureVault(event.sender)
     return v.saveNote(payload.id, payload.content, payload.title)
   })
+  ipcMain.handle('notes:append', async (event, id: string, content: string) => {
+    const v = await ensureVault(event.sender)
+    return v.appendNote(id, content)
+  })
   ipcMain.handle('notes:delete', async (event, id: string) => {
     const v = await ensureVault(event.sender)
     await v.deleteNote(id)

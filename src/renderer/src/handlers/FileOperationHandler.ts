@@ -23,7 +23,20 @@ export class FileOperationHandler {
     }
   ) {}
 
-  public async createNote(title?: string, content?: string, path?: string): Promise<void> {
+  public async openNote(
+    id: string,
+    path?: string,
+    focus?: 'editor' | 'sidebar' | 'none'
+  ): Promise<void> {
+    return this.callbacks.openNote(id, path, focus)
+  }
+
+  public async createNote(
+    title?: string,
+    content?: string,
+    path?: string,
+    suppressRename: boolean = false
+  ): Promise<void> {
     const meta = await window.api.createNote(title || '', path)
     state.newlyCreatedIds.add(meta.id)
 
@@ -42,7 +55,7 @@ export class FileOperationHandler {
 
     await this.callbacks.openNote(meta.id, meta.path, 'editor')
 
-    if (!content) {
+    if (!content && !suppressRename) {
       setTimeout(() => {
         this.components.sidebar.startRename(meta.id)
       }, 100)

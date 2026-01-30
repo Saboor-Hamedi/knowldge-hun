@@ -32,7 +32,14 @@ export function sortNotes(notes: NoteMeta[]): void {
 export function syncTabsWithNotes(openTabs: NoteMeta[], notes: NoteMeta[]): NoteMeta[] {
   const map = new Map(notes.map((note) => [note.id, note]))
   return openTabs
-    .map((tab) => map.get(tab.id) ?? tab)
+    .map((tab) => {
+      // Keep special tabs (settings, previews) as they aren't in the main notes list
+      if (tab.id === 'settings' || tab.id.startsWith('preview-')) {
+        return tab
+      }
+      // For all other tabs, they MUST exist in the current notes list
+      return map.get(tab.id)
+    })
     .filter((tab): tab is NoteMeta => Boolean(tab))
 }
 

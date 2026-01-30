@@ -755,15 +755,19 @@ export class AIService {
       `- read "<title_or_path>" (retrieve full content of any note)\n` +
       `- write "<title>" <content> (create OR overwrite note with content)\n` +
       `- append "<title>" <content> (add content to end of existing note)\n` +
+      `- propose "<title>" <new_content> (BETTER: propose improvements to an existing note for user review)\n` +
       `- move "<source_path_or_title>" "<dest_folder_path>"\n` +
       `- rename "<old_path_or_title>" "<new_name>"\n` +
       `- delete "<path_or_title>" (remove note or folder)\n` +
-      `Example: "I'll read that for you: [RUN: read "Important Note"]" or "Organizing: [RUN: mkdir "Research"] [RUN: move "Deep Learning" "Research"]"\n` +
+      `Example: "I'll read that for you: [RUN: read "Important Note"]" or "Proposing updates: [RUN: propose "SaboorAgent" "This is the improved content..."]"\n` +
       `CRITICAL COMMAND RULES:\n` +
       `1. When the user asks you to write, create, move, or rename, YOU MUST use a [RUN: ...] command.\n` +
-      `2. ALWAYS use double quotes for titles or paths if they contain spaces.\n` +
-      `3. You can execute multiple [RUN: ...] commands in one response.\n` +
-      `4. [RUN: ...] tags can span multiple lines (perfect for long note content).\n` +
+      `2. PREFER PROPOSE: If a note already exists and contains significant user content, PREFER [RUN: propose ...] over [RUN: write ...]. Propose allows the user to confirm your changes paragraph-by-paragraph.\n` +
+      `3. ALWAYS use double quotes for titles or paths if they contain spaces.\n` +
+      `4. You can execute multiple [RUN: ...] commands in one response.\n` +
+      `5. [RUN: ...] tags can span multiple lines.\n` +
+      `6. CONCISENESS: If you are writing, appending, or proposing significant content to a note, DO NOT repeat that content in your conversational text. Just say "I've proposed some improvements." or similar. The user sees it in the editor.\n` +
+      `7. SILENCE: When you use [RUN: read ...], do not repeat the entire content you just read unless specifically asked to summarize or find something specific.\n` +
       `When the user asks who you are, answer accurately as Knowledge Hub AI using ${provider} ${model === 'default-recommended' ? '' : `(${model})`}.`
 
     const messagesForAPI: AIMessage[] = []

@@ -446,6 +446,26 @@ export class VaultManager {
     return this.notes.get(id)!
   }
 
+  public async appendNote(id: string, content: string): Promise<NoteMeta> {
+    let meta = this.notes.get(id)
+    if (!meta) {
+      const fullPath = join(this.rootPath, id)
+      if (existsSync(fullPath)) {
+        await this.indexFile(fullPath)
+        meta = this.notes.get(id)
+      }
+      if (!meta) throw new Error(`File not found: ${id}`)
+    }
+
+    const fullPath = join(this.rootPath, id)
+    // Read current content and append
+    const current = await readFile(fullPath, 'utf-8')
+    await writeFile(fullPath, current + content, 'utf-8')
+    await this.indexFile(fullPath)
+
+    return this.notes.get(id)!
+  }
+
   public async createNote(title: string, folderPath?: string): Promise<NoteMeta> {
     const rawTitle = title.trim() || 'Untitled'
     const safeTitle = this.sanitizeFilename(rawTitle)

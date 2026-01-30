@@ -11,7 +11,7 @@
   background: var(--panel-strong);
   border-bottom: 1px solid var(--border);
   /* -webkit-app-region: drag; REMOVED to allow JS drag */
-  z-index: 1000;
+  z-index: 2147483647 !important;
 }
 
 .window-header__brand {

@@ -15,6 +15,7 @@ import './slash-menu.css'
 import { SlashMenu } from './slash-menu'
 import './selection-toolbar.css'
 import { SelectionToolbar } from './selection-toolbar'
+import { SuggestionManager } from './suggestion-handler'
 
 type Monaco = any // Use any to bypass stubborn type resolution in dynamic imports
 
@@ -69,6 +70,7 @@ export class EditorComponent {
   private preview?: PreviewComponent
   private previewHost?: HTMLElement
   public isPreviewMode: boolean = false
+  private suggestionManager: SuggestionManager | null = null
 
   constructor(containerId: string) {
     this.container = document.getElementById(containerId) as HTMLElement
@@ -442,6 +444,12 @@ export class EditorComponent {
   triggerAction(actionId: string): void {
     this.editor?.trigger('context-menu', actionId, null)
   }
+
+  public proposeChanges(newContent: string): void {
+    if (!this.suggestionManager) return
+    this.suggestionManager.propose(newContent)
+  }
+
   private getLanguageFromFilename(filename: string): string {
     const lower = filename.toLowerCase()
     const parts = lower.split('.')
@@ -632,6 +640,9 @@ export class EditorComponent {
 
         // Initialize Selection Toolbar
         new SelectionToolbar(this.editor)
+
+        // Initialize Suggestion Manager
+        this.suggestionManager = new SuggestionManager(this.editor, this.monacoInstance)
       } finally {
         this.initPromise = null
       }

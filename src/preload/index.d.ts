@@ -75,6 +75,7 @@ type NoteApi = {
   loadNote: (id: string, path?: string) => Promise<NotePayload | null>
   createNote: (title?: string, path?: string) => Promise<NoteMeta>
   saveNote: (payload: NotePayload) => Promise<NoteMeta>
+  appendNote: (id: string, content: string) => Promise<NoteMeta>
   deleteNote: (id: string, path?: string) => Promise<{ id: string }>
   moveNote: (id: string, fromPath?: string, toPath?: string) => Promise<NoteMeta>
   renameNote: (id: string, newId: string, path?: string) => Promise<NoteMeta>

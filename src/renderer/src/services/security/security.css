@@ -1,6 +1,9 @@
 .security-firewall {
   position: fixed;
-  inset: 0;
+  top: 32px;
+  left: 0;
+  right: 0;
+  bottom: 0;
   z-index: 2147483647 !important;
   background: rgba(10, 15, 25, 0.9);
   backdrop-filter: blur(30px) saturate(150%);

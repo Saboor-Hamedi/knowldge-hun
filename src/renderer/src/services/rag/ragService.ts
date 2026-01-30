@@ -12,6 +12,7 @@ export class RagService {
   private jobs: Map<string, { resolve: (val: unknown) => void; reject: (err: Error) => void }> =
     new Map()
   private embeddingProvider: EmbeddingProvider | null = null
+  private initPromise: Promise<void> | null = null
 
   constructor() {
     this.initWorker()
@@ -69,7 +70,11 @@ export class RagService {
   /**
    * Dispatch a job to the worker
    */
-  public async dispatch<T>(type: RagWorkerJob['type'], payload: unknown): Promise<T> {
+  public async dispatch<T>(
+    type: RagWorkerJob['type'],
+    payload: unknown,
+    timeoutMs: number = 120000
+  ): Promise<T> {
     if (!this.worker) this.initWorker()
     if (!this.worker) throw new Error('RAG Worker not available')
 
@@ -79,9 +84,9 @@ export class RagService {
       const timeout = setTimeout(() => {
         if (this.jobs.has(id)) {
           this.jobs.delete(id)
-          reject(new Error('RAG Worker timed out'))
+          reject(new Error(`RAG Worker timed out (${type})`))
         }
-      }, 120000)
+      }, timeoutMs)
 
       this.jobs.set(id, {
         resolve: (val: unknown) => {
@@ -101,7 +106,15 @@ export class RagService {
    * Initialize the RAG system (Worker + DB)
    */
   async init(): Promise<void> {
-    await this.dispatch('init', {})
+    if (this.initPromise) return this.initPromise
+
+    this.initPromise = (async () => {
+      // Init model check can take a long time on cold boot (downloads)
+      // We give it 5 minutes instead of 2.
+      await this.dispatch('init', {}, 300000)
+    })()
+
+    return this.initPromise
   }
 
   async search(

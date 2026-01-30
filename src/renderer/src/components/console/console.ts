@@ -2,7 +2,10 @@ import './console.css'
 import { codicons } from '../../utils/codicons'
 import type { ChatMessage } from '../../services/aiService'
 import { agentService } from '../../services/agent/agent-service'
+import { agentExecutor } from '../../services/agent/executor'
 import { state } from '../../core/state'
+import { ragService } from '../../services/rag/ragService'
+import type { FileOperationHandler } from '../../handlers/FileOperationHandler'
 
 export interface Command {
   name: string
@@ -53,7 +56,7 @@ export class ConsoleComponent {
   private isDragging = false
   private startY = 0
   private startHeight = 0
-  private isOpen = false
+  private isOpen: boolean = false
   private isMaximized = false
   private isBusy = false
   private currentMode: 'terminal' | 'ai' = 'terminal'
@@ -61,7 +64,7 @@ export class ConsoleComponent {
   private historyIndex = -1
   private tabMatches: string[] = []
   private tabIndex = -1
-  private commands: Map<string, Command> = new Map()
+  public commands: Map<string, Command> = new Map()
   private vaultUnsubscribe?: () => void
   private aiAbortController: AbortController | null = null
   private chatHistory: ChatMessage[] = []
@@ -69,6 +72,9 @@ export class ConsoleComponent {
   private autocompleteItems: HTMLElement[] = []
   private selectedAutocompleteIndex = -1
   private typingTimeout: number | null = null
+  private fileOperationHandler!: FileOperationHandler
+  private agentExecutor = agentExecutor
+  private proposeBuffer: string = ''
 
   constructor(containerId: string) {
     this.container = document.getElementById(containerId) as HTMLElement
@@ -110,6 +116,41 @@ export class ConsoleComponent {
     if (savedMode === 'ai' || savedMode === 'terminal') {
       this.setMode(savedMode)
     }
+
+    this.registerCommand({
+      name: 'append',
+      description: 'Appends content to a note',
+      usage: 'append "note title" <content>',
+      action: async (args) => {
+        if (args.length < 2) {
+          this.log('Usage: append "note title" <content>', 'error')
+          return
+        }
+        const query = args[0].replace(/^["']|["']$/g, '')
+        const content = args.slice(1).join(' ')
+        await agentExecutor.appendNote(query, content)
+        this.log(`Appended to: ${query}`, 'system')
+      }
+    })
+
+    this.registerCommand({
+      name: 'propose',
+      description: 'Propose changes to a note for review',
+      action: async (args) => {
+        if (args.length < 2) {
+          this.log('Usage: propose "note title" <new content>', 'error')
+          return
+        }
+        const query = args[0].replace(/^["']|["']$/g, '')
+        const content = args.slice(1).join(' ')
+        await agentExecutor.proposeNote(query, content)
+        this.log(`Proposed improvements for: ${query}. Review them in the editor.`, 'system')
+      }
+    })
+  }
+
+  public setHandlers(fileOps: FileOperationHandler): void {
+    this.fileOperationHandler = fileOps
   }
 
   private async initUsername(): Promise<void> {
@@ -671,10 +712,14 @@ export class ConsoleComponent {
       const response = await aiService.buildContextMessage(input)
       const context = response.context
 
+      let streamingTargetId: string | null = null
+      let inStreamingWrite = false
+      let streamBuffer = ''
+
       await aiService.callDeepSeekAPIStream(
         this.chatHistory,
         context,
-        (chunk) => {
+        async (chunk) => {
           if (currentController?.signal.aborted) return
 
           // Clear dots on first chunk
@@ -682,12 +727,97 @@ export class ConsoleComponent {
             thinkingEl.remove()
           }
           fullText += chunk
+          streamBuffer += chunk
 
-          // We display the text without [RUN: ...] tags but keep other formatting
-          // Also hide partial tags during streaming
+          // --- LIVE STREAMING WRITE/APPEND/PROPOSE LOGIC ---
+          if (!inStreamingWrite) {
+            const writeMatch = streamBuffer.match(
+              /\[RUN:\s*(write|append|propose)\s+("([^"]+)"|([^\s"]+))\s+/
+            )
+            if (writeMatch) {
+              try {
+                const type = writeMatch[1] // write, append, or propose
+                const title = writeMatch[3] || writeMatch[4]
+                inStreamingWrite = true
+
+                if (type === 'propose') {
+                  streamingTargetId = `temp_propose_${title}`
+                  this.proposeBuffer = ''
+                  // We don't call openNote here for propose to avoid jumping during stream
+                } else {
+                  const resolved = await this.agentExecutor.resolveNote(title)
+                  if (resolved) {
+                    streamingTargetId = resolved.id
+                    if (type === 'write') {
+                      await window.api.saveNote({
+                        id: streamingTargetId,
+                        content: '',
+                        title: resolved.title
+                      } as any)
+                    }
+                  } else if (type === 'write') {
+                    const meta = await window.api.createNote(title)
+                    streamingTargetId = meta.id
+                  }
+                  if (streamingTargetId) {
+                    void this.fileOperationHandler.openNote(streamingTargetId, undefined, 'editor')
+                  }
+                }
+              } catch (e) {
+                console.error('[Console] Live stream start failed:', e)
+              }
+              streamBuffer = streamBuffer.substring(writeMatch[0].length)
+            }
+          } else {
+            const closingIdx = streamBuffer.indexOf(']')
+            const contentToAppend =
+              closingIdx !== -1 ? streamBuffer.substring(0, closingIdx) : streamBuffer
+
+            if (contentToAppend && streamingTargetId) {
+              try {
+                const type = streamingTargetId.startsWith('temp_propose_') ? 'propose' : 'write'
+                if (type === 'propose') {
+                  // For propose, we ONLY update the buffer. We do NOT call the editor yet.
+                  // This prevents the "removes everything" glitch during streaming.
+                  this.proposeBuffer += contentToAppend
+                } else {
+                  await window.api.appendNote(streamingTargetId, contentToAppend)
+                }
+              } catch (e) {
+                console.error('[Console] Live stream append failed:', e)
+              }
+              streamBuffer = streamBuffer.substring(contentToAppend.length)
+            }
+
+            if (closingIdx !== -1) {
+              inStreamingWrite = false
+              if (streamingTargetId && streamingTargetId.startsWith('temp_propose_')) {
+                // FINISHED: Now we trigger the reviewer UI in the editor with full content
+                const realTitle = streamingTargetId.replace('temp_propose_', '')
+                void this.agentExecutor.proposeNote(realTitle, this.proposeBuffer)
+              } else if (streamingTargetId) {
+                const data = await window.api.loadNote(streamingTargetId)
+                if (data) {
+                  void ragService.indexNote(data.id, data.content, {
+                    title: data.title,
+                    path: data.path
+                  })
+                }
+              }
+              streamingTargetId = null
+            }
+          }
+          // --- END LIVE STREAMING ---
+
+          // Update visible text (strip [RUN:] tags)
           const visibleText = fullText.replace(/\[RUN:[\s\S]*?(\]|(?=$))/g, '')
-          outputLine.textContent = visibleText
-
+          // Build formatting on demand if not imported (to avoid circular deps or missing utils)
+          try {
+            const { formatMarkdown } = await import('../../utils/markdown')
+            outputLine.innerHTML = formatMarkdown(visibleText)
+          } catch {
+            outputLine.textContent = visibleText
+          }
           this.bodyEl.scrollTop = this.bodyEl.scrollHeight
         },
         this.aiAbortController.signal
@@ -717,6 +847,7 @@ export class ConsoleComponent {
             cmdString.startsWith('rename') ||
             cmdString.startsWith('delete') ||
             cmdString.startsWith('rm') ||
+            cmdString.startsWith('propose') ||
             cmdString.startsWith('read')
 
           // If it's an agentic command proposed by AI, we auto-execute it

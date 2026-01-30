@@ -1,5 +1,6 @@
 import { state } from '../../core/state'
 import { ragService } from '../rag/ragService'
+import { tabService } from '../tabService'
 import type { NoteMeta, NotePayload } from '../../core/types'
 
 /**
@@ -114,6 +115,22 @@ export class AgentExecutor {
   }
 
   /**
+   * EXECUTE: Propose changes to a Note (Diff mode)
+   */
+  async proposeNote(title: string, content: string): Promise<NoteMeta> {
+    const note = this.resolveNote(title)
+    if (!note) throw new Error(`Note not found: ${title}`)
+
+    // We don't save yet. We just dispatch an event that the editor will catch.
+    window.dispatchEvent(
+      new CustomEvent('knowledge-hub:propose-note', {
+        detail: { id: note.id, content }
+      })
+    )
+    return note
+  }
+
+  /**
    * EXECUTE: Append Note
    */
   async appendNote(title: string, contentToAppend: string): Promise<NoteMeta> {
@@ -132,6 +149,13 @@ export class AgentExecutor {
 
     void ragService.indexNote(note.id, newContent, { title: note.title, path: note.path })
     return result
+  }
+
+  /**
+   * EXECUTE: Append Chunk (Internal for streaming)
+   */
+  async appendChunk(id: string, chunk: string): Promise<void> {
+    await window.api.appendNote(id, chunk)
   }
 
   /**
@@ -199,8 +223,20 @@ export class AgentExecutor {
     let res
     if (item.type === 'folder') {
       res = await window.api.deleteFolder(item.path!)
+
+      // Close tabs for notes inside this folder
+      const folderPathPrefix = item.path!.endsWith('/') ? item.path! : item.path! + '/'
+      const idsToClose = state.openTabs
+        .filter((tab) => tab.path?.startsWith(folderPathPrefix))
+        .map((tab) => tab.id)
+
+      if (idsToClose.length > 0) {
+        tabService.closeTabs(idsToClose)
+      }
     } else {
       res = await window.api.deleteNote(item.id, item.path!)
+      tabService.closeTab(item.id)
+      void ragService.deleteNote(item.id)
     }
     this.dispatchVaultChange()
     return res

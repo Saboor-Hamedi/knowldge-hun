@@ -36,7 +36,10 @@ body {
 
 .vault-transition-overlay {
   position: fixed;
-  inset: 0;
+  top: 32px;
+  left: 0;
+  right: 0;
+  bottom: 0;
   background: var(--bg);
   color: var(--text-strong);
   display: flex;
@@ -212,7 +215,10 @@ button {
 /* Loading Overlay & Solid UI */
 .loading-overlay {
   position: fixed;
-  inset: 0;
+  top: 32px;
+  left: 0;
+  right: 0;
+  bottom: 0;
   background: var(--bg);
   z-index: 9999;
   display: flex;
