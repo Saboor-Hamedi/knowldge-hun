@@ -150,7 +150,7 @@ export function processGraphData(
 
     const node: GraphNode = {
       id: note.id,
-      title: note.title || note.id,
+      title: (note.title || note.id).replace(/\.[^/.]+$/, ''),
       path: note.path,
       group: folderToGroup.get(folderPath) || 0,
       connectionCount: 0,
@@ -263,9 +263,11 @@ export function processGraphData(
   // 2. Class Instantiation: new ClassName() (PHP, Java, TS, C#, etc)
   const classRegex = /new\s+([A-Z][a-zA-Z0-9_]*)/g
 
-  // 3. PHP Includes: include 'file.php', require_once('file.php')
+  // 3. PHP: include 'file.php', require_once('file.php'), use App\Models\User, Class::method()
   const phpIncludeRegex =
     /(?:include|include_once|require|require_once)\s*(?:\(?\s*['"]([^'"]+)['"]\s*\)?)/g
+  const phpUseRegex = /use\s+([a-zA-Z0-9_\\]+)(?:\s+as\s+[a-zA-Z0-9_]+)?;/g
+  const staticCallRegex = /([A-Z][a-zA-Z0-9_]*)::/g
 
   // 4. Python: import module, from module import ...
   const pythonImportRegex = /(?:from\s+([a-zA-Z0-9_.]+)\s+import)|(?:import\s+([a-zA-Z0-9_.]+))/g
@@ -325,6 +327,19 @@ export function processGraphData(
         .pop()
         ?.replace(/\.[^/.]+$/, '')
       if (filename) connectNode(filename)
+    }
+
+    // Process PHP Use Statements (Namespaces)
+    while ((match = phpUseRegex.exec(content)) !== null) {
+      const fullNamespace = match[1]
+      const className = fullNamespace.split('\\').pop()
+      if (className) connectNode(className)
+    }
+
+    // Process Static Calls (e.g. User::all())
+    while ((match = staticCallRegex.exec(content)) !== null) {
+      const className = match[1]
+      connectNode(className)
     }
 
     // Process Python Imports

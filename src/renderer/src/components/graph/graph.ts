@@ -221,6 +221,7 @@ export class GraphView {
       this.initD3(canvas)
 
       // Update stats
+      this.updateMinimap()
     } catch (e) {
       console.error('Failed to load graph data', e)
       this.showError('Failed to load graph data.')
@@ -464,7 +465,11 @@ export class GraphView {
     this.nodeSelection.attr('transform', (d) => `translate(${d.x || 0},${d.y || 0})`)
 
     // Update minimap live
-    this.updateMinimapPositions()
+    if (!this.minimapG && this.filteredData) {
+      this.updateMinimap()
+    } else {
+      this.updateMinimapPositions()
+    }
   }
 
   private computeNodeColor(node: GraphNode): string {
