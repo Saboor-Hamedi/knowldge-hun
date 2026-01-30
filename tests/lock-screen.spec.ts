@@ -2,16 +2,18 @@ import { test, expect } from '@playwright/test'
 import { _electron as electron } from 'playwright'
 import path from 'path'
 
+const electronPath = require('electron')
+
 test.describe('Lock Screen End-to-End Tests', () => {
   let electronApp
   let window
 
   test.beforeEach(async () => {
-    // Launch Electron app using Playwright's helper to find the executable
-    // We assume 'args' points to the main script which is 'out/main/index.js'
-    // But since we are running from root, 'electron out/main/index.js' is correct.
+    // Launch Electron app using explicit executable path
     electronApp = await electron.launch({
+      executablePath: electronPath,
       args: [path.join(__dirname, '..', 'out', 'main', 'index.js')],
+      cwd: path.join(__dirname, '..'),
       env: {
         ...process.env,
         NODE_ENV: 'test'

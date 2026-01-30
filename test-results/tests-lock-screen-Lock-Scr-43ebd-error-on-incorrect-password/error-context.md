@@ -1,0 +1,149 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e4]:
+        - img [ref=e6]
+        - generic [ref=e10]: Knowledge Hub
+      - generic [ref=e11]:
+        - generic [ref=e12]:
+          - img [ref=e14]
+          - generic: "AI Brain: Loading models..."
+        - generic [ref=e16]: "|"
+        - button "Open AI Chat" [ref=e17] [cursor=pointer]:
+          - img [ref=e18]
+      - generic [ref=e20]:
+        - button "Minimize" [ref=e21] [cursor=pointer]:
+          - img [ref=e22]
+        - button "Maximize" [ref=e23] [cursor=pointer]:
+          - img [ref=e24]
+        - button "Close" [ref=e26] [cursor=pointer]:
+          - img [ref=e27]
+    - navigation [ref=e30]:
+      - generic [ref=e31]:
+        - button "Explorer" [ref=e32] [cursor=pointer]:
+          - img [ref=e34]
+          - text: Explorer
+        - button "Search" [ref=e37] [cursor=pointer]:
+          - img [ref=e39]
+          - text: Search
+        - button "Graph View" [ref=e42] [cursor=pointer]:
+          - img [ref=e44]
+          - text: Graph View
+        - button "Update" [ref=e49] [cursor=pointer]:
+          - img [ref=e51]
+          - text: Update
+        - button "Documentation" [ref=e53] [cursor=pointer]:
+          - img [ref=e55]
+          - text: Documentation
+      - generic [ref=e57]:
+        - button "Lock App" [ref=e58] [cursor=pointer]:
+          - img [ref=e60]
+          - text: Lock App
+        - button "Theme" [ref=e63] [cursor=pointer]:
+          - img [ref=e65]
+          - text: Theme
+        - button "Settings" [ref=e71] [cursor=pointer]:
+          - img [ref=e73]
+          - text: Settings
+    - complementary [ref=e76]:
+      - generic [ref=e77]:
+        - generic [ref=e79]: EXPLORER
+        - generic [ref=e80]:
+          - button [ref=e81] [cursor=pointer]:
+            - img [ref=e82]
+          - button [ref=e84] [cursor=pointer]:
+            - img [ref=e85]
+          - button [ref=e88] [cursor=pointer]:
+            - img [ref=e89]
+      - searchbox "Search notes" [ref=e92]
+      - generic [ref=e94]:
+        - generic [ref=e95] [cursor=pointer]:
+          - img [ref=e97]
+          - img [ref=e100]
+          - generic [ref=e103]: root
+        - generic [ref=e104] [cursor=pointer]:
+          - img [ref=e106]
+          - img [ref=e109]
+          - generic [ref=e111]: wooow
+        - generic [ref=e112] [cursor=pointer]:
+          - img [ref=e114]
+          - img [ref=e117]
+          - generic [ref=e119]: mysql
+        - generic [ref=e120] [cursor=pointer]:
+          - img [ref=e123]
+          - generic [ref=e126]: Hello, short answer
+        - generic [ref=e127] [cursor=pointer]:
+          - img [ref=e130]
+          - generic [ref=e133]: okay
+        - generic [ref=e134] [cursor=pointer]:
+          - img [ref=e137]
+          - generic [ref=e140]: 📅 Today's Focus
+    - main [ref=e142]:
+      - generic [ref=e144]:
+        - generic [ref=e145]:
+          - img [ref=e147]
+          - generic [ref=e151]:
+            - heading "Knowledge Hub" [level=1] [ref=e152]
+            - paragraph [ref=e153]: Your beautiful, connected second brain.
+        - generic [ref=e154]:
+          - generic [ref=e155]:
+            - heading "Recent Projects" [level=2] [ref=e156]
+            - generic [ref=e158]: No recent projects
+          - generic [ref=e159]:
+            - heading "Start" [level=2] [ref=e160]
+            - generic [ref=e161]:
+              - button "Open Local Folder" [ref=e162] [cursor=pointer]:
+                - img [ref=e164]
+                - text: Open Local Folder
+              - button "Create New Vault" [ref=e166] [cursor=pointer]:
+                - img [ref=e168]
+                - text: Create New Vault
+            - button "Documentation Ctrl+Shift+\\" [ref=e175] [cursor=pointer]
+    - text: Ask anything... @note to reference
+    - contentinfo [ref=e176]:
+      - generic [ref=e177]: v0.1.4
+      - button "Sync" [ref=e180] [cursor=pointer]:
+        - img [ref=e181]
+    - generic:
+      - generic:
+        - generic:
+          - generic:
+            - generic: ▶
+            - generic: HUB Console
+          - generic:
+            - button "Toggle Console (Ctrl+J)":
+              - img
+            - button "Maximize Panel":
+              - generic:
+                - img
+            - button "Close (Esc)":
+              - generic:
+                - img
+        - generic:
+          - generic: HUB Console initialized. Type "help" for a list of commands.
+        - generic:
+          - generic:
+            - button "Terminal Mode":
+              - img
+            - button "AI Agent":
+              - img
+          - generic:
+            - generic: Saboor@KnowledgeHub λ
+            - textbox "Type a command..."
+    - text: Ctrl+Shift+,
+    - generic:
+      - generic:
+        - generic:
+          - heading "Select Vault" [level=2]
+          - button "Close":
+            - img
+        - generic:
+          - generic:
+            - button "Choose New Vault Folder"
+  - generic [ref=e184]:
+    - alert
+    - alert
+```

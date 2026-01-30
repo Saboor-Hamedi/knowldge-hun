@@ -21,7 +21,8 @@ import {
   Minimize2,
   X,
   ChevronDown,
-  Terminal
+  Terminal,
+  LogIn
 } from 'lucide'
 
 /**
@@ -131,7 +132,8 @@ export const codicons = {
   closeX: lucideIcon(X, 14, 2),
   chevronDownLucide: lucideIcon(ChevronDown, 14, 2),
   terminal: lucideIcon(Terminal, 14, 2),
-  agent: lucideIcon(Sparkles, 14, 2)
+  agent: lucideIcon(Sparkles, 14, 2),
+  signIn: lucideIcon(LogIn, 16, 2)
 }
 
 // Folder type detector based on folder name

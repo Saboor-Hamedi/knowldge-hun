@@ -27,10 +27,9 @@ export class WindowHeader {
     header.className = 'window-header'
     header.innerHTML = `
       <div class="window-header__brand">
-        <span class="window-header__logo" style="margin-right: 8px; color: var(--text-soft); display: flex; align-items: center;">
+        <span class="window-header__logo" style="color: var(--text-soft); display: flex; align-items: center;">
           ${codicons.fileCode}
         </span>
-        <span class="window-header__title">${this.title}</span>
       </div>
       <div class="window-header__controls">
         <button class="wh-btn wh-min" title="Minimize" aria-label="Minimize">

@@ -43,14 +43,14 @@ export class WelcomePage {
   render(): void {
     this.container.innerHTML = `
       <div class="welcome-container">
+        <button class="welcome-top-action" id="welcome-docs" title="Documentation (Ctrl+Shift+\)">
+          <span class="welcome-top-action__icon">${codicons.info}</span>
+          Documentation
+        </button>
         <div class="welcome-content">
           <div class="welcome-header">
-            <div class="welcome-logo">
-              ${codicons.fileCode}
-            </div>
             <div class="welcome-header__info">
               <h1>Knowledge Hub</h1>
-              <p>Your beautiful, connected second brain.</p>
             </div>
           </div>
 
@@ -80,10 +80,10 @@ export class WelcomePage {
                         ${
                           p.exists
                             ? isCurrent
-                              ? `<span class="recent-item__current-label">${codicons.check} Using</span>`
+                              ? `<div class="recent-item__status-dot" title="Active Project"></div>`
                               : `
-                            <button class="recent-item__btn recent-item__btn--open" data-action="select" data-path="${this.escapeHtml(p.path)}">
-                              Switch
+                            <button class="recent-item__btn recent-item__btn--open" data-action="select" data-path="${this.escapeHtml(p.path)}" title="Open Vault">
+                              ${codicons.signIn}
                             </button>
                           `
                             : ''
@@ -112,18 +112,21 @@ export class WelcomePage {
               <div class="start-actions">
                 <button class="start-btn" id="welcome-open">
                   <span class="start-btn__icon">${codicons.folderOpened}</span>
-                  Open Local Folder
+                  <div class="start-btn__content">
+                    <div class="start-btn__title">Open Local Folder</div>
+                    <div class="start-btn__desc">Open an existing knowledge hub</div>
+                  </div>
                 </button>
                 <button class="start-btn" id="welcome-new">
                   <span class="start-btn__icon">${codicons.folderGit}</span>
-                  Create New Vault
+                  <div class="start-btn__content">
+                    <div class="start-btn__title">Create New Vault</div>
+                    <div class="start-btn__desc">Initialize a fresh workspace</div>
+                  </div>
                 </button>
               </div>
 
-              <div class="welcome-footer">
-                <div class="footer-links">
-                  <button class="footer-link" id="welcome-docs">Documentation <span class="footer-link__shortcut" style="font-size: 8px">Ctrl+Shift+\\</span></button>
-                </div>
+
               </div>
             </div>
           </div>
