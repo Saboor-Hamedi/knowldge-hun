@@ -96,7 +96,12 @@ export function loadSettings(): Settings {
     }
 
     // Migrate old settings to fireWall
-    if (!merged.fireWall) merged.fireWall = { ...DEFAULT_SETTINGS.fireWall }
+    if (!merged.fireWall) {
+      merged.fireWall = { ...DEFAULT_SETTINGS.fireWall }
+    } else {
+      // Ensure sub-keys exist
+      merged.fireWall = { ...DEFAULT_SETTINGS.fireWall, ...merged.fireWall }
+    }
 
     const oldKeys = ['passwordHash', 'lockScreenAlignment', 'lockScreenName']
     const loadedAny = loaded as Record<string, unknown>
@@ -129,6 +134,15 @@ export function saveSettings(settings: Settings): void {
 export function updateSettings(updates: Partial<Settings>): Settings {
   const current = loadSettings()
   const updated = { ...current, ...updates }
+
+  // Deep merge fireWall if both exist
+  if (updates.fireWall && current.fireWall) {
+    updated.fireWall = {
+      ...current.fireWall,
+      ...updates.fireWall
+    }
+  }
+
   saveSettings(updated)
   return updated
 }

@@ -413,10 +413,34 @@ class App {
 
   private async handleSettingChange(newSettings: Partial<AppSettings>): Promise<void> {
     if (state.settings) {
-      state.settings = { ...state.settings, ...newSettings }
+      // Create a copy of current settings
+      const updatedSettings = { ...state.settings }
+
+      // Iterate through updates and deep merge known objects
+      for (const key in newSettings) {
+        const k = key as keyof AppSettings
+        const val = newSettings[k]
+
+        const updatedSettingsRec = updatedSettings as Record<string, unknown>
+        const valRec = val as Record<string, unknown>
+
+        if (val && typeof val === 'object' && !Array.isArray(val) && updatedSettings[k]) {
+          // Deep merge for fireWall, windowBounds, etc.
+          updatedSettingsRec[k] = {
+            ...(updatedSettings[k] as Record<string, unknown>),
+            ...valRec
+          }
+        } else {
+          // Direct assignment for primitives and arrays
+          updatedSettingsRec[k] = val
+        }
+      }
+
+      state.settings = updatedSettings
       this.editor.applySettings(state.settings)
       void window.api.updateSettings(newSettings)
       this.statusBar.setStatus('Settings auto-saved')
+
       if (newSettings.deepseekApiKey !== undefined) {
         await aiService.loadApiKey()
         await this.rightBar.refreshApiKey()

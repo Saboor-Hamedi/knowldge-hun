@@ -22,6 +22,7 @@
   box-sizing: border-box;
   color: #fff;
   z-index: 5;
+  pointer-events: none;
   transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -69,7 +70,8 @@
   text-align: center;
   display: flex;
   flex-direction: column;
-  gap: 20px; /* Reduced gap */
+  align-items: center;
+  gap: 24px;
   position: relative;
   z-index: 10;
   margin-top: -10vh;
@@ -84,16 +86,21 @@
 }
 
 .security-firewall__avatar {
-  width: 96px;
-  height: 96px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  width: 110px;
+  height: 110px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.03));
+  border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 50%;
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   color: #fff;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3);
-  transition: all 300ms ease;
+  margin-bottom: 4px;
+}
+
+.security-firewall__avatar svg {
+  width: 44px;
+  height: 44px;
 }
 
 @keyframes pulse-red {
@@ -152,7 +159,7 @@
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 8px;
-  padding: 10px 44px 10px 12px;
+  padding: 10px 76px 10px 12px;
   color: #fff;
   font-size: 13px;
   text-align: left;
@@ -162,7 +169,7 @@
 
 .security-firewall__toggle-visibility {
   position: absolute;
-  right: 12px;
+  right: 40px;
   top: 50%;
   transform: translateY(-50%);
   background: none;
