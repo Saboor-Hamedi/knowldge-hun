@@ -13,7 +13,8 @@ import {
   AlignLeft,
   AlignCenter,
   AlignRight,
-  Layout
+  Layout,
+  Clock
 } from 'lucide'
 
 declare global {
@@ -29,6 +30,7 @@ declare global {
  * to manage the application's login system.
  */
 export class SecuritySection {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private createLucideIcon(IconComponent: any, size: number = 16): string {
     const svgElement = createElement(IconComponent, {
       size: size,
@@ -124,6 +126,25 @@ export class SecuritySection {
                 ${this.createLucideIcon(AlignRight, 16)}
               </button>
             </div>
+          </div>
+        </div>
+
+        <!-- Auto-Lock Timeout -->
+        <div class="settings-row">
+          <div class="settings-row__icon">${this.createLucideIcon(Clock, 18)}</div>
+          <div class="settings-row__info">
+            <label class="settings-row__label">Auto-Lock Timer</label>
+            <p class="settings-row__hint">Automatically lock the application after a period of inactivity.</p>
+          </div>
+          <div class="settings-row__action">
+            <select class="settings-select" data-firewall-setting="autoLockTimeout">
+              <option value="0" ${state.settings?.fireWall?.autoLockTimeout === 0 ? 'selected' : ''}>Never</option>
+              <option value="1" ${state.settings?.fireWall?.autoLockTimeout === 1 ? 'selected' : ''}>1 Minute</option>
+              <option value="5" ${state.settings?.fireWall?.autoLockTimeout === 5 ? 'selected' : ''}>5 Minutes</option>
+              <option value="15" ${state.settings?.fireWall?.autoLockTimeout === 15 ? 'selected' : ''}>15 Minutes</option>
+              <option value="30" ${state.settings?.fireWall?.autoLockTimeout === 30 ? 'selected' : ''}>30 Minutes</option>
+              <option value="60" ${state.settings?.fireWall?.autoLockTimeout === 60 ? 'selected' : ''}>1 Hour</option>
+            </select>
           </div>
         </div>
         `
@@ -333,7 +354,8 @@ export class SecuritySection {
         const el = e.target as HTMLInputElement
         const key = el.dataset.firewallSetting
         if (key && this.onSettingChange) {
-          const fireWall = { ...(state.settings?.fireWall || {}), [key]: el.value }
+          const value = el.tagName === 'SELECT' ? parseInt(el.value, 10) : el.value
+          const fireWall = { ...(state.settings?.fireWall || {}), [key]: value }
           this.onSettingChange({ fireWall })
           onUpdate()
         }

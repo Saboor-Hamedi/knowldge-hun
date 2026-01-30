@@ -61,7 +61,6 @@ export class EditorComponent {
   private cachedSettings: AppSettings | null = null
   private providers: { dispose: () => void }[] = []
   private initPromise: Promise<void> | null = null
-  private onTabClose?: () => void
   private hashtagDecorations: string[] = []
   private preview?: PreviewComponent
   private previewHost?: HTMLElement
@@ -109,10 +108,6 @@ export class EditorComponent {
 
   setContextMenuHandler(handler: (e: MouseEvent) => void): void {
     this.onContextMenu = handler
-  }
-
-  setTabCloseHandler(handler: () => void): void {
-    this.onTabClose = handler
   }
 
   setCursorPositionChangeHandler(handler: () => void): void {
@@ -831,9 +826,6 @@ export class EditorComponent {
     if (isMod && key === 's') {
       event.preventDefault()
       this.manualSave()
-    } else if (isMod && key === 'w') {
-      event.preventDefault()
-      this.onTabClose?.()
     } else if (isMod && key === '\\') {
       event.preventDefault()
       this.togglePreview()

@@ -387,11 +387,6 @@ class App {
     this.editor.setLinkClickHandler((t) => void this.wikiLinkService.openWikiLink(t))
     this.editor.setHoverContentHandler((t) => this.wikiLinkService.getNotePreview(t))
     this.editor.setContextMenuHandler((e) => this.handleEditorContextMenu(e))
-    this.editor.setTabCloseHandler(() => {
-      if (state.activeId && !state.pinnedTabs.has(state.activeId)) {
-        void this.closeTab(state.activeId)
-      }
-    })
     this.editor.attachKeyboardShortcuts()
 
     this.themeModal.setThemeChangeHandler((themeId) => {
@@ -700,6 +695,16 @@ class App {
     reg('Control+j', 'Toggle Console', () => this.hubConsole.toggle())
     reg('Control+l', 'Lock Application', () => void securityService.promptAndLock())
     reg('Alt+l', 'Lock Application', () => void securityService.promptAndLock())
+    reg('Control+w', 'Close active tab', () => {
+      if (state.activeId && !state.pinnedTabs.has(state.activeId)) {
+        if (state.activeId === 'settings') {
+          void this.viewOrchestrator.closeSettings()
+        } else {
+          void this.closeTab(state.activeId)
+        }
+      }
+      return true // Always prevent default to stop window closure
+    })
     reg('Escape', 'Close UI', () => {
       if (this.fuzzyFinder.isVisible) {
         this.fuzzyFinder.close()

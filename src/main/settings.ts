@@ -41,6 +41,7 @@ export type Settings = {
     passwordHash?: string | null
     lockScreenAlignment?: 'left' | 'center' | 'right'
     lockScreenName?: string
+    autoLockTimeout?: number // In minutes, 0 to disable
   }
 }
 
@@ -63,7 +64,8 @@ export const DEFAULT_SETTINGS: Settings = {
   fireWall: {
     passwordHash: null,
     lockScreenAlignment: 'center',
-    lockScreenName: ''
+    lockScreenName: '',
+    autoLockTimeout: 0
   }
 }
 

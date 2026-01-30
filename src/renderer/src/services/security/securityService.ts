@@ -22,6 +22,44 @@ import './security.css'
 export class SecurityService {
   // Session-volatile flag. If false, firewall is shown.
   private isUnlocked = false
+  private lastActivity = Date.now()
+  private trackerInterval: ReturnType<typeof setInterval> | null = null
+  private activityListenersRegistered = false
+
+  constructor() {
+    this.startInactivityTracker()
+  }
+
+  private startInactivityTracker(): void {
+    if (this.trackerInterval) return
+
+    this.lastActivity = Date.now()
+    this.trackerInterval = setInterval(() => {
+      if (!this.isUnlocked || !this.hasPassword()) return
+
+      const timeoutMinutes = state.settings?.fireWall?.autoLockTimeout || 0
+      if (timeoutMinutes <= 0) return
+
+      const diffMinutes = (Date.now() - this.lastActivity) / 1000 / 60
+
+      if (diffMinutes >= timeoutMinutes) {
+        console.log(`[Security] Auto-locking due to ${timeoutMinutes}m inactivity`)
+        void this.promptAndLock()
+      }
+    }, 10000) // Check every 10 seconds
+
+    if (!this.activityListenersRegistered) {
+      const reset = (): void => {
+        this.lastActivity = Date.now()
+      }
+      window.addEventListener('mousemove', reset, { passive: true })
+      window.addEventListener('mousedown', reset, { passive: true })
+      window.addEventListener('keydown', reset, { passive: true })
+      window.addEventListener('touchstart', reset, { passive: true })
+      window.addEventListener('scroll', reset, { passive: true })
+      this.activityListenersRegistered = true
+    }
+  }
 
   /**
    * Check if a password is set in settings.
@@ -52,6 +90,7 @@ export class SecurityService {
       this.showFirewall({
         onSuccess: () => {
           this.isUnlocked = true
+          this.lastActivity = Date.now() // Reset on unlock
           resolve(true)
         }
       })
@@ -124,7 +163,6 @@ export class SecurityService {
           </svg>
         </div>
         <div class="security-firewall__username">${displayName}</div>
-        <div class="security-firewall__status">Session Encrypted</div>
         <div class="security-firewall__input-group">
           <div class="security-firewall__input-wrapper">
             <input type="password" class="security-firewall__input" placeholder="Enter Master Password" autofocus autocomplete="current-password">

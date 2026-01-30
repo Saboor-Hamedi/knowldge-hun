@@ -79,5 +79,6 @@ export type AppSettings = {
     passwordHash?: string | null
     lockScreenAlignment?: 'left' | 'center' | 'right'
     lockScreenName?: string
+    autoLockTimeout?: number
   }
 }

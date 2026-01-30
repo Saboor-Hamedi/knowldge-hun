@@ -1,7 +1,7 @@
 import { state } from '../../core/state'
 import { codicons } from '../../utils/codicons'
 import getFileIcon from '../../utils/fileIconMappers'
-import { createElement, Eye, Pin } from 'lucide'
+import { createElement, Eye, Pin, Settings } from 'lucide'
 import './tabbar.css'
 import { setTooltip } from '../tooltip/tooltip'
 
@@ -87,9 +87,16 @@ export class TabBar {
           color: 'currentColor'
         })
         icon.innerHTML = eyeIcon.outerHTML || getFileIcon(title, 'markdown')
+      } else if (tab.id === 'settings') {
+        const settingsIcon = createElement(Settings, {
+          size: 16,
+          'stroke-width': 1.5,
+          stroke: 'currentColor',
+          color: 'currentColor'
+        })
+        icon.innerHTML = settingsIcon.outerHTML || codicons.settingsGear
       } else {
-        icon.innerHTML =
-          tab.id === 'settings' ? codicons.settingsGear : getFileIcon(title, 'markdown')
+        icon.innerHTML = getFileIcon(title, 'markdown')
       }
 
       const label = document.createElement('span')

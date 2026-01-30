@@ -174,6 +174,21 @@ export class ViewOrchestrator {
     this.components.statusBar.setStatus('Settings Editor')
   }
 
+  public async closeSettings(): Promise<void> {
+    tabService.closeTab('settings')
+    if (state.activeId === 'settings' || !state.activeId) {
+      const remaining = state.openTabs
+      if (remaining.length > 0) {
+        state.activeId = remaining[remaining.length - 1].id
+      } else {
+        state.activeId = ''
+        this.showWelcomePage()
+      }
+    }
+    this.components.tabBar.render()
+    this.updateViewVisibility()
+  }
+
   public showWelcomePage(): void {
     state.activeId = ''
     this.components.welcomePage.show()
