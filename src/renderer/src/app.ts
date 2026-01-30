@@ -22,7 +22,7 @@ import { themeManager } from './core/themeManager'
 import { ErrorHandler } from './utils/error-handler'
 import { notificationManager } from './components/notification/notification'
 import { aiService } from './services/aiService'
-import { workspaceAgentService } from './services/workspaceAgentService'
+import { agentExecutor } from './services/agent/executor'
 import { TabHandlersImpl } from './handlers/tabHandlers'
 import { WikiLinkService } from './components/wikilink/wikilinkService'
 import { PreviewHandlers } from './handlers/previewHandlers'
@@ -728,19 +728,16 @@ class App {
       description: 'List commands',
       action: () => {
         this.hubConsole.log('Available Commands:', 'system')
-        this.hubConsole.log('  help         - List all commands')
-        this.hubConsole.log('  open <note>  - Open a note by title')
-        this.hubConsole.log('  find <query> - Search in notes')
-        this.hubConsole.log('  stats        - Show vault statistics')
-        this.hubConsole.log('  index-vault  - Re-index for AI search')
-        this.hubConsole.log('  lock         - Lock the application')
-        this.hubConsole.log('  unlock       - Show unlock prompt')
-        this.hubConsole.log('  ping         - Test console latency')
-        this.hubConsole.log('  clear        - Clear console output & memory')
-        this.hubConsole.log('  close        - Close console panel')
-        this.hubConsole.log('  mkdir <name> - Create a new folder')
-        this.hubConsole.log('  touch <file> - Create a new note')
-        this.hubConsole.log('  rm <path>    - Delete a note or folder')
+        this.hubConsole.log('  index-vault     - Re-index for AI search')
+        this.hubConsole.log('  lock            - Lock the application')
+        this.hubConsole.log('  mkdir <name>    - Create folder')
+        this.hubConsole.log('  touch <file>    - Create note')
+        this.hubConsole.log('  write <t> <c>   - Write to note')
+        this.hubConsole.log('  append <t> <c>  - Append to note')
+        this.hubConsole.log('  move <s> <d>    - Move item')
+        this.hubConsole.log('  rename <o> <n>  - Rename item')
+        this.hubConsole.log('  rm <path>       - Delete item')
+        this.hubConsole.log('  clear           - Clear console')
       }
     })
     this.hubConsole.registerCommand({
@@ -882,6 +879,24 @@ class App {
         const parent = this.sidebar.getSelectedFolderPath() || undefined
         await this.fileOps.createFolder(name, parent)
         this.hubConsole.log(`Created folder: "${name}"`, 'system')
+        window.dispatchEvent(new CustomEvent('vault-changed'))
+      }
+    })
+    this.hubConsole.registerCommand({
+      name: 'read',
+      description: 'Read a note content',
+      action: async (args) => {
+        if (!args.length) {
+          this.hubConsole.log('Usage: read <title or id>', 'error')
+          return
+        }
+        try {
+          const result = await agentExecutor.readNote(args[0])
+          this.hubConsole.log(`--- ${result.title} ---`, 'system')
+          this.hubConsole.log(result.content, 'system')
+        } catch (err) {
+          this.hubConsole.log(`Read failed: ${(err as Error).message}`, 'error')
+        }
       }
     })
     this.hubConsole.registerCommand({
@@ -910,12 +925,8 @@ class App {
         const content = args.slice(1).join(' ')
         const parent = this.sidebar.getSelectedFolderPath() || undefined
 
-        const result = await workspaceAgentService.smartWrite(titleInput, content, parent)
-        if (result.isNew) {
-          this.hubConsole.log(`Created new note: "${result.title}"`, 'system')
-        } else {
-          this.hubConsole.log(`Updated note: "${result.title}"`, 'system')
-        }
+        const result = await agentExecutor.writeNote(titleInput, content, parent)
+        this.hubConsole.log(`Updated note: "${result.title}"`, 'system')
         await this.fileOps['callbacks'].openNote(result.id, result.path, 'editor')
       }
     })
@@ -930,13 +941,44 @@ class App {
         const titleInput = args[0]
         const content = args.slice(1).join(' ')
 
-        const noteId = await workspaceAgentService.smartAppend(titleInput, content)
-        if (noteId) {
-          const note = state.notes.find((n) => n.id === noteId)
-          this.hubConsole.log(`Appended to note: "${note?.title || titleInput}"`, 'system')
-          if (note) await this.fileOps['callbacks'].openNote(note.id, note.path, 'editor')
+        const note = await agentExecutor.appendNote(titleInput, content)
+        if (note) {
+          this.hubConsole.log(`Appended to note: "${note.title}"`, 'system')
+          await this.fileOps['callbacks'].openNote(note.id, note.path, 'editor')
         } else {
           this.hubConsole.log(`Note "${titleInput}" not found to append.`, 'error')
+        }
+      }
+    })
+    this.hubConsole.registerCommand({
+      name: 'move',
+      description: 'Move a note or folder',
+      action: async (args) => {
+        if (args.length < 2) {
+          this.hubConsole.log('Usage: move <source> <destination_folder>', 'error')
+          return
+        }
+        try {
+          await agentExecutor.move(args[0], args[1])
+          this.hubConsole.log(`Moved: ${args[0]} to ${args[1]}`, 'system')
+        } catch (err) {
+          this.hubConsole.log(`Move failed: ${(err as Error).message}`, 'error')
+        }
+      }
+    })
+    this.hubConsole.registerCommand({
+      name: 'rename',
+      description: 'Rename a note or folder',
+      action: async (args) => {
+        if (args.length < 2) {
+          this.hubConsole.log('Usage: rename <old_id_or_path> <new_name>', 'error')
+          return
+        }
+        try {
+          await agentExecutor.rename(args[0], args[1])
+          this.hubConsole.log(`Renamed: ${args[0]} to ${args[1]}`, 'system')
+        } catch (err) {
+          this.hubConsole.log(`Rename failed: ${(err as Error).message}`, 'error')
         }
       }
     })
@@ -948,15 +990,11 @@ class App {
           this.hubConsole.log('Usage: rm <path or title>', 'error')
           return
         }
-        const query = args.join(' ').toLowerCase()
-        const note = state.notes.find(
-          (n) => n.id.toLowerCase() === query || n.title.toLowerCase() === query
-        )
-        if (note) {
-          await this.fileOps.deleteItems([{ id: note.id, type: 'note', path: note.path }])
-          this.hubConsole.log(`Deleted: ${note.title}`, 'system')
-        } else {
-          this.hubConsole.log(`File not found: ${query}`, 'error')
+        try {
+          await agentExecutor.delete(args[0])
+          this.hubConsole.log(`Deleted: ${args[0]}`, 'system')
+        } catch (err) {
+          this.hubConsole.log(`Delete failed: ${(err as Error).message}`, 'error')
         }
       }
     })

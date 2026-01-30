@@ -196,6 +196,7 @@
   margin: 4px 0 12px 0;
   white-space: pre-wrap;
   line-height: 1.6;
+  min-height: 1.6em; /* Prevent jumps when empty */
 }
 
 .hub-console__line--ai::before {
@@ -253,6 +254,7 @@
   background: rgba(0, 0, 0, 0.2);
   border-top: 1px solid var(--border-subtle);
   flex-shrink: 0;
+  position: relative; /* Context for autocomplete */
 }
 
 .hub-console__prompt {
@@ -483,11 +485,90 @@
   color: var(--text-strong);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 13px;
-  height: 100%;
+  min-height: 20px;
+  max-height: 100px;
+  overflow-y: auto;
+  padding: 2px 0;
+  white-space: pre-wrap;
+  word-break: break-all;
 }
 
-.hub-console__input::placeholder {
-  color: rgba(255, 255, 255, 0.15);
+.hub-console__input:empty::before {
+  content: attr(data-placeholder);
+  color: var(--text-muted);
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* Mention styling */
+.hub-console__mention {
+  display: inline-block;
+  padding: 0 4px;
+  margin: 0 2px;
+  background: var(--primary);
+  color: #0b1220;
+  border-radius: 3px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+  cursor: default;
+  user-select: none;
+  vertical-align: baseline;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+/* Autocomplete styling */
+.hub-console__autocomplete {
+  display: none;
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 36px;
+  width: 260px; /* Smaller, subtle width */
+  background: var(--panel-strong);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  max-height: 180px; /* Not too tall */
+  overflow-y: auto;
+  z-index: 9999;
+  padding: 4px;
+  backdrop-filter: blur(12px);
+}
+
+.hub-console__autocomplete-item {
+  display: flex;
+  flex-direction: column;
+  padding: 6px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  gap: 2px;
+}
+
+.hub-console__autocomplete-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.hub-console__autocomplete-item.is-selected {
+  background: var(--primary);
+  color: #0b1220;
+}
+
+.hub-console__autocomplete-item.is-selected .hub-console__autocomplete-item-path {
+  color: rgba(0, 0, 0, 0.6);
+}
+
+.hub-console__autocomplete-item-title {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.hub-console__autocomplete-item-path {
+  font-size: 10px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Custom Scrollbar for Console */

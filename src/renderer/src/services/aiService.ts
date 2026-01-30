@@ -752,14 +752,18 @@ export class AIService {
       `Available commands:\n` +
       `- mkdir <name> (create folder)\n` +
       `- touch <title> (create empty note)\n` +
-      `- write "<title>" <content> (create OR overwrite note with content. ALWAYS use quotes for the title).\n` +
-      `- append "<title>" <content> (add content to end of existing note. ALWAYS use quotes for the title).\n` +
-      `Example: "I'll create that research note for you: [RUN: write "Deep Learning" Here is my analysis of...]"\n` +
+      `- read "<title_or_path>" (retrieve full content of any note)\n` +
+      `- write "<title>" <content> (create OR overwrite note with content)\n` +
+      `- append "<title>" <content> (add content to end of existing note)\n` +
+      `- move "<source_path_or_title>" "<dest_folder_path>"\n` +
+      `- rename "<old_path_or_title>" "<new_name>"\n` +
+      `- delete "<path_or_title>" (remove note or folder)\n` +
+      `Example: "I'll read that for you: [RUN: read "Important Note"]" or "Organizing: [RUN: mkdir "Research"] [RUN: move "Deep Learning" "Research"]"\n` +
       `CRITICAL COMMAND RULES:\n` +
-      `1. When the user asks you to write, create, or update a note, YOU MUST use a [RUN: ...] command.\n` +
-      `2. NEVER just output the text as a chat message if the user intended to save it to a note.\n` +
-      `3. If you are updating a note, use "write" (to overwrite) or "append" (to add to the end).\n` +
-      `4. ALWAYS put the title in double quotes: [RUN: write "My Note" content...].\n` +
+      `1. When the user asks you to write, create, move, or rename, YOU MUST use a [RUN: ...] command.\n` +
+      `2. ALWAYS use double quotes for titles or paths if they contain spaces.\n` +
+      `3. You can execute multiple [RUN: ...] commands in one response.\n` +
+      `4. [RUN: ...] tags can span multiple lines (perfect for long note content).\n` +
       `When the user asks who you are, answer accurately as Knowledge Hub AI using ${provider} ${model === 'default-recommended' ? '' : `(${model})`}.`
 
     const messagesForAPI: AIMessage[] = []

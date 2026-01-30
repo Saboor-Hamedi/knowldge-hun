@@ -1,0 +1,138 @@
+.hub-selection-toolbar {
+  position: fixed;
+  background: var(--panel-strong);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  display: flex;
+  flex-direction: column;
+  z-index: 10000;
+  backdrop-filter: blur(12px);
+  overflow: hidden;
+  transition: opacity 0.15s ease, transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  min-width: 180px;
+}
+
+.hub-selection-toolbar.is-hidden {
+  opacity: 0;
+  transform: translateY(10px) scale(0.98);
+  pointer-events: none;
+}
+
+.hub-selection-toolbar__stats {
+  display: flex;
+  gap: 8px;
+  padding: 4px 10px;
+  background: rgba(0, 0, 0, 0.3);
+  font-size: 10px;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  font-family: inherit;
+  letter-spacing: 0.02em;
+}
+
+.hub-selection-toolbar__stats span {
+  font-weight: 500;
+}
+
+.hub-selection-toolbar__main {
+  display: flex;
+  align-items: center;
+  padding: 4px;
+  gap: 2px;
+}
+
+.hub-selection-toolbar__btn {
+  background: transparent;
+  border: none;
+  color: var(--text-strong);
+  width: 28px;
+  height: 28px;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.1s ease;
+  position: relative;
+}
+
+.hub-selection-toolbar__btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--primary);
+}
+
+.hub-selection-toolbar__btn.is-ai {
+  color: #a78bfa;
+}
+
+.hub-selection-toolbar__btn.is-ai:hover {
+  background: rgba(167, 139, 250, 0.15);
+  color: #c4b5fd;
+  box-shadow: 0 0 10px rgba(167, 139, 250, 0.2);
+}
+
+.hub-selection-toolbar__divider {
+  width: 1px;
+  height: 18px;
+  background: var(--border);
+  margin: 0 4px;
+  opacity: 0.6;
+}
+
+.hub-selection-toolbar__dropdown {
+  position: fixed;
+  background: var(--panel-strong);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+  z-index: 10001;
+  padding: 5px;
+  backdrop-filter: blur(16px);
+  min-width: 200px;
+  display: flex;
+  flex-direction: column;
+  animation: hub-dropdown-in 0.15s ease-out;
+}
+
+@keyframes hub-dropdown-in {
+  from { opacity: 0; transform: translateY(-5px) scale(0.95); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.hub-selection-toolbar__dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-strong);
+  transition: background 0.1s ease;
+}
+
+.hub-selection-toolbar__dropdown-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.hub-selection-toolbar__dropdown-item .item-icon {
+  width: 16px;
+  display: flex;
+  justify-content: center;
+  font-size: 14px;
+}
+
+.hub-selection-toolbar.is-loading {
+  pointer-events: none;
+}
+
+.hub-selection-toolbar.is-loading .hub-selection-toolbar__btn.is-ai {
+  animation: hub-ai-pulse 1.5s infinite linear;
+}
+
+@keyframes hub-ai-pulse {
+  0% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.9); }
+  100% { opacity: 1; transform: scale(1); }
+}

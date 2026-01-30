@@ -11,6 +11,10 @@ import { registerWikiLinkProviders } from '../wikilink/wikilink'
 import { PreviewComponent } from '../preview/preview'
 import './editor.css'
 import '../wikilink/wikilink.css'
+import './slash-menu.css'
+import { SlashMenu } from './slash-menu'
+import './selection-toolbar.css'
+import { SelectionToolbar } from './selection-toolbar'
 
 type Monaco = any // Use any to bypass stubborn type resolution in dynamic imports
 
@@ -622,6 +626,12 @@ export class EditorComponent {
         if (this.cachedSettings) {
           this.applySettings(this.cachedSettings)
         }
+
+        // Initialize Slash Menu
+        new SlashMenu(this.editor)
+
+        // Initialize Selection Toolbar
+        new SelectionToolbar(this.editor)
       } finally {
         this.initPromise = null
       }

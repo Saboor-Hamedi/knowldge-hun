@@ -1,7 +1,7 @@
 import './console.css'
 import { codicons } from '../../utils/codicons'
 import type { ChatMessage } from '../../services/aiService'
-import { workspaceAgentService } from '../../services/workspaceAgentService'
+import { agentService } from '../../services/agent/agent-service'
 import { state } from '../../core/state'
 
 export interface Command {
@@ -41,7 +41,7 @@ export interface Command {
 export class ConsoleComponent {
   private container: HTMLElement
   private consoleEl: HTMLElement
-  private inputEl: HTMLInputElement
+  private inputEl: HTMLElement
   private bodyEl: HTMLElement
   private height = 300
   private isDragging = false
@@ -59,6 +59,10 @@ export class ConsoleComponent {
   private vaultUnsubscribe?: () => void
   private aiAbortController: AbortController | null = null
   private chatHistory: ChatMessage[] = []
+  private autocompleteDropdown!: HTMLElement
+  private autocompleteItems: HTMLElement[] = []
+  private selectedAutocompleteIndex = -1
+  private typingTimeout: number | null = null
 
   constructor(containerId: string) {
     this.container = document.getElementById(containerId) as HTMLElement
@@ -66,7 +70,10 @@ export class ConsoleComponent {
     this.consoleEl.className = 'hub-console'
     this.render()
     this.bodyEl = this.consoleEl.querySelector('.hub-console__body') as HTMLElement
-    this.inputEl = this.consoleEl.querySelector('.hub-console__input') as HTMLInputElement
+    this.inputEl = this.consoleEl.querySelector('.hub-console__input') as HTMLElement
+    this.autocompleteDropdown = this.consoleEl.querySelector(
+      '.hub-console__autocomplete'
+    ) as HTMLElement
 
     if (this.container) {
       this.container.appendChild(this.consoleEl)
@@ -159,6 +166,7 @@ export class ConsoleComponent {
       </div>
       <div class="hub-console__body"></div>
       <div class="hub-console__footer">
+        <div class="hub-console__autocomplete" id="hub-console-autocomplete"></div>
         <div class="hub-console__mode-switcher">
           <button class="hub-console__mode-btn ${this.currentMode === 'terminal' ? 'is-active' : ''}" data-mode="terminal" title="Terminal Mode">
             ${codicons.terminal}
@@ -176,7 +184,7 @@ export class ConsoleComponent {
         </div>
         <div class="hub-console__prompt-wrapper">
           <span class="hub-console__prompt">λ</span>
-          <input type="text" class="hub-console__input" placeholder="Type a command..." spellcheck="false" autocomplete="off">
+          <div class="hub-console__input" contenteditable="true" spellcheck="false" data-placeholder="Type a command or @note..."></div>
         </div>
         <div class="hub-console__actions">
           <button class="hub-console__stop-btn" title="Stop generating">
@@ -228,7 +236,8 @@ export class ConsoleComponent {
       void this.initUsername()
     }
 
-    this.inputEl.placeholder = mode === 'ai' ? 'Ask AI anything...' : 'Type a command...'
+    const placeholder = mode === 'ai' ? 'Ask AI anything... @note to mention' : 'Type a command...'
+    this.inputEl.dataset.placeholder = placeholder
     this.inputEl.focus()
   }
 
@@ -280,12 +289,62 @@ export class ConsoleComponent {
     this.bodyEl.scrollTop = this.bodyEl.scrollHeight
   }
 
+  private getPlainText(): string {
+    // Clone but handle mentions specially
+    const clone = this.inputEl.cloneNode(true) as HTMLElement
+    clone.querySelectorAll('.hub-console__mention').forEach((mention) => {
+      const text = mention.textContent || ''
+      mention.replaceWith(document.createTextNode(text))
+    })
+    return clone.textContent || ''
+  }
+
+  private setInputValue(text: string): void {
+    this.inputEl.textContent = text
+    // Move cursor to end
+    const selection = window.getSelection()
+    const range = document.createRange()
+    range.selectNodeContents(this.inputEl)
+    range.collapse(false)
+    selection?.removeAllRanges()
+    selection?.addRange(range)
+  }
+
   private attachEvents(): void {
     this.inputEl.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
+      // Autocomplete keyboard nav
+      if (this.autocompleteDropdown.style.display === 'block') {
+        const count = this.autocompleteItems.length
+        if (e.key === 'ArrowDown') {
+          e.preventDefault()
+          this.selectedAutocompleteIndex = (this.selectedAutocompleteIndex + 1) % count
+          this.updateAutocompleteSelection()
+          return
+        }
+        if (e.key === 'ArrowUp') {
+          e.preventDefault()
+          this.selectedAutocompleteIndex = (this.selectedAutocompleteIndex - 1 + count) % count
+          this.updateAutocompleteSelection()
+          return
+        }
+        if (e.key === 'Enter' || e.key === 'Tab') {
+          if (this.selectedAutocompleteIndex >= 0) {
+            e.preventDefault()
+            this.selectAutocompleteItem()
+            return
+          }
+        }
+        if (e.key === 'Escape') {
+          e.preventDefault()
+          this.hideAutocomplete()
+          return
+        }
+      }
+
+      if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault()
         e.stopPropagation()
-        const value = this.inputEl.value.trim()
+        const value = this.getPlainText().trim()
         if (value) {
           if (this.isBusy) {
             if (this.currentMode === 'ai') {
@@ -301,22 +360,30 @@ export class ConsoleComponent {
           } else {
             void this.execute(value)
           }
-          this.inputEl.value = ''
+          this.inputEl.innerHTML = ''
         }
       } else if (e.key === 'ArrowUp') {
-        e.preventDefault()
-        if (this.historyIndex < this.history.length - 1) {
-          this.historyIndex++
-          this.inputEl.value = this.history[this.history.length - 1 - this.historyIndex]
+        const selection = window.getSelection()
+        // Only trigger history if at the start of input
+        if (selection && selection.anchorOffset === 0) {
+          e.preventDefault()
+          if (this.historyIndex < this.history.length - 1) {
+            this.historyIndex++
+            this.setInputValue(this.history[this.history.length - 1 - this.historyIndex])
+          }
         }
       } else if (e.key === 'ArrowDown') {
-        e.preventDefault()
-        if (this.historyIndex > 0) {
-          this.historyIndex--
-          this.inputEl.value = this.history[this.history.length - 1 - this.historyIndex]
-        } else {
-          this.historyIndex = -1
-          this.inputEl.value = ''
+        const selection = window.getSelection()
+        // Only trigger history if at the end of input
+        if (selection && selection.anchorOffset === (this.inputEl.textContent?.length || 0)) {
+          e.preventDefault()
+          if (this.historyIndex > 0) {
+            this.historyIndex--
+            this.setInputValue(this.history[this.history.length - 1 - this.historyIndex])
+          } else if (this.historyIndex === 0) {
+            this.historyIndex = -1
+            this.inputEl.innerHTML = ''
+          }
         }
       } else if (e.key === 'Tab') {
         e.preventDefault()
@@ -326,6 +393,17 @@ export class ConsoleComponent {
         this.tabMatches = []
         this.tabIndex = -1
       }
+    })
+
+    this.inputEl.addEventListener('input', () => {
+      // Clear any existing timeout
+      if (this.typingTimeout !== null) {
+        clearTimeout(this.typingTimeout)
+      }
+
+      this.typingTimeout = window.setTimeout(() => {
+        this.handleInputTrigger()
+      }, 50)
     })
 
     // Focus input on click anywhere in console (but skip interactive elements)
@@ -453,7 +531,7 @@ export class ConsoleComponent {
   private handleTabCompletion(): void {
     if (this.currentMode !== 'terminal') return
 
-    const value = this.inputEl.value.trim().toLowerCase()
+    const value = this.getPlainText().trim().toLowerCase()
 
     if (this.tabMatches.length === 0) {
       if (!value) return
@@ -469,7 +547,7 @@ export class ConsoleComponent {
       this.tabIndex = (this.tabIndex + 1) % this.tabMatches.length
     }
 
-    this.inputEl.value = this.tabMatches[this.tabIndex]
+    this.setInputValue(this.tabMatches[this.tabIndex])
   }
 
   private toggleMaximize(): void {
@@ -485,18 +563,20 @@ export class ConsoleComponent {
     }
   }
 
-  public async execute(rawLine: string, addToHistory = true): Promise<void> {
+  public async execute(rawLine: string, addToHistory = true, logCommand = true): Promise<void> {
     if (addToHistory) {
       this.history.push(rawLine)
       this.historyIndex = -1
     }
-    this.log(rawLine, 'command')
+    if (logCommand) {
+      this.log(rawLine, 'command')
+    }
 
     const subCommands = rawLine.split('&&').map((s) => s.trim())
 
     this.isBusy = true
-    this.inputEl.disabled = true
-    this.inputEl.placeholder = 'Executing...'
+    this.inputEl.setAttribute('contenteditable', 'false')
+    this.inputEl.dataset.placeholder = 'Executing...'
 
     try {
       for (const sub of subCommands) {
@@ -536,8 +616,9 @@ export class ConsoleComponent {
       this.log(`Command failed: ${(err as Error).message}`, 'error')
     } finally {
       this.isBusy = false
-      this.inputEl.disabled = false
-      this.inputEl.placeholder = 'Type a command...'
+      this.inputEl.setAttribute('contenteditable', 'true')
+      this.inputEl.dataset.placeholder =
+        this.currentMode === 'ai' ? 'Ask AI anything... @note to mention' : 'Type a command...'
       this.inputEl.focus()
     }
   }
@@ -586,7 +667,7 @@ export class ConsoleComponent {
 
           // We display the text without [RUN: ...] tags but keep other formatting
           // Also hide partial tags during streaming
-          const visibleText = fullText.replace(/\[RUN:[^\]]*(\]|(?=$))/g, '').trim()
+          const visibleText = fullText.replace(/\[RUN:[\s\S]*?(\]|(?=$))/g, '')
           outputLine.textContent = visibleText
 
           this.bodyEl.scrollTop = this.bodyEl.scrollHeight
@@ -602,20 +683,25 @@ export class ConsoleComponent {
         actionArea.className = 'hub-console__ai-actions'
 
         // 2. Identify and handle [RUN: ...] commands
-        const runMatches = Array.from(fullText.matchAll(/\[RUN:\s*(.+?)\]/g))
+        const runMatches = Array.from(fullText.matchAll(/\[RUN:\s*([\s\S]+?)\]/g))
         const commandsToRun: string[] = []
 
         runMatches.forEach((match) => {
           const cmdString = match[1].trim()
 
-          // AUTO-EXECUTION: Always run "writing" commands propose by AI for the vault
+          // AUTO-EXECUTION: Commands that AI can run automatically to be agentic
           const isSafeAutoCmd =
             cmdString.startsWith('mkdir') ||
             cmdString.startsWith('touch') ||
             cmdString.startsWith('write') ||
-            cmdString.startsWith('append')
+            cmdString.startsWith('append') ||
+            cmdString.startsWith('move') ||
+            cmdString.startsWith('rename') ||
+            cmdString.startsWith('delete') ||
+            cmdString.startsWith('rm') ||
+            cmdString.startsWith('read')
 
-          // If it's a safe command proposed by AI, we auto-execute it to be agentic
+          // If it's an agentic command proposed by AI, we auto-execute it
           if (isSafeAutoCmd) {
             commandsToRun.push(cmdString)
           } else {
@@ -634,9 +720,27 @@ export class ConsoleComponent {
 
         // Execute auto-run commands
         if (commandsToRun.length > 0) {
-          this.log(`Auto-executing: ${commandsToRun.join(' && ')}`, 'system')
+          // Log a minimal system message instead of the full command
+          this.log(`Agent executing ${commandsToRun.length} action(s)...`, 'system')
+
+          const containsRead = commandsToRun.some((c) => c.startsWith('read'))
+
           // Wait for auto-commands so isBusy stays true during execution
-          await this.execute(commandsToRun.join(' && '), false)
+          // Pass logCommand = false to avoid printing technical command details to the user
+          await this.execute(commandsToRun.join(' && '), false, false)
+
+          // If the agent requested a read, we should automatically continue the conversation
+          // so it can act on the information it just retrieved.
+          if (containsRead && !this.aiAbortController?.signal.aborted) {
+            this.log('Agent processing retrieved information...', 'system')
+            // Delay slightly to ensure UI is updated
+            setTimeout(() => {
+              void this.handleAIRequest(
+                "(Hidden Context: I have retrieved the note content as you requested above. Please proceed with the user's original task using this information.)"
+              )
+            }, 500)
+            return // Prevent duplicate history updates etc below for this turn
+          }
         }
 
         // 3. NEW: Insert at Cursor button (Replaces standard insert)
@@ -660,7 +764,7 @@ export class ConsoleComponent {
         archiveBtn.title = 'Create a new note with this response'
         archiveBtn.innerHTML = `${codicons.file || '📄'} Archive to New Note`
         archiveBtn.addEventListener('click', async () => {
-          const noteId = await workspaceAgentService.archiveResponse(fullText, input)
+          const noteId = await agentService.archiveResponse(fullText, input)
           this.log(`Archived to new note.`, 'system')
           // Open the note via custom event
           const note = state.notes.find((n) => n.id === noteId)
@@ -680,7 +784,7 @@ export class ConsoleComponent {
         }
 
         // Final text update to ensure clean look
-        const finalText = fullText.replace(/\[RUN:\s*(.+?)\]/g, '').trim()
+        const finalText = fullText.replace(/\[RUN:[\s\S]*?\]/g, '').trim()
         outputLine.textContent = finalText
 
         // Update History
@@ -701,6 +805,171 @@ export class ConsoleComponent {
       this.isBusy = false
       this.aiAbortController = null
       if (stopBtn) stopBtn.style.display = 'none'
+      this.inputEl.focus()
     }
+  }
+
+  private handleInputTrigger(): void {
+    const selection = window.getSelection()
+    if (!selection || selection.rangeCount === 0) {
+      this.hideAutocomplete()
+      return
+    }
+
+    const range = selection.getRangeAt(0)
+    const rangeClone = range.cloneRange()
+    rangeClone.selectNodeContents(this.inputEl)
+    rangeClone.setEnd(range.endContainer, range.endOffset)
+    const textBeforeCursor = rangeClone.toString()
+
+    const lastAtIndex = textBeforeCursor.lastIndexOf('@')
+    if (lastAtIndex === -1) {
+      this.hideAutocomplete()
+      return
+    }
+
+    // Check if @ is preceded by space or is at start
+    if (lastAtIndex > 0) {
+      const charBefore = textBeforeCursor[lastAtIndex - 1]
+      if (!/[\s\n]/.test(charBefore)) {
+        this.hideAutocomplete()
+        return
+      }
+    }
+
+    const afterAt = textBeforeCursor.substring(lastAtIndex + 1)
+    if (afterAt.match(/[\s\n]/)) {
+      this.hideAutocomplete()
+      return
+    }
+
+    const query = afterAt.toLowerCase().trim()
+    this.showAutocomplete(lastAtIndex, query, range)
+  }
+
+  private showAutocomplete(atIndex: number, query: string, range: Range): void {
+    const items = state.notes
+      .filter((note) => {
+        if (note.type !== 'note') return false
+        const title = (note.title || note.id).toLowerCase()
+        return title.includes(query) || (note.path && note.path.toLowerCase().includes(query))
+      })
+      .slice(0, 10) // Show more suggestions
+
+    if (items.length === 0) {
+      this.hideAutocomplete()
+      return
+    }
+
+    this.autocompleteItems = []
+    this.selectedAutocompleteIndex = 0
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(this.autocompleteDropdown as any).__context = { atIndex, range, query }
+
+    const html = items
+      .map(
+        (note, index) => `
+      <div class="hub-console__autocomplete-item ${index === 0 ? 'is-selected' : ''}" data-index="${index}" data-note-title="${note.title}">
+        <div class="hub-console__autocomplete-item-title">${this.escapeHtml(note.title)}</div>
+        <div class="hub-console__autocomplete-item-path">${this.escapeHtml(note.path || '')}</div>
+      </div>
+    `
+      )
+      .join('')
+
+    this.autocompleteDropdown.innerHTML = html
+    this.autocompleteDropdown.style.display = 'block'
+    this.autocompleteItems = Array.from(
+      this.autocompleteDropdown.querySelectorAll('.hub-console__autocomplete-item')
+    ) as HTMLElement[]
+
+    this.autocompleteItems.forEach((item, index) => {
+      item.addEventListener('click', () => {
+        this.selectedAutocompleteIndex = index
+        this.selectAutocompleteItem()
+      })
+    })
+  }
+
+  private hideAutocomplete(): void {
+    this.autocompleteDropdown.style.display = 'none'
+    this.selectedAutocompleteIndex = -1
+  }
+
+  private updateAutocompleteSelection(): void {
+    this.autocompleteItems.forEach((item, index) => {
+      item.classList.toggle('is-selected', index === this.selectedAutocompleteIndex)
+      if (index === this.selectedAutocompleteIndex) {
+        item.scrollIntoView({ block: 'nearest' })
+      }
+    })
+  }
+
+  private selectAutocompleteItem(): void {
+    const item = this.autocompleteItems[this.selectedAutocompleteIndex]
+    if (!item) return
+
+    const context = (this.autocompleteDropdown as any).__context
+    if (!context) return
+
+    const noteTitle = item.dataset.noteTitle || ''
+    const { atIndex } = context
+
+    // Replace @query with mention span
+    const selection = window.getSelection()
+    if (!selection) return
+
+    // Find the text node containing the @
+    const walker = document.createTreeWalker(this.inputEl, NodeFilter.SHOW_TEXT)
+    let currentPos = 0
+    let targetNode: Text | null = null
+    while (walker.nextNode()) {
+      const node = walker.currentNode as Text
+      const len = node.textContent?.length || 0
+      if (currentPos <= atIndex && atIndex < currentPos + len) {
+        targetNode = node
+        break
+      }
+      currentPos += len
+    }
+
+    if (targetNode) {
+      const offsetInNode = atIndex - currentPos
+      const text = targetNode.textContent || ''
+      const beforeStr = text.substring(0, offsetInNode)
+      const afterStr = text.substring(offsetInNode + 1 + context.query.length)
+
+      const mentionSpan = document.createElement('span')
+      mentionSpan.className = 'hub-console__mention'
+      mentionSpan.textContent = `@${noteTitle}`
+      mentionSpan.contentEditable = 'false'
+
+      const parent = targetNode.parentNode
+      if (parent) {
+        // Insert a space after the mention for easy continued typing
+        const afterNode = document.createTextNode(' ' + afterStr)
+        const beforeNode = document.createTextNode(beforeStr)
+
+        parent.insertBefore(beforeNode, targetNode)
+        parent.insertBefore(mentionSpan, targetNode)
+        parent.insertBefore(afterNode, targetNode)
+        parent.removeChild(targetNode)
+
+        // Move cursor after the space
+        const newRange = document.createRange()
+        newRange.setStart(afterNode, 1)
+        newRange.setEnd(afterNode, 1)
+        selection.removeAllRanges()
+        selection.addRange(newRange)
+      }
+    }
+
+    this.hideAutocomplete()
+  }
+
+  private escapeHtml(str: string): string {
+    const div = document.createElement('div')
+    div.textContent = str
+    return div.innerHTML
   }
 }

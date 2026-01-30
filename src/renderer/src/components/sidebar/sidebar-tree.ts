@@ -1664,4 +1664,13 @@ export class SidebarTree {
   private getDefaultParentPath(): string | undefined {
     return this.selectedFolderPath || undefined
   }
+
+  /**
+   * Find a path from a title (useful for manual commands)
+   */
+  public getItemPathByTitle(title: string): string | undefined {
+    const q = title.toLowerCase().trim()
+    const item = state.notes.find((n) => n.title.toLowerCase() === q)
+    return item?.path
+  }
 }
