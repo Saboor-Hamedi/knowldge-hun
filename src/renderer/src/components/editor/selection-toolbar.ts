@@ -1,18 +1,19 @@
-import type * as monacoType from 'monaco-editor'
 import { aiService } from '../../services/aiService'
 
 export interface ToolbarAction {
   id: string
   icon: string
   label: string
-  apply: (editor: monacoType.editor.IStandaloneCodeEditor) => void | Promise<void>
+  apply: (editor: any) => void | Promise<void>
+  s?: string
 }
 
 export class SelectionToolbar {
-  private editor: monacoType.editor.IStandaloneCodeEditor
+  private editor: any
   private toolbarEl: HTMLElement | null = null
   private statsEl: HTMLElement | null = null
   private dropdownEl: HTMLElement | null = null
+  private dropdownIndex = -1
   private isVisible = false
   private isProcessing = false
 
@@ -37,7 +38,33 @@ export class SelectionToolbar {
     })
 
     this.editor.onKeyDown((e) => {
+      if (this.dropdownEl) {
+        if (e.keyCode === 18 /* ArrowDown */) {
+          this.navigateDropdown(1)
+          e.preventDefault()
+          e.stopPropagation()
+          return
+        }
+        if (e.keyCode === 16 /* ArrowUp */) {
+          this.navigateDropdown(-1)
+          e.preventDefault()
+          e.stopPropagation()
+          return
+        }
+        if (e.keyCode === 3 /* Enter */) {
+          const active = this.dropdownEl.querySelector('.is-hovered') as HTMLElement
+          if (active) active.click()
+          return
+        }
+      }
+
       // Escape or any key except modifiers should hide it
+      if (e.keyCode === 1 /* Escape */) {
+        this.hide()
+        this.closeDropdown()
+        return
+      }
+
       if (!e.ctrlKey && !e.metaKey && !e.altKey && !this.isProcessing) {
         this.hide()
         this.closeDropdown()
@@ -95,6 +122,7 @@ export class SelectionToolbar {
   private hide(): void {
     if (!this.isVisible) return
     this.isVisible = false
+    this.closeDropdown() // Always close dropdown on hide
     if (this.toolbarEl) {
       this.toolbarEl.classList.add('is-hidden')
       setTimeout(() => {
@@ -195,22 +223,19 @@ export class SelectionToolbar {
     container.appendChild(div)
   }
 
-  private toggleWrap(editor: monacoType.editor.IStandaloneCodeEditor, sym: string): void {
+  private toggleWrap(editor: any, sym: string, endSym?: string): void {
+    const activeEnd = endSym || sym
     const sel = editor.getSelection()
     const mod = editor.getModel()
     if (!sel || !mod) return
     const txt = mod.getValueInRange(sel)
-    const active = txt.startsWith(sym) && txt.endsWith(sym)
-    const newTxt = active ? txt.slice(sym.length, -sym.length) : `${sym}${txt}${sym}`
+    const active = txt.startsWith(sym) && txt.endsWith(activeEnd)
+    const newTxt = active ? txt.slice(sym.length, -activeEnd.length) : `${sym}${txt}${activeEnd}`
     editor.executeEdits('toolbar', [{ range: sel, text: newTxt, forceMoveMarkers: true }])
     this.hide()
   }
 
-  private wrapWith(
-    editor: monacoType.editor.IStandaloneCodeEditor,
-    pre: string,
-    suf: string
-  ): void {
+  private wrapWith(editor: any, pre: string, suf: string): void {
     const sel = editor.getSelection()
     const mod = editor.getModel()
     if (!sel || !mod) return
@@ -221,7 +246,7 @@ export class SelectionToolbar {
     this.hide()
   }
 
-  private async handleAI(prompt: string): Promise<void> {
+  private async handleAI(prompt: string, mode: 'replace' | 'explain' = 'replace'): Promise<void> {
     const sel = this.editor.getSelection()
     const mod = this.editor.getModel()
     if (!sel || !mod) return
@@ -234,12 +259,31 @@ export class SelectionToolbar {
     if (this.statsEl) this.statsEl.textContent = 'Assistant is working...'
 
     try {
-      const fullPrompt = `${prompt}\n\nCONTENT:\n"${text}"\n\nReturn EXACTLY the improved text only.`
-      const res = await aiService.callDeepSeekAPI([], fullPrompt)
-      if (res && res.trim()) {
-        this.editor.executeEdits('ai-toolbar', [
-          { range: sel, text: res.trim(), forceMoveMarkers: true }
-        ])
+      if (mode === 'explain') {
+        window.dispatchEvent(new CustomEvent('hub-ai-explain', { detail: { text, prompt } }))
+        await new Promise((r) => setTimeout(r, 1200))
+      } else {
+        const fullPrompt = `${prompt}\n\nCONTENT:\n"${text}"\n\nReturn EXACTLY the improved text only. Preserve original paragraphing, do NOT add extra newlines.`
+        const res = await aiService.callDeepSeekAPI([], fullPrompt)
+
+        if (res) {
+          // Careful replacement: avoid destroying trailing spaces if not wanted
+          // but usually AI adds a trailing \n. Let's be smart.
+          let cleaned = res.trim()
+
+          // If the original selection ended with a newline, keep it!
+          if (text.endsWith('\n') && !cleaned.endsWith('\n')) {
+            cleaned += '\n'
+          }
+          // If the original selection started with a newline, keep it!
+          if (text.startsWith('\n') && !cleaned.startsWith('\n')) {
+            cleaned = '\n' + cleaned
+          }
+
+          this.editor.executeEdits('ai-toolbar', [
+            { range: sel, text: cleaned, forceMoveMarkers: true }
+          ])
+        }
       }
     } catch (e) {
       console.error('[AI] Fail:', e)
@@ -270,6 +314,7 @@ export class SelectionToolbar {
     this.dropdownEl = document.createElement('div')
     this.dropdownEl.className = 'hub-selection-toolbar__dropdown'
     this.dropdownEl.dataset.type = type
+    this.dropdownIndex = -1
 
     const items =
       type === 'ai'
@@ -277,46 +322,78 @@ export class SelectionToolbar {
             {
               l: 'Fix Grammar & Spelling',
               i: '🛡️',
+              s: 'AI',
               a: () =>
                 this.handleAI(
                   'Review and fix all grammar, punctuation, and spelling errors in the following text.'
                 )
             },
             {
-              l: 'Summarize Selection',
+              l: 'Summarize',
               i: '📝',
+              s: 'AI',
               a: () => this.handleAI('Provide a concise summary of this text.')
             },
             {
               l: 'Professional Tone',
               i: '👔',
+              s: 'AI',
               a: () => this.handleAI('Rewrite this text to sound more professional and polished.')
+            },
+            {
+              l: 'Humanize text',
+              i: '🌿',
+              s: 'AI',
+              a: () =>
+                this.handleAI(
+                  'Rewrite this text to sound more natural, human-like, and conversational.'
+                )
+            },
+            {
+              l: 'Casual Tone',
+              i: '👋',
+              s: 'AI',
+              a: () => this.handleAI('Rewrite this text in a friendly, casual, and informal tone.')
+            },
+            {
+              l: 'Make it longer',
+              i: '➕',
+              s: 'AI',
+              a: () =>
+                this.handleAI(
+                  'Expand on this text, adding more detail and depth while maintaining the core meaning.'
+                )
+            },
+            {
+              l: 'Make it shorter',
+              i: '➖',
+              s: 'AI',
+              a: () => this.handleAI('Make this text significantly more concise and brief.')
             },
             {
               l: 'Explain Context',
               i: '💡',
-              a: () => {
-                const text = this.editor.getModel()?.getValueInRange(this.editor.getSelection()!)
-                window.dispatchEvent(new CustomEvent('hub-ai-explain', { detail: { text } }))
-                this.hide()
-              }
+              s: 'AI',
+              a: () => this.handleAI('Explain the following context in detail.', 'explain')
             }
           ]
         : [
             {
               l: 'Copy text',
               i: '📋',
+              s: 'Ctrl+C',
               a: () => {
                 const t = this.editor.getModel()?.getValueInRange(this.editor.getSelection()!)
                 if (t) navigator.clipboard.writeText(t)
                 this.hide()
               }
             },
-            { l: 'WikiLink', i: '🔗', a: () => this.toggleWrap(this.editor, '[[') },
-            { l: 'Strikethrough', i: '~~', a: () => this.toggleWrap(this.editor, '~~') },
+            { l: 'WikiLink', i: '🔗', s: '[[', a: () => this.toggleWrap(this.editor, '[[', ']]') },
+            { l: 'Strikethrough', i: '~~', s: '~~', a: () => this.toggleWrap(this.editor, '~~') },
             {
               l: 'Quote',
               i: '“',
+              s: '> ',
               a: () => {
                 const sel = this.editor.getSelection()!
                 const val = this.editor.getModel()!.getValueInRange(sel)
@@ -329,6 +406,7 @@ export class SelectionToolbar {
             {
               l: 'Toggle Case',
               i: 'Aa',
+              s: 'UP/lo',
               a: () => {
                 const sel = this.editor.getSelection()!
                 const val = this.editor.getModel()!.getValueInRange(sel)
@@ -348,7 +426,19 @@ export class SelectionToolbar {
     items.forEach((item) => {
       const el = document.createElement('div')
       el.className = 'hub-selection-toolbar__dropdown-item'
-      el.innerHTML = `<span class="item-icon">${item.i}</span><span class="item-label">${item.l}</span>`
+
+      const content = document.createElement('div')
+      content.className = 'item-content'
+      content.innerHTML = `<span class="item-icon">${item.i}</span><span class="item-label">${item.l}</span>`
+      el.appendChild(content)
+
+      if (item.s) {
+        const shortcut = document.createElement('span')
+        shortcut.className = 'item-shortcut'
+        shortcut.textContent = item.s
+        el.appendChild(shortcut)
+      }
+
       el.onclick = (e) => {
         e.stopPropagation()
         item.a()
@@ -360,16 +450,30 @@ export class SelectionToolbar {
     this.positionDropdown()
   }
 
+  private navigateDropdown(dir: number): void {
+    if (!this.dropdownEl) return
+    const items = Array.from(
+      this.dropdownEl.querySelectorAll('.hub-selection-toolbar__dropdown-item')
+    )
+    if (items.length === 0) return
+
+    items.forEach((i) => i.classList.remove('is-hovered'))
+    this.dropdownIndex += dir
+    if (this.dropdownIndex < 0) this.dropdownIndex = items.length - 1
+    if (this.dropdownIndex >= items.length) this.dropdownIndex = 0
+
+    const target = items[this.dropdownIndex] as HTMLElement
+    target.classList.add('is-hovered')
+    target.scrollIntoView({ block: 'nearest' })
+  }
+
   private positionDropdown(): void {
     if (!this.dropdownEl || !this.toolbarEl) return
     const rect = this.toolbarEl.getBoundingClientRect()
-    this.dropdownEl.style.top = `${rect.bottom + 6}px`
-    this.dropdownEl.style.left = `${rect.left}px`
 
-    const dropRect = this.dropdownEl.getBoundingClientRect()
-    if (dropRect.right > window.innerWidth) {
-      this.dropdownEl.style.left = `${window.innerWidth - dropRect.width - 15}px`
-    }
+    // Position vertically below with 5px gap as requested
+    this.dropdownEl.style.top = `${rect.bottom + 5}px`
+    this.dropdownEl.style.left = `${rect.left}px`
   }
 
   private updateStats(): void {
@@ -388,9 +492,11 @@ export class SelectionToolbar {
     const sel = this.editor.getSelection()
     if (!sel) return
 
-    const midCol = Math.floor((sel.startColumn + sel.endColumn) / 2)
-    const midPos = { lineNumber: sel.startLineNumber, column: midCol }
-    const pos = this.editor.getScrolledVisiblePosition(midPos)
+    const cur = this.editor.getPosition()
+    if (!cur) return
+
+    // We use the cursor's actual line and current visual column for "right at cursor" feel
+    const pos = this.editor.getScrolledVisiblePosition(cur)
     const domNode = this.editor.getDomNode()
     if (!pos || !domNode) return
 
@@ -398,8 +504,25 @@ export class SelectionToolbar {
     const tw = this.toolbarEl.offsetWidth || 180
     const th = this.toolbarEl.offsetHeight || 32
 
+    // Positioning: Center over the cursor's actual visual position
+    // This makes it feel "attached" to the cursor/caret as requested.
     let top = rect.top + pos.top - th - 12
     let left = rect.left + pos.left - tw / 2
+
+    // If it's more than a couple lines, follow the cursor exactly.
+    // This addresses "must be right in my cursor" for paragraphs.
+    if (sel.endLineNumber - sel.startLineNumber > 2) {
+      top = rect.top + pos.top - th - 12
+    } else {
+      // Small selections: stay near the top edge for visibility
+      const selTopPos = this.editor.getScrolledVisiblePosition({
+        lineNumber: sel.startLineNumber,
+        column: sel.startColumn
+      })
+      if (selTopPos) {
+        top = rect.top + selTopPos.top - th - 12
+      }
+    }
 
     // Flip to bottom if no space at top
     if (top < rect.top + 10) {

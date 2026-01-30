@@ -513,6 +513,16 @@ export class ConsoleComponent {
       window.addEventListener('mousemove', onMouseMove)
       window.addEventListener('mouseup', onMouseUp)
     })
+
+    // AI Selection Bridge
+    window.addEventListener('hub-ai-explain', (e: any) => {
+      const { text, prompt } = e.detail
+      if (!this.isVisible) this.setVisible(true)
+      this.setMode('ai')
+      this.handleAIRequest(
+        `[Explain Selection]\n\nContext Content:\n"${text}"\n\nQuestion: ${prompt || 'Explain this context in detail.'}`
+      )
+    })
   }
 
   private updateHeight(): void {
