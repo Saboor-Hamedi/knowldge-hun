@@ -660,10 +660,11 @@ class App {
       keyboardManager.register({ key, scope: 'global', description: desc, handler })
     }
 
-    reg('Alt+g', 'Open Knowledge Graph', () => {
-      // If graph tab is active, do nothing
-      if (state.activeId === 'graph') return
+    reg('Alt+g', 'Open Graph Modal', () => {
       this.graphView.open()
+    })
+    reg('Control+Shift+g', 'Open Graph Tab', () => {
+      void this.viewOrchestrator.openGraph()
     })
     reg('Alt+l', 'Lock Application', () => void securityService.promptAndLock())
     reg('Control+f', 'Find in note', () => {

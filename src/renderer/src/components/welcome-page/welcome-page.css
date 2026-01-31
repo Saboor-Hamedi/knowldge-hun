@@ -167,7 +167,7 @@
   background: rgba(127, 167, 255, 0.1);
   border-color: var(--accent-primary);
   /* Removed border-left style to keep card shape */
-  border-left-width: 1px; 
+  border-left-width: 1px;
   box-shadow: 0 0 0 1px var(--accent-primary);
 }
 
@@ -229,7 +229,6 @@
   padding: 0 8px;
 }
 
-
 .recent-item__status-dot {
   width: 8px;
   height: 8px;
@@ -249,7 +248,7 @@
   background: var(--bg-secondary);
   color: var(--text-secondary);
   transition: all 0.2s ease;
-  width: 24px;  /* Make them square-ish */
+  width: 24px; /* Make them square-ish */
   height: 24px;
   display: flex;
   align-items: center;
@@ -312,7 +311,6 @@
   width: 100%;
 }
 
-
 /* Top right action button */
 .welcome-top-action {
   position: absolute;
@@ -350,7 +348,6 @@
   width: 14px;
   height: 14px;
 }
-
 
 .start-btn__content {
   display: flex;

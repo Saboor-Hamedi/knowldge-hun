@@ -17,8 +17,14 @@
 }
 
 @keyframes slash-menu-fade-in {
-  from { opacity: 0; transform: translateY(-4px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .hub-slash-menu__item {
@@ -28,7 +34,9 @@
   padding: 8px 12px;
   border-radius: 6px;
   cursor: pointer;
-  transition: background 0.15s ease, transform 0.1s ease;
+  transition:
+    background 0.15s ease,
+    transform 0.1s ease;
   user-select: none;
 }
 

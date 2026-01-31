@@ -113,7 +113,7 @@ export function getNodeColor(
 /**
  * Get node radius based on connection count
  */
-export function getNodeRadius(node: GraphNode, minRadius = 4, maxRadius = 20): number {
+export function getNodeRadius(node: GraphNode, minRadius = 7, maxRadius = 32): number {
   const connections = node.connectionCount
   if (connections === 0) return minRadius
   // Log scale for better distribution

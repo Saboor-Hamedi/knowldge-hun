@@ -19,8 +19,7 @@
   --text-strong: #ffffff;
 }
 
-.theme-3d-spatial .graph-svg,
-.theme-3d-spatial .graph-minimap__svg {
+.theme-3d-spatial .graph-svg {
   background-color: #0b0c10;
   background-image:
     radial-gradient(circle at 50% 50%, rgba(138, 180, 248, 0.05) 0%, transparent 80%),
@@ -82,8 +81,7 @@
   --text-strong: #ffffff;
 }
 
-.theme-3d-ocean .graph-svg,
-.theme-3d-ocean .graph-minimap__svg {
+.theme-3d-ocean .graph-svg {
   background-color: #010409;
   background-image:
     radial-gradient(circle at 100% 0%, rgba(76, 201, 240, 0.03) 0%, transparent 50%),
@@ -131,8 +129,7 @@
   font-family: 'JetBrains Mono', 'Fira Code', monospace;
 }
 
-.theme-3d-grid .graph-svg,
-.theme-3d-grid .graph-minimap__svg {
+.theme-3d-grid .graph-svg {
   background-color: #000000;
   background-image:
     linear-gradient(rgba(0, 128, 255, 0.05) 1px, transparent 1px),
@@ -174,8 +171,7 @@
   --text-strong: #ffffff;
 }
 
-.theme-3d-moon .graph-svg,
-.theme-3d-moon .graph-minimap__svg {
+.theme-3d-moon .graph-svg {
   background-color: #02040a;
   background-image:
     radial-gradient(circle at 50% 50%, rgba(125, 211, 252, 0.03) 0%, transparent 80%),
@@ -240,8 +236,7 @@
   --text-strong: #ffffff;
 }
 
-.theme-3d-hologram .graph-svg,
-.theme-3d-hologram .graph-minimap__svg {
+.theme-3d-hologram .graph-svg {
   background-color: #050b16;
   background-image:
     radial-gradient(circle at center, rgba(0, 210, 255, 0.05) 0%, transparent 70%),
@@ -288,8 +283,7 @@
   --text-strong: #ffffff;
 }
 
-.theme-3d-nexus .graph-svg,
-.theme-3d-nexus .graph-minimap__svg {
+.theme-3d-nexus .graph-svg {
   background-color: #030712;
   /* Small, tight grids */
   background-image:

@@ -16,6 +16,7 @@
   /* Fallback selection and hover colors to prevent reddish browser defaults */
   --selection: #569cd640;
   --hover: #7fa7ff1f;
+  --bg-hover: rgba(127, 167, 255, 0.12);
   --border-subtle: rgba(255, 255, 255, 0.05);
   --text-muted: #9da5b4;
 }

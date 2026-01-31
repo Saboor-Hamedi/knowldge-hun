@@ -58,6 +58,7 @@ export class GraphToolbar {
   private showLabels = true
   private availableTags: string[] = []
   private availableFolders: string[] = []
+  private activeTheme = 'default'
 
   private searchInput!: HTMLInputElement
   private tagsDropdown!: HTMLElement
@@ -80,6 +81,11 @@ export class GraphToolbar {
   public setAvailableFolders(folders: string[]): void {
     this.availableFolders = folders.sort()
     this.updateFoldersDropdown()
+  }
+
+  public setActiveTheme(theme: string): void {
+    this.activeTheme = theme
+    this.updateThemesDropdown()
   }
 
   public setStats(nodes: number, links: number, orphans: number = 0): void {
@@ -127,7 +133,7 @@ export class GraphToolbar {
         <!-- left section: Search & Filters -->
         <div class="graph-toolbar__group">
           <div class="graph-toolbar__search">
-            <div class="graph-toolbar__search-icon">${this.createIcon(Search, 10)}</div>
+            <div class="graph-toolbar__search-icon">${this.createIcon(Search, 11)}</div>
             <input type="text" class="graph-toolbar__search-input" placeholder="Search notes..." />
             <button class="graph-toolbar__search-clear" title="Clear search">
               ${this.createIcon(X, 11)}
@@ -212,18 +218,7 @@ export class GraphToolbar {
             <button class="graph-toolbar__btn" data-tool="themes" title="Graph Themes">
               ${this.createIcon(Palette, 13)}
             </button>
-            <div class="graph-toolbar__dropdown graph-toolbar__themes-dropdown">
-               <div class="graph-toolbar__dropdown-header">Select Theme</div>
-               <div class="graph-toolbar__dropdown-list">
-                  <button class="graph-toolbar__dropdown-item" data-theme="default">Default</button>
-                  <button class="graph-toolbar__dropdown-item" data-theme="spatial">Spatial</button>
-                  <button class="graph-toolbar__dropdown-item" data-theme="ocean">Ocean</button>
-                  <button class="graph-toolbar__dropdown-item" data-theme="grid">Grid</button>
-                  <button class="graph-toolbar__dropdown-item" data-theme="moon">Moonlight</button>
-                  <button class="graph-toolbar__dropdown-item" data-theme="hologram">Hologram</button>
-                  <button class="graph-toolbar__dropdown-item" data-theme="nexus">Nexus</button>
-               </div>
-            </div>
+            <div class="graph-toolbar__dropdown graph-toolbar__themes-dropdown"></div>
           </div>
 
           <div class="graph-toolbar__filter-group">
@@ -258,6 +253,7 @@ export class GraphToolbar {
     `
 
     this.initReferences()
+    this.updateThemesDropdown()
     this.attachEvents()
   }
 
@@ -350,14 +346,7 @@ export class GraphToolbar {
       })
     })
 
-    // Theme Selection
-    this.container.querySelectorAll('[data-theme]').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const theme = (btn as HTMLElement).dataset.theme!
-        this.options.onThemeChange(theme)
-        this.closeAllDropdowns()
-      })
-    })
+    // Theme Selection (handled via delegated listener on dropdown update)
 
     // Export Selection
     this.container.querySelectorAll('[data-export]').forEach((btn) => {
@@ -476,6 +465,48 @@ export class GraphToolbar {
       </div>
     `
     this.attachDropdownListeners(this.foldersDropdown, 'selectedFolders')
+  }
+
+  private updateThemesDropdown(): void {
+    const dropdown = this.container.querySelector('.graph-toolbar__themes-dropdown') as HTMLElement
+    if (!dropdown) return
+
+    const themes = [
+      { id: 'default', label: 'Default' },
+      { id: 'spatial', label: 'Spatial' },
+      { id: 'ocean', label: 'Ocean' },
+      { id: 'grid', label: 'Grid' },
+      { id: 'moon', label: 'Moonlight' },
+      { id: 'hologram', label: 'Hologram' },
+      { id: 'nexus', label: 'Nexus' }
+    ]
+
+    dropdown.innerHTML = `
+      <div class="graph-toolbar__dropdown-header">Select Theme</div>
+      <div class="graph-toolbar__dropdown-list">
+        ${themes
+          .map(
+            (t) => `
+          <button class="graph-toolbar__dropdown-item ${t.id === this.activeTheme ? 'is-selected' : ''}" 
+                  data-theme="${t.id}">
+            ${t.label}
+          </button>
+        `
+          )
+          .join('')}
+      </div>
+    `
+
+    // Re-attach listeners
+    dropdown.querySelectorAll('[data-theme]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const theme = (btn as HTMLElement).dataset.theme!
+        this.activeTheme = theme
+        this.options.onThemeChange(theme)
+        this.updateThemesDropdown() // Refresh UI for selected mark
+        this.closeAllDropdowns()
+      })
+    })
   }
 
   private attachDropdownListeners(

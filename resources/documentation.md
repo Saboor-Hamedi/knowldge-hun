@@ -495,7 +495,8 @@ alice@CodeDocs λ
 
 | Action                     | Shortcut            |
 | :------------------------- | :------------------ |
-| **Knowledge Graph**        | `Alt + G`           |
+| **Knowledge Graph Modal**  | `Alt + G`           |
+| **Knowledge Graph Tab**    | `Ctrl + Shift + G`  |
 | **Toggle AI Chat Sidebar** | `Ctrl + I`          |
 | **Search Graph**           | `/` (in Graph view) |
 | **Reset Graph Camera**     | `R` (in Graph view) |
@@ -626,6 +627,8 @@ When a master password is set, KnowledgeHub activates a high-performance, hardwa
 - ✅ Master Password Encryption (SHA-256)
 - ✅ RAG-powered AI chat
 - ✅ Vector database integration
+- ✅ Advanced Knowledge Graph (Tab & Modal views)
+- ✅ Graph Search & Filtering
 - ✅ Command queuing and history
 - ✅ Dynamic prompt with vault name
 
@@ -639,4 +642,4 @@ When a master password is set, KnowledgeHub activates a high-performance, hardwa
 ---
 
 _KnowledgeHub v0.1.5 • Built for Code and Research_
-_Documentation last updated: 2026-01-26_
+_Documentation last updated: 2026-01-31_

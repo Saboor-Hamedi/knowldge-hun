@@ -71,6 +71,11 @@
   pointer-events: none;
 }
 
+.graph-toolbar__search-icon svg {
+  width: 11px;
+  height: 11px;
+}
+
 .graph-toolbar__search-input {
   background: transparent;
   border: none;
@@ -98,6 +103,11 @@
   justify-content: center;
   opacity: 0.6;
   transition: all 0.2s;
+}
+
+.graph-toolbar__search-clear svg {
+  width: 11px;
+  height: 11px;
 }
 
 .graph-toolbar__search-clear:hover {
@@ -189,8 +199,14 @@
 }
 
 @keyframes dropdownIn {
-  from { opacity: 0; transform: translateY(-10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .graph-toolbar__dropdown-header {
@@ -213,24 +229,41 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 10px;
+  padding: 8px 12px;
   border-radius: 4px;
   color: var(--text-soft);
-  font-size: 12px;
+  font-size: 13px;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all 0.15s ease;
   width: 100%;
   text-align: left;
   background: transparent;
   border: none;
+  user-select: none;
 }
 
 .graph-toolbar__dropdown-item:hover {
-  background: var(--bg-hover);
-  color: var(--text-strong);
+  background: rgba(127, 167, 255, 0.15) !important;
+  color: var(--text-strong) !important;
 }
 
-.graph-toolbar__dropdown-item input[type="checkbox"] {
+.graph-toolbar__dropdown-item.is-selected {
+  color: var(--text-strong);
+  font-weight: 600;
+  background: rgba(34, 197, 94, 0.08);
+}
+
+.graph-toolbar__dropdown-item.is-selected::after {
+  content: '';
+  width: 6px;
+  height: 6px;
+  background: #22c55e; /* Bright Green */
+  border-radius: 50%;
+  margin-left: auto;
+  box-shadow: 0 0 8px rgba(34, 197, 94, 0.6);
+}
+
+.graph-toolbar__dropdown-item input[type='checkbox'] {
   width: 14px;
   height: 14px;
   accent-color: var(--primary);
@@ -244,6 +277,11 @@
   padding: 8px 12px;
   border-radius: 4px;
   font-size: 12px;
+  transition: background 0.15s ease;
+}
+
+.graph-toolbar__dropdown-item-info:hover {
+  background: rgba(127, 167, 255, 0.15);
 }
 
 .graph-toolbar__stat-label {
@@ -277,8 +315,14 @@
 }
 
 @keyframes dropdownInCenter {
-  from { opacity: 0; transform: translateX(-50%) translateY(-10px); }
-  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
 }
 
 .graph-toolbar__stats-dropdown.is-open {
@@ -296,6 +340,7 @@
 }
 
 .graph-toolbar__slider {
+  appearance: none;
   -webkit-appearance: none;
   width: 80px;
   height: 3px;
@@ -335,4 +380,20 @@
 .graph-controls__search-input:focus {
   width: 100% !important; /* Prevent expansion if these classes are used */
   box-shadow: none !important;
+}
+
+/* Global Dropdown Item support for li */
+.graph-toolbar__dropdown-list li {
+  padding: 8px 10px;
+  border-radius: 4px;
+  color: var(--text-soft);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+  list-style: none;
+}
+
+.graph-toolbar__dropdown-list li:hover {
+  background: rgba(127, 167, 255, 0.15);
+  color: var(--text-strong);
 }

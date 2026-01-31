@@ -37,7 +37,7 @@ export class GraphView {
   private filteredData: GraphData | null = null
   private groupColors: Map<number, string> = new Map()
   private showLabels = true
-  private forceStrength = -300
+  private forceStrength = -500
   private localGraphEnabled = false
   private localGraphDepth = 2
   private pathFindMode = false
@@ -193,8 +193,13 @@ export class GraphView {
           this.handleFilterChange(this.getFilters())
         },
         onThemeChange: (theme) => this.handleThemeChange(theme),
+        onExport: (format) => this.exportGraph(format),
         onDropdownOpen: () => {}
       })
+
+      if (state.settings?.graphTheme) {
+        this.toolbar.setActiveTheme(state.settings.graphTheme)
+      }
     }
   }
 
@@ -214,6 +219,12 @@ export class GraphView {
       this.handleThemeChange(state.settings.graphTheme)
     }
     await this.initGraph()
+
+    // Warm up the simulation and then fit to view
+    // 300ms gives d3-force enough time to move nodes from their initial stack
+    setTimeout(() => {
+      this.zoomToFit(1000)
+    }, 300)
 
     // Ensure it's active
     this.simulation?.alpha(1).restart()
@@ -358,6 +369,18 @@ export class GraphView {
     // SVG definitions for markers, filters and gradients
     const defs = this.svg.append('defs')
 
+    // Standard Radial Gradient for 3D sphere look
+    const radialGrad = defs
+      .append('radialGradient')
+      .attr('id', 'node-gradient')
+      .attr('cx', '35%')
+      .attr('cy', '35%')
+      .attr('r', '60%')
+
+    radialGrad.append('stop').attr('offset', '0%').attr('stop-color', 'rgba(255, 255, 255, 0.45)')
+    radialGrad.append('stop').attr('offset', '40%').attr('stop-color', 'rgba(255, 255, 255, 0.1)')
+    radialGrad.append('stop').attr('offset', '100%').attr('stop-color', 'rgba(0, 0, 0, 0.3)')
+
     // Glow filter for nodes and links
     const filter = defs
       .append('filter')
@@ -371,6 +394,24 @@ export class GraphView {
     const feMerge = filter.append('feMerge')
     feMerge.append('feMergeNode').attr('in', 'blur')
     feMerge.append('feMergeNode').attr('in', 'SourceGraphic')
+
+    // Elite Active Glow (for the central current node)
+    const activeGlow = defs
+      .append('filter')
+      .attr('id', 'active-node-glow')
+      .attr('x', '-200%')
+      .attr('y', '-200%')
+      .attr('width', '500%')
+      .attr('height', '500%')
+    activeGlow.append('feGaussianBlur').attr('stdDeviation', '6').attr('result', 'blur')
+    activeGlow
+      .append('feColorMatrix')
+      .attr('in', 'blur')
+      .attr('type', 'matrix')
+      .attr('values', '0 0 0 0 0.498  0 0 0 0 0.655  0 0 0 0 1  0 0 0 1 0') // primary color glow
+    const activeMerge = activeGlow.append('feMerge')
+    activeMerge.append('feMergeNode')
+    activeMerge.append('feMergeNode').attr('in', 'SourceGraphic')
 
     // 3D Lighting Filter for robust sphere look
     const lightingFilter = defs.append('filter').attr('id', 'sphere-lighting')
@@ -534,19 +575,29 @@ export class GraphView {
           )
       )
 
-    // Node circles
+    // Base Sphere (Shadow/Color)
     this.nodeSelection
       .append('circle')
+      .attr('class', 'node-sphere-base')
       .attr('r', (d) => getNodeRadius(d))
       .attr('fill', (d) => this.computeNodeColor(d))
       .style('opacity', (d) => (d.isOrphan ? 0.7 : 1))
+      .style('filter', (d: any) => (d.isActive ? 'url(#active-node-glow)' : 'none'))
+
+    // Glass Highlight (Procedural 3D Overlay)
+    this.nodeSelection
+      .append('circle')
+      .attr('class', 'node-glass-highlight')
+      .attr('r', (d) => getNodeRadius(d))
+      .attr('fill', 'url(#node-gradient)')
+      .attr('pointer-events', 'none')
 
     // Node labels
     this.nodeSelection
       .append('text')
       .attr('class', 'node__label')
-      .attr('dx', (d) => getNodeRadius(d) + 4)
-      .attr('dy', (d) => getNodeRadius(d) + 12)
+      .attr('dx', (d) => getNodeRadius(d) + 8)
+      .attr('dy', (d) => getNodeRadius(d) / 2)
       .text((d) => d.title)
       .style('display', this.showLabels ? 'block' : 'none')
 
@@ -784,27 +835,29 @@ export class GraphView {
     if (!legend) return
 
     legend.innerHTML = `
-      <div class="graph-legend__title">Legend</div>
+      <div class="graph-panel-header">
+        <span class="graph-panel-title">Legend</span>
+      </div>
       <div class="graph-legend__items">
         <div class="graph-legend__item">
-          <span class="graph-legend__dot" style="background: #fbbf24;"></span>
+          <div class="graph-legend__dot" style="background: var(--primary)"></div>
           <span>Active Note</span>
         </div>
         <div class="graph-legend__item">
-          <span class="graph-legend__dot" style="background: #f97316;"></span>
-          <span>Hub Node</span>
+          <div class="graph-legend__dot" style="background: #f97316"></div>
+          <span>Hub (Many links)</span>
         </div>
         <div class="graph-legend__item">
-          <span class="graph-legend__dot" style="background: #6b7280;"></span>
-          <span>Orphan</span>
+          <div class="graph-legend__dot" style="background: var(--text-soft); opacity: 0.5;"></div>
+          <span>Orphan Notes</span>
         </div>
         <div class="graph-legend__item">
-          <span class="graph-legend__sizes">
-            <span class="graph-legend__size graph-legend__size--sm"></span>
-            <span class="graph-legend__size graph-legend__size--md"></span>
-            <span class="graph-legend__size graph-legend__size--lg"></span>
-          </span>
-          <span>Size = Connections</span>
+          <div class="graph-legend__sizes">
+            <div class="graph-legend__size graph-legend__size--sm"></div>
+            <div class="graph-legend__size graph-legend__size--md"></div>
+            <div class="graph-legend__size graph-legend__size--lg"></div>
+          </div>
+          <span>Frequency / Size</span>
         </div>
       </div>
     `
@@ -854,6 +907,9 @@ export class GraphView {
     this.renderGraph()
     this.updateStats()
     this.updateMinimap()
+
+    // Re-fit when filters change (like toggling 'Local')
+    setTimeout(() => this.zoomToFit(500), 50)
   }
 
   private handleZoom(factor: number): void {
@@ -865,13 +921,62 @@ export class GraphView {
       .call(this.zoom.scaleBy as any, factor)
   }
 
-  private handleZoomReset(): void {
-    if (!this.svg || !this.zoom) return
-    this.svg
-      .transition()
-      .duration(300)
+  public zoomToFit(duration = 750): void {
+    if (!this.svg || !this.zoom || !this.filteredData) return
+
+    const canvas = this.root.querySelector('#graph-canvas') as HTMLElement
+    if (!canvas) return
+
+    const width = canvas.clientWidth
+    const height = canvas.clientHeight
+    if (!width || !height) return
+
+    const nodes = this.filteredData.nodes
+    if (nodes.length === 0) return
+
+    // Calculate bounding box of nodes
+    let minX = Infinity,
+      maxX = -Infinity,
+      minY = Infinity,
+      maxY = -Infinity
+    nodes.forEach((n) => {
+      const x = n.x ?? 0
+      const y = n.y ?? 0
+      minX = Math.min(minX, x)
+      maxX = Math.max(maxX, x)
+      minY = Math.min(minY, y)
+      maxY = Math.max(maxY, y)
+    })
+
+    const graphWidth = maxX - minX || 100
+    const graphHeight = maxY - minY || 100
+    const centerX = (minX + maxX) / 2
+    const centerY = (minY + maxY) / 2
+
+    // Calculate scale to fit with 20% padding
+    const scale = 0.8 / Math.max(graphWidth / width, graphHeight / height)
+    const finalScale = Math.max(0.1, Math.min(scale, 1.5))
+
+    const transform = d3.zoomIdentity
+      .translate(width / 2, height / 2)
+      .scale(finalScale)
+      .translate(-centerX, -centerY)
+
+    if (duration > 0) {
+      this.svg
+        .transition()
+        .duration(duration)
+        .ease(d3.easeCubicInOut)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .call(this.zoom.transform as any, transform)
+    } else {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .call(this.zoom.transform as any, d3.zoomIdentity)
+      this.svg.call(this.zoom.transform as any, transform)
+    }
+  }
+
+  private handleZoomReset(): void {
+    this.zoomToFit(500)
   }
 
   private exportGraph(format: 'svg' | 'png'): void {
@@ -936,7 +1041,7 @@ export class GraphView {
   }
 
   private handleThemeChange(theme: string): void {
-    const content = this.root.querySelector('.graph-modal__view-area')
+    const content = this.root.querySelector('#graph-canvas')
     if (content) {
       // Remove existing theme classes
       content.classList.forEach((cls) => {
@@ -958,6 +1063,9 @@ export class GraphView {
 
       // Update minimap colors
       this.updateMinimap()
+
+      // Update toolbar UI
+      this.toolbar?.setActiveTheme(theme)
     }
   }
 
@@ -967,43 +1075,56 @@ export class GraphView {
     const minimapContainer = this.root.querySelector('#graph-minimap') as HTMLElement
     if (!minimapContainer) return
 
-    // Clear existing minimap
-    minimapContainer.innerHTML = ''
+    const validNodes = this.filteredData.nodes.filter((n) => isFinite(n.x!) && isFinite(n.y!))
+    if (validNodes.length === 0) return
 
-    const minimapWidth = 160
-    const minimapHeight = 140
-    const center = minimapWidth / 2
+    // Standard dimensions matching CSS
+    const totalWidth = 170
+    const totalHeight = 156
+    const headerHeight = 32
+    const contentHeight = totalHeight - headerHeight
+    const center = totalWidth / 2
+    const contentCenterY = contentHeight / 2
+
+    // Clear now that we know we have data
+    minimapContainer.innerHTML = ''
 
     // Calculate bounds for fit
     let minX = Infinity,
       maxX = -Infinity,
       minY = Infinity,
       maxY = -Infinity
-    this.filteredData.nodes.forEach((n) => {
-      if (n.x !== undefined && n.y !== undefined) {
-        minX = Math.min(minX, n.x)
-        maxX = Math.max(maxX, n.x)
-        minY = Math.min(minY, n.y)
-        maxY = Math.max(maxY, n.y)
-      }
-    })
 
-    if (!isFinite(minX)) return
+    validNodes.forEach((n) => {
+      minX = Math.min(minX, n.x!)
+      maxX = Math.max(maxX, n.x!)
+      minY = Math.min(minY, n.y!)
+      maxY = Math.max(maxY, n.y!)
+    })
 
     this.minimapMinX = minX
     this.minimapMinY = minY
 
-    const padding = 25
-    // this.minimapPadding = padding  // Removed as property does not exist
-    const scaleX = (minimapWidth - padding * 2) / (maxX - minX || 1)
-    const scaleY = (minimapHeight - padding * 2) / (maxY - minY || 1)
-    this.minimapScale = Math.min(scaleX, scaleY, 1)
+    const padding = 20
+    const scaleX = (totalWidth - padding * 2) / (maxX - minX || 1)
+    const scaleY = (contentHeight - padding * 2) / (maxY - minY || 1)
+    this.minimapScale = Math.min(scaleX, scaleY, 0.8) // Avoid huge zoom
 
     this.minimap = d3
       .select(minimapContainer)
+      .append('div')
+      .attr('class', 'graph-panel-header')
+      .append('span')
+      .attr('class', 'graph-panel-title')
+      .text('Minimap')
+      .select(function () {
+        return (this as HTMLElement).parentNode?.parentNode as HTMLElement
+      })
+      .append('div')
+      .attr('class', 'graph-minimap__container')
       .append('svg')
-      .attr('width', minimapWidth)
-      .attr('height', minimapHeight)
+      .attr('width', totalWidth)
+      .attr('height', contentHeight)
       .attr('class', 'graph-minimap__svg')
 
     // Add Radar Decorations
@@ -1014,100 +1135,112 @@ export class GraphView {
       .append('line')
       .attr('class', 'minimap-radar-line')
       .attr('x1', 0)
-      .attr('y1', minimapHeight / 2)
-      .attr('x2', minimapWidth)
-      .attr('y2', minimapHeight / 2)
+      .attr('y1', contentCenterY)
+      .attr('x2', totalWidth)
+      .attr('y2', contentCenterY)
+
     radar
       .append('line')
       .attr('class', 'minimap-radar-line')
       .attr('x1', center)
       .attr('y1', 0)
       .attr('x2', center)
-      .attr('y2', minimapHeight)
+      .attr('y2', contentHeight)
 
-    // Rings
+    // Rings centered in content
     radar
       .append('circle')
       .attr('class', 'minimap-radar-ring')
       .attr('cx', center)
-      .attr('cy', minimapHeight / 2)
-      .attr('r', minimapHeight / 4)
+      .attr('cy', contentCenterY)
+      .attr('r', contentHeight / 2.5)
+
     radar
       .append('circle')
       .attr('class', 'minimap-radar-ring')
       .attr('cx', center)
-      .attr('cy', minimapHeight / 2)
-      .attr('r', minimapHeight / 2 - 2)
+      .attr('cy', contentCenterY)
+      .attr('r', contentHeight / 2 - 4)
 
     this.minimapG = (this.minimap as any)
       .append('g')
-      .attr('transform', `translate(${padding}, ${padding})`)
+      .attr('class', 'minimap-nodes-group')
+      .attr('transform', `translate(${padding}, ${padding / 2})`)
 
-    // Draw links
-    const linkGroup = (this.minimapG as any).append('g').attr('class', 'minimap-links')
-    linkGroup
-      .selectAll('.minimap-link')
-      .data(this.filteredData.links)
-      .enter()
-      .append('line')
-      .attr('class', 'minimap-link')
-      .attr('x1', (d: any) => ((d.source as GraphNode).x! - minX) * this.minimapScale)
-      .attr('y1', (d: any) => ((d.source as GraphNode).y! - minY) * this.minimapScale)
-      .attr('x2', (d: any) => ((d.target as GraphNode).x! - minX) * this.minimapScale)
-      .attr('y2', (d: any) => ((d.target as GraphNode).y! - minY) * this.minimapScale)
-      .attr('stroke', 'var(--text-soft)')
-      .attr('stroke-opacity', 0.15)
-      .attr('stroke-width', 0.5)
-
-    // Draw nodes
-    const nodeGroup = (this.minimapG as any).append('g').attr('class', 'minimap-nodes')
-    nodeGroup
-      .selectAll('.minimap-node')
-      .data(this.filteredData.nodes)
-      .enter()
-      .append('circle')
-      .attr('class', (d: any) => `minimap-node ${d.isActive ? 'is-active' : ''}`)
-      .attr('cx', (d: any) => (d.x! - minX) * this.minimapScale)
-      .attr('cy', (d: any) => (d.y! - minY) * this.minimapScale)
-      .attr('r', (d: any) => (d.isActive ? 2.5 : 1.2))
-      .attr('fill', (d: any) => (d.isActive ? '#fbbf24' : 'var(--primary)'))
-
-    // Draw viewport rect
-    this.minimapViewport = (this.minimapG as any)
-      .append('rect')
-      .attr('class', 'minimap-viewport')
-      .attr('rx', 3)
-      .attr('ry', 3)
-
-    this.updateMinimapViewport()
+    // Initial draw
+    this.updateMinimapPositions()
   }
 
   private updateMinimapPositions(): void {
     if (!this.minimapG || !this.filteredData) return
 
-    this.minimapG
-      .selectAll('.minimap-link')
-      .attr('x1', (d: unknown) => {
-        const link = d as GraphLink
-        return ((link.source as GraphNode).x! - this.minimapMinX) * this.minimapScale
-      })
-      .attr('y1', (d: unknown) => {
-        const link = d as GraphLink
-        return ((link.source as GraphNode).y! - this.minimapMinY) * this.minimapScale
-      })
-      .attr('x2', (d: unknown) => {
-        const link = d as GraphLink
-        return ((link.target as GraphNode).x! - this.minimapMinX) * this.minimapScale
-      })
-      .attr('y2', (d: unknown) => {
-        const link = d as GraphLink
-        return ((link.target as GraphNode).y! - this.minimapMinY) * this.minimapScale
-      })
+    const nodes = this.filteredData.nodes.filter((n) => isFinite(n.x!) && isFinite(n.y!))
+    if (nodes.length === 0) return
 
-    this.minimapG
-      .selectAll<SVGCircleElement, GraphNode>('.minimap-node')
-      .attr('cx', (d) => (d.x! - this.minimapMinX) * this.minimapScale)
-      .attr('cy', (d) => (d.y! - this.minimapMinY) * this.minimapScale)
+    // Recalculate bounds to keep nodes centered on minimap
+    let minX = Infinity,
+      maxX = -Infinity,
+      minY = Infinity,
+      maxY = -Infinity
+
+    nodes.forEach((n) => {
+      minX = Math.min(minX, n.x!)
+      maxX = Math.max(maxX, n.x!)
+      minY = Math.min(minY, n.y!)
+      maxY = Math.max(maxY, n.y!)
+    })
+
+    // Store current bounds for viewport calculation
+    this.minimapMinX = minX
+    this.minimapMinY = minY
+
+    // Calculate dynamic scale
+    const totalWidth = 170
+    const totalHeight = 156
+    const headerHeight = 32
+    const contentHeight = totalHeight - headerHeight
+    const padding = 20
+
+    const scaleX = (totalWidth - padding * 2) / (maxX - minX || 1)
+    const scaleY = (contentHeight - padding * 2) / (maxY - minY || 1)
+    this.minimapScale = Math.min(scaleX, scaleY, 0.8)
+
+    // Update links
+    const links = this.minimapG.selectAll('.minimap-link').data(this.filteredData.links)
+
+    links
+      .enter()
+      .append('line')
+      .attr('class', 'minimap-link')
+      .attr('stroke', 'var(--text-soft)')
+      .attr('stroke-opacity', 0.15)
+      .attr('stroke-width', 0.5)
+      .merge(links as any)
+      .attr('x1', (d: any) => ((d.source as GraphNode).x! - minX) * this.minimapScale)
+      .attr('y1', (d: any) => ((d.source as GraphNode).y! - minY) * this.minimapScale)
+      .attr('x2', (d: any) => ((d.target as GraphNode).x! - minX) * this.minimapScale)
+      .attr('y2', (d: any) => ((d.target as GraphNode).y! - minY) * this.minimapScale)
+
+    links.exit().remove()
+
+    // Update nodes
+    const minimapNodes = this.minimapG.selectAll('.minimap-node').data(this.filteredData.nodes)
+
+    minimapNodes
+      .enter()
+      .append('circle')
+      .attr('class', (d: any) => `minimap-node ${d.isActive ? 'is-active' : ''}`)
+      .merge(minimapNodes as any)
+      .attr('cx', (d: any) => (d.x! - minX) * this.minimapScale)
+      .attr('cy', (d: any) => (d.y! - minY) * this.minimapScale)
+      .attr('r', (d: any) => (d.isActive ? 3.5 : 2.2))
+      .attr('fill', (d: any) => (d.isActive ? '#fbbf24' : 'var(--primary)'))
+      .attr('fill-opacity', (d: any) => (d.isActive ? 1 : 0.6))
+
+    minimapNodes.exit().remove()
+
+    // Update viewport too so it stays in sync with dynamic bounds
+    this.updateMinimapViewport()
   }
 
   private updateMinimapViewport(): void {

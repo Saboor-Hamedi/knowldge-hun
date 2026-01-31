@@ -22,8 +22,14 @@
 }
 
 @keyframes slide-in {
-  from { transform: translateY(0); opacity: 0; }
-  to { transform: translateY(-50%); opacity: 1; }
+  from {
+    transform: translateY(0);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(-50%);
+    opacity: 1;
+  }
 }
 
 .suggestion-toolbar__btn {
