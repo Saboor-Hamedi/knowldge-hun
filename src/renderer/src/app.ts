@@ -385,6 +385,10 @@ class App {
       )
     })
 
+    this.tabBar.setTabReorderHandler(() => {
+      void this.vaultHandler.persistWorkspace()
+    })
+
     this.settingsView.setVaultCallbacks({
       onVaultChange: () => this.vaultHandler.chooseVault(),
       onVaultReveal: () => window.api.revealVault(),

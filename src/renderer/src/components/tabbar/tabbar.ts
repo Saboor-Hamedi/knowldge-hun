@@ -10,6 +10,8 @@ export class TabBar {
   private onTabSelect?: (id: string) => void
   private onTabClose?: (id: string) => void
   private onTabContextMenu?: (id: string, event: MouseEvent) => void
+  private onTabReorder?: () => void
+  private draggedTabId: string | null = null
 
   constructor(containerId: string) {
     this.container = document.getElementById(containerId) as HTMLElement
@@ -26,6 +28,10 @@ export class TabBar {
 
   setTabContextMenuHandler(handler: (id: string, event: MouseEvent) => void): void {
     this.onTabContextMenu = handler
+  }
+
+  setTabReorderHandler(handler: () => void): void {
+    this.onTabReorder = handler
   }
 
   render(): void {
@@ -105,6 +111,7 @@ export class TabBar {
       button.className = `tab${tab.id === state.activeId ? ' is-active' : ''}${isPinned ? ' is-pinned' : ''}${isDirty ? ' is-dirty' : ''}`
       button.dataset.id = tab.id
       button.dataset.ext = ext
+      button.draggable = true
 
       // Add tooltip with full path
       if (tab.id !== 'settings' && !tab.id.startsWith('preview-')) {
@@ -208,6 +215,12 @@ export class TabBar {
   private attachEvents(): void {
     this.container.addEventListener('click', this.handleClick)
     this.container.addEventListener('contextmenu', this.handleContextMenu)
+    this.container.addEventListener('dragstart', this.handleDragStart)
+    this.container.addEventListener('dragover', this.handleDragOver)
+    this.container.addEventListener('dragenter', this.handleDragEnter)
+    this.container.addEventListener('dragleave', this.handleDragLeave)
+    this.container.addEventListener('drop', this.handleDrop)
+    this.container.addEventListener('dragend', this.handleDragEnd)
   }
 
   private handleClick = (event: MouseEvent): void => {
@@ -237,5 +250,91 @@ export class TabBar {
       event.preventDefault()
       this.onTabContextMenu?.(button.dataset.id, event)
     }
+  }
+
+  private handleDragStart = (event: DragEvent): void => {
+    const button = (event.target as HTMLElement).closest('.tab') as HTMLElement
+    if (button && button.dataset.id) {
+      this.draggedTabId = button.dataset.id
+      button.classList.add('is-dragging')
+      if (event.dataTransfer) {
+        event.dataTransfer.effectAllowed = 'move'
+        event.dataTransfer.setData('text/plain', this.draggedTabId)
+      }
+    }
+  }
+
+  private handleDragOver = (event: DragEvent): void => {
+    event.preventDefault()
+    if (event.dataTransfer) {
+      event.dataTransfer.dropEffect = 'move'
+    }
+
+    const target = (event.target as HTMLElement).closest('.tab') as HTMLElement
+    if (target && target.dataset.id && this.draggedTabId !== target.dataset.id) {
+      // Add a visual indicator of where the tab will land
+      const rect = target.getBoundingClientRect()
+      const midpoint = rect.left + rect.width / 2
+      if (event.clientX < midpoint) {
+        target.classList.add('drop-before')
+        target.classList.remove('drop-after')
+      } else {
+        target.classList.add('drop-after')
+        target.classList.remove('drop-before')
+      }
+    }
+  }
+
+  private handleDragEnter = (event: DragEvent): void => {
+    event.preventDefault()
+  }
+
+  private handleDragLeave = (event: DragEvent): void => {
+    const target = (event.target as HTMLElement).closest('.tab') as HTMLElement
+    if (target) {
+      target.classList.remove('drop-before', 'drop-after')
+    }
+  }
+
+  private handleDrop = (event: DragEvent): void => {
+    event.preventDefault()
+    const target = (event.target as HTMLElement).closest('.tab') as HTMLElement
+    if (!target || !target.dataset.id || !this.draggedTabId) return
+
+    const sourceId = this.draggedTabId
+    const targetId = target.dataset.id
+
+    if (sourceId === targetId) return
+
+    const sourceIndex = state.openTabs.findIndex((t) => t.id === sourceId)
+    const targetIndex = state.openTabs.findIndex((t) => t.id === targetId)
+
+    if (sourceIndex !== -1 && targetIndex !== -1) {
+      // Decide if we insert before or after target based on mouse position
+      const rect = target.getBoundingClientRect()
+      const midpoint = rect.left + rect.width / 2
+      const tabs = [...state.openTabs]
+      const [movedTab] = tabs.splice(sourceIndex, 1)
+      const adjustedTargetIndex = tabs.findIndex((t) => t.id === targetId)
+
+      if (event.clientX > midpoint) {
+        tabs.splice(adjustedTargetIndex + 1, 0, movedTab)
+      } else {
+        tabs.splice(adjustedTargetIndex, 0, movedTab)
+      }
+
+      state.openTabs = tabs
+      this.render()
+      this.onTabReorder?.()
+    }
+
+    target.classList.remove('drop-before', 'drop-after')
+  }
+
+  private handleDragEnd = (): void => {
+    this.draggedTabId = null
+    this.container.querySelectorAll('.tab').forEach((tab) => {
+      tab.classList.remove('is-dragging', 'drop-before', 'drop-after')
+    })
   }
 }

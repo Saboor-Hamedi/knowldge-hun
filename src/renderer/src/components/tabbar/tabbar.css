@@ -199,3 +199,17 @@
   width: 12px;
   height: 12px;
 }
+
+/* Drag and Drop Visuals */
+.tab.is-dragging {
+  opacity: 0.4;
+  background: var(--hover) !important;
+}
+
+.tab.drop-before {
+  box-shadow: inset 4px 0 0 -2px var(--primary) !important;
+}
+
+.tab.drop-after {
+  box-shadow: inset -4px 0 0 -2px var(--primary) !important;
+}
