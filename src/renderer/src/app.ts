@@ -306,6 +306,9 @@ class App {
         rightPanelVisible: isNewInstance ? false : state.settings.rightPanelVisible,
         sidebarVisible: isNewInstance ? false : state.settings.sidebarVisible
       })
+      // Ensure UI components reflect loaded settings immediately
+      this.sidebar.applyStyles()
+      this.activityBar.applyStyles()
     }
   }
 
@@ -458,7 +461,11 @@ class App {
       state.settings = updatedSettings
       this.editor.applySettings(state.settings)
       // Boost performance for live updates by syncing with frame rate
-      requestAnimationFrame(() => this.tabBar.render())
+      requestAnimationFrame(() => {
+        this.tabBar.render()
+        this.sidebar.applyStyles()
+        this.activityBar.applyStyles()
+      })
 
       // Debounce the actual disk/IPC update to prevent lag during rapid sliding
       if (this.pendingSettingsUpdate) window.clearTimeout(this.pendingSettingsUpdate)

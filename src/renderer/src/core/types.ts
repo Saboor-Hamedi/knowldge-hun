@@ -95,4 +95,19 @@ export type AppSettings = {
     inactiveTextColor?: string
     compactMode?: boolean
   }
+  sidebar?: {
+    backgroundColor?: string
+    borderColor?: string
+    textColor?: string
+    activeItemColor?: string
+    activeTextColor?: string
+    fontSize?: number
+  }
+  activityBar?: {
+    backgroundColor?: string
+    borderColor?: string
+    activeItemColor?: string
+    activeIconColor?: string
+    inactiveIconColor?: string
+  }
 }

@@ -110,10 +110,10 @@ export class ActivityBar {
         <button class="activitybar__item${state.activeView === 'graph' ? ' is-active' : ''}" data-view="graph" title="Graph View">
           <span class="activitybar__icon">
             <svg width="20" height="20" viewBox="0 0 16 16" fill="none">
-              <circle cx="4" cy="4" r="2" stroke="currentColor" stroke-width="1.5" fill="none"/>
-              <circle cx="12" cy="12" r="2" stroke="currentColor" stroke-width="1.5" fill="none"/>
-              <circle cx="12" cy="4" r="2" stroke="currentColor" stroke-width="1.5" fill="none"/>
-              <path d="M4 4l8 8m0-8l-8 8" stroke="currentColor" stroke-width="1.5" fill="none"/>
+              <circle cx="4" cy="4" r="2" stroke-width="1.5" fill="none"/>
+              <circle cx="12" cy="12" r="2" stroke-width="1.5" fill="none"/>
+              <circle cx="12" cy="4" r="2" stroke-width="1.5" fill="none"/>
+              <path d="M4 4l8 8m0-8l-8 8" stroke-width="1.5" fill="none"/>
             </svg>
           </span>
         </button>
@@ -136,6 +136,42 @@ export class ActivityBar {
         </button>
       </div>
     `
+
+    this.applyStyles()
+  }
+
+  public applyStyles(): void {
+    const styles = state.settings?.activityBar
+    if (styles) {
+      if (styles.backgroundColor)
+        this.container.style.setProperty('--activity-bg', styles.backgroundColor, 'important')
+      if (styles.borderColor)
+        this.container.style.setProperty('--activity-border', styles.borderColor, 'important')
+      if (styles.activeItemColor)
+        this.container.style.setProperty(
+          '--activity-active-bg',
+          styles.activeItemColor,
+          'important'
+        )
+      if (styles.activeIconColor)
+        this.container.style.setProperty(
+          '--activity-active-icon',
+          styles.activeIconColor,
+          'important'
+        )
+      if (styles.inactiveIconColor)
+        this.container.style.setProperty(
+          '--activity-inactive-icon',
+          styles.inactiveIconColor,
+          'important'
+        )
+    } else {
+      this.container.style.removeProperty('--activity-bg')
+      this.container.style.removeProperty('--activity-border')
+      this.container.style.removeProperty('--activity-active-bg')
+      this.container.style.removeProperty('--activity-active-icon')
+      this.container.style.removeProperty('--activity-inactive-icon')
+    }
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

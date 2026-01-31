@@ -33,7 +33,9 @@ import {
   Gauge,
   Layout,
   Frame,
-  Pipette
+  Pipette,
+  PanelLeft,
+  Activity
 } from 'lucide'
 import { renderShortcutItems } from '../../utils/shortcutUtils'
 import { SecuritySection } from '../security/security-section'
@@ -129,6 +131,12 @@ export class SettingsView {
           <button class="settings-view__sidebar-item ${this.activeSection === 'security' ? 'is-active' : ''}" data-section-tab="security">
             ${codicons.lock} Security
           </button>
+          <button class="settings-view__sidebar-item ${this.activeSection === 'sidebar' ? 'is-active' : ''}" data-section-tab="sidebar">
+            ${this.createLucideIcon(PanelLeft, 16)} Sidebar
+          </button>
+          <button class="settings-view__sidebar-item ${this.activeSection === 'activityBar' ? 'is-active' : ''}" data-section-tab="activityBar">
+            ${this.createLucideIcon(Activity, 16)} Activity Bar
+          </button>
         </aside>
 
         <div class="settings-view__content">
@@ -158,7 +166,9 @@ export class SettingsView {
                   <p class="settings-row__hint">Adjust the primary display size for your notes (px).</p>
                 </div>
                 <div class="settings-row__action">
-                  <input type="number" class="settings-input" data-setting="fontSize" min="10" max="40" value="${state.settings?.fontSize || 14}" style="width: 80px;" />
+                  <div class="settings-color-group">
+                    <input type="number" data-setting="fontSize" min="10" max="40" value="${state.settings?.fontSize || 14}" style="width: 80px; background: transparent; border: none; padding: 0 4px; font-family: inherit; font-size: 13px; color: var(--text-strong); outline: none;" />
+                  </div>
                 </div>
               </div>
 
@@ -170,7 +180,9 @@ export class SettingsView {
                   <p class="settings-row__hint">Set the width of the editor's insertion point cursor.</p>
                 </div>
                 <div class="settings-row__action">
-                  <input type="number" class="settings-input" data-setting="caretMaxWidth" min="1" max="10" value="${state.settings?.caretMaxWidth ?? 2}" style="width: 80px;" />
+                  <div class="settings-color-group">
+                    <input type="number" data-setting="caretMaxWidth" min="1" max="10" value="${state.settings?.caretMaxWidth ?? 2}" style="width: 80px; background: transparent; border: none; padding: 0 4px; font-family: inherit; font-size: 13px; color: var(--text-strong); outline: none;" />
+                  </div>
                 </div>
               </div>
             </div>
@@ -303,7 +315,9 @@ export class SettingsView {
                   <p class="settings-row__hint">Delay (ms) before triggering the auto-save sequence.</p>
                 </div>
                 <div class="settings-row__action">
-                  <input type="number" class="settings-input" data-setting="autoSaveDelay" min="300" max="10000" step="100" value="${state.settings?.autoSaveDelay || 800}" style="width: 80px;" />
+                  <div class="settings-color-group">
+                    <input type="number" data-setting="autoSaveDelay" min="300" max="10000" step="100" value="${state.settings?.autoSaveDelay || 800}" style="width: 80px; background: transparent; border: none; padding: 0 4px; font-family: inherit; font-size: 13px; color: var(--text-strong); outline: none;" />
+                  </div>
                 </div>
               </div>
 
@@ -732,6 +746,218 @@ export class SettingsView {
           <!-- Security Section -->
           <div class="settings-view__section ${this.activeSection === 'security' ? 'is-active' : ''}" data-section="security">
             ${this.securitySection.render()}
+          </div>
+
+          <!-- Sidebar Section -->
+          <div class="settings-view__section ${this.activeSection === 'sidebar' ? 'is-active' : ''}" data-section="sidebar">
+            <div class="settings-view__section-header">
+              <h2 class="settings-view__section-title">Sidebar Customization</h2>
+            </div>
+            
+            <div class="settings-list">
+              <!-- Background Color -->
+              <div class="settings-row" data-search="sidebar background color">
+                <div class="settings-row__icon">${this.createLucideIcon(Pipette, 18)}</div>
+                <div class="settings-row__info">
+                   <label class="settings-row__label">Background Color</label>
+                   <p class="settings-row__hint">Base background for the explorer panel.</p>
+                </div>
+                <div class="settings-row__action">
+                  <div class="settings-color-group">
+                    <div class="settings-color-wrapper">
+                      <div class="settings-color-swatch" style="background-color: ${state.settings?.sidebar?.backgroundColor || '#252526'}"></div>
+                      <input type="color" class="settings-color-input" data-setting="sidebar.backgroundColor" value="${state.settings?.sidebar?.backgroundColor || '#252526'}" />
+                    </div>
+                    <input type="text" class="settings-input settings-color-text" data-setting="sidebar.backgroundColor" value="${state.settings?.sidebar?.backgroundColor || '#252526'}" placeholder="#HEX" maxlength="7" />
+                  </div>
+                </div>
+              </div>
+
+              <!-- Border Color -->
+              <div class="settings-row" data-search="sidebar border color">
+                <div class="settings-row__icon">${this.createLucideIcon(Pipette, 18)}</div>
+                <div class="settings-row__info">
+                   <label class="settings-row__label">Border Color</label>
+                   <p class="settings-row__hint">Color of the divider between sidebar and editor.</p>
+                </div>
+                <div class="settings-row__action">
+                  <div class="settings-color-group">
+                    <div class="settings-color-wrapper">
+                      <div class="settings-color-swatch" style="background-color: ${state.settings?.sidebar?.borderColor || '#333333'}"></div>
+                      <input type="color" class="settings-color-input" data-setting="sidebar.borderColor" value="${state.settings?.sidebar?.borderColor || '#333333'}" />
+                    </div>
+                    <input type="text" class="settings-input settings-color-text" data-setting="sidebar.borderColor" value="${state.settings?.sidebar?.borderColor || '#333333'}" placeholder="#HEX" maxlength="7" />
+                  </div>
+                </div>
+              </div>
+
+              <!-- Text Color -->
+              <div class="settings-row" data-search="sidebar text color">
+                <div class="settings-row__icon">${this.createLucideIcon(Type, 18)}</div>
+                <div class="settings-row__info">
+                   <label class="settings-row__label">Text Color</label>
+                   <p class="settings-row__hint">Color for file and folder names.</p>
+                </div>
+                <div class="settings-row__action">
+                  <div class="settings-color-group">
+                    <div class="settings-color-wrapper">
+                      <div class="settings-color-swatch" style="background-color: ${state.settings?.sidebar?.textColor || '#cccccc'}"></div>
+                      <input type="color" class="settings-color-input" data-setting="sidebar.textColor" value="${state.settings?.sidebar?.textColor || '#cccccc'}" />
+                    </div>
+                    <input type="text" class="settings-input settings-color-text" data-setting="sidebar.textColor" value="${state.settings?.sidebar?.textColor || '#cccccc'}" placeholder="#HEX" maxlength="7" />
+                  </div>
+                </div>
+              </div>
+
+              <!-- Active Item Color -->
+              <div class="settings-row" data-search="sidebar active item background">
+                <div class="settings-row__icon">${this.createLucideIcon(Pipette, 18)}</div>
+                <div class="settings-row__info">
+                   <label class="settings-row__label">Active Item Background</label>
+                   <p class="settings-row__hint">Background color for the currently active file.</p>
+                </div>
+                <div class="settings-row__action">
+                  <div class="settings-color-group">
+                    <div class="settings-color-wrapper">
+                      <div class="settings-color-swatch" style="background-color: ${state.settings?.sidebar?.activeItemColor || '#37373d'}"></div>
+                      <input type="color" class="settings-color-input" data-setting="sidebar.activeItemColor" value="${state.settings?.sidebar?.activeItemColor || '#37373d'}" />
+                    </div>
+                    <input type="text" class="settings-input settings-color-text" data-setting="sidebar.activeItemColor" value="${state.settings?.sidebar?.activeItemColor || '#37373d'}" placeholder="#HEX" maxlength="7" />
+                  </div>
+                </div>
+              </div>
+              
+              <!-- Active Text Color -->
+              <div class="settings-row" data-search="sidebar active text color">
+                <div class="settings-row__icon">${this.createLucideIcon(Type, 18)}</div>
+                <div class="settings-row__info">
+                   <label class="settings-row__label">Active Text Color</label>
+                   <p class="settings-row__hint">Text color for the currently active file.</p>
+                </div>
+                <div class="settings-row__action">
+                   <div class="settings-color-group">
+                    <div class="settings-color-wrapper">
+                       <div class="settings-color-swatch" style="background-color: ${state.settings?.sidebar?.activeTextColor || '#ffffff'}"></div>
+                       <input type="color" class="settings-color-input" data-setting="sidebar.activeTextColor" value="${state.settings?.sidebar?.activeTextColor || '#ffffff'}" />
+                    </div>
+                    <input type="text" class="settings-input settings-color-text" data-setting="sidebar.activeTextColor" value="${state.settings?.sidebar?.activeTextColor || '#ffffff'}" placeholder="#HEX" maxlength="7" />
+                   </div>
+                </div>
+              </div>
+
+              <!-- Font Size -->
+              <div class="settings-row" data-search="sidebar font size">
+                <div class="settings-row__icon">${this.createLucideIcon(Type, 18)}</div>
+                <div class="settings-row__info">
+                   <label class="settings-row__label">Font Size</label>
+                   <p class="settings-row__hint">Size of text in the file explorer (px).</p>
+                </div>
+                <div class="settings-row__action">
+                   <div class="settings-color-group">
+                     <input type="number" data-setting="sidebar.fontSize" min="10" max="24" value="${state.settings?.sidebar?.fontSize || 13}" style="width: 80px; background: transparent; border: none; padding: 0 4px; font-family: inherit; font-size: 13px; color: var(--text-strong); outline: none;" />
+                   </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Activity Bar Section -->
+          <div class="settings-view__section ${this.activeSection === 'activityBar' ? 'is-active' : ''}" data-section="activityBar">
+             <div class="settings-view__section-header">
+              <h2 class="settings-view__section-title">Activity Bar Customization</h2>
+            </div>
+
+            <div class="settings-list">
+               <!-- Background Color -->
+              <div class="settings-row" data-search="activity bar background color">
+                <div class="settings-row__icon">${this.createLucideIcon(Pipette, 18)}</div>
+                <div class="settings-row__info">
+                   <label class="settings-row__label">Background Color</label>
+                   <p class="settings-row__hint">Base background for the activity bar.</p>
+                </div>
+                <div class="settings-row__action">
+                  <div class="settings-color-group">
+                    <div class="settings-color-wrapper">
+                      <div class="settings-color-swatch" style="background-color: ${state.settings?.activityBar?.backgroundColor || '#333333'}"></div>
+                      <input type="color" class="settings-color-input" data-setting="activityBar.backgroundColor" value="${state.settings?.activityBar?.backgroundColor || '#333333'}" />
+                    </div>
+                    <input type="text" class="settings-input settings-color-text" data-setting="activityBar.backgroundColor" value="${state.settings?.activityBar?.backgroundColor || '#333333'}" placeholder="#HEX" maxlength="7" />
+                  </div>
+                </div>
+              </div>
+
+              <!-- Border Color -->
+              <div class="settings-row" data-search="activity bar border color">
+                <div class="settings-row__icon">${this.createLucideIcon(Pipette, 18)}</div>
+                <div class="settings-row__info">
+                   <label class="settings-row__label">Border Color</label>
+                   <p class="settings-row__hint">Color of the border separating activity bar.</p>
+                </div>
+                <div class="settings-row__action">
+                   <div class="settings-color-group">
+                    <div class="settings-color-wrapper">
+                      <div class="settings-color-swatch" style="background-color: ${state.settings?.activityBar?.borderColor || '#252526'}"></div>
+                      <input type="color" class="settings-color-input" data-setting="activityBar.borderColor" value="${state.settings?.activityBar?.borderColor || '#252526'}" />
+                    </div>
+                    <input type="text" class="settings-input settings-color-text" data-setting="activityBar.borderColor" value="${state.settings?.activityBar?.borderColor || '#252526'}" placeholder="#HEX" maxlength="7" />
+                   </div>
+                </div>
+              </div>
+
+               <!-- Active Item Color -->
+              <div class="settings-row" data-search="activity bar active item color">
+                 <div class="settings-row__icon">${this.createLucideIcon(Pipette, 18)}</div>
+                 <div class="settings-row__info">
+                   <label class="settings-row__label">Active Item Background</label>
+                    <p class="settings-row__hint">Background color for the selected view icon.</p>
+                 </div>
+                 <div class="settings-row__action">
+                    <div class="settings-color-group">
+                      <div class="settings-color-wrapper">
+                        <div class="settings-color-swatch" style="background-color: ${state.settings?.activityBar?.activeItemColor || '#333333'}"></div>
+                        <input type="color" class="settings-color-input" data-setting="activityBar.activeItemColor" value="${state.settings?.activityBar?.activeItemColor || '#333333'}" />
+                      </div>
+                      <input type="text" class="settings-input settings-color-text" data-setting="activityBar.activeItemColor" value="${state.settings?.activityBar?.activeItemColor || '#333333'}" placeholder="#HEX" maxlength="7" />
+                    </div>
+                 </div>
+              </div>
+
+               <!-- Active Icon Color -->
+              <div class="settings-row" data-search="activity bar active icon color">
+                 <div class="settings-row__icon">${this.createLucideIcon(Palette, 18)}</div>
+                 <div class="settings-row__info">
+                   <label class="settings-row__label">Active Icon Color</label>
+                    <p class="settings-row__hint">Color of the icon when selected.</p>
+                 </div>
+                 <div class="settings-row__action">
+                    <div class="settings-color-group">
+                      <div class="settings-color-wrapper">
+                         <div class="settings-color-swatch" style="background-color: ${state.settings?.activityBar?.activeIconColor || '#ffffff'}"></div>
+                         <input type="color" class="settings-color-input" data-setting="activityBar.activeIconColor" value="${state.settings?.activityBar?.activeIconColor || '#ffffff'}" />
+                      </div>
+                      <input type="text" class="settings-input settings-color-text" data-setting="activityBar.activeIconColor" value="${state.settings?.activityBar?.activeIconColor || '#ffffff'}" placeholder="#HEX" maxlength="7" />
+                    </div>
+                 </div>
+              </div>
+
+               <!-- Inactive Icon Color -->
+              <div class="settings-row" data-search="activity bar inactive icon color">
+                 <div class="settings-row__icon">${this.createLucideIcon(Palette, 18)}</div>
+                 <div class="settings-row__info">
+                   <label class="settings-row__label">Inactive Icon Color</label>
+                    <p class="settings-row__hint">Color of unselected icons.</p>
+                 </div>
+                 <div class="settings-row__action">
+                    <div class="settings-color-group">
+                      <div class="settings-color-wrapper">
+                        <div class="settings-color-swatch" style="background-color: ${state.settings?.activityBar?.inactiveIconColor || '#6e6e6e'}"></div>
+                        <input type="color" class="settings-color-input" data-setting="activityBar.inactiveIconColor" value="${state.settings?.activityBar?.inactiveIconColor || '#6e6e6e'}" />
+                      </div>
+                      <input type="text" class="settings-input settings-color-text" data-setting="activityBar.inactiveIconColor" value="${state.settings?.activityBar?.inactiveIconColor || '#6e6e6e'}" placeholder="#HEX" maxlength="7" />
+                    </div>
+                 </div>
+              </div>
+            </div>
           </div>
 
         </div>

@@ -8,8 +8,8 @@
   flex-direction: column;
   justify-content: space-between;
   padding: 0;
-  background: var(--bg) !important;
-  border-right: 1px solid var(--border);
+  background: var(--activity-bg, var(--bg)) !important;
+  border-right: 1px solid var(--activity-border, var(--border)) !important;
   z-index: 100;
 }
 
@@ -50,7 +50,7 @@
 }
 
 .activitybar__item.is-active {
-  background: var(--selection);
+  background: var(--activity-active-bg, var(--selection));
   color: var(--primary-strong);
 }
 
@@ -61,7 +61,7 @@
   top: 0;
   bottom: 0;
   width: 3px;
-  background: var(--primary);
+  background: var(--activity-active-icon, var(--primary));
   z-index: 1;
 }
 
@@ -82,13 +82,13 @@
   width: 20px;
   height: 20px;
   display: block;
-  stroke: currentColor;
+  stroke: var(--activity-inactive-icon, currentColor);
   fill: none;
   transition: stroke var(--transition-base);
 }
 
 .activitybar__item.is-active .activitybar__icon svg {
-  stroke: var(--primary);
+  stroke: var(--activity-active-icon, var(--primary));
 }
 
 /* Tooltip style simulated via title or custom implementation */

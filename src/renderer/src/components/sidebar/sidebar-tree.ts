@@ -65,6 +65,7 @@ export class SidebarTree {
 
   constructor(containerId: string) {
     this.container = document.getElementById(containerId) as HTMLElement
+    this.container.classList.add('sidebar')
     this.render()
 
     this.headerEl = this.container.querySelector('.sidebar__header') as HTMLElement
@@ -691,9 +692,41 @@ export class SidebarTree {
 
       <footer class="sidebar__footer"></footer>
     `
+
+    this.applyStyles()
+  }
+
+  public applyStyles(): void {
+    const styles = state.settings?.sidebar
+    if (styles) {
+      if (styles.backgroundColor)
+        this.container.style.setProperty('--sidebar-bg', styles.backgroundColor, 'important')
+      if (styles.borderColor)
+        this.container.style.setProperty('--sidebar-border', styles.borderColor, 'important')
+      if (styles.textColor)
+        this.container.style.setProperty('--sidebar-text', styles.textColor, 'important')
+      if (styles.activeItemColor)
+        this.container.style.setProperty('--sidebar-active-bg', styles.activeItemColor, 'important')
+      if (styles.activeTextColor)
+        this.container.style.setProperty(
+          '--sidebar-active-text',
+          styles.activeTextColor,
+          'important'
+        )
+      if (styles.fontSize)
+        this.container.style.setProperty('--sidebar-font-size', `${styles.fontSize}px`, 'important')
+    } else {
+      this.container.style.removeProperty('--sidebar-bg')
+      this.container.style.removeProperty('--sidebar-border')
+      this.container.style.removeProperty('--sidebar-text')
+      this.container.style.removeProperty('--sidebar-active-bg')
+      this.container.style.removeProperty('--sidebar-active-text')
+      this.container.style.removeProperty('--sidebar-font-size')
+    }
   }
 
   renderTree(filter = ''): void {
+    this.applyStyles()
     // If we're in search mode, don't let the explorer tree overwrite our results.
     // We check both our internal state and the actual UI state for robustness.
     const isSearchActive =
@@ -796,9 +829,12 @@ export class SidebarTree {
     el.draggable = true
     el.tabIndex = 0
 
-    const indent = document.createElement('span')
-    indent.className = 'tree-item__indent'
-    indent.style.width = `${depth * 16}px`
+    // Add indentation guides
+    for (let i = 0; i < depth; i++) {
+      const guide = document.createElement('span')
+      guide.className = 'tree-item__indent-guide'
+      el.appendChild(guide)
+    }
 
     const arrow = document.createElement('span')
     arrow.className = 'tree-item__expand sidebar__icon'
@@ -819,7 +855,6 @@ export class SidebarTree {
     label.textContent = folder.title
     label.dataset.itemId = folder.id
 
-    el.appendChild(indent)
     el.appendChild(arrow)
     el.appendChild(icon)
     el.appendChild(label)
@@ -846,9 +881,12 @@ export class SidebarTree {
     el.draggable = true
     el.tabIndex = 0
 
-    const indent = document.createElement('span')
-    indent.className = 'tree-item__indent'
-    indent.style.width = `${depth * 16}px`
+    // Add indentation guides
+    for (let i = 0; i < depth; i++) {
+      const guide = document.createElement('span')
+      guide.className = 'tree-item__indent-guide'
+      el.appendChild(guide)
+    }
 
     const spacer = document.createElement('span')
     spacer.className = 'tree-item__expand sidebar__icon'
@@ -871,7 +909,6 @@ export class SidebarTree {
     label.textContent = note.title.replace(/\.md$/i, '')
     label.dataset.noteId = note.id
 
-    el.appendChild(indent)
     el.appendChild(spacer)
     el.appendChild(icon)
     el.appendChild(label)
