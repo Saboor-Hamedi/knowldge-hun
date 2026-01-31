@@ -581,8 +581,8 @@ export class EditorComponent {
         // Double check inside the lock
         if (this.editor) return
 
-        const isLight =
-          state.settings?.theme === 'light' || state.settings?.theme === 'github-light'
+        const editorThemeId = state.settings?.editorTheme || state.settings?.theme || 'dark'
+        const isLight = editorThemeId === 'light' || editorThemeId === 'github-light'
         this.editor = monaco.editor.create(this.editorHost, {
           value: '',
           language: 'markdown',
@@ -969,15 +969,16 @@ export class EditorComponent {
     }
 
     // Apply Theme
-    if (settings.theme) {
-      const theme = themes[settings.theme]
+    const editorThemeId = settings.editorTheme || settings.theme
+    if (editorThemeId) {
+      const theme = themes[editorThemeId]
       if (theme) {
-        const isLight = settings.theme === 'light'
+        const isLight = editorThemeId === 'light'
         const base = isLight ? 'vs' : 'vs-dark'
 
         // Use a unique name for the theme to ensure Monaco registers it as a switch
         // If we reuse the name, Monaco might optimizations skip the update if it thinks current theme is the same
-        const monacoThemeId = `app-theme-${settings.theme}`
+        const monacoThemeId = `app-theme-${editorThemeId}`
 
         this.monacoInstance?.editor.defineTheme(monacoThemeId, {
           base: base,
@@ -1000,6 +1001,12 @@ export class EditorComponent {
           }
         })
         this.monacoInstance?.editor.setTheme(monacoThemeId)
+
+        // Also apply variables to the container for CSS overrides in editor.css
+        // This ensures the editor UI (empty state, host, etc) picks up the scoped theme
+        Object.entries(theme.colors).forEach(([property, value]) => {
+          this.container.style.setProperty(property, value as string)
+        })
       } else {
         // Fallback to light/dark if custom theme not found or invalid
         switch (settings.theme) {

@@ -41,6 +41,7 @@ export type AppState = {
 export type AppSettings = {
   vaultPath?: string
   theme?: string
+  editorTheme?: string
   sidebarVisible?: boolean
   autoSave?: boolean
   autoSaveDelay?: number

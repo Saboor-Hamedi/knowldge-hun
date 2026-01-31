@@ -478,6 +478,10 @@ class App {
         await aiService.loadApiKey()
         await this.rightBar.refreshApiKey()
       }
+
+      if (newSettings.theme !== undefined) {
+        themeManager.setTheme(newSettings.theme)
+      }
     }
   }
 

@@ -172,7 +172,7 @@ export class SettingsView {
                 </div>
               </div>
 
-              <!-- Caret Width -->
+              <!-- Caret Thickness -->
               <div class="settings-row" data-search="caret width set the max width for the editor caret">
                 <div class="settings-row__icon">${this.createLucideIcon(Scan, 18)}</div>
                 <div class="settings-row__info">
@@ -184,6 +184,24 @@ export class SettingsView {
                     <input type="number" data-setting="caretMaxWidth" min="1" max="10" value="${state.settings?.caretMaxWidth ?? 2}" style="width: 80px; background: transparent; border: none; padding: 0 4px; font-family: inherit; font-size: 13px; color: var(--text-strong); outline: none;" />
                   </div>
                 </div>
+              </div>
+            </div>
+
+            <!-- Editor Theme Section -->
+            <div class="settings-divider" style="margin-top: 24px;"></div>
+            <div class="settings-view__section-header" style="border: none; margin-top: 8px;">
+                <h3 class="settings-view__section-title">Editor Aesthetic</h3>
+                <p class="settings-row__hint" style="margin-top: 4px; padding-left: 0;">Choose your preferred styling for the writing workspace.</p>
+            </div>
+            
+            <div class="settings-row">
+              <div class="settings-row__icon">${this.createLucideIcon(Palette, 18)}</div>
+              <div class="settings-row__info">
+                <label class="settings-row__label">Workspace Theme</label>
+                <p class="settings-row__hint">A specialized skin for your notes.</p>
+              </div>
+              <div class="settings-row__action">
+                ${this.renderEditorThemeSelector()}
               </div>
             </div>
           </div>
@@ -260,25 +278,21 @@ export class SettingsView {
           <!-- Appearance Section -->
           <div class="settings-view__section ${this.activeSection === 'appearance' ? 'is-active' : ''}" data-section="appearance">
                <div class="settings-view__section-header">
-                <h2 class="settings-view__section-title">Interface Customization</h2>
+                <h2 class="settings-view__section-title">Global UI Appearance</h2>
             </div>
 
             <div class="settings-list">
+              <!-- Application Theme (Global) -->
               <div class="settings-row">
                 <div class="settings-row__icon">${this.createLucideIcon(Palette, 18)}</div>
                 <div class="settings-row__info">
-                  <label class="settings-row__label">Color Theme</label>
-                  <p class="settings-row__hint">Choose an aesthetic that matches your workflow and mood.</p>
+                  <label class="settings-row__label">App Surface Theme</label>
+                  <p class="settings-row__hint">Overall window coloring and UI density.</p>
                 </div>
                 <div class="settings-row__action">
                   <select class="settings-select" data-setting="theme" style="width: 140px;">
-                    ${Object.values(themes)
-                      .map(
-                        (t) => `
-                      <option value="${t.id}" ${state.settings?.theme === t.id ? 'selected' : ''}>${t.name}</option>
-                    `
-                      )
-                      .join('')}
+                    <option value="dark" ${state.settings?.theme === 'dark' ? 'selected' : ''}>Hub Dark</option>
+                    <option value="light" ${state.settings?.theme === 'light' ? 'selected' : ''}>Hub Light</option>
                   </select>
                 </div>
               </div>
@@ -1121,6 +1135,86 @@ export class SettingsView {
       input.addEventListener('change', handleInput)
     })
 
+    // Custom Dropdown Logic (for Editor Theme)
+    const customDropdown = this.container.querySelector('.settings-custom-dropdown')
+    const trigger = customDropdown?.querySelector('.settings-custom-dropdown__trigger')
+
+    if (customDropdown && trigger) {
+      const closeDropdown = (): void => {
+        customDropdown.classList.remove('is-open')
+        document.removeEventListener('click', handleGlobalClick)
+        document.removeEventListener('keydown', handleKeydown)
+      }
+
+      const handleGlobalClick = (e: MouseEvent): void => {
+        if (!customDropdown.contains(e.target as Node)) {
+          closeDropdown()
+        }
+      }
+
+      const handleKeydown = (e: KeyboardEvent): void => {
+        if (e.key === 'Escape') {
+          closeDropdown()
+        }
+      }
+
+      trigger.addEventListener('click', (e) => {
+        e.stopPropagation()
+
+        const isOpen = customDropdown.classList.contains('is-open')
+        if (isOpen) {
+          closeDropdown()
+        } else {
+          // Smart Flipping
+          const rect = trigger.getBoundingClientRect()
+          const spaceBelow = window.innerHeight - rect.bottom
+          if (spaceBelow < 220) {
+            customDropdown.classList.add('is-flipped')
+          } else {
+            customDropdown.classList.remove('is-flipped')
+          }
+
+          customDropdown.classList.add('is-open')
+          document.addEventListener('click', handleGlobalClick)
+          document.addEventListener('keydown', handleKeydown)
+        }
+      })
+
+      customDropdown.querySelectorAll('.settings-custom-dropdown__item').forEach((item) => {
+        item.addEventListener('click', (e) => {
+          e.stopPropagation()
+          const themeId = (item as HTMLElement).dataset.themeId
+          if (themeId) {
+            this.onSettingChange?.({ editorTheme: themeId })
+
+            // Manual UI Update (to avoid re-render jump/close)
+            const targetTheme = themes[themeId]
+            if (targetTheme && trigger) {
+              const label =
+                targetTheme.id === 'dark'
+                  ? 'Dark'
+                  : targetTheme.id === 'light'
+                    ? 'Light'
+                    : targetTheme.name.split(' ')[0]
+              const triggerContent = trigger.querySelector('div')
+              if (triggerContent) {
+                triggerContent.innerHTML = `
+                   <div class="settings-custom-dropdown__preview-dot" style="background: ${targetTheme.colors['--primary']};"></div>
+                   ${label}
+                 `
+              }
+            }
+
+            // Update selected class in list
+            customDropdown
+              .querySelectorAll('.settings-custom-dropdown__item')
+              .forEach((i) => i.classList.remove('is-selected'))
+            item.classList.add('is-selected')
+          }
+        })
+      })
+    }
+
     // Vault actions
     const changeBtn = this.container.querySelector('#settings-vault-change')
     changeBtn?.addEventListener('click', () => {
@@ -1156,7 +1250,7 @@ export class SettingsView {
         } else {
           notificationManager.show(result.message, 'error')
         }
-      } catch (error) {
+      } catch {
         notificationManager.show('Failed to test token', 'error')
       } finally {
         testTokenBtn.textContent = 'Test Token'
@@ -1192,7 +1286,7 @@ export class SettingsView {
         } else {
           notificationManager.show(result.message, 'error')
         }
-      } catch (error) {
+      } catch {
         notificationManager.show('Backup failed', 'error')
       } finally {
         backupBtn.innerHTML = `${this.createLucideIcon(CloudUpload, 16)} Backup to Gist`
@@ -1242,7 +1336,7 @@ export class SettingsView {
                     title: 'Sync'
                   })
                 }
-              } catch (error) {
+              } catch {
                 notificationManager.show('Restore failed', 'error', { title: 'Sync' })
               }
             }
@@ -1511,5 +1605,41 @@ export class SettingsView {
     const div = document.createElement('div')
     div.textContent = text
     return div.innerHTML
+  }
+
+  private renderEditorThemeSelector(): string {
+    const currentThemeId = state.settings?.editorTheme || state.settings?.theme || 'dark'
+    const currentTheme = themes[currentThemeId] || themes['dark']
+
+    // Shorten names to just the first word, special case for defaults
+    const shorten = (name: string, id: string): string =>
+      id === 'dark' ? 'Dark' : id === 'light' ? 'Light' : name.split(' ')[0]
+
+    return `
+      <div class="settings-custom-dropdown">
+        <button class="settings-custom-dropdown__trigger">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div class="settings-custom-dropdown__preview-dot" style="background: ${currentTheme.colors['--primary']};"></div>
+            ${shorten(currentTheme.name)}
+          </div>
+        </button>
+        <div class="settings-custom-dropdown__menu">
+          <div class="settings-custom-dropdown__list">
+            ${Object.values(themes)
+              .map((t) => {
+                const isSelected = t.id === currentThemeId
+                return `
+                <div class="settings-custom-dropdown__item ${isSelected ? 'is-selected' : ''}" data-theme-id="${t.id}">
+                  <div class="settings-custom-dropdown__preview-dot" style="background: ${t.colors['--primary']};"></div>
+                  <span>${shorten(t.name, t.id)}</span>
+                  <div class="settings-custom-dropdown__selected-dot"></div>
+                </div>
+              `
+              })
+              .join('')}
+          </div>
+        </div>
+      </div>
+    `
   }
 }
