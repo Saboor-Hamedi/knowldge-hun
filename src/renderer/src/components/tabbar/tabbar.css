@@ -167,6 +167,41 @@
   height: 14px;
 }
 
+/* Pin Icon */
+.tab__pin-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 12px;
+  height: 12px;
+  margin-left: 6px;
+  color: var(--text-muted);
+  opacity: 0.6;
+  flex-shrink: 0;
+  transition: all var(--transition-base);
+}
+
+.tab:hover .tab__pin-icon,
+.tab.is-active .tab__pin-icon {
+  opacity: 1;
+  color: var(--primary);
+}
+
+.tab__pin-icon svg {
+  width: 10px !important;
+  height: 10px !important;
+}
+
+/* Pinned Tab Styling */
+.tab.is-pinned {
+  min-width: 100px;
+  flex: 0 0 auto;
+}
+
+.tab.is-pinned .tab__label {
+  max-width: 80px;
+}
+
 /* Compact Mode */
 .tabbar.is-compact {
   height: 28px;

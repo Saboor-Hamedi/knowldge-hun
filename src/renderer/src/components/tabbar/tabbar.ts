@@ -168,7 +168,7 @@ export class TabBar {
         const pinIcon = document.createElement('span')
         pinIcon.className = 'tab__pin-icon'
         const lucidePin = createElement(Pin, {
-          size: 14,
+          size: 10,
           'stroke-width': 1.5,
           stroke: 'currentColor',
           color: 'currentColor'
