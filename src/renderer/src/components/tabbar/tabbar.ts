@@ -35,6 +35,46 @@ export class TabBar {
       return
     }
 
+    // Apply custom tab settings
+    const tabSettings = state.settings?.tab
+    if (tabSettings) {
+      if (tabSettings.backgroundColor)
+        this.container.style.setProperty('--tab-bg', tabSettings.backgroundColor)
+      if (tabSettings.borderColor)
+        this.container.style.setProperty('--tab-border-color', tabSettings.borderColor)
+      if (tabSettings.activeTabColor)
+        this.container.style.setProperty('--tab-active-bg', tabSettings.activeTabColor)
+      if (tabSettings.inactiveTabColor)
+        this.container.style.setProperty('--tab-inactive-bg', tabSettings.inactiveTabColor)
+      if (tabSettings.activeTextColor)
+        this.container.style.setProperty('--tab-active-text', tabSettings.activeTextColor)
+      if (tabSettings.inactiveTextColor)
+        this.container.style.setProperty('--tab-inactive-text', tabSettings.inactiveTextColor)
+
+      // Border Position logic
+      let shadow = 'inset 0 2px 0 var(--tab-border-color, var(--primary))' // Default top
+      if (tabSettings.borderPosition === 'bottom')
+        shadow = 'inset 0 -2px 0 var(--tab-border-color, var(--primary))'
+      else if (tabSettings.borderPosition === 'left')
+        shadow = 'inset 2px 0 0 var(--tab-border-color, var(--primary))'
+      else if (tabSettings.borderPosition === 'right')
+        shadow = 'inset -2px 0 0 var(--tab-border-color, var(--primary))'
+
+      this.container.style.setProperty('--tab-active-shadow', shadow)
+
+      // Compact Mode
+      this.container.classList.toggle('is-compact', !!tabSettings.compactMode)
+    } else {
+      this.container.classList.remove('is-compact')
+      this.container.style.removeProperty('--tab-bg')
+      this.container.style.removeProperty('--tab-border-color')
+      this.container.style.removeProperty('--tab-active-bg')
+      this.container.style.removeProperty('--tab-inactive-bg')
+      this.container.style.removeProperty('--tab-active-text')
+      this.container.style.removeProperty('--tab-inactive-text')
+      this.container.style.removeProperty('--tab-active-shadow')
+    }
+
     this.container.style.display = 'flex'
     state.openTabs.forEach((tab) => {
       const isPinned = state.pinnedTabs.has(tab.id)

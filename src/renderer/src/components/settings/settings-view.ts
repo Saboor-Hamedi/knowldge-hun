@@ -30,7 +30,10 @@ import {
   Zap,
   Cpu,
   Volume2,
-  Gauge
+  Gauge,
+  Layout,
+  Frame,
+  Pipette
 } from 'lucide'
 import { renderShortcutItems } from '../../utils/shortcutUtils'
 import { SecuritySection } from '../security/security-section'
@@ -119,6 +122,9 @@ export class SettingsView {
           </button>
           <button class="settings-view__sidebar-item ${this.activeSection === 'shortcuts' ? 'is-active' : ''}" data-section-tab="shortcuts">
             ${codicons.keyboard} Shortcuts
+          </button>
+          <button class="settings-view__sidebar-item ${this.activeSection === 'tab' ? 'is-active' : ''}" data-section-tab="tab">
+            ${this.createLucideIcon(Layout, 16)} Tab
           </button>
           <button class="settings-view__sidebar-item ${this.activeSection === 'security' ? 'is-active' : ''}" data-section-tab="security">
             ${codicons.lock} Security
@@ -570,6 +576,159 @@ export class SettingsView {
             </div>
           </div>
 
+          <!-- Tab Section -->
+          <div class="settings-view__section ${this.activeSection === 'tab' ? 'is-active' : ''}" data-section="tab">
+            <div class="settings-view__section-header">
+              <h2 class="settings-view__section-title">Tab Customization</h2>
+            </div>
+
+            <div class="settings-list">
+              <!-- Border Position -->
+              <div class="settings-row" data-search="tab border position top bottom left right">
+                <div class="settings-row__icon">${this.createLucideIcon(Frame, 18)}</div>
+                <div class="settings-row__info">
+                  <label class="settings-row__label">Border Position</label>
+                  <p class="settings-row__hint">Choose which side the active tab border appears on.</p>
+                </div>
+                <div class="settings-row__action">
+                  <select class="settings-select" data-setting="tab.borderPosition" style="width: 120px;">
+                    <option value="top" ${state.settings?.tab?.borderPosition === 'top' ? 'selected' : ''}>Top</option>
+                    <option value="bottom" ${state.settings?.tab?.borderPosition === 'bottom' ? 'selected' : ''}>Bottom</option>
+                    <option value="left" ${state.settings?.tab?.borderPosition === 'left' ? 'selected' : ''}>Left</option>
+                    <option value="right" ${state.settings?.tab?.borderPosition === 'right' ? 'selected' : ''}>Right</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- Compact Mode -->
+              <div class="settings-row" data-search="tab compact mode smaller tabs">
+                <div class="settings-row__icon">${this.createLucideIcon(Zap, 18)}</div>
+                <div class="settings-row__info">
+                  <label class="settings-row__label">Compact Tabs</label>
+                  <p class="settings-row__hint">Reduce tab height and padding for more screen space.</p>
+                </div>
+                <div class="settings-row__action">
+                  <label class="settings-toggle">
+                    <input type="checkbox" data-setting="tab.compactMode" ${state.settings?.tab?.compactMode ? 'checked' : ''} />
+                    <span class="settings-toggle__slider"></span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="settings-divider"></div>
+              <div class="settings-view__section-header" style="border: none; margin-top: 8px;">
+                <h3 class="settings-view__section-title">Colors & Aesthetics</h3>
+              </div>
+
+              <!-- Tab Background -->
+              <div class="settings-row" data-search="tab background color">
+                <div class="settings-row__icon">${this.createLucideIcon(Pipette, 18)}</div>
+                <div class="settings-row__info">
+                  <label class="settings-row__label">Background Color</label>
+                  <p class="settings-row__hint">Define the base background for the tab bar.</p>
+                </div>
+                <div class="settings-row__action">
+                  <div class="settings-color-group">
+                    <div class="settings-color-wrapper">
+                      <div class="settings-color-swatch" style="background-color: ${state.settings?.tab?.backgroundColor || '#1e1e1e'}"></div>
+                      <input type="color" class="settings-color-input" data-setting="tab.backgroundColor" value="${state.settings?.tab?.backgroundColor || '#1e1e1e'}" />
+                    </div>
+                    <input type="text" class="settings-input settings-color-text" data-setting="tab.backgroundColor" value="${state.settings?.tab?.backgroundColor || '#1e1e1e'}" placeholder="#HEX" maxlength="7" />
+                  </div>
+                </div>
+              </div>
+
+              <!-- Border Color -->
+              <div class="settings-row" data-search="tab border color">
+                <div class="settings-row__icon">${this.createLucideIcon(Pipette, 18)}</div>
+                <div class="settings-row__info">
+                  <label class="settings-row__label">Border Color</label>
+                  <p class="settings-row__hint">Define the color of the accent border.</p>
+                </div>
+                <div class="settings-row__action">
+                  <div class="settings-color-group">
+                    <div class="settings-color-wrapper">
+                      <div class="settings-color-swatch" style="background-color: ${state.settings?.tab?.borderColor || '#007acc'}"></div>
+                      <input type="color" class="settings-color-input" data-setting="tab.borderColor" value="${state.settings?.tab?.borderColor || '#007acc'}" />
+                    </div>
+                    <input type="text" class="settings-input settings-color-text" data-setting="tab.borderColor" value="${state.settings?.tab?.borderColor || '#007acc'}" placeholder="#HEX" maxlength="7" />
+                  </div>
+                </div>
+              </div>
+
+              <!-- Active Tab Color -->
+              <div class="settings-row" data-search="active tab background color">
+                <div class="settings-row__icon">${this.createLucideIcon(Pipette, 18)}</div>
+                <div class="settings-row__info">
+                  <label class="settings-row__label">Active Tab Color</label>
+                  <p class="settings-row__hint">Background color for the currently focused tab.</p>
+                </div>
+                <div class="settings-row__action">
+                  <div class="settings-color-group">
+                    <div class="settings-color-wrapper">
+                      <div class="settings-color-swatch" style="background-color: ${state.settings?.tab?.activeTabColor || '#2d2d2d'}"></div>
+                      <input type="color" class="settings-color-input" data-setting="tab.activeTabColor" value="${state.settings?.tab?.activeTabColor || '#2d2d2d'}" />
+                    </div>
+                    <input type="text" class="settings-input settings-color-text" data-setting="tab.activeTabColor" value="${state.settings?.tab?.activeTabColor || '#2d2d2d'}" placeholder="#HEX" maxlength="7" />
+                  </div>
+                </div>
+              </div>
+
+              <!-- Inactive Tab Color -->
+              <div class="settings-row" data-search="inactive tab background color">
+                <div class="settings-row__icon">${this.createLucideIcon(Pipette, 18)}</div>
+                <div class="settings-row__info">
+                  <label class="settings-row__label">Inactive Tab Color</label>
+                  <p class="settings-row__hint">Background color for non-focused tabs.</p>
+                </div>
+                <div class="settings-row__action">
+                  <div class="settings-color-group">
+                    <div class="settings-color-wrapper">
+                      <div class="settings-color-swatch" style="background-color: ${state.settings?.tab?.inactiveTabColor || '#1e1e1e'}"></div>
+                      <input type="color" class="settings-color-input" data-setting="tab.inactiveTabColor" value="${state.settings?.tab?.inactiveTabColor || '#1e1e1e'}" />
+                    </div>
+                    <input type="text" class="settings-input settings-color-text" data-setting="tab.inactiveTabColor" value="${state.settings?.tab?.inactiveTabColor || '#1e1e1e'}" placeholder="#HEX" maxlength="7" />
+                  </div>
+                </div>
+              </div>
+
+              <!-- Text Colors -->
+              <div class="settings-row" data-search="active tab text color">
+                <div class="settings-row__icon">${this.createLucideIcon(Type, 18)}</div>
+                <div class="settings-row__info">
+                  <label class="settings-row__label">Active Text Color</label>
+                  <p class="settings-row__hint">Label color for the active tab.</p>
+                </div>
+                <div class="settings-row__action">
+                  <div class="settings-color-group">
+                    <div class="settings-color-wrapper">
+                      <div class="settings-color-swatch" style="background-color: ${state.settings?.tab?.activeTextColor || '#ffffff'}"></div>
+                      <input type="color" class="settings-color-input" data-setting="tab.activeTextColor" value="${state.settings?.tab?.activeTextColor || '#ffffff'}" />
+                    </div>
+                    <input type="text" class="settings-input settings-color-text" data-setting="tab.activeTextColor" value="${state.settings?.tab?.activeTextColor || '#ffffff'}" placeholder="#HEX" maxlength="7" />
+                  </div>
+                </div>
+              </div>
+
+              <div class="settings-row" data-search="inactive tab text color">
+                <div class="settings-row__icon">${this.createLucideIcon(Type, 18)}</div>
+                <div class="settings-row__info">
+                  <label class="settings-row__label">Inactive Text Color</label>
+                  <p class="settings-row__hint">Label color for background tabs.</p>
+                </div>
+                <div class="settings-row__action">
+                  <div class="settings-color-group">
+                    <div class="settings-color-wrapper">
+                      <div class="settings-color-swatch" style="background-color: ${state.settings?.tab?.inactiveTextColor || '#969696'}"></div>
+                      <input type="color" class="settings-color-input" data-setting="tab.inactiveTextColor" value="${state.settings?.tab?.inactiveTextColor || '#969696'}" />
+                    </div>
+                    <input type="text" class="settings-input settings-color-text" data-setting="tab.inactiveTextColor" value="${state.settings?.tab?.inactiveTextColor || '#969696'}" placeholder="#HEX" maxlength="7" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- Security Section -->
           <div class="settings-view__section ${this.activeSection === 'security' ? 'is-active' : ''}" data-section="security">
             ${this.securitySection.render()}
@@ -691,37 +850,91 @@ export class SettingsView {
       })
     })
 
-    // Setting changes
+    // Setting changes - using 'input' for instant feedback (especially for colors)
     this.container.querySelectorAll('[data-setting]').forEach((input) => {
-      input.addEventListener('change', (e) => {
+      const handleInput = (e: Event): void => {
         const el = e.target as HTMLInputElement | HTMLSelectElement
-        const setting = el.dataset.setting as keyof AppSettings
-        if (!setting) return
+        const settingPath = el.dataset.setting
+        if (!settingPath) return
 
         let value: any
         if (el instanceof HTMLInputElement && el.type === 'checkbox') {
           value = el.checked
         } else if (el instanceof HTMLInputElement && el.type === 'number') {
           value = parseInt(el.value) || 0
-          // Clamp caret width to allowed range when present
-          if (setting === 'caretMaxWidth') {
+          if (settingPath === 'caretMaxWidth') {
             if (value < 1) value = 1
             if (value > 10) value = 10
             el.value = String(value)
           }
+        } else if (el instanceof HTMLInputElement && el.classList.contains('settings-color-text')) {
+          let val = el.value
+          if (val && !val.startsWith('#')) {
+            const start = el.selectionStart
+            el.value = '#' + val
+            if (start !== null) el.setSelectionRange(start + 1, start + 1)
+            val = el.value
+          }
+          value = val
+
+          // Sync picker and swatch
+          const group = el.closest('.settings-color-group')
+          const picker = group?.querySelector('.settings-color-input') as HTMLInputElement
+          const swatch = group?.querySelector('.settings-color-swatch') as HTMLElement
+          if (picker && /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(val)) {
+            let normalized = val.toLowerCase()
+            if (normalized.length === 4) {
+              normalized =
+                '#' +
+                normalized[1] +
+                normalized[1] +
+                normalized[2] +
+                normalized[2] +
+                normalized[3] +
+                normalized[3]
+            }
+            if (normalized.length === 7) {
+              picker.value = normalized
+              if (swatch) swatch.style.backgroundColor = normalized
+            }
+          }
+        } else if (
+          el instanceof HTMLInputElement &&
+          el.classList.contains('settings-color-input')
+        ) {
+          value = el.value
+          // Sync text field and swatch
+          const group = el.closest('.settings-color-group')
+          const text = group?.querySelector('.settings-color-text') as HTMLInputElement
+          const swatch = group?.querySelector('.settings-color-swatch') as HTMLElement
+          if (text) text.value = value
+          if (swatch) swatch.style.backgroundColor = value
         } else {
           value = el.value
         }
 
-        this.onSettingChange?.({ [setting]: value })
+        if (settingPath.includes('.')) {
+          const [parent, child] = settingPath.split('.')
+          const parentSetting = parent as keyof AppSettings
+          this.onSettingChange?.({
+            [parentSetting]: {
+              ...((state.settings?.[parentSetting] as any) || {}),
+              [child]: value
+            }
+          })
+        } else {
+          const setting = settingPath as keyof AppSettings
+          this.onSettingChange?.({ [setting]: value })
 
-        // Special case: if AI provider changes, re-render to show appropriate fields
-        if (setting === 'aiProvider') {
-          // Clear model to prevent "Model Not Found"
-          this.onSettingChange?.({ aiModel: '' })
-          this.render()
+          if (setting === 'aiProvider') {
+            this.onSettingChange?.({ aiModel: '' })
+            this.render()
+          }
         }
-      })
+      }
+
+      input.addEventListener('input', handleInput)
+      input.addEventListener('change', handleInput)
     })
 
     // Vault actions

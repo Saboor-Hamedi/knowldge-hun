@@ -5,7 +5,7 @@
   gap: 0;
   height: var(--tab-height);
   padding: 0;
-  background: var(--bg);
+  background: var(--tab-bg, var(--bg));
   border-bottom: 1px solid var(--border);
   overflow-x: auto;
   overflow-y: hidden;
@@ -32,8 +32,8 @@
   border: none;
   border-right: 1px solid var(--border-subtle);
   padding: 0 16px;
-  background: var(--bg);
-  color: var(--text-soft);
+  background: var(--tab-inactive-bg, var(--bg));
+  color: var(--tab-inactive-text, var(--text-soft));
   cursor: pointer;
   transition: all var(--transition-base);
   box-sizing: border-box;
@@ -49,9 +49,9 @@
 
 /* Active Tab */
 .tab.is-active {
-  background: var(--panel);
-  color: var(--text-strong);
-  box-shadow: inset 0 2px 0 var(--primary);
+  background: var(--tab-active-bg, var(--panel));
+  color: var(--tab-active-text, var(--text-strong));
+  box-shadow: var(--tab-active-shadow, inset 0 2px 0 var(--primary));
 }
 
 .tab.is-active::after {
@@ -167,14 +167,35 @@
   height: 14px;
 }
 
-/* Empty State */
-.tabbar__empty {
-  color: var(--text-muted);
-  padding: 0 24px;
-  font-size: 13px;
-  display: flex;
-  align-items: center;
-  height: 100%;
-  font-style: italic;
-  opacity: 0.6;
+/* Compact Mode */
+.tabbar.is-compact {
+  height: 28px;
+}
+
+.tabbar.is-compact .tab {
+  padding: 0 4px 0 8px; /* Tighter right padding to keep close button close */
+  min-width: 32px; /* Allow very small tabs in compact mode */
+  max-width: 120px; /* Smaller max width for compact feel */
+  gap: 4px; /* Tighter gap */
+}
+
+.tabbar.is-compact .tab__label {
+  font-size: 12px;
+}
+
+.tabbar.is-compact .tab__icon,
+.tabbar.is-compact .tab__icon svg {
+  width: 10px !important;
+  height: 10px !important;
+  font-size: 10px !important;
+}
+
+.tabbar.is-compact .tab__close {
+  width: 16px;
+  height: 16px;
+}
+
+.tabbar.is-compact .tab__close svg {
+  width: 12px;
+  height: 12px;
 }

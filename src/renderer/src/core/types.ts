@@ -84,4 +84,15 @@ export type AppSettings = {
   // TTS settings
   ttsVoice?: string
   ttsSpeed?: number
+  // Tab appearance settings
+  tab?: {
+    borderPosition?: 'right' | 'left' | 'top' | 'bottom'
+    backgroundColor?: string
+    borderColor?: string
+    activeTabColor?: string
+    inactiveTabColor?: string
+    activeTextColor?: string
+    inactiveTextColor?: string
+    compactMode?: boolean
+  }
 }

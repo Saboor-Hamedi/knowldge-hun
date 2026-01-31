@@ -64,6 +64,7 @@ class App {
   private vaultPicker!: VaultPicker
   private hubConsole: ConsoleComponent
   private pendingPersist: number | null = null
+  private pendingSettingsUpdate: number | null = null
   private welcomePage: WelcomePage
 
   private vaultHandler: VaultHandler
@@ -452,8 +453,15 @@ class App {
 
       state.settings = updatedSettings
       this.editor.applySettings(state.settings)
-      void window.api.updateSettings(newSettings)
-      this.statusBar.setStatus('Settings auto-saved')
+      // Boost performance for live updates by syncing with frame rate
+      requestAnimationFrame(() => this.tabBar.render())
+
+      // Debounce the actual disk/IPC update to prevent lag during rapid sliding
+      if (this.pendingSettingsUpdate) window.clearTimeout(this.pendingSettingsUpdate)
+      this.pendingSettingsUpdate = window.setTimeout(() => {
+        void window.api.updateSettings(newSettings)
+        this.statusBar.setStatus('Settings auto-saved')
+      }, 500) as unknown as number
 
       if (newSettings.deepseekApiKey !== undefined) {
         await aiService.loadApiKey()

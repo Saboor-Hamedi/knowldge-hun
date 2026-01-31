@@ -71,13 +71,13 @@
 .settings-view__sidebar-item {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px; /* Slightly tighter gap */
   padding: 8px 12px;
   border-radius: 8px;
   cursor: pointer;
-  font-size: 12px;
+  font-size: 12px; /* User requested 12px */
   color: var(--text-soft);
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: background 0.2s ease, color 0.2s ease; /* Removed transform/padding transition */
   border: none;
   background: transparent;
   width: 100%;
@@ -89,14 +89,12 @@
 .settings-view__sidebar-item:hover {
   background: rgba(127, 167, 255, 0.08);
   color: var(--text-strong);
-  padding-left: 18px;
 }
 
 .settings-view__sidebar-item.is-active {
   background: rgba(127, 167, 255, 0.12);
   color: var(--primary-strong);
   font-weight: 600;
-  padding-left: 18px;
 }
 
 .settings-view__sidebar-item.is-active::before {
@@ -108,6 +106,19 @@
   width: 3px;
   background: var(--primary);
   border-radius: 0 4px 4px 0;
+}
+
+/* Icon Sizing for settings sidebar */
+.settings-view__sidebar-item svg,
+.settings-view__sidebar-item i,
+.settings-view__sidebar-item .codicon {
+  width: 10px !important;
+  height: 10px !important;
+  font-size: 10px !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
 .settings-view__content {
@@ -769,4 +780,78 @@
   padding: 0;
   border-left: 2px solid var(--primary);
   padding-left: 10px;
+}
+
+/* Color Picker System - Premium & Subtle */
+.settings-color-group {
+  display: flex;
+  align-items: center;
+  background: var(--panel-strong);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px 6px;
+  gap: 6px;
+  transition: all 0.2s ease;
+  width: fit-content;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.settings-color-group:focus-within {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(127, 167, 255, 0.15);
+}
+
+.settings-color-wrapper {
+  position: relative;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.settings-color-input {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  z-index: 2;
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.settings-color-swatch {
+  width: 100%;
+  height: 100%;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  position: relative;
+  z-index: 1;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.2);
+  transition: transform 0.1s ease;
+}
+
+.settings-color-wrapper:hover .settings-color-swatch {
+  transform: scale(1.1);
+  border-color: var(--primary);
+}
+
+.settings-color-text {
+  width: 75px !important;
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  font-family: var(--font-mono, monospace) !important;
+  font-size: 11px !important;
+  color: var(--text-strong) !important;
+  text-transform: uppercase;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.settings-color-text:focus {
+  box-shadow: none !important;
 }
