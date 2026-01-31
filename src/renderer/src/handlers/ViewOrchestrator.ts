@@ -13,14 +13,16 @@ export class ViewOrchestrator {
       welcomePage: { isVisible: () => boolean; show: () => void; hide: () => void }
       tabBar: { render: () => void }
       statusBar: { setStatus: (msg: string) => void }
-      activityBar: { setActiveView: (view: 'notes' | 'search' | 'settings') => void }
+      activityBar: { setActiveView: (view: 'notes' | 'search' | 'settings' | 'graph') => void }
       breadcrumbs: { render: () => void }
+      graphTabView: { open: () => Promise<void>; close: () => void }
     }
   ) {}
 
   public updateViewVisibility(): void {
     const editorCont = document.getElementById('editorContainer')
     const settingsHost = document.getElementById('settingsHost')
+    const graphHost = document.getElementById('graphHost')
     const welcomeHost = document.getElementById('welcomeHost')
     const tabBar = document.getElementById('tabBar')
     const breadcrumbs = document.getElementById('breadcrumbs')
@@ -33,18 +35,28 @@ export class ViewOrchestrator {
     if (state.activeId === 'settings') {
       if (editorCont) editorCont.style.display = 'none'
       if (settingsHost) settingsHost.style.display = 'flex'
+      if (graphHost) graphHost.style.display = 'none'
+      if (welcomeHost) welcomeHost.style.display = 'none'
+      if (tabBar) tabBar.style.display = 'flex'
+      if (breadcrumbs) breadcrumbs.style.display = 'none'
+    } else if (state.activeId === 'graph') {
+      if (editorCont) editorCont.style.display = 'none'
+      if (settingsHost) settingsHost.style.display = 'none'
+      if (graphHost) graphHost.style.display = 'flex'
       if (welcomeHost) welcomeHost.style.display = 'none'
       if (tabBar) tabBar.style.display = 'flex'
       if (breadcrumbs) breadcrumbs.style.display = 'none'
     } else if (isWelcomeVisible) {
       if (editorCont) editorCont.style.display = 'none'
       if (settingsHost) settingsHost.style.display = 'none'
+      if (graphHost) graphHost.style.display = 'none'
       if (welcomeHost) welcomeHost.style.display = 'block'
       if (tabBar) tabBar.style.display = 'none'
       if (breadcrumbs) breadcrumbs.style.display = 'none'
     } else {
       if (editorCont) editorCont.style.display = 'flex'
       if (settingsHost) settingsHost.style.display = 'none'
+      if (graphHost) graphHost.style.display = 'none'
       if (welcomeHost) welcomeHost.style.display = 'none'
       if (tabBar) tabBar.style.display = 'flex'
       if (breadcrumbs) breadcrumbs.style.display = 'flex'
@@ -177,6 +189,40 @@ export class ViewOrchestrator {
   public async closeSettings(): Promise<void> {
     tabService.closeTab('settings')
     if (state.activeId === 'settings' || !state.activeId) {
+      const remaining = state.openTabs
+      if (remaining.length > 0) {
+        state.activeId = remaining[remaining.length - 1].id
+      } else {
+        state.activeId = ''
+        this.showWelcomePage()
+      }
+    }
+    this.components.tabBar.render()
+    this.updateViewVisibility()
+  }
+
+  public async openGraph(): Promise<void> {
+    this.components.welcomePage.hide()
+    state.activeId = 'graph'
+
+    tabService.ensureTab({
+      id: 'graph',
+      title: 'Knowledge Graph',
+      updatedAt: 0,
+      path: undefined,
+      type: undefined
+    })
+
+    this.components.tabBar.render()
+    this.updateViewVisibility()
+    await this.components.graphTabView.open()
+    this.components.statusBar.setStatus('Knowledge Graph')
+  }
+
+  public async closeGraph(): Promise<void> {
+    tabService.closeTab('graph')
+    this.components.graphTabView.close()
+    if (state.activeId === 'graph' || !state.activeId) {
       const remaining = state.openTabs
       if (remaining.length > 0) {
         state.activeId = remaining[remaining.length - 1].id

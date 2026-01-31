@@ -32,7 +32,7 @@ export class ActivityBar {
     this.onViewChange = handler
   }
 
-  setActiveView(view: 'notes' | 'search' | 'settings'): void {
+  setActiveView(view: 'notes' | 'search' | 'settings' | 'graph'): void {
     // Update UI
     this.container.querySelectorAll('.activitybar__item').forEach((item) => {
       item.classList.remove('is-active')
@@ -214,9 +214,12 @@ export class ActivityBar {
 
       state.activeView = view as typeof state.activeView
 
-      // Save active view to settings (only for notes, search, settings)
-      if (state.settings && (view === 'notes' || view === 'search' || view === 'settings')) {
-        state.settings.activeView = view
+      // Save active view to settings
+      if (
+        state.settings &&
+        (view === 'notes' || view === 'search' || view === 'settings' || view === 'graph')
+      ) {
+        state.settings.activeView = view as any
         void window.api.updateSettings({ activeView: view })
       }
 

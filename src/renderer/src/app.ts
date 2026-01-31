@@ -57,6 +57,7 @@ class App {
   private aiSettingsModal: AISettingsModal
   private fuzzyFinder: FuzzyFinder
   private graphView: GraphView
+  private graphTabView: GraphView
   private tabHandlers!: TabHandlersImpl
   private wikiLinkService!: WikiLinkService
   private previewHandlers!: PreviewHandlers
@@ -85,7 +86,10 @@ class App {
     this.aiSettingsModal = new AISettingsModal('app')
     this.rightBar = new RightBar('rightPanel', this.aiSettingsModal)
     this.fuzzyFinder = new FuzzyFinder('app')
-    this.graphView = new GraphView()
+    this.graphView = new GraphView(document.body, true) // Modal instance
+
+    const graphHost = document.getElementById('graphHost')
+    this.graphTabView = new GraphView(graphHost || document.body, false) // Tab instance
 
     this.viewOrchestrator = new ViewOrchestrator({
       editor: this.editor,
@@ -94,7 +98,8 @@ class App {
       tabBar: this.tabBar,
       statusBar: this.statusBar,
       activityBar: this.activityBar,
-      breadcrumbs: this.breadcrumbs
+      breadcrumbs: this.breadcrumbs,
+      graphTabView: this.graphTabView
     })
 
     this.vaultHandler = new VaultHandler(
@@ -109,7 +114,9 @@ class App {
       },
       {
         updateViewVisibility: () => this.viewOrchestrator.updateViewVisibility(),
-        showWelcomePage: () => this.viewOrchestrator.showWelcomePage()
+        showWelcomePage: () => this.viewOrchestrator.showWelcomePage(),
+        openSettings: () => this.viewOrchestrator.openSettings(),
+        openGraph: () => this.viewOrchestrator.openGraph()
       }
     )
 
@@ -313,7 +320,7 @@ class App {
     this.activityBar.setViewChangeHandler((view) => {
       if (view === 'settings') return void this.viewOrchestrator.openSettings()
       if (view === 'theme') return this.themeModal.open()
-      if (view === 'graph') return this.graphView.open()
+      if (view === 'graph') return void this.viewOrchestrator.openGraph()
       if (view === 'documentation') return this.documentationModal.toggle()
 
       const isSidebarView = view === 'notes' || view === 'search'
@@ -337,7 +344,7 @@ class App {
     this.sidebar.setNoteMoveHandler((id, from, to) => this.fileOps.handleNoteMove(id, from, to))
     this.sidebar.setFolderMoveHandler((src, tgt) => this.fileOps.handleFolderMove(src, tgt))
     this.sidebar.setFolderCreateHandler((path) => void this.fileOps.createFolder(path))
-    this.sidebar.setGraphClickHandler(() => this.graphView.open())
+    this.sidebar.setGraphClickHandler(() => void this.viewOrchestrator.openGraph())
     this.sidebar.setSearchHandler((query, options) => {
       this.editor.highlightTerm(query, options.matchCase, options.wholeWord, options.useRegex)
     })
@@ -456,6 +463,12 @@ class App {
   }
 
   private async closeTab(id: string, force = false): Promise<void> {
+    if (id === 'settings') {
+      return this.viewOrchestrator.closeSettings()
+    }
+    if (id === 'graph') {
+      return this.viewOrchestrator.closeGraph()
+    }
     await this.tabHandlers.closeTab(
       id,
       force,
@@ -680,7 +693,7 @@ class App {
     reg('Control+Shift+v', 'Choose vault', () => void this.vaultHandler.chooseVault())
     reg('Control+n', 'New note', () => void this.fileOps.createNote())
     reg('Control+s', 'Save note', () => {
-      if (state.activeId && state.activeId !== 'settings') {
+      if (state.activeId && state.activeId !== 'settings' && state.activeId !== 'graph') {
         this.editor.manualSave()
         const note = state.notes.find((n) => n.id === state.activeId)
         if (note && /^Untitled( \d+)?$/i.test(note.title)) void this.promptRenameActiveNote()

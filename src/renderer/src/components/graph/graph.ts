@@ -57,26 +57,39 @@ export class GraphView {
   private nodeSelection: d3.Selection<SVGGElement, GraphNode, SVGGElement, unknown> | null = null
   private particleGroup: d3.Selection<SVGGElement, unknown, null, undefined> | null = null
   private activeParticleAnimations: number[] = []
+  private root: HTMLElement
+  private isModal = true
+  private currentPath: { start: string | null; end: string | null } = { start: null, end: null }
+  private isOpen = false
+  private resizeObserver: ResizeObserver | null = null
 
-  constructor() {
-    this.container = document.body
-    this.modal = document.createElement('div')
-    this.modal.className = 'graph-modal'
+  constructor(container: HTMLElement, isModal = true) {
+    this.container = container
+    this.isModal = isModal
+    this.root = document.createElement('div')
+    this.root.className = isModal ? 'graph-modal' : 'graph-tab-view'
     this.render()
-    this.container.appendChild(this.modal)
+    this.container.appendChild(this.root)
+
+    if (!this.isModal) {
+      this.resizeObserver = new ResizeObserver(() => {
+        this.handleResize()
+      })
+      this.resizeObserver.observe(this.root)
+    }
 
     // Bind Escape key
     window.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && this.modal.classList.contains('is-visible')) {
+      if (e.key === 'Escape' && this.root.classList.contains('is-visible')) {
         this.close()
       }
     })
   }
 
   private render(): void {
-    this.modal.innerHTML = `
-      <div class="graph-modal__content">
-        <div class="window-header" style="cursor: move;">
+    this.root.innerHTML = `
+      <div class="graph-modal__content" style="${this.isModal ? '' : 'width: 100%; height: 100%; top: 0; left: 0; transform: none; border-radius: 0; box-shadow: none;'}">
+        <div class="window-header" style="cursor: move; ${this.isModal ? '' : 'display: none;'}">
           <div class="window-header__brand">
             <span class="window-header__title">Vault Graph</span>
             <div id="graph-stats" class="graph-modal__stats"></div>
@@ -120,14 +133,14 @@ export class GraphView {
       </div>
     `
 
-    this.modal.querySelector('#graph-close')?.addEventListener('click', () => this.close())
-    this.modal.querySelector('#graph-minimize')?.addEventListener('click', () => this.close())
-    this.modal
+    this.root.querySelector('#graph-close')?.addEventListener('click', () => this.close())
+    this.root.querySelector('#graph-minimize')?.addEventListener('click', () => this.close())
+    this.root
       .querySelector('#graph-maximize')
       ?.addEventListener('click', () => this.toggleMaximize())
 
-    const header = this.modal.querySelector('.window-header') as HTMLElement
-    const content = this.modal.querySelector('.graph-modal__content') as HTMLElement
+    const header = this.root.querySelector('.window-header') as HTMLElement
+    const content = this.root.querySelector('.graph-modal__content') as HTMLElement
 
     header.addEventListener('mousedown', (e) => {
       if (this.isMaximized) return
@@ -158,9 +171,9 @@ export class GraphView {
     })
 
     // Initialize Zoom HUD Icons
-    const zoomInBtn = this.modal.querySelector('#zoom-in') as HTMLElement
-    const zoomResetBtn = this.modal.querySelector('#zoom-reset') as HTMLElement
-    const zoomOutBtn = this.modal.querySelector('#zoom-out') as HTMLElement
+    const zoomInBtn = this.root.querySelector('#zoom-in') as HTMLElement
+    const zoomResetBtn = this.root.querySelector('#zoom-reset') as HTMLElement
+    const zoomOutBtn = this.root.querySelector('#zoom-out') as HTMLElement
 
     if (zoomInBtn) zoomInBtn.appendChild(createElement(ZoomIn, { size: 14, 'stroke-width': 2 }))
     if (zoomResetBtn)
@@ -173,7 +186,7 @@ export class GraphView {
     zoomOutBtn?.addEventListener('click', () => this.handleZoom(0.7))
 
     // Initialize controls
-    const toolbar = this.modal.querySelector('#graph-toolbar') as HTMLElement
+    const toolbar = this.root.querySelector('#graph-toolbar') as HTMLElement
     if (toolbar) {
       this.controls = new GraphControls(toolbar, {
         onSearch: (query) => this.handleSearch(query),
@@ -194,23 +207,83 @@ export class GraphView {
   }
 
   async open(): Promise<void> {
-    this.modal.classList.add('is-visible')
+    if (this.isOpen && !this.isModal) {
+      // If already open, just wake up the simulation
+      this.simulation?.alpha(0.3).restart()
+      return
+    }
+
+    if (this.isModal) {
+      this.root.classList.add('is-visible')
+    }
+    this.isOpen = true
+
     if (state.settings?.graphTheme) {
       this.handleThemeChange(state.settings.graphTheme)
     }
     await this.initGraph()
+
+    // Ensure it's active
+    this.simulation?.alpha(1).restart()
   }
 
   close(): void {
-    this.modal.classList.remove('is-visible')
+    if (this.isModal) {
+      this.root.classList.remove('is-visible')
+    }
+    this.isOpen = false
     if (this.simulation) {
       this.simulation.stop()
     }
   }
 
-  private async initGraph(): Promise<void> {
-    const canvas = this.modal.querySelector('#graph-canvas') as HTMLElement
+  private handleResize(): void {
+    if (!this.isOpen || !this.simulation || !this.svg) return
+
+    const canvas = this.root.querySelector('#graph-canvas') as HTMLElement
     if (!canvas) return
+
+    const width = canvas.clientWidth
+    const height = canvas.clientHeight
+    if (!width || !height) return
+
+    // Resize SVG
+    this.svg.attr('width', width).attr('height', height)
+
+    // Update zoom extent
+    this.zoom?.extent([
+      [0, 0],
+      [width, height]
+    ])
+
+    // Update force center
+    this.simulation.force('center', d3.forceCenter(width / 2, height / 2))
+    this.simulation.force('x', d3.forceX(width / 2).strength(0.05))
+    this.simulation.force('y', d3.forceY(height / 2).strength(0.05))
+
+    // Warm restart
+    this.simulation.alpha(0.1).restart()
+
+    // Update other UI elements
+    this.updateMinimap()
+  }
+
+  private async initGraph(): Promise<void> {
+    const canvas = this.root.querySelector('#graph-canvas') as HTMLElement
+    if (!canvas) return
+
+    // Ensure layout is ready
+    if (!canvas.clientWidth || !canvas.clientHeight) {
+      // Wait for next frame
+      await new Promise((resolve) => requestAnimationFrame(resolve))
+      // Check again, if still 0, wait a bit longer (e.g. for transitions)
+      if (!canvas.clientWidth || !canvas.clientHeight) {
+        await new Promise((resolve) => setTimeout(resolve, 50))
+      }
+    }
+
+    const width = canvas.clientWidth || 800
+    const height = canvas.clientHeight || 600
 
     // Clear previous
     canvas.innerHTML = ''
@@ -270,7 +343,7 @@ export class GraphView {
       this.renderLegend()
 
       // Initialize D3
-      this.initD3(canvas)
+      this.initD3(canvas, width, height)
 
       // Update stats
       this.updateMinimap()
@@ -280,10 +353,7 @@ export class GraphView {
     }
   }
 
-  private initD3(canvas: HTMLElement): void {
-    const width = canvas.clientWidth
-    const height = canvas.clientHeight
-
+  private initD3(canvas: HTMLElement, width: number, height: number): void {
     // Create SVG
     this.svg = d3
       .select(canvas)
@@ -732,7 +802,7 @@ export class GraphView {
   }
 
   private renderLegend(): void {
-    const legend = this.modal.querySelector('#graph-legend') as HTMLElement
+    const legend = this.root.querySelector('#graph-legend') as HTMLElement
     if (!legend) return
 
     legend.innerHTML = `
@@ -763,7 +833,7 @@ export class GraphView {
   }
 
   private updateStats(): void {
-    const stats = this.modal.querySelector('#graph-stats') as HTMLElement
+    const stats = this.root.querySelector('#graph-stats') as HTMLElement
     if (!stats || !this.filteredData) return
 
     const nodeCount = this.filteredData.nodes.length
@@ -942,7 +1012,7 @@ export class GraphView {
 
     // Hint removed as per user request
     /*
-    const hint = this.modal.querySelector('#graph-pathfind-hint') as HTMLElement
+    const hint = this.root.querySelector('#graph-pathfind-hint') as HTMLElement
     if (hint) {
       hint.style.display = 'flex'
       hint.querySelector('.graph-modal__pathfind-cancel')?.addEventListener('click', () => {
@@ -959,12 +1029,12 @@ export class GraphView {
     this.pathFindStart = null
     this.controls?.setPathFindMode(false)
 
-    const hint = this.modal.querySelector('#graph-pathfind-hint') as HTMLElement
+    const hint = this.root.querySelector('#graph-pathfind-hint') as HTMLElement
     if (hint) hint.style.display = 'none'
   }
 
   private updatePathFindHint(message: string): void {
-    const hint = this.modal.querySelector('#graph-pathfind-hint') as HTMLElement
+    const hint = this.root.querySelector('#graph-pathfind-hint') as HTMLElement
     if (hint) {
       const textNode = hint.childNodes[0]
       if (textNode) textNode.textContent = message + ' '
@@ -972,7 +1042,7 @@ export class GraphView {
   }
 
   private handleThemeChange(theme: string): void {
-    const content = this.modal.querySelector('.graph-modal__view-area')
+    const content = this.root.querySelector('.graph-modal__view-area')
     if (content) {
       // Remove existing theme classes
       content.classList.forEach((cls) => {
@@ -1056,7 +1126,7 @@ export class GraphView {
   private updateMinimap(): void {
     if (!this.filteredData || !this.g) return
 
-    const minimapContainer = this.modal.querySelector('#graph-minimap') as HTMLElement
+    const minimapContainer = this.root.querySelector('#graph-minimap') as HTMLElement
     if (!minimapContainer) return
 
     // Clear existing minimap
@@ -1206,7 +1276,7 @@ export class GraphView {
     if (!this.minimapViewport || !this.svg || !this.g) return
 
     const transform = d3.zoomTransform(this.svg.node()!)
-    const canvas = this.modal.querySelector('#graph-canvas') as HTMLElement
+    const canvas = this.root.querySelector('#graph-canvas') as HTMLElement
     if (!canvas) return
 
     const width = canvas.clientWidth
@@ -1255,7 +1325,7 @@ export class GraphView {
   }
 
   private showError(message: string): void {
-    const canvas = this.modal.querySelector('#graph-canvas') as HTMLElement
+    const canvas = this.root.querySelector('#graph-canvas') as HTMLElement
     if (canvas) {
       canvas.innerHTML = `
         <div class="graph-modal__error">
@@ -1267,15 +1337,15 @@ export class GraphView {
 
   private toggleMaximize(): void {
     this.isMaximized = !this.isMaximized
-    const content = this.modal.querySelector('.graph-modal__content') as HTMLElement
+    const content = this.root.querySelector('.graph-modal__content') as HTMLElement
     if (this.isMaximized) {
-      this.modal.classList.add('is-maximized')
+      this.root.classList.add('is-maximized')
       content.style.width = '100vw'
       content.style.height = '100vh'
       content.style.left = '0'
       content.style.top = '0'
     } else {
-      this.modal.classList.remove('is-maximized')
+      this.root.classList.remove('is-maximized')
       content.style.width = '94vw'
       content.style.height = 'calc(100vh - 120px)'
       content.style.left = '3vw'
@@ -1284,25 +1354,7 @@ export class GraphView {
 
     // Relayout simulation
     setTimeout(() => {
-      const canvas = this.modal.querySelector('#graph-canvas') as HTMLElement
-      if (canvas && this.simulation) {
-        const width = canvas.clientWidth
-        const height = canvas.clientHeight
-
-        // Resize SVG
-        this.svg?.attr('width', width).attr('height', height)
-
-        // Update zoom extent
-        this.zoom?.extent([
-          [0, 0],
-          [width, height]
-        ])
-
-        this.simulation.force('center', d3.forceCenter(width / 2, height / 2))
-        this.simulation.force('x', d3.forceX(width / 2).strength(0.05))
-        this.simulation.force('y', d3.forceY(height / 2).strength(0.05))
-        this.simulation.alpha(0.3).restart()
-      }
+      this.handleResize()
     }, 300)
   }
 }

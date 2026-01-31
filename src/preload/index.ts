@@ -39,7 +39,7 @@ type AppSettings = {
   expandedFolders?: string[]
   openTabs?: { id: string; path?: string }[]
   activeId?: string
-  activeView?: 'notes' | 'search' | 'settings'
+  activeView?: 'notes' | 'search' | 'settings' | 'graph'
   windowBounds?: { width: number; height: number; x?: number; y?: number }
   deepseekApiKey?: string
   gistToken?: string

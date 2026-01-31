@@ -34,6 +34,8 @@ export class VaultHandler {
     private callbacks: {
       updateViewVisibility: () => void
       showWelcomePage: () => void
+      openSettings?: () => Promise<void>
+      openGraph?: () => Promise<void>
       onNoteOpened?: (id: string, path?: string) => void
     }
   ) {}
@@ -176,6 +178,13 @@ export class VaultHandler {
       useRegex?: boolean
     }
   ): Promise<void> {
+    if (id === 'settings') {
+      return this.callbacks.openSettings?.()
+    }
+    if (id === 'graph') {
+      return this.callbacks.openGraph?.()
+    }
+
     this.callbacks.updateViewVisibility()
     if (this.components.welcomePage.isVisible()) {
       this.components.welcomePage.hide()

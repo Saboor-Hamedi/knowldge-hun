@@ -39,7 +39,7 @@ type AppSettings = {
   openTabs?: { id: string; path?: string; title?: string }[]
   pinnedTabs?: string[]
   activeId?: string
-  activeView?: 'notes' | 'search' | 'settings'
+  activeView?: 'notes' | 'search' | 'settings' | 'graph'
   windowBounds?: { width: number; height: number; x?: number; y?: number }
   deepseekApiKey?: string
   openaiApiKey?: string
@@ -85,7 +85,7 @@ type NoteApi = {
   renameFolder: (path: string, newName: string) => Promise<{ path: string }>
   deleteFolder: (path: string) => Promise<{ path: string }>
   moveFolder: (sourcePath: string, targetPath: string) => Promise<{ path: string }>
-  searchNotes: (query: string) => Promise<NoteMeta[]>
+  searchNotes: (query: string, options?: any) => Promise<NoteMeta[]>
   getBacklinks: (id: string) => Promise<string[]>
   getGraph: () => Promise<{ links: { source: string; target: string }[] }>
   getVault: () => Promise<VaultInfo>
