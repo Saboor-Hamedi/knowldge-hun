@@ -9,13 +9,13 @@
   width: 100vw;
   height: 100vh;
   background: rgba(0, 0, 0, 0.45);
-  z-index: 12000;
-  display: block; /* Change from flex to allow free movement */
-  padding: 0;
+  z-index: 2147483647; /* Use max possible value to stay above global window header */
+  display: block; /* Important for absolute children */
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
-  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  backdrop-filter: blur(4px);
 }
 
 .graph-modal.is-visible {
@@ -26,24 +26,30 @@
 
 .graph-modal__content {
   width: 94vw;
-  height: calc(100vh - 120px); /* Slightly shorter to feel higher */
+  height: calc(100vh - 120px);
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 0;
+  border-radius: 12px;
   box-shadow: 0 32px 80px rgba(0, 0, 0, 0.6);
-  left: 3vw;
-  top: 40px;
   position: absolute;
+  left: 3vw;
+  top: 60px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  position: relative;
-  transform: translateY(20px) scale(0.98);
-  /* transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1); REMOVED to fix heavy dragging */
+  transform: scale(0.9) translateY(20px);
+  opacity: 0;
   transition:
-    transform 0.3s cubic-bezier(0.16, 1, 0.3, 1),
-    width 0.3s,
-    height 0.3s;
+    transform 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1),
+    width 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+    height 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+    border-radius 0.3s;
+}
+
+/* Disable transitions while dragging to prevent lag/jumping */
+.graph-modal__content.is-dragging {
+  transition: none !important;
 }
 
 .graph-modal.is-visible .graph-modal__content,
@@ -65,9 +71,11 @@
 .graph-modal.is-maximized .graph-modal__content {
   width: 100vw !important;
   height: 100vh !important;
+  transform: scale(1) translate(0, 0) !important;
+  border-radius: 0;
+  border: none;
   left: 0 !important;
   top: 0 !important;
-  transform: none !important;
 }
 
 .window-header.dragging {
@@ -709,59 +717,6 @@
   height: 11px;
 }
 
-/* ============================================
-   Path Finding
-   ============================================ */
-
-.link--path {
-  stroke: #22c55e !important;
-  stroke-opacity: 1 !important;
-  stroke-width: 4px !important;
-  stroke-dasharray: 8 4;
-  animation: path-flow 0.5s linear infinite;
-}
-
-@keyframes path-flow {
-  from {
-    stroke-dashoffset: 0;
-  }
-  to {
-    stroke-dashoffset: -12;
-  }
-}
-
-.graph-modal__pathfind-hint {
-  position: absolute;
-  top: 80px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: var(--panel);
-  border: 1px solid var(--primary);
-  border-radius: 8px;
-  padding: 10px 16px;
-  font-size: 12px;
-  color: var(--text);
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-  z-index: 100;
-}
-
-.graph-modal__pathfind-cancel {
-  padding: 4px 10px;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  background: transparent;
-  color: var(--text);
-  font-size: 11px;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.graph-modal__pathfind-cancel:hover {
-  background: var(--border);
-}
 
 /* ============================================
    Minimap

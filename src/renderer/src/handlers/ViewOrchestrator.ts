@@ -50,7 +50,7 @@ export class ViewOrchestrator {
       if (editorCont) editorCont.style.display = 'none'
       if (settingsHost) settingsHost.style.display = 'none'
       if (graphHost) graphHost.style.display = 'none'
-      if (welcomeHost) welcomeHost.style.display = 'block'
+      if (welcomeHost) welcomeHost.style.display = 'flex'
       if (tabBar) tabBar.style.display = 'none'
       if (breadcrumbs) breadcrumbs.style.display = 'none'
     } else {

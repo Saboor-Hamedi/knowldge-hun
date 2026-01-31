@@ -5,8 +5,7 @@
 
 import * as d3 from 'd3'
 import { state } from '../../core/state'
-import { GraphControls, type GraphFilters } from './graph-controls'
-import { createElement, ZoomIn, ZoomOut, Maximize2 } from 'lucide'
+import { GraphToolbar, type GraphFilters } from './graph-toolbar'
 import {
   type GraphNode,
   type GraphLink,
@@ -15,22 +14,20 @@ import {
   filterNodes,
   getNodeRadius,
   getNodeColor,
-  getGroupColor,
-  findShortestPath,
-  getPathLinks
+  getGroupColor
 } from './graph-utils'
 import './graph.css'
+import './graph-toolbar.css'
 import './graph-themes.css'
 import '../window-header/window-header.css'
 
 export class GraphView {
   private container: HTMLElement
-  private modal: HTMLElement
   private svg: d3.Selection<SVGSVGElement, unknown, null, undefined> | null = null
   private g: d3.Selection<SVGGElement, unknown, null, undefined> | null = null
   private simulation: d3.Simulation<GraphNode, GraphLink> | null = null
   private zoom: d3.ZoomBehavior<SVGSVGElement, unknown> | null = null
-  private controls: GraphControls | null = null
+  private toolbar: GraphToolbar | null = null
   private isMaximized = false
   private isDragging = false
   private startMousePos = { x: 0, y: 0 }
@@ -59,7 +56,6 @@ export class GraphView {
   private activeParticleAnimations: number[] = []
   private root: HTMLElement
   private isModal = true
-  private currentPath: { start: string | null; end: string | null } = { start: null, end: null }
   private isOpen = false
   private resizeObserver: ResizeObserver | null = null
 
@@ -71,11 +67,13 @@ export class GraphView {
     this.render()
     this.container.appendChild(this.root)
 
-    if (!this.isModal) {
-      this.resizeObserver = new ResizeObserver(() => {
-        this.handleResize()
-      })
-      this.resizeObserver.observe(this.root)
+    this.resizeObserver = new ResizeObserver(() => {
+      this.handleResize()
+    })
+
+    const content = this.root.querySelector('.graph-modal__content') as HTMLElement
+    if (content) {
+      this.resizeObserver.observe(content)
     }
 
     // Bind Escape key
@@ -113,25 +111,16 @@ export class GraphView {
           </div>
         </div>
 
-        <div class="graph-modal__toolbar" id="graph-toolbar"></div>
-        <div class="graph-modal__view-area">
-          <div class="graph-modal__canvas" id="graph-canvas"></div>
-          <div class="graph-modal__side-panels">
-            <div class="graph-modal__minimap" id="graph-minimap"></div>
-            <div class="graph-modal__legend" id="graph-legend"></div>
-          </div>
-          <div class="graph-modal__pathfind-hint" id="graph-pathfind-hint" style="display: none;">
-            Click on a node to select the start point, then click another node to find the path.
-            <button class="graph-modal__pathfind-cancel">Cancel</button>
-          </div>
-          <div class="graph-modal__zoom-hud">
-            <button class="zoom-hud__btn" id="zoom-in" title="Zoom In"></button>
-            <button class="zoom-hud__btn" id="zoom-reset" title="Reset Zoom"></button>
-            <button class="zoom-hud__btn" id="zoom-out" title="Zoom Out"></button>
-          </div>
+      <div class="graph-modal__toolbar" id="graph-toolbar"></div>
+      <div class="graph-modal__view-area">
+        <div class="graph-modal__canvas" id="graph-canvas"></div>
+        <div class="graph-modal__side-panels">
+          <div class="graph-modal__minimap" id="graph-minimap"></div>
+          <div class="graph-modal__legend" id="graph-legend"></div>
         </div>
       </div>
-    `
+    </div>
+  `
 
     this.root.querySelector('#graph-close')?.addEventListener('click', () => this.close())
     this.root.querySelector('#graph-minimize')?.addEventListener('click', () => this.close())
@@ -149,6 +138,7 @@ export class GraphView {
       const rect = content.getBoundingClientRect()
       this.initialModalPos = { x: rect.left, y: rect.top }
       header.classList.add('dragging')
+      content.classList.add('is-dragging')
     })
 
     window.addEventListener('mousemove', (e) => {
@@ -156,52 +146,54 @@ export class GraphView {
       const dx = e.clientX - this.startMousePos.x
       const dy = e.clientY - this.startMousePos.y
 
+      // Use absolute coordinates since position is now absolute
       content.style.left = `${this.initialModalPos.x + dx}px`
       content.style.top = `${this.initialModalPos.y + dy}px`
-      content.style.transform = 'none'
+      content.style.transform = 'scale(1)' // Keep scale at 1 while dragging
     })
 
     window.addEventListener('mouseup', () => {
       this.isDragging = false
       header.classList.remove('dragging')
+      content.classList.remove('is-dragging')
     })
 
     header.addEventListener('dblclick', () => {
       this.toggleMaximize()
     })
 
-    // Initialize Zoom HUD Icons
-    const zoomInBtn = this.root.querySelector('#zoom-in') as HTMLElement
-    const zoomResetBtn = this.root.querySelector('#zoom-reset') as HTMLElement
-    const zoomOutBtn = this.root.querySelector('#zoom-out') as HTMLElement
-
-    if (zoomInBtn) zoomInBtn.appendChild(createElement(ZoomIn, { size: 14, 'stroke-width': 2 }))
-    if (zoomResetBtn)
-      zoomResetBtn.appendChild(createElement(Maximize2, { size: 14, 'stroke-width': 2 }))
-    if (zoomOutBtn) zoomOutBtn.appendChild(createElement(ZoomOut, { size: 14, 'stroke-width': 2 }))
-
-    // Zoom HUD Events
-    zoomInBtn?.addEventListener('click', () => this.handleZoom(1.3))
-    zoomResetBtn?.addEventListener('click', () => this.handleZoomReset())
-    zoomOutBtn?.addEventListener('click', () => this.handleZoom(0.7))
-
-    // Initialize controls
-    const toolbar = this.root.querySelector('#graph-toolbar') as HTMLElement
-    if (toolbar) {
-      this.controls = new GraphControls(toolbar, {
+    // Initialize toolbar
+    const toolbarContainer = this.root.querySelector('#graph-toolbar') as HTMLElement
+    if (toolbarContainer) {
+      this.toolbar = new GraphToolbar(toolbarContainer, {
+        isModal: this.isModal,
         onSearch: (query) => this.handleSearch(query),
         onFilterChange: (filters) => this.handleFilterChange(filters),
         onZoomIn: () => this.handleZoom(1.3),
         onZoomOut: () => this.handleZoom(0.7),
         onZoomReset: () => this.handleZoomReset(),
-        onToggleLabels: (show) => this.handleToggleLabels(show),
-        onForceStrengthChange: (strength) => this.handleForceStrengthChange(strength),
-        onDepthChange: (depth) => this.handleDepthChange(depth),
-        onToggleLocalGraph: (enabled) => this.handleToggleLocalGraph(enabled),
-        onExport: (format) => this.handleExport(format),
-        onStartPathFind: () => this.handleStartPathFind(),
+        onToggleLabels: (show) => {
+          this.showLabels = show
+          this.renderGraph()
+        },
+        onForceStrengthChange: (strength) => {
+          this.forceStrength = -strength
+          this.simulation?.force(
+            'charge',
+            d3.forceManyBody<GraphNode>().strength(this.forceStrength).distanceMax(500)
+          )
+          this.simulation?.alpha(0.3).restart()
+        },
+        onDepthChange: (depth) => {
+          this.localGraphDepth = depth
+          if (this.localGraphEnabled) this.handleFilterChange(this.getFilters())
+        },
+        onToggleLocalGraph: (enabled) => {
+          this.localGraphEnabled = enabled
+          this.handleFilterChange(this.getFilters())
+        },
         onThemeChange: (theme) => this.handleThemeChange(theme),
-        onDropdownOpen: () => this.endPathFindMode()
+        onDropdownOpen: () => {}
       })
     }
   }
@@ -333,10 +325,10 @@ export class GraphView {
         this.groupColors.set(group, getGroupColor(index))
       })
 
-      // Update controls with available filters
-      if (this.controls) {
-        this.controls.setAvailableTags(Array.from(this.graphData.tags.keys()))
-        this.controls.setAvailableFolders(Array.from(this.graphData.clusters.keys()))
+      // Update toolbar with available filters
+      if (this.toolbar) {
+        this.toolbar.setAvailableTags(Array.from(this.graphData.tags.keys()))
+        this.toolbar.setAvailableFolders(Array.from(this.graphData.clusters.keys()))
       }
 
       // Render legend
@@ -346,6 +338,7 @@ export class GraphView {
       this.initD3(canvas, width, height)
 
       // Update stats
+      this.updateStats()
       this.updateMinimap()
     } catch (e) {
       console.error('Failed to load graph data', e)
@@ -774,21 +767,6 @@ export class GraphView {
   }
 
   private handleNodeClick(node: GraphNode): void {
-    // Path finding mode
-    if (this.pathFindMode) {
-      if (!this.pathFindStart) {
-        // First click - set start
-        this.pathFindStart = node.id
-        this.highlightPathNode(node.id, 'start')
-        this.updatePathFindHint('Now click on the destination node.')
-      } else {
-        // Second click - find path
-        this.findAndHighlightPath(this.pathFindStart, node.id)
-        this.endPathFindMode()
-      }
-      return
-    }
-
     // Normal mode - open note
     const note = state.notes.find((n) => n.id === node.id)
     if (note) {
@@ -833,14 +811,13 @@ export class GraphView {
   }
 
   private updateStats(): void {
-    const stats = this.root.querySelector('#graph-stats') as HTMLElement
-    if (!stats || !this.filteredData) return
+    if (!this.filteredData || !this.toolbar) return
 
     const nodeCount = this.filteredData.nodes.length
     const linkCount = this.filteredData.links.length
     const orphanCount = this.filteredData.nodes.filter((n) => n.isOrphan).length
 
-    stats.textContent = `${nodeCount} notes • ${linkCount} links • ${orphanCount} orphans`
+    this.toolbar.setStats(nodeCount, linkCount, orphanCount)
   }
 
   // Control handlers
@@ -858,16 +835,21 @@ export class GraphView {
     this.updateStats()
   }
 
+  private getFilters(): GraphFilters {
+    return {
+      searchQuery: this.toolbar?.getCurrentSearchQuery() || '',
+      showOrphans: this.toolbar?.getShowOrphans() || false,
+      selectedTags: this.toolbar?.getSelectedTags() || [],
+      selectedFolders: this.toolbar?.getSelectedFolders() || [],
+      localGraphEnabled: this.localGraphEnabled,
+      localGraphDepth: this.localGraphDepth
+    }
+  }
+
   private handleFilterChange(filters: GraphFilters): void {
     if (!this.graphData) return
 
-    this.filteredData = filterNodes(this.graphData, {
-      showOrphans: filters.showOrphans,
-      selectedTags: filters.selectedTags,
-      selectedFolders: filters.selectedFolders,
-      localGraphCenter: this.localGraphEnabled ? state.activeId || undefined : undefined,
-      localGraphDepth: this.localGraphEnabled ? this.localGraphDepth : undefined
-    })
+    this.filteredData = filterNodes(this.graphData, filters)
 
     this.renderGraph()
     this.updateStats()
@@ -892,53 +874,7 @@ export class GraphView {
       .call(this.zoom.transform as any, d3.zoomIdentity)
   }
 
-  private handleToggleLabels(show: boolean): void {
-    this.showLabels = show
-    this.nodeSelection?.selectAll('.node__label').style('display', show ? 'block' : 'none')
-  }
-
-  private handleForceStrengthChange(strength: number): void {
-    this.forceStrength = -strength
-    if (this.simulation) {
-      const chargeForce = this.simulation.force('charge') as d3.ForceManyBody<GraphNode>
-      chargeForce?.strength(this.forceStrength)
-      this.simulation.alpha(0.5).restart()
-    }
-  }
-
-  private handleDepthChange(depth: number): void {
-    this.localGraphDepth = depth
-    if (this.localGraphEnabled && this.graphData) {
-      this.filteredData = filterNodes(this.graphData, {
-        showOrphans: true,
-        selectedTags: [],
-        selectedFolders: [],
-        localGraphCenter: state.activeId || undefined,
-        localGraphDepth: depth
-      })
-      this.renderGraph()
-      this.updateStats()
-      this.updateMinimap()
-    }
-  }
-
-  private handleToggleLocalGraph(enabled: boolean): void {
-    this.localGraphEnabled = enabled
-    if (this.graphData) {
-      this.filteredData = filterNodes(this.graphData, {
-        showOrphans: true,
-        selectedTags: [],
-        selectedFolders: [],
-        localGraphCenter: enabled ? state.activeId || undefined : undefined,
-        localGraphDepth: enabled ? this.localGraphDepth : undefined
-      })
-      this.renderGraph()
-      this.updateStats()
-      this.updateMinimap()
-    }
-  }
-
-  private handleExport(format: 'svg' | 'png'): void {
+  private exportGraph(format: 'svg' | 'png'): void {
     if (!this.svg) return
 
     const svgElement = this.svg.node()
@@ -999,48 +935,6 @@ export class GraphView {
     }
   }
 
-  private handleStartPathFind(): void {
-    if (this.pathFindMode) {
-      this.endPathFindMode()
-      return
-    }
-
-    this.pathFindMode = true
-    this.pathFindStart = null
-    this.clearPathHighlight()
-    this.controls?.setPathFindMode(true)
-
-    // Hint removed as per user request
-    /*
-    const hint = this.root.querySelector('#graph-pathfind-hint') as HTMLElement
-    if (hint) {
-      hint.style.display = 'flex'
-      hint.querySelector('.graph-modal__pathfind-cancel')?.addEventListener('click', () => {
-        this.endPathFindMode()
-      })
-    }
-
-    this.updatePathFindHint('Click on a node to select the starting point.')
-    */
-  }
-
-  private endPathFindMode(): void {
-    this.pathFindMode = false
-    this.pathFindStart = null
-    this.controls?.setPathFindMode(false)
-
-    const hint = this.root.querySelector('#graph-pathfind-hint') as HTMLElement
-    if (hint) hint.style.display = 'none'
-  }
-
-  private updatePathFindHint(message: string): void {
-    const hint = this.root.querySelector('#graph-pathfind-hint') as HTMLElement
-    if (hint) {
-      const textNode = hint.childNodes[0]
-      if (textNode) textNode.textContent = message + ' '
-    }
-  }
-
   private handleThemeChange(theme: string): void {
     const content = this.root.querySelector('.graph-modal__view-area')
     if (content) {
@@ -1065,62 +959,6 @@ export class GraphView {
       // Update minimap colors
       this.updateMinimap()
     }
-  }
-
-  private highlightPathNode(nodeId: string, type: 'start' | 'end' | 'path'): void {
-    this.nodeSelection?.each((d, i, nodes) => {
-      if (d.id === nodeId) {
-        const circle = d3.select(nodes[i]).select('circle')
-        if (type === 'start') {
-          circle.attr('stroke', '#22c55e').attr('stroke-width', 4)
-        } else if (type === 'end') {
-          circle.attr('stroke', '#ef4444').attr('stroke-width', 4)
-        } else {
-          circle.attr('stroke', '#7fa7ff').attr('stroke-width', 3)
-        }
-      }
-    })
-  }
-
-  private findAndHighlightPath(startId: string, endId: string): void {
-    if (!this.graphData) return
-
-    const path = findShortestPath(this.graphData, startId, endId)
-
-    if (path.length === 0) {
-      this.updatePathFindHint('No path found between these notes.')
-      setTimeout(() => this.endPathFindMode(), 2000)
-      return
-    }
-
-    // Highlight path nodes
-    this.highlightPathNode(startId, 'start')
-    this.highlightPathNode(endId, 'end')
-    for (let i = 1; i < path.length - 1; i++) {
-      this.highlightPathNode(path[i], 'path')
-    }
-
-    // Highlight path links
-    const pathLinks = getPathLinks(this.graphData, path)
-    this.linkSelection?.classed('link--path', (link) => {
-      const sourceId = typeof link.source === 'string' ? link.source : link.source.id
-      const targetId = typeof link.target === 'string' ? link.target : link.target.id
-      return pathLinks.some((pl) => {
-        const plSourceId = typeof pl.source === 'string' ? pl.source : pl.source.id
-        const plTargetId = typeof pl.target === 'string' ? pl.target : pl.target.id
-        return (
-          (sourceId === plSourceId && targetId === plTargetId) ||
-          (sourceId === plTargetId && targetId === plSourceId)
-        )
-      })
-    })
-
-    this.updatePathFindHint(`Path found: ${path.length} nodes (${path.length - 1} hops)`)
-  }
-
-  private clearPathHighlight(): void {
-    this.nodeSelection?.selectAll('circle').attr('stroke', null).attr('stroke-width', null)
-    this.linkSelection?.classed('link--path', false)
   }
 
   private updateMinimap(): void {
@@ -1340,21 +1178,26 @@ export class GraphView {
     const content = this.root.querySelector('.graph-modal__content') as HTMLElement
     if (this.isMaximized) {
       this.root.classList.add('is-maximized')
-      content.style.width = '100vw'
-      content.style.height = '100vh'
-      content.style.left = '0'
-      content.style.top = '0'
+      // Let CSS handle dimensions for cleaner transitions
+      content.style.width = ''
+      content.style.height = ''
+      content.style.left = ''
+      content.style.top = ''
     } else {
       this.root.classList.remove('is-maximized')
-      content.style.width = '94vw'
-      content.style.height = 'calc(100vh - 120px)'
-      content.style.left = '3vw'
-      content.style.top = '40px'
+      // Reset to defaults
+      content.style.width = ''
+      content.style.height = ''
+      content.style.left = ''
+      content.style.top = ''
     }
 
-    // Relayout simulation
+    // Let CSS handle dimensions for cleaner transitions
+    // The ResizeObserver will trigger handleResize as the dimensions change
+
+    // Relay-out simulation if needed
     setTimeout(() => {
       this.handleResize()
-    }, 300)
+    }, 400) // End of CSS transition
   }
 }

@@ -660,7 +660,11 @@ class App {
       keyboardManager.register({ key, scope: 'global', description: desc, handler })
     }
 
-    reg('Alt+g', 'Open Knowledge Graph', () => this.graphView.open())
+    reg('Alt+g', 'Open Knowledge Graph', () => {
+      // If graph tab is active, do nothing
+      if (state.activeId === 'graph') return
+      this.graphView.open()
+    })
     reg('Alt+l', 'Lock Application', () => void securityService.promptAndLock())
     reg('Control+f', 'Find in note', () => {
       this.editor.focus()
@@ -717,13 +721,16 @@ class App {
     })
     reg('Control+b', 'Toggle sidebar', () => this.sidebar.toggle())
     reg('Control+d', 'Delete item', () => {
+      if (state.activeId === 'settings' || state.activeId === 'graph') {
+        return
+      }
       if (state.selectedIds.size > 0) {
         const items = Array.from(state.selectedIds).map((id) => {
           const n = state.notes.find((x) => x.id === id)
           return { id, type: n ? ('note' as const) : ('folder' as const), path: n?.path }
         })
         void this.fileOps.deleteItems(items)
-      } else if (state.activeId && state.activeId !== 'settings') {
+      } else if (state.activeId) {
         const n = state.notes.find((x) => x.id === state.activeId)
         void this.fileOps.deleteItems([{ id: state.activeId, type: 'note', path: n?.path }])
       }

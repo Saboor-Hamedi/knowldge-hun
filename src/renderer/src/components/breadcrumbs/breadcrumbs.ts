@@ -28,7 +28,7 @@ export class Breadcrumbs {
     this.container.innerHTML = ''
 
     const activeId = state.activeId
-    if (!activeId || activeId === 'settings') {
+    if (!activeId || activeId === 'settings' || activeId === 'graph') {
       this.container.style.display = 'none'
       return
     }
