@@ -92,10 +92,11 @@
   background: var(--panel-strong);
   border: 1px solid var(--border);
   border-radius: 4px;
-  padding: 6px 8px;
+  padding: 2px 8px;
   color: var(--text-strong);
   font-family: inherit;
   font-size: 13px;
+  height: 26px;
 }
 
 .sidebar__search input:focus {
@@ -105,6 +106,38 @@
 
 .sidebar__search input::placeholder {
   color: var(--muted);
+}
+
+/* Search Options */
+.search-option {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 3px;
+  transition: all 0.1s ease;
+  user-select: none;
+}
+
+.search-option:hover {
+  background: var(--hover);
+  color: var(--text-strong);
+}
+
+.search-option.active {
+  background: var(--selection) !important;
+  color: var(--text-strong) !important;
+  border: 1px solid var(--primary) !important;
+}
+
+.search-result-item .individual-replace-btn {
+  opacity: 0;
+  transition: opacity 0.1s ease;
+}
+
+.search-result-item:hover .individual-replace-btn {
+  opacity: 1;
 }
 
 /* Body - VS Code style scrolling */

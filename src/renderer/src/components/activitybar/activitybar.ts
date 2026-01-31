@@ -101,13 +101,13 @@ export class ActivityBar {
 
     this.container.innerHTML = `
       <div class="activitybar__top">
-        <button class="activitybar__item is-active" data-view="notes" title="Explorer">
+        <button class="activitybar__item${state.activeView === 'notes' ? ' is-active' : ''}" data-view="notes" title="Explorer">
           <span class="activitybar__icon">${fileIcon}</span>
         </button>
-        <button class="activitybar__item" data-view="search" title="Search">
+        <button class="activitybar__item${state.activeView === 'search' ? ' is-active' : ''}" data-view="search" title="Search">
           <span class="activitybar__icon">${searchIcon}</span>
         </button>
-        <button class="activitybar__item" data-view="graph" title="Graph View">
+        <button class="activitybar__item${state.activeView === 'graph' ? ' is-active' : ''}" data-view="graph" title="Graph View">
           <span class="activitybar__icon">
             <svg width="20" height="20" viewBox="0 0 16 16" fill="none">
               <circle cx="4" cy="4" r="2" stroke="currentColor" stroke-width="1.5" fill="none"/>
@@ -131,13 +131,14 @@ export class ActivityBar {
         <button class="activitybar__item" data-view="theme" title="Theme">
           <span class="activitybar__icon">${paletteIcon}</span>
         </button>
-        <button class="activitybar__item" data-view="settings" title="Settings">
+        <button class="activitybar__item${state.activeView === 'settings' ? ' is-active' : ''}" data-view="settings" title="Settings">
           <span class="activitybar__icon">${settingsIcon}</span>
         </button>
       </div>
     `
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private createLucideIcon(IconComponent: any): string {
     // Use Lucide's createElement to create SVG element
     const svgElement = createElement(IconComponent, {

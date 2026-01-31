@@ -27,7 +27,7 @@ export class VaultHandler {
         isPreviewMode: boolean
         [key: string]: any
       }
-      breadcrumbs: { render: () => void }
+      breadcrumbs: { render: () => void; clear: () => void }
       activityBar: { setActiveView: (view: 'notes' | 'search' | 'settings') => void }
       welcomePage: { show: () => void; hide: () => void; isVisible: () => boolean }
     },
@@ -168,7 +168,13 @@ export class VaultHandler {
   public async openNote(
     id: string,
     path?: string,
-    focusTarget: 'editor' | 'sidebar' | 'none' = 'editor'
+    focusTarget: 'editor' | 'sidebar' | 'none' = 'editor',
+    highlightOptions?: {
+      query: string
+      matchCase?: boolean
+      wholeWord?: boolean
+      useRegex?: boolean
+    }
   ): Promise<void> {
     this.callbacks.updateViewVisibility()
     if (this.components.welcomePage.isVisible()) {
@@ -177,7 +183,17 @@ export class VaultHandler {
 
     const shell = document.querySelector('.vscode-shell')
     const isSidebarVisible = shell && !shell.classList.contains('sidebar-hidden')
-    if (isSidebarVisible) {
+
+    // Check if search is currently active in the activity bar
+    const isSearchActive =
+      state.activeView === 'search' ||
+      document
+        .querySelector('.activitybar__item[data-view="search"]')
+        ?.classList.contains('is-active')
+
+    // Only switch to 'notes' if we aren't in search mode.
+    // This allows opening search results without losing the search context.
+    if (isSidebarVisible && !isSearchActive) {
       this.components.activityBar.setActiveView('notes')
     }
 
@@ -215,6 +231,18 @@ export class VaultHandler {
     }
 
     await this.components.editor.loadNote(note)
+
+    if (highlightOptions && highlightOptions.query) {
+      if (this.components.editor.highlightTerm) {
+        this.components.editor.highlightTerm(
+          highlightOptions.query,
+          highlightOptions.matchCase,
+          highlightOptions.wholeWord,
+          highlightOptions.useRegex
+        )
+      }
+    }
+
     this.callbacks.updateViewVisibility()
     this.components.statusBar.setStatus('Ready')
     this.components.statusBar.setMeta(`📁 ${state.vaultPath || ''}`)

@@ -803,22 +803,43 @@ export class VaultManager {
     return { path: finalPath }
   }
 
-  public async search(query: string): Promise<NoteMeta[]> {
-    const lower = query.toLowerCase()
-    const matches: NoteMeta[] = []
+  public async search(
+    query: string,
+    options: { matchCase?: boolean; useRegex?: boolean; wholeWord?: boolean } = {}
+  ): Promise<(NoteMeta & { content: string })[]> {
+    const matches: (NoteMeta & { content: string })[] = []
+    let regex: RegExp
 
-    for (const meta of this.notes.values()) {
-      if (meta.title.toLowerCase().includes(lower)) {
-        matches.push(meta)
-        continue
+    try {
+      if (options.useRegex) {
+        regex = new RegExp(query, options.matchCase ? 'g' : 'gi')
+      } else {
+        let escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+        if (options.wholeWord) {
+          escaped = `\\b${escaped}\\b`
+        }
+        regex = new RegExp(escaped, options.matchCase ? 'g' : 'gi')
       }
+    } catch {
+      // Invalid regex
+      return []
+    }
 
+    for (const [id, meta] of this.notes.entries()) {
       try {
-        if (!meta.path) continue
-        const fullPath = join(this.rootPath, meta.path)
+        const fullPath = join(this.rootPath, id)
         const content = await readFile(fullPath, 'utf-8')
-        if (content.toLowerCase().includes(lower)) {
-          matches.push(meta)
+
+        const matchesTitle = regex.test(meta.title)
+        regex.lastIndex = 0 // Reset for next test
+        const matchesContent = regex.test(content)
+        regex.lastIndex = 0
+
+        if (matchesTitle || matchesContent) {
+          matches.push({
+            ...meta,
+            content
+          })
         }
       } catch {
         // ignore read error

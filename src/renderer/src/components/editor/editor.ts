@@ -412,6 +412,13 @@ export class EditorComponent {
     return this.editor?.getValue() ?? ''
   }
 
+  getSelection(): string {
+    if (!this.editor) return ''
+    const selection = this.editor.getSelection()
+    if (!selection) return ''
+    return this.editor.getModel()?.getValueInRange(selection) ?? ''
+  }
+
   focus(): void {
     this.editor?.focus()
   }
@@ -443,6 +450,66 @@ export class EditorComponent {
 
   triggerAction(actionId: string): void {
     this.editor?.trigger('context-menu', actionId, null)
+  }
+
+  public highlightTerm(
+    query: string,
+    matchCase: boolean = false,
+    wholeWord: boolean = false,
+    useRegex: boolean = false
+  ): void {
+    if (!this.editor) return
+
+    const model = this.editor.getModel()
+    if (!model) return
+
+    if (!query) {
+      this.clearHighlights()
+      return
+    }
+
+    let findMatches: any[] = []
+    try {
+      findMatches = model.findMatches(
+        query,
+        true,
+        useRegex,
+        matchCase,
+        wholeWord ? ' ' : null,
+        true
+      )
+    } catch (err) {
+      console.error('[Editor] Search failed:', err)
+      return
+    }
+
+    if (findMatches.length > 0) {
+      const newDecorations = findMatches.map((match) => ({
+        range: match.range,
+        options: {
+          styleSheet: true,
+          className: 'search-highlight',
+          inlineClassName: 'search-highlight-inline',
+          stickiness: 1 // monaco.editor.TrackedRangeStickiness.NeverGutterOrLineNumbers
+        }
+      }))
+
+      this.decorations = this.editor.deltaDecorations(this.decorations, newDecorations)
+
+      // Only scroll to first match if we're not currently focused in the editor
+      // so we don't jump around while the user is typing
+      if (document.activeElement !== this.editor.getDomNode()) {
+        this.editor.revealRangeInCenter(findMatches[0].range)
+      }
+    } else {
+      this.clearHighlights()
+    }
+  }
+
+  public clearHighlights(): void {
+    if (this.editor) {
+      this.decorations = this.editor.deltaDecorations(this.decorations, [])
+    }
   }
 
   public proposeChanges(newContent: string): void {

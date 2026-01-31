@@ -364,3 +364,15 @@
   margin-left: 8px !important;
   top: 0 !important;
 }
+
+/* Search Highlighting */
+.search-highlight {
+  background: rgba(204, 153, 0, 0.4);
+  border-bottom: 2px solid #cc9900;
+  border-radius: 1px;
+}
+
+.search-highlight-inline {
+  background: rgba(204, 153, 0, 0.25);
+  border-bottom: 1px solid #cc9900;
+}

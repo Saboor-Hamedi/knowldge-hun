@@ -17,17 +17,37 @@ import {
   ExternalLink,
   FileText,
   Folder,
-  Files
+  Files,
+  ChevronDown,
+  Replace,
+  ReplaceAll,
+  ChevronRight
 } from 'lucide'
 import { setTooltip } from '../tooltip/tooltip'
 import './sidebar-tree.css'
+
+interface SearchOptions {
+  matchCase: boolean
+  wholeWord: boolean
+  useRegex: boolean
+}
 
 export class SidebarTree {
   private container: HTMLElement
   private bodyEl: HTMLElement
   private searchEl: HTMLInputElement
   private headerEl: HTMLElement
-  private onNoteSelect?: (id: string, path?: string) => void
+  private onNoteSelect?: (
+    id: string,
+    path?: string,
+    highlightOptions?: {
+      query: string
+      matchCase?: boolean
+      wholeWord?: boolean
+      useRegex?: boolean
+    }
+  ) => void
+  private onSearchChange?: (query: string, options: SearchOptions) => void
   private onNoteCreate?: (path?: string) => void
   private onNoteDelete?: (id: string, path?: string) => void
   private onNoteMove?: (id: string, fromPath?: string, toPath?: string) => Promise<void>
@@ -39,6 +59,7 @@ export class SidebarTree {
   private selectedFolderPath: string | null = null
   private selectedId: string | null = null
   private lastSelectedId: string | null = null
+  private currentMode: 'explorer' | 'search' = 'explorer'
   private onVisibilityChange?: (visible: boolean) => void
   private onGraphClick?: () => void
 
@@ -79,8 +100,14 @@ export class SidebarTree {
     })
   }
 
-  setNoteSelectHandler(handler: (id: string, path?: string) => void): void {
-    this.onNoteSelect = (id, path) => {
+  setNoteSelectHandler(
+    handler: (
+      id: string,
+      path?: string,
+      highlight?: { query: string; matchCase?: boolean; wholeWord?: boolean; useRegex?: boolean }
+    ) => void
+  ): void {
+    this.onNoteSelect = (id, path, highlight) => {
       // Capture if we currently have focus in the list
       const hadFocus = this.bodyEl.contains(document.activeElement)
 
@@ -92,7 +119,7 @@ export class SidebarTree {
         this.scrollToActive(true)
       }
 
-      handler(id, path)
+      handler(id, path, highlight)
     }
   }
 
@@ -124,6 +151,10 @@ export class SidebarTree {
     this.onFolderCreate = handler
   }
 
+  setSearchHandler(handler: (query: string, options: SearchOptions) => void): void {
+    this.onSearchChange = handler
+  }
+
   setVisibilityChangeHandler(handler: (visible: boolean) => void): void {
     this.onVisibilityChange = handler
   }
@@ -149,12 +180,30 @@ export class SidebarTree {
     this.onVisibilityChange?.(true)
   }
 
+  setSearchQuery(query: string): void {
+    // We might need to switch to search mode first if we're not in it
+    if (this.currentMode !== 'search') {
+      this.setMode('search')
+    }
+
+    // Small delay to ensure the search input is rendered by setMode
+    setTimeout(() => {
+      const input = this.container.querySelector('#global-search-input') as HTMLInputElement
+      if (input) {
+        input.value = query
+        input.dispatchEvent(new Event('input'))
+        input.focus()
+      }
+    }, 50)
+  }
+
   setVisible(visible: boolean): void {
     if (visible) this.show()
     else this.hide()
   }
 
   setMode(mode: 'explorer' | 'search'): void {
+    this.currentMode = mode
     // Basic implementation of mode switching
     // Ideally we should have separate containers but for now we manipulate visibility
 
@@ -183,205 +232,414 @@ export class SidebarTree {
 
     let searchBody = this.container.querySelector('.sidebar__search-container') as HTMLElement
     if (!searchBody && mode === 'search') {
+      const replaceAllIcon = this.createLucideIcon(ReplaceAll, 14)
+      const replaceNextIcon = this.createLucideIcon(Replace, 14)
+      const chevronRightIcon = this.createLucideIcon(ChevronRight, 14)
+
       const searchMarkup = `
-         <div class="sidebar__search-container" style="padding: 10px;">
-            <div class="sidebar__search">
-                <input type="text" placeholder="Search (Ctrl+Shift+F, tags: #tag)" id="global-search-input" autocomplete="off">
+         <div class="sidebar__search-container" style="padding: 8px 8px 8px 4px; display: flex; flex-direction: column; gap: 6px; border-bottom: 1px solid var(--border);">
+            <div style="display: flex; align-items: flex-start; gap: 2px;">
+              <button id="toggle-replace" class="sidebar__action" style="width: 20px; height: 26px; padding: 0; display: flex; align-items: center; justify-content: center; border-radius: 3px;">
+                ${chevronRightIcon}
+              </button>
+              <div style="flex: 1; display: flex; flex-direction: column; gap: 6px;">
+                <div class="sidebar__search-wrapper" style="position: relative; display: flex; align-items: center; background: var(--panel-strong); border: 1px solid var(--border); border-radius: 4px; height: 26px;">
+                    <div class="search-options" style="display: flex; gap: 1px; padding-left: 2px; border-right: 1px solid var(--border); margin-right: 4px;">
+                      <button class="search-option" data-option="matchCase" title="Match Case" style="width: 20px; height: 20px; background: transparent; border: none; color: var(--text-soft); cursor: pointer; font-size: 10px; border-radius: 2px; display: flex; align-items: center; justify-content: center;">Ab</button>
+                      <button class="search-option" data-option="wholeWord" title="Match Whole Word" style="width: 20px; height: 20px; background: transparent; border: none; color: var(--text-soft); cursor: pointer; font-size: 10px; border-radius: 2px; display: flex; align-items: center; justify-content: center;">W</button>
+                      <button class="search-option" data-option="useRegex" title="Use Regular Expression" style="width: 20px; height: 20px; background: transparent; border: none; color: var(--text-soft); cursor: pointer; font-size: 10px; border-radius: 2px; display: flex; align-items: center; justify-content: center;">.*</button>
+                    </div>
+                    <input type="text" placeholder="Search" id="global-search-input" autocomplete="off" style="flex: 1; background: transparent; border: none; padding: 2px 4px; color: var(--text-strong); font-size: 13px; outline: none; height: 100%;">
+                </div>
+                <div id="replace-container" style="display: none; align-items: center; gap: 4px;">
+                  <div style="display: flex; gap: 2px; border-right: 1px solid var(--border); padding-right: 4px; margin-right: 2px;">
+                    <button id="replace-next-btn" class="sidebar__action" title="Replace Next" style="border: 1px solid var(--border); background: var(--panel-strong); width: 22px; height: 22px; padding: 0; display: flex; align-items: center; justify-content: center; border-radius: 3px;">
+                      ${replaceNextIcon}
+                    </button>
+                    <button id="replace-all-btn" class="sidebar__action" title="Replace All" style="border: 1px solid var(--border); background: var(--panel-strong); width: 22px; height: 22px; padding: 0; display: flex; align-items: center; justify-content: center; border-radius: 3px;">
+                      ${replaceAllIcon}
+                    </button>
+                  </div>
+                  <div class="sidebar__search-wrapper" style="position: relative; flex: 1; display: flex; align-items: center; background: var(--panel-strong); border: 1px solid var(--border); border-radius: 4px; height: 26px;">
+                      <input type="text" placeholder="Replace" id="global-replace-input" autocomplete="off" style="flex: 1; background: transparent; border: none; padding: 2px 8px; color: var(--text-strong); font-size: 13px; outline: none; height: 100%;">
+                      <button id="clear-replace" class="sidebar__action" style="width: 18px; height: 18px; margin-right: 2px; opacity: 0.5; display: none;">×</button>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div class="search-results" style="margin-top: 10px; color: var(--text-soft); font-size: 13px;"></div>
          </div>
       `
       this.container.querySelector('.sidebar__header')?.insertAdjacentHTML('afterend', searchMarkup)
       searchBody = this.container.querySelector('.sidebar__search-container') as HTMLElement
-      // Attach search logic
-      const input = searchBody.querySelector('#global-search-input') as HTMLInputElement
-      const results = searchBody.querySelector('.search-results') as HTMLElement
-      let selectedIndex = 0
-      // Forward arrow key and enter events from input to results for keyboard navigation
-      input.addEventListener('keydown', (e) => {
-        const resultsList = searchBody.querySelector('.search-results') as HTMLElement
-        if (!resultsList) return
-        if (['ArrowDown', 'ArrowUp', 'Enter'].includes(e.key)) {
-          resultsList.dispatchEvent(new KeyboardEvent('keydown', e))
-          e.preventDefault()
-        }
-        if (e.key === 'Escape') {
-          // If query is present, clear it first, otherwise allow global handler to switch view
-          if (input.value) {
-            input.value = ''
-            input.dispatchEvent(new Event('input'))
-            e.stopPropagation() // Handle clearing here, let second Esc close view
-          }
-        }
-      })
 
-      input.addEventListener('input', async () => {
-        const query = input.value.trim()
-        if (!query) {
-          results.innerHTML = ''
-          selectedIndex = 0
-          // Remove any selection highlight
-          Array.from(results.querySelectorAll('.search-result-item.selected')).forEach((el) =>
-            el.classList.remove('selected')
-          )
-          return
-        }
-        // Don't show "Searching..." text - just show empty results
+      this.setupSearch(searchBody, treeBody)
+    }
+
+    if (mode === 'search') {
+      if (treeBody) {
+        treeBody.style.display = 'block'
+        treeBody.innerHTML = '' // Clear existing tree
+      }
+      if (filterContainer) filterContainer.style.display = 'none'
+      if (searchBody) searchBody.style.display = 'flex'
+
+      const input = searchBody.querySelector('#global-search-input') as HTMLInputElement
+      if (input) {
+        setTimeout(() => {
+          input.focus()
+          if (input.value) input.dispatchEvent(new Event('input'))
+        }, 100)
+      }
+    } else {
+      if (treeBody) {
+        treeBody.style.display = 'block'
+        // Re-render Explorer tree since search mode clears the body
+        this.renderTree(this.searchEl.value)
+      }
+      if (filterContainer) filterContainer.style.display = 'block'
+      if (searchBody) searchBody.style.display = 'none'
+
+      // Clear editor highlights when leaving search mode
+      if (this.onSearchChange) {
+        this.onSearchChange('', { matchCase: false, wholeWord: false, useRegex: false })
+      }
+    }
+  }
+
+  private setupSearch(searchBody: HTMLElement, results: HTMLElement): void {
+    const toggleBtn = searchBody.querySelector('#toggle-replace') as HTMLElement
+    const replaceContainer = searchBody.querySelector('#replace-container') as HTMLElement
+    const searchInput = searchBody.querySelector('#global-search-input') as HTMLInputElement
+    const replaceInput = searchBody.querySelector('#global-replace-input') as HTMLInputElement
+    const replaceAllBtn = searchBody.querySelector('#replace-all-btn') as HTMLElement
+    const clearReplaceBtn = searchBody.querySelector('#clear-replace') as HTMLElement
+
+    let isReplaceVisible = false
+    let lastResults: (NoteMeta & { content: string })[] = []
+    let searchRequestId = 0
+    let searchTimeout: any = null
+
+    const searchOptions: SearchOptions = {
+      matchCase: false,
+      wholeWord: false,
+      useRegex: false
+    }
+
+    const performSearch = async (immediate = false): Promise<void> => {
+      const query = searchInput.value.trim()
+      if (!query) {
         results.innerHTML = ''
+        lastResults = []
+        if (this.onSearchChange) {
+          this.onSearchChange('', { matchCase: false, wholeWord: false, useRegex: false })
+        }
+        return
+      }
+
+      const currentId = ++searchRequestId
+      if (searchTimeout) clearTimeout(searchTimeout)
+
+      const execute = async () => {
         try {
-          // Use window.api.searchNotes for robust search (title, content, tags)
-          const notes: NoteMeta[] = await window.api.searchNotes(query)
-          // Filter for tags if #tag is present
-          let filtered = notes
-          const tagMatch = query.match(/#(\w+)/g)
-          if (tagMatch) {
-            const tags = tagMatch.map((t) => t.slice(1).toLowerCase())
-            filtered = notes.filter((n: NoteMeta) => {
-              if (!(n as any).content) return false
-              return tags.every((tag) => (n as any).content.toLowerCase().includes(`#${tag}`))
-            })
-          }
-          if (filtered.length === 0) {
-            results.innerHTML =
-              '<div style="text-align:center;margin-top:20px;color:var(--text-soft);">No results found</div>'
+          const resultsData = (await window.api.searchNotes(query, searchOptions)) as (NoteMeta & {
+            content: string
+          })[]
+
+          if (currentId !== searchRequestId) return
+
+          lastResults = resultsData
+          if (lastResults.length === 0) {
+            results.innerHTML = `
+                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 20px; color: var(--muted); text-align: center;">
+                  <div style="font-size: 14px; margin-bottom: 8px;">No results found</div>
+                  <div style="font-size: 12px; opacity: 0.7;">Try different keywords or check your search options.</div>
+                </div>
+              `
           } else {
-            // Highlight matches in title/content/tags
-            const highlight = (text: string, q: string): string => {
-              if (!q) return text
-              try {
-                const safeQ = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-                return text.replace(
-                  new RegExp(safeQ, 'gi'),
-                  (m) =>
-                    `<mark style="background:var(--selection);color:var(--text-strong);padding:0 2px;border-radius:2px;">${m}</mark>`
-                )
-              } catch {
-                return text
-              }
-            }
-            const qNoTags = query.replace(/#\w+/g, '').trim()
-            results.innerHTML = filtered
-              .map((n: NoteMeta) => {
-                const title = highlight(n.title || n.id, qNoTags)
-                let content = (n as any).content || ''
-                if (qNoTags) content = highlight(content.slice(0, 120), qNoTags)
-                // Tag highlight
-                let tagHtml = ''
-                const tagMatch = query.match(/#(\w+)/g)
-                if (tagMatch && (n as any).content) {
-                  tagHtml = tagMatch
-                    .map((tag) =>
-                      (n as any).content.toLowerCase().includes(tag.toLowerCase())
-                        ? `<mark style="background:var(--primary);color:var(--bg);padding:0 2px;border-radius:2px;">${tag}</mark>`
-                        : ''
-                    )
-                    .join(' ')
+            renderResults(lastResults, query)
+          }
+        } catch (err) {
+          console.error('[Search] Error:', err)
+          if (currentId === searchRequestId) {
+            results.innerHTML = `<div style="text-align:center;margin-top:20px;color:var(--danger);">Search failed</div>`
+          }
+        }
+      }
+
+      if (immediate) {
+        await execute()
+      } else {
+        searchTimeout = setTimeout(execute, 150)
+      }
+
+      // Live highlighting in the editor
+      if (this.onSearchChange) {
+        this.onSearchChange(query, searchOptions)
+      }
+    }
+
+    const renderResults = (notes: (NoteMeta & { content: string })[], query: string): void => {
+      const highlight = (text: string, q: string): string => {
+        if (!q) return text
+        try {
+          let pattern = q
+          if (!searchOptions.useRegex) {
+            pattern = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+            if (searchOptions.wholeWord) pattern = `\\b${pattern}\\b`
+          }
+          const regex = new RegExp(pattern, searchOptions.matchCase ? 'g' : 'gi')
+          return text.replace(
+            regex,
+            (m) =>
+              `<mark style="background:#cc990060;color:inherit;padding:0 1px;border-radius:1px;border-bottom:1px solid #cc9900;">${m}</mark>`
+          )
+        } catch (err) {
+          console.error('[Search] Highlight error:', err)
+          return text
+        }
+      }
+
+      results.innerHTML = `
+          <div style="padding: 8px 10px; display: flex; flex-direction: column; gap: 2px;">
+            <div style="font-size: 11px; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; padding-left: 6px;">
+              ${notes.length} ${notes.length === 1 ? 'file' : 'files'} found
+            </div>
+            ${notes
+              .map((n) => {
+                const title = highlight(n.title || n.id, query)
+                let snippet = n.content || ''
+
+                let pattern = query
+                if (!searchOptions.useRegex) {
+                  pattern = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+                  if (searchOptions.wholeWord) pattern = `\\b${pattern}\\b`
                 }
+                const regex = new RegExp(pattern, searchOptions.matchCase ? '' : 'i')
+                const matchIndex = snippet.search(regex)
+
+                if (matchIndex !== -1) {
+                  const start = Math.max(0, matchIndex - 40)
+                  const end = Math.min(snippet.length, matchIndex + 80)
+                  snippet =
+                    (start > 0 ? '...' : '') +
+                    highlight(snippet.slice(start, end), query) +
+                    (end < snippet.length ? '...' : '')
+                } else {
+                  snippet = highlight(snippet.slice(0, 100), query)
+                }
+
                 return `
-                <div class="search-result-item" data-id="${n.id}" data-path="${n.path || ''}" tabindex="0" style="padding:8px 6px;cursor:pointer;border-radius:4px;display:flex;flex-direction:column;gap:2px;outline:none;">
-                  <span style="font-weight:600;color:var(--text-strong);">${title}</span>
-                  <span style="font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${n.path || ''}</span>
-                  <span style="font-size:12px;color:var(--text-soft);max-height:2.5em;overflow:hidden;text-overflow:ellipsis;">${content} ${tagHtml}</span>
-                  <span style="font-size:11px;color:var(--muted);margin-top:2px;">Press <b>Enter</b> to open</span>
+                <div class="search-result-item" data-id="${n.id}" data-path="${n.path || ''}" tabindex="0" style="position:relative; padding:6px 8px;cursor:pointer;border-radius:4px;display:flex;flex-direction:column;gap:1px;outline:none; transition: background 0.1s;">
+                  <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <span style="font-weight:600;color:var(--text-strong);">${title}</span>
+                  </div>
+                  <span style="font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${n.path || ''}</span>
+                  <span style="font-size:12px;color:var(--text-soft);max-height:2.6em;overflow:hidden;text-overflow:ellipsis;line-height:1.3;">${snippet}</span>
                 </div>
               `
               })
-              .join('')
-            // Focus first result for keyboard nav and add selection highlight
-            setTimeout(() => {
-              const items = results.querySelectorAll('.search-result-item')
-              items.forEach((el, i) => el.classList.toggle('selected', i === selectedIndex))
-            }, 50)
+              .join('')}
+          </div>
+        `
+
+      results.querySelectorAll('.search-result-item').forEach((itemEl, idx) => {
+        itemEl.addEventListener('click', () => {
+          const note = notes[idx]
+          if (this.onNoteSelect) {
+            this.onNoteSelect(note.id, note.path, {
+              query,
+              matchCase: searchOptions.matchCase,
+              wholeWord: searchOptions.wholeWord,
+              useRegex: searchOptions.useRegex
+            })
           }
-        } catch {
-          results.innerHTML =
-            '<div style="text-align:center;margin-top:20px;color:var(--danger);">Search failed</div>'
-        }
+        })
+
+        itemEl.addEventListener('mouseenter', () => {
+          ;(itemEl as HTMLElement).style.background = 'var(--hover)'
+        })
+        itemEl.addEventListener('mouseleave', () => {
+          ;(itemEl as HTMLElement).style.background = 'transparent'
+        })
       })
-      // Open note on click/enter
-      results?.addEventListener('click', (e) => {
-        const item = (e.target as HTMLElement).closest('.search-result-item') as HTMLElement
+    }
+
+    const performReplaceAll = async (): Promise<void> => {
+      if (!searchInput.value || !lastResults.length) return
+
+      try {
+        let pattern = searchInput.value
+        if (!searchOptions.useRegex) {
+          pattern = searchInput.value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+          if (searchOptions.wholeWord) pattern = `\\b${pattern}\\b`
+        }
+        const regex = new RegExp(pattern, searchOptions.matchCase ? 'g' : 'gi')
+
+        for (const note of lastResults) {
+          const newContent = note.content.replace(regex, replaceInput.value)
+          await window.api.saveNote({ ...note, content: newContent })
+
+          // Live update if this note is active
+          if (state.activeId === note.id && this.onNoteSelect) {
+            this.onNoteSelect(note.id, note.path, {
+              query: searchInput.value,
+              matchCase: searchOptions.matchCase,
+              wholeWord: searchOptions.wholeWord,
+              useRegex: searchOptions.useRegex
+            })
+          }
+        }
+        await performSearch(true)
+      } catch (err) {
+        console.error('[ReplaceAll] Failed:', err)
+      }
+    }
+
+    const performReplaceNext = async (): Promise<void> => {
+      if (!searchInput.value || !lastResults.length) return
+
+      try {
+        // Find the first occurrence in the first note that has a match
+        // Since lastResults contains notes that *have* matches, we just pick the first one.
+        const note = lastResults[0]
+
+        let pattern = searchInput.value
+        if (!searchOptions.useRegex) {
+          pattern = searchInput.value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+          if (searchOptions.wholeWord) pattern = `\\b${pattern}\\b`
+        }
+
+        // For distinct "one by one", we replace ONLY the first match in this file.
+        // If we want to support "next match" across the same file, we'd need to track index.
+        // For simplicity in this implementation: replace the first match found in the first file.
+        // The user can keep clicking this to work through the file, then the next file.
+        const regex = new RegExp(pattern, searchOptions.matchCase ? '' : 'i') // No global flag
+
+        const newContent = note.content.replace(regex, replaceInput.value)
+        note.content = newContent
+
+        await window.api.saveNote({ ...note, content: newContent })
+
+        if (state.activeId === note.id && this.onNoteSelect) {
+          this.onNoteSelect(note.id, note.path, {
+            query: searchInput.value,
+            matchCase: searchOptions.matchCase,
+            wholeWord: searchOptions.wholeWord,
+            useRegex: searchOptions.useRegex
+          })
+        }
+
+        await performSearch(true)
+      } catch (err) {
+        console.error('[ReplaceNext] Failed:', err)
+      }
+    }
+
+    toggleBtn.addEventListener('click', () => {
+      isReplaceVisible = !isReplaceVisible
+      replaceContainer.style.display = isReplaceVisible ? 'flex' : 'none'
+      const chevronRightIcon = this.createLucideIcon(ChevronRight, 14)
+      const chevronDownIcon = this.createLucideIcon(ChevronDown, 14)
+      toggleBtn.innerHTML = isReplaceVisible ? chevronDownIcon : chevronRightIcon
+      if (isReplaceVisible) setTimeout(() => replaceInput.focus(), 50)
+    })
+
+    if (replaceAllBtn) {
+      replaceAllBtn.addEventListener('click', () => void performReplaceAll())
+    }
+
+    const replaceNextBtn = searchBody.querySelector('#replace-next-btn') as HTMLElement
+    if (replaceNextBtn) {
+      replaceNextBtn.addEventListener('click', () => void performReplaceNext())
+    }
+
+    searchInput.addEventListener('input', () => {
+      selectedIndex = 0
+      void performSearch()
+    })
+
+    const handleSearchKeydown = (e: KeyboardEvent): void => {
+      if (['ArrowDown', 'ArrowUp', 'Enter'].includes(e.key)) {
+        results.dispatchEvent(new KeyboardEvent('keydown', e))
+        e.preventDefault()
+      }
+      if (e.key === 'Escape') {
+        const input = e.target as HTMLInputElement
+        if (input.value) {
+          input.value = ''
+          input.dispatchEvent(new Event('input'))
+          e.stopPropagation()
+        }
+      }
+    }
+
+    searchInput.addEventListener('keydown', handleSearchKeydown)
+    replaceInput.addEventListener('keydown', handleSearchKeydown)
+
+    replaceInput.addEventListener('input', () => {
+      if (clearReplaceBtn) {
+        clearReplaceBtn.style.display = replaceInput.value ? 'block' : 'none'
+      }
+    })
+
+    if (clearReplaceBtn) {
+      clearReplaceBtn.addEventListener('click', () => {
+        replaceInput.value = ''
+        clearReplaceBtn.style.display = 'none'
+        replaceInput.focus()
+      })
+    }
+
+    replaceAllBtn.addEventListener('click', () => {
+      void performReplaceAll()
+    })
+
+    let selectedIndex = 0
+    results?.addEventListener('keydown', (e) => {
+      const items = Array.from(results.querySelectorAll('.search-result-item')) as HTMLElement[]
+      if (items.length === 0) return
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        selectedIndex = (selectedIndex + 1) % items.length
+        items.forEach((el, i) => el.classList.toggle('selected', i === selectedIndex))
+        items[selectedIndex].scrollIntoView({ block: 'nearest' })
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        selectedIndex = (selectedIndex - 1 + items.length) % items.length
+        items.forEach((el, i) => el.classList.toggle('selected', i === selectedIndex))
+        items[selectedIndex].scrollIntoView({ block: 'nearest' })
+      } else if (e.key === 'Enter') {
+        e.preventDefault()
+        const item = items[selectedIndex]
         if (item) {
           const id = item.dataset.id
           const path = item.dataset.path || undefined
-          // Highlight selected
-          Array.from(results.querySelectorAll('.search-result-item.selected')).forEach((el) =>
-            el.classList.remove('selected')
-          )
-          item.classList.add('selected')
           if (id && this.onNoteSelect) {
-            // Prevent duplicate tabs: check if already open
-            if (state && state.openTabs && state.openTabs.some((t: NoteMeta) => t.id === id)) {
-              window.dispatchEvent(
-                new CustomEvent('knowledge-hub:open-note', { detail: { id, path } })
-              )
-            } else {
-              this.onNoteSelect(id, path)
-            }
-            // Keep focus in input for instant search
-            const input = searchBody.querySelector('#global-search-input') as HTMLInputElement
-            if (input) setTimeout(() => input.focus(), 50)
+            this.onNoteSelect(id, path, {
+              query: searchInput.value,
+              matchCase: searchOptions.matchCase,
+              wholeWord: searchOptions.wholeWord,
+              useRegex: searchOptions.useRegex
+            })
           }
         }
+      }
+    })
+
+    searchBody.querySelectorAll('.search-option').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const option = (btn as HTMLElement).dataset.option as keyof typeof searchOptions
+        searchOptions[option] = !searchOptions[option]
+        btn.classList.toggle('active', searchOptions[option])
+        ;(btn as HTMLElement).style.background = searchOptions[option]
+          ? 'var(--selection)'
+          : 'transparent'
+        ;(btn as HTMLElement).style.color = searchOptions[option]
+          ? 'var(--text-strong)'
+          : 'var(--text-soft)'
+        void performSearch()
       })
-      results?.addEventListener('keydown', (e) => {
-        const items = Array.from(results.querySelectorAll('.search-result-item')) as HTMLElement[]
-        if (items.length === 0) return
-        if (e.key === 'ArrowDown') {
-          e.preventDefault()
-          selectedIndex = (selectedIndex + 1) % items.length
-          items.forEach((el, i) => el.classList.toggle('selected', i === selectedIndex))
-        } else if (e.key === 'ArrowUp') {
-          e.preventDefault()
-          selectedIndex = (selectedIndex - 1 + items.length) % items.length
-          items.forEach((el, i) => el.classList.toggle('selected', i === selectedIndex))
-        } else if (e.key === 'Enter') {
-          e.preventDefault()
-          const item = items[selectedIndex]
-          if (item) {
-            const id = item.dataset.id
-            const path = item.dataset.path || undefined
-            items.forEach((el) => el.classList.remove('selected'))
-            item.classList.add('selected')
-            if (id && this.onNoteSelect) {
-              if (state && state.openTabs && state.openTabs.some((t: NoteMeta) => t.id === id)) {
-                window.dispatchEvent(
-                  new CustomEvent('knowledge-hub:open-note', { detail: { id, path } })
-                )
-              } else {
-                this.onNoteSelect(id, path)
-              }
-              const input = searchBody.querySelector('#global-search-input') as HTMLInputElement
-              if (input) setTimeout(() => input.focus(), 50)
-            }
-          }
-        }
-        // Add hover effect for search results
-        const style = document.createElement('style')
-        style.textContent = `
-      .search-result-item:hover:not(.selected) {
-        background: var(--hover);
-        transition: background 0.12s;
-      }`
-        document.head.appendChild(style)
-      })
-      // Add CSS for .selected background
-      const style = document.createElement('style')
-      style.textContent = `.search-result-item.selected { background: var(--selection) !important; }`
-      document.head.appendChild(style)
-    }
-    if (mode === 'search') {
-      if (treeBody) treeBody.style.display = 'none'
-      if (filterContainer) filterContainer.style.display = 'none'
-      if (searchBody) searchBody.style.display = 'block'
-      // Focus input for instant search
-      const input = searchBody.querySelector('#global-search-input') as HTMLInputElement
-      if (input) setTimeout(() => input.focus(), 100)
-    } else {
-      if (treeBody) treeBody.style.display = 'block'
-      if (filterContainer) filterContainer.style.display = 'block'
-      if (searchBody) searchBody.style.display = 'none'
-    }
+    })
   }
 
   isEditing(): boolean {
@@ -436,6 +694,16 @@ export class SidebarTree {
   }
 
   renderTree(filter = ''): void {
+    // If we're in search mode, don't let the explorer tree overwrite our results.
+    // We check both our internal state and the actual UI state for robustness.
+    const isSearchActive =
+      this.currentMode === 'search' ||
+      document
+        .querySelector('.activitybar__item[data-view="search"]')
+        ?.classList.contains('is-active')
+
+    if (isSearchActive) return
+
     const term = filter.trim().toLowerCase()
 
     this.bodyEl.innerHTML = ''

@@ -326,9 +326,9 @@ class App {
       void window.api.updateSettings({ sidebarVisible: visible })
     })
 
-    this.sidebar.setNoteSelectHandler(
-      (id, path) => void this.vaultHandler.openNote(id, path, 'editor')
-    )
+    this.sidebar.setNoteSelectHandler((id, path, highlight) => {
+      void this.vaultHandler.openNote(id, path, 'editor', highlight)
+    })
     this.sidebar.setNoteCreateHandler((path) => void this.fileOps.createNote(undefined, path))
     this.sidebar.setNoteDeleteHandler(
       (id, path) => void this.fileOps.deleteItems([{ id, type: 'note', path }])
@@ -338,6 +338,9 @@ class App {
     this.sidebar.setFolderMoveHandler((src, tgt) => this.fileOps.handleFolderMove(src, tgt))
     this.sidebar.setFolderCreateHandler((path) => void this.fileOps.createFolder(path))
     this.sidebar.setGraphClickHandler(() => this.graphView.open())
+    this.sidebar.setSearchHandler((query, options) => {
+      this.editor.highlightTerm(query, options.matchCase, options.wholeWord, options.useRegex)
+    })
 
     window.addEventListener('knowledge-hub:propose-note', async (e: any) => {
       const { id, content } = e.detail
@@ -652,7 +655,24 @@ class App {
       return true
     })
     reg('Control+p', 'Quick Open', () => this.fuzzyFinder.toggle('notes'))
-    reg('Control+Shift+f', 'Global search', () => this.activityBar.setActiveView('search'))
+    reg('Control+Shift+f', 'Global search', () => {
+      const selection = this.editor.getSelection()
+      const isSearchActive = state.activeView === 'search'
+      const shell = document.querySelector('.vscode-shell')
+      const isSidebarVisible = shell && !shell.classList.contains('sidebar-hidden')
+
+      if (isSearchActive && isSidebarVisible && !selection) {
+        // Only toggle off if we're already in search, sidebar is shown, and we don't have new text to search
+        this.sidebar.hide()
+      } else {
+        // Open search
+        this.activityBar.setActiveView('search')
+        this.sidebar.show()
+        if (selection) {
+          this.sidebar.setSearchQuery(selection)
+        }
+      }
+    })
     reg('Control+Shift+p', 'Command Palette', () => this.fuzzyFinder.toggle('commands'))
     reg('Control+i', 'Toggle Right Sidebar', () => void this.viewOrchestrator.toggleRightSidebar())
     reg('Control+Alt+s', 'Open AI Configuration', () => this.aiSettingsModal.open())

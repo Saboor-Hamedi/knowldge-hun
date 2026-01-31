@@ -512,9 +512,9 @@ app.whenReady().then(async () => {
     return { foundPath: null }
   })
 
-  ipcMain.handle('notes:search', async (event, query: string) => {
+  ipcMain.handle('notes:search', async (event, query: string, options?: any) => {
     const v = getVaultManager(event.sender)
-    return v ? v.search(query) : []
+    return v ? v.search(query, options) : []
   })
   ipcMain.handle('notes:getBacklinks', async (event, id: string) => {
     const v = getVaultManager(event.sender)

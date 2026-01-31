@@ -214,30 +214,45 @@ export class ConsoleComponent {
       <div class="hub-console__body"></div>
       <div class="hub-console__footer">
         <div class="hub-console__autocomplete" id="hub-console-autocomplete"></div>
-        <div class="hub-console__mode-switcher">
-          <button class="hub-console__mode-btn ${this.currentMode === 'terminal' ? 'is-active' : ''}" data-mode="terminal" title="Terminal Mode">
-            ${codicons.terminal}
-          </button>
-          <button class="hub-console__mode-btn ${this.currentMode === 'ai' ? 'is-active' : ''}" data-mode="ai" title="AI Agent">
-            ${codicons.agent}
-          </button>
-          <select class="hub-console__capability-select" title="AI Capability" style="display: ${this.currentMode === 'ai' ? 'block' : 'none'};">
-            <option value="balanced">Balanced</option>
-            <option value="thinking">Thinking</option>
-            <option value="code">Code</option>
-            <option value="precise">Precise</option>
-            <option value="creative">Creative</option>
-          </select>
-        </div>
-        <div class="hub-console__prompt-wrapper">
-          <span class="hub-console__prompt">λ</span>
+        
+        <!-- Row 1: Input Area (Dynamic height, expands upwards) -->
+        <div class="hub-console__input-container">
           <div class="hub-console__input" contenteditable="true" spellcheck="false" data-placeholder="Type a command or @note..."></div>
         </div>
-        <div class="hub-console__actions">
-          <button class="hub-console__stop-btn" title="Stop generating">
-            <div class="stop-core"></div>
-            <div class="spinner-ring"></div>
-          </button>
+
+        <!-- Row 2: Stationary Status Bar (Beautiful and Robust) -->
+        <div class="hub-console__footer-bar">
+          <div class="hub-console__footer-left">
+            <div class="hub-console__mode-switcher">
+              <button class="hub-console__mode-btn ${this.currentMode === 'terminal' ? 'is-active' : ''}" data-mode="terminal" title="Terminal Mode">
+                ${codicons.terminal}
+              </button>
+              <button class="hub-console__mode-btn ${this.currentMode === 'ai' ? 'is-active' : ''}" data-mode="ai" title="AI Agent">
+                ${codicons.agent}
+              </button>
+            </div>
+            
+            <div class="hub-console__status-info">
+              <span class="hub-console__prompt">λ</span>
+            </div>
+
+            <select class="hub-console__capability-select" title="AI Capability" style="display: ${this.currentMode === 'ai' ? 'block' : 'none'};">
+              <option value="balanced">Balanced</option>
+              <option value="thinking">Thinking</option>
+              <option value="code">Code</option>
+              <option value="precise">Precise</option>
+              <option value="creative">Creative</option>
+            </select>
+          </div>
+          
+          <div class="hub-console__footer-right">
+            <div class="hub-console__footer-actions">
+              <button class="hub-console__stop-btn" title="Stop generating">
+                <div class="stop-core"></div>
+                <div class="spinner-ring"></div>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     `
@@ -268,13 +283,13 @@ export class ConsoleComponent {
       switcher.querySelectorAll('.hub-console__mode-btn').forEach((btn) => {
         btn.classList.toggle('is-active', (btn as HTMLElement).dataset.mode === mode)
       })
+    }
 
-      const capabilitySelect = switcher.querySelector(
-        '.hub-console__capability-select'
-      ) as HTMLElement
-      if (capabilitySelect) {
-        capabilitySelect.style.display = mode === 'ai' ? 'block' : 'none'
-      }
+    const capabilitySelect = this.consoleEl.querySelector(
+      '.hub-console__capability-select'
+    ) as HTMLElement
+    if (capabilitySelect) {
+      capabilitySelect.style.display = mode === 'ai' ? 'block' : 'none'
     }
 
     const prompt = this.consoleEl.querySelector('.hub-console__prompt')

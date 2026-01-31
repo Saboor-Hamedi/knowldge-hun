@@ -26,7 +26,7 @@ export type AppState = {
   isDirty: boolean
   lastSavedAt: number
   applyingRemote: boolean
-  activeView: 'notes' | 'search' | 'settings'
+  activeView: 'notes' | 'search' | 'settings' | 'graph'
   projectName: string
   vaultPath?: string
   settings?: AppSettings
@@ -54,7 +54,7 @@ export type AppSettings = {
   openTabs?: { id: string; path?: string; title?: string }[]
   pinnedTabs?: string[]
   activeId?: string
-  activeView?: 'notes' | 'search' | 'settings'
+  activeView?: 'notes' | 'search' | 'settings' | 'graph'
   windowBounds?: { width: number; height: number; x?: number; y?: number }
   deepseekApiKey?: string
   openaiApiKey?: string

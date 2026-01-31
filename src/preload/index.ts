@@ -92,7 +92,8 @@ const api = {
   locateMovedVault: (originalPath: string): Promise<{ foundPath: string | null }> =>
     ipcRenderer.invoke('vault:locate', originalPath),
 
-  searchNotes: (query: string): Promise<NoteMeta[]> => ipcRenderer.invoke('notes:search', query),
+  searchNotes: (query: string, options?: any): Promise<NoteMeta[]> =>
+    ipcRenderer.invoke('notes:search', query, options),
   getBacklinks: (id: string): Promise<string[]> => ipcRenderer.invoke('notes:getBacklinks', id),
   getGraph: (): Promise<{ links: { source: string; target: string }[] }> =>
     ipcRenderer.invoke('graph:get'),
