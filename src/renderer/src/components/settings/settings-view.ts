@@ -645,7 +645,6 @@ export class SettingsView {
                   <div class="settings-color-group">
                     <div class="settings-color-wrapper">
                       <div class="settings-color-swatch" style="background-color: ${state.settings?.tab?.backgroundColor || '#1e1e1e'}"></div>
-                      <input type="color" class="settings-color-input" data-setting="tab.backgroundColor" value="${state.settings?.tab?.backgroundColor || '#1e1e1e'}" />
                     </div>
                     <input type="text" class="settings-input settings-color-text" data-setting="tab.backgroundColor" value="${state.settings?.tab?.backgroundColor || '#1e1e1e'}" placeholder="#HEX" maxlength="7" />
                   </div>
@@ -663,7 +662,6 @@ export class SettingsView {
                   <div class="settings-color-group">
                     <div class="settings-color-wrapper">
                       <div class="settings-color-swatch" style="background-color: ${state.settings?.tab?.borderColor || '#007acc'}"></div>
-                      <input type="color" class="settings-color-input" data-setting="tab.borderColor" value="${state.settings?.tab?.borderColor || '#007acc'}" />
                     </div>
                     <input type="text" class="settings-input settings-color-text" data-setting="tab.borderColor" value="${state.settings?.tab?.borderColor || '#007acc'}" placeholder="#HEX" maxlength="7" />
                   </div>
@@ -681,7 +679,6 @@ export class SettingsView {
                   <div class="settings-color-group">
                     <div class="settings-color-wrapper">
                       <div class="settings-color-swatch" style="background-color: ${state.settings?.tab?.activeTabColor || '#2d2d2d'}"></div>
-                      <input type="color" class="settings-color-input" data-setting="tab.activeTabColor" value="${state.settings?.tab?.activeTabColor || '#2d2d2d'}" />
                     </div>
                     <input type="text" class="settings-input settings-color-text" data-setting="tab.activeTabColor" value="${state.settings?.tab?.activeTabColor || '#2d2d2d'}" placeholder="#HEX" maxlength="7" />
                   </div>
@@ -699,7 +696,6 @@ export class SettingsView {
                   <div class="settings-color-group">
                     <div class="settings-color-wrapper">
                       <div class="settings-color-swatch" style="background-color: ${state.settings?.tab?.inactiveTabColor || '#1e1e1e'}"></div>
-                      <input type="color" class="settings-color-input" data-setting="tab.inactiveTabColor" value="${state.settings?.tab?.inactiveTabColor || '#1e1e1e'}" />
                     </div>
                     <input type="text" class="settings-input settings-color-text" data-setting="tab.inactiveTabColor" value="${state.settings?.tab?.inactiveTabColor || '#1e1e1e'}" placeholder="#HEX" maxlength="7" />
                   </div>
@@ -717,7 +713,6 @@ export class SettingsView {
                   <div class="settings-color-group">
                     <div class="settings-color-wrapper">
                       <div class="settings-color-swatch" style="background-color: ${state.settings?.tab?.activeTextColor || '#ffffff'}"></div>
-                      <input type="color" class="settings-color-input" data-setting="tab.activeTextColor" value="${state.settings?.tab?.activeTextColor || '#ffffff'}" />
                     </div>
                     <input type="text" class="settings-input settings-color-text" data-setting="tab.activeTextColor" value="${state.settings?.tab?.activeTextColor || '#ffffff'}" placeholder="#HEX" maxlength="7" />
                   </div>
@@ -734,7 +729,6 @@ export class SettingsView {
                   <div class="settings-color-group">
                     <div class="settings-color-wrapper">
                       <div class="settings-color-swatch" style="background-color: ${state.settings?.tab?.inactiveTextColor || '#969696'}"></div>
-                      <input type="color" class="settings-color-input" data-setting="tab.inactiveTextColor" value="${state.settings?.tab?.inactiveTextColor || '#969696'}" />
                     </div>
                     <input type="text" class="settings-input settings-color-text" data-setting="tab.inactiveTextColor" value="${state.settings?.tab?.inactiveTextColor || '#969696'}" placeholder="#HEX" maxlength="7" />
                   </div>
@@ -766,7 +760,6 @@ export class SettingsView {
                   <div class="settings-color-group">
                     <div class="settings-color-wrapper">
                       <div class="settings-color-swatch" style="background-color: ${state.settings?.sidebar?.backgroundColor || '#252526'}"></div>
-                      <input type="color" class="settings-color-input" data-setting="sidebar.backgroundColor" value="${state.settings?.sidebar?.backgroundColor || '#252526'}" />
                     </div>
                     <input type="text" class="settings-input settings-color-text" data-setting="sidebar.backgroundColor" value="${state.settings?.sidebar?.backgroundColor || '#252526'}" placeholder="#HEX" maxlength="7" />
                   </div>
@@ -784,7 +777,6 @@ export class SettingsView {
                   <div class="settings-color-group">
                     <div class="settings-color-wrapper">
                       <div class="settings-color-swatch" style="background-color: ${state.settings?.sidebar?.borderColor || '#333333'}"></div>
-                      <input type="color" class="settings-color-input" data-setting="sidebar.borderColor" value="${state.settings?.sidebar?.borderColor || '#333333'}" />
                     </div>
                     <input type="text" class="settings-input settings-color-text" data-setting="sidebar.borderColor" value="${state.settings?.sidebar?.borderColor || '#333333'}" placeholder="#HEX" maxlength="7" />
                   </div>
@@ -802,7 +794,6 @@ export class SettingsView {
                   <div class="settings-color-group">
                     <div class="settings-color-wrapper">
                       <div class="settings-color-swatch" style="background-color: ${state.settings?.sidebar?.textColor || '#cccccc'}"></div>
-                      <input type="color" class="settings-color-input" data-setting="sidebar.textColor" value="${state.settings?.sidebar?.textColor || '#cccccc'}" />
                     </div>
                     <input type="text" class="settings-input settings-color-text" data-setting="sidebar.textColor" value="${state.settings?.sidebar?.textColor || '#cccccc'}" placeholder="#HEX" maxlength="7" />
                   </div>
@@ -820,7 +811,6 @@ export class SettingsView {
                   <div class="settings-color-group">
                     <div class="settings-color-wrapper">
                       <div class="settings-color-swatch" style="background-color: ${state.settings?.sidebar?.activeItemColor || '#37373d'}"></div>
-                      <input type="color" class="settings-color-input" data-setting="sidebar.activeItemColor" value="${state.settings?.sidebar?.activeItemColor || '#37373d'}" />
                     </div>
                     <input type="text" class="settings-input settings-color-text" data-setting="sidebar.activeItemColor" value="${state.settings?.sidebar?.activeItemColor || '#37373d'}" placeholder="#HEX" maxlength="7" />
                   </div>
@@ -838,7 +828,6 @@ export class SettingsView {
                    <div class="settings-color-group">
                     <div class="settings-color-wrapper">
                        <div class="settings-color-swatch" style="background-color: ${state.settings?.sidebar?.activeTextColor || '#ffffff'}"></div>
-                       <input type="color" class="settings-color-input" data-setting="sidebar.activeTextColor" value="${state.settings?.sidebar?.activeTextColor || '#ffffff'}" />
                     </div>
                     <input type="text" class="settings-input settings-color-text" data-setting="sidebar.activeTextColor" value="${state.settings?.sidebar?.activeTextColor || '#ffffff'}" placeholder="#HEX" maxlength="7" />
                    </div>
@@ -879,7 +868,6 @@ export class SettingsView {
                   <div class="settings-color-group">
                     <div class="settings-color-wrapper">
                       <div class="settings-color-swatch" style="background-color: ${state.settings?.activityBar?.backgroundColor || '#333333'}"></div>
-                      <input type="color" class="settings-color-input" data-setting="activityBar.backgroundColor" value="${state.settings?.activityBar?.backgroundColor || '#333333'}" />
                     </div>
                     <input type="text" class="settings-input settings-color-text" data-setting="activityBar.backgroundColor" value="${state.settings?.activityBar?.backgroundColor || '#333333'}" placeholder="#HEX" maxlength="7" />
                   </div>
@@ -897,7 +885,6 @@ export class SettingsView {
                    <div class="settings-color-group">
                     <div class="settings-color-wrapper">
                       <div class="settings-color-swatch" style="background-color: ${state.settings?.activityBar?.borderColor || '#252526'}"></div>
-                      <input type="color" class="settings-color-input" data-setting="activityBar.borderColor" value="${state.settings?.activityBar?.borderColor || '#252526'}" />
                     </div>
                     <input type="text" class="settings-input settings-color-text" data-setting="activityBar.borderColor" value="${state.settings?.activityBar?.borderColor || '#252526'}" placeholder="#HEX" maxlength="7" />
                    </div>
@@ -915,7 +902,6 @@ export class SettingsView {
                     <div class="settings-color-group">
                       <div class="settings-color-wrapper">
                         <div class="settings-color-swatch" style="background-color: ${state.settings?.activityBar?.activeItemColor || '#333333'}"></div>
-                        <input type="color" class="settings-color-input" data-setting="activityBar.activeItemColor" value="${state.settings?.activityBar?.activeItemColor || '#333333'}" />
                       </div>
                       <input type="text" class="settings-input settings-color-text" data-setting="activityBar.activeItemColor" value="${state.settings?.activityBar?.activeItemColor || '#333333'}" placeholder="#HEX" maxlength="7" />
                     </div>
@@ -933,7 +919,6 @@ export class SettingsView {
                     <div class="settings-color-group">
                       <div class="settings-color-wrapper">
                          <div class="settings-color-swatch" style="background-color: ${state.settings?.activityBar?.activeIconColor || '#ffffff'}"></div>
-                         <input type="color" class="settings-color-input" data-setting="activityBar.activeIconColor" value="${state.settings?.activityBar?.activeIconColor || '#ffffff'}" />
                       </div>
                       <input type="text" class="settings-input settings-color-text" data-setting="activityBar.activeIconColor" value="${state.settings?.activityBar?.activeIconColor || '#ffffff'}" placeholder="#HEX" maxlength="7" />
                     </div>
@@ -951,7 +936,6 @@ export class SettingsView {
                     <div class="settings-color-group">
                       <div class="settings-color-wrapper">
                         <div class="settings-color-swatch" style="background-color: ${state.settings?.activityBar?.inactiveIconColor || '#6e6e6e'}"></div>
-                        <input type="color" class="settings-color-input" data-setting="activityBar.inactiveIconColor" value="${state.settings?.activityBar?.inactiveIconColor || '#6e6e6e'}" />
                       </div>
                       <input type="text" class="settings-input settings-color-text" data-setting="activityBar.inactiveIconColor" value="${state.settings?.activityBar?.inactiveIconColor || '#6e6e6e'}" placeholder="#HEX" maxlength="7" />
                     </div>
@@ -1103,38 +1087,12 @@ export class SettingsView {
           }
           value = val
 
-          // Sync picker and swatch
+          // Update swatch color hint
           const group = el.closest('.settings-color-group')
-          const picker = group?.querySelector('.settings-color-input') as HTMLInputElement
           const swatch = group?.querySelector('.settings-color-swatch') as HTMLElement
-          if (picker && /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(val)) {
-            let normalized = val.toLowerCase()
-            if (normalized.length === 4) {
-              normalized =
-                '#' +
-                normalized[1] +
-                normalized[1] +
-                normalized[2] +
-                normalized[2] +
-                normalized[3] +
-                normalized[3]
-            }
-            if (normalized.length === 7) {
-              picker.value = normalized
-              if (swatch) swatch.style.backgroundColor = normalized
-            }
+          if (swatch && /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/.test(val)) {
+            swatch.style.backgroundColor = val
           }
-        } else if (
-          el instanceof HTMLInputElement &&
-          el.classList.contains('settings-color-input')
-        ) {
-          value = el.value
-          // Sync text field and swatch
-          const group = el.closest('.settings-color-group')
-          const text = group?.querySelector('.settings-color-text') as HTMLInputElement
-          const swatch = group?.querySelector('.settings-color-swatch') as HTMLElement
-          if (text) text.value = value
-          if (swatch) swatch.style.backgroundColor = value
         } else {
           value = el.value
         }

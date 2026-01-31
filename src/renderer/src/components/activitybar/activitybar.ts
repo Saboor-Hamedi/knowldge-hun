@@ -145,26 +145,35 @@ export class ActivityBar {
     if (styles) {
       if (styles.backgroundColor)
         this.container.style.setProperty('--activity-bg', styles.backgroundColor, 'important')
+      else this.container.style.removeProperty('--activity-bg')
+
       if (styles.borderColor)
         this.container.style.setProperty('--activity-border', styles.borderColor, 'important')
+      else this.container.style.removeProperty('--activity-border')
+
       if (styles.activeItemColor)
         this.container.style.setProperty(
           '--activity-active-bg',
           styles.activeItemColor,
           'important'
         )
+      else this.container.style.removeProperty('--activity-active-bg')
+
       if (styles.activeIconColor)
         this.container.style.setProperty(
           '--activity-active-icon',
           styles.activeIconColor,
           'important'
         )
+      else this.container.style.removeProperty('--activity-active-icon')
+
       if (styles.inactiveIconColor)
         this.container.style.setProperty(
           '--activity-inactive-icon',
           styles.inactiveIconColor,
           'important'
         )
+      else this.container.style.removeProperty('--activity-inactive-icon')
     } else {
       this.container.style.removeProperty('--activity-bg')
       this.container.style.removeProperty('--activity-border')

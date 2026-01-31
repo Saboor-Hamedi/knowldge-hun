@@ -46,16 +46,27 @@ export class TabBar {
     if (tabSettings) {
       if (tabSettings.backgroundColor)
         this.container.style.setProperty('--tab-bg', tabSettings.backgroundColor)
+      else this.container.style.removeProperty('--tab-bg')
+
       if (tabSettings.borderColor)
         this.container.style.setProperty('--tab-border-color', tabSettings.borderColor)
+      else this.container.style.removeProperty('--tab-border-color')
+
       if (tabSettings.activeTabColor)
         this.container.style.setProperty('--tab-active-bg', tabSettings.activeTabColor)
+      else this.container.style.removeProperty('--tab-active-bg')
+
       if (tabSettings.inactiveTabColor)
         this.container.style.setProperty('--tab-inactive-bg', tabSettings.inactiveTabColor)
+      else this.container.style.removeProperty('--tab-inactive-bg')
+
       if (tabSettings.activeTextColor)
         this.container.style.setProperty('--tab-active-text', tabSettings.activeTextColor)
+      else this.container.style.removeProperty('--tab-active-text')
+
       if (tabSettings.inactiveTextColor)
         this.container.style.setProperty('--tab-inactive-text', tabSettings.inactiveTextColor)
+      else this.container.style.removeProperty('--tab-inactive-text')
 
       // Border Position logic
       let shadow = 'inset 0 2px 0 var(--tab-border-color, var(--primary))' // Default top

@@ -701,20 +701,31 @@ export class SidebarTree {
     if (styles) {
       if (styles.backgroundColor)
         this.container.style.setProperty('--sidebar-bg', styles.backgroundColor, 'important')
+      else this.container.style.removeProperty('--sidebar-bg')
+
       if (styles.borderColor)
         this.container.style.setProperty('--sidebar-border', styles.borderColor, 'important')
+      else this.container.style.removeProperty('--sidebar-border')
+
       if (styles.textColor)
         this.container.style.setProperty('--sidebar-text', styles.textColor, 'important')
+      else this.container.style.removeProperty('--sidebar-text')
+
       if (styles.activeItemColor)
         this.container.style.setProperty('--sidebar-active-bg', styles.activeItemColor, 'important')
+      else this.container.style.removeProperty('--sidebar-active-bg')
+
       if (styles.activeTextColor)
         this.container.style.setProperty(
           '--sidebar-active-text',
           styles.activeTextColor,
           'important'
         )
+      else this.container.style.removeProperty('--sidebar-active-text')
+
       if (styles.fontSize)
         this.container.style.setProperty('--sidebar-font-size', `${styles.fontSize}px`, 'important')
+      else this.container.style.removeProperty('--sidebar-font-size')
     } else {
       this.container.style.removeProperty('--sidebar-bg')
       this.container.style.removeProperty('--sidebar-border')
