@@ -15,12 +15,12 @@ class TerminalManager {
   /**
    * Create a new terminal session
    */
-  createTerminal(id: string, cwd?: string): void {
+  createTerminal(id: string, cwd?: string, shellType?: string): void {
     // Clean up existing session if it exists
     this.killTerminal(id)
 
-    // Determine shell based on platform
-    const shell = this.getDefaultShell()
+    // Determine shell based on parameter or platform
+    const shell = shellType ? this.getShellPath(shellType) : this.getDefaultShell()
     const workingDir = cwd || os.homedir()
 
     // Create PTY process
@@ -116,6 +116,37 @@ class TerminalManager {
   }
 
   /**
+   * Get shell path based on shell type
+   */
+  private getShellPath(shellType: string): string {
+    const platform = os.platform()
+
+    if (platform === 'win32') {
+      switch (shellType) {
+        case 'powershell':
+          return 'powershell.exe'
+        case 'cmd':
+          return 'cmd.exe'
+        case 'bash':
+          return 'C:\\Program Files\\Git\\bin\\bash.exe'
+        case 'wsl':
+          return 'wsl.exe'
+        default:
+          return 'powershell.exe'
+      }
+    } else {
+      switch (shellType) {
+        case 'bash':
+          return '/bin/bash'
+        case 'zsh':
+          return '/bin/zsh'
+        default:
+          return process.env.SHELL || '/bin/bash'
+      }
+    }
+  }
+
+  /**
    * Get default shell based on platform
    */
   private getDefaultShell(): string {
@@ -156,8 +187,8 @@ const terminalManager = new TerminalManager()
  */
 export function registerTerminalHandlers(): void {
   // Create terminal
-  ipcMain.handle('terminal:create', (event, id: string, cwd?: string) => {
-    terminalManager.createTerminal(id, cwd)
+  ipcMain.handle('terminal:create', (event, id: string, cwd?: string, shellType?: string) => {
+    terminalManager.createTerminal(id, cwd, shellType)
     return { success: true }
   })
 

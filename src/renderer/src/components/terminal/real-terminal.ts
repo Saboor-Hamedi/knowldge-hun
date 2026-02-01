@@ -36,15 +36,35 @@ export class RealTerminalComponent {
     this.container.innerHTML = `
       <div class="real-terminal-wrapper">
         <div class="real-terminal-header">
-          <div class="real-terminal-tabs" id="terminal-tabs"></div>
+          <div class="real-terminal-title">
+            <span>TERMINAL</span>
+          </div>
           <div class="real-terminal-actions">
+            <select class="shell-selector" id="shell-selector" title="Select Shell">
+              <option value="powershell">PowerShell</option>
+              <option value="cmd">Command Prompt</option>
+              <option value="bash">Git Bash</option>
+              <option value="wsl">WSL</option>
+            </select>
             <button class="real-terminal-btn" id="new-terminal-btn" title="New Terminal">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <line x1="12" y1="5" x2="12" y2="19"></line>
                 <line x1="5" y1="12" x2="19" y2="12"></line>
               </svg>
             </button>
-            <button class="real-terminal-btn" id="close-terminal-btn" title="Close">
+            <button class="real-terminal-btn" id="split-terminal-btn" title="Split Terminal">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+                <line x1="12" y1="3" x2="12" y2="21"></line>
+              </svg>
+            </button>
+            <button class="real-terminal-btn" id="trash-terminal-btn" title="Kill Terminal">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+              </svg>
+            </button>
+            <button class="real-terminal-btn" id="close-terminal-btn" title="Close Panel">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <line x1="18" y1="6" x2="6" y2="18"></line>
                 <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -52,7 +72,12 @@ export class RealTerminalComponent {
             </button>
           </div>
         </div>
-        <div class="real-terminal-content" id="terminal-content"></div>
+        <div class="real-terminal-body">
+          <div class="real-terminal-sidebar">
+            <div class="terminal-sessions-list" id="terminal-sessions-list"></div>
+          </div>
+          <div class="real-terminal-content" id="terminal-content"></div>
+        </div>
       </div>
     `
   }
@@ -60,9 +85,27 @@ export class RealTerminalComponent {
   private setupEventListeners(): void {
     const newTerminalBtn = document.getElementById('new-terminal-btn')
     const closeTerminalBtn = document.getElementById('close-terminal-btn')
+    const splitTerminalBtn = document.getElementById('split-terminal-btn')
+    const trashTerminalBtn = document.getElementById('trash-terminal-btn')
+    const shellSelector = document.getElementById('shell-selector') as HTMLSelectElement
 
-    newTerminalBtn?.addEventListener('click', () => this.createNewTerminal())
+    newTerminalBtn?.addEventListener('click', () => {
+      const shell = shellSelector?.value || 'powershell'
+      this.createNewTerminal(undefined, shell)
+    })
+
     closeTerminalBtn?.addEventListener('click', () => this.toggle())
+
+    splitTerminalBtn?.addEventListener('click', () => {
+      // TODO: Implement split terminal
+      console.log('[RealTerminal] Split terminal not yet implemented')
+    })
+
+    trashTerminalBtn?.addEventListener('click', () => {
+      if (this.activeSessionId) {
+        this.closeTerminal(this.activeSessionId)
+      }
+    })
 
     // Handle window resize
     window.addEventListener('resize', () => {
@@ -78,8 +121,9 @@ export class RealTerminalComponent {
   /**
    * Create a new terminal session
    */
-  async createNewTerminal(cwd?: string): Promise<string> {
+  async createNewTerminal(cwd?: string, shell?: string): Promise<string> {
     const sessionId = `terminal-${Date.now()}`
+    const shellType = shell || 'powershell'
 
     // Create xterm instance
     const terminal = new Terminal({
@@ -143,7 +187,7 @@ export class RealTerminalComponent {
 
     // Create terminal in main process
     try {
-      await window.api.invoke('terminal:create', sessionId, cwd)
+      await window.api.invoke('terminal:create', sessionId, cwd, shellType)
 
       // Setup data listener
       window.api.on(`terminal:data:${sessionId}`, (data: string) => {
@@ -164,8 +208,8 @@ export class RealTerminalComponent {
       // Listen for terminal data
       window.api.send('terminal:listen', sessionId)
 
-      // Add tab
-      this.addTab(sessionId)
+      // Add to session list
+      this.addSessionToList(sessionId, shellType)
 
       // Activate this terminal
       this.switchToTerminal(sessionId)
@@ -181,18 +225,26 @@ export class RealTerminalComponent {
   }
 
   /**
-   * Add a tab for a terminal session
+   * Add a session to the sidebar list
    */
-  private addTab(sessionId: string): void {
-    const tabsContainer = document.getElementById('terminal-tabs')
-    if (!tabsContainer) return
+  private addSessionToList(sessionId: string, shellType: string): void {
+    const sessionsList = document.getElementById('terminal-sessions-list')
+    if (!sessionsList) return
 
-    const tab = document.createElement('div')
-    tab.className = 'terminal-tab'
-    tab.id = `tab-${sessionId}`
-    tab.innerHTML = `
-      <span class="terminal-tab-label">Terminal ${this.sessions.size}</span>
-      <button class="terminal-tab-close" data-session-id="${sessionId}">
+    const shellIcons = {
+      powershell: '❯',
+      cmd: '>_',
+      bash: '$',
+      wsl: '🐧'
+    }
+
+    const sessionItem = document.createElement('div')
+    sessionItem.className = 'terminal-session-item'
+    sessionItem.id = `session-${sessionId}`
+    sessionItem.innerHTML = `
+      <span class="session-icon">${shellIcons[shellType] || '❯'}</span>
+      <span class="session-label">${shellType}: ${this.sessions.size}</span>
+      <button class="session-close" data-session-id="${sessionId}" title="Kill Terminal">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <line x1="18" y1="6" x2="6" y2="18"></line>
           <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -200,19 +252,19 @@ export class RealTerminalComponent {
       </button>
     `
 
-    tab.addEventListener('click', (e) => {
-      if (!(e.target as HTMLElement).closest('.terminal-tab-close')) {
+    sessionItem.addEventListener('click', (e) => {
+      if (!(e.target as HTMLElement).closest('.session-close')) {
         this.switchToTerminal(sessionId)
       }
     })
 
-    const closeBtn = tab.querySelector('.terminal-tab-close')
+    const closeBtn = sessionItem.querySelector('.session-close')
     closeBtn?.addEventListener('click', (e) => {
       e.stopPropagation()
       this.closeTerminal(sessionId)
     })
 
-    tabsContainer.appendChild(tab)
+    sessionsList.appendChild(sessionItem)
   }
 
   /**
@@ -222,17 +274,17 @@ export class RealTerminalComponent {
     const session = this.sessions.get(sessionId)
     if (!session) return
 
-    // Hide all terminals
+    // Hide all terminals and deactivate sessions
     this.sessions.forEach((s, id) => {
       s.isActive = false
       const element = document.getElementById(`terminal-${id}`)
       if (element) element.style.display = 'none'
 
-      const tab = document.getElementById(`tab-${id}`)
-      if (tab) tab.classList.remove('active')
+      const sessionItem = document.getElementById(`session-${id}`)
+      if (sessionItem) sessionItem.classList.remove('active')
     })
 
-    // Show this terminal
+    // Show this terminal and activate session
     session.isActive = true
     const element = document.getElementById(`terminal-${sessionId}`)
     if (element) {
@@ -242,8 +294,8 @@ export class RealTerminalComponent {
       session.terminal.focus()
     }
 
-    const tab = document.getElementById(`tab-${sessionId}`)
-    if (tab) tab.classList.add('active')
+    const sessionItem = document.getElementById(`session-${sessionId}`)
+    if (sessionItem) sessionItem.classList.add('active')
 
     this.activeSessionId = sessionId
   }
@@ -266,9 +318,9 @@ export class RealTerminalComponent {
       const element = document.getElementById(`terminal-${sessionId}`)
       element?.remove()
 
-      // Remove tab
-      const tab = document.getElementById(`tab-${sessionId}`)
-      tab?.remove()
+      // Remove from session list
+      const sessionItem = document.getElementById(`session-${sessionId}`)
+      sessionItem?.remove()
 
       // Remove from sessions
       this.sessions.delete(sessionId)

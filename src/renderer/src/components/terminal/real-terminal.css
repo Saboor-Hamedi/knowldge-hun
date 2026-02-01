@@ -1,3 +1,4 @@
+/* Terminal Wrapper */
 .real-terminal-wrapper {
   display: flex;
   flex-direction: column;
@@ -6,159 +7,214 @@
   border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
+/* Terminal Header */
 .real-terminal-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 12px;
+  height: 35px;
   background: #252526;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  min-height: 40px;
+  padding: 0 12px;
 }
 
-.real-terminal-tabs {
-  display: flex;
-  gap: 4px;
-  flex: 1;
-  overflow-x: auto;
-  scrollbar-width: thin;
-}
-
-.real-terminal-tabs::-webkit-scrollbar {
-  height: 4px;
-}
-
-.real-terminal-tabs::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 2px;
-}
-
-.terminal-tab {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 4px;
-  cursor: pointer;
-  transition: background 0.2s;
-  white-space: nowrap;
-  user-select: none;
-}
-
-.terminal-tab:hover {
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.terminal-tab.active {
-  background: rgba(0, 122, 204, 0.3);
-  border: 1px solid rgba(0, 122, 204, 0.5);
-}
-
-.terminal-tab-label {
-  font-size: 13px;
+.real-terminal-title {
+  font-size: 11px;
+  font-weight: 600;
   color: #cccccc;
-}
-
-.terminal-tab-close {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 2px;
-  background: transparent;
-  border: none;
-  color: #cccccc;
-  cursor: pointer;
-  border-radius: 3px;
-  transition: background 0.2s;
-}
-
-.terminal-tab-close:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: #ffffff;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .real-terminal-actions {
   display: flex;
+  align-items: center;
   gap: 4px;
-  margin-left: 8px;
 }
 
+/* Shell Selector */
+.shell-selector {
+  background: #3c3c3c;
+  color: #cccccc;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  padding: 4px 8px;
+  font-size: 12px;
+  cursor: pointer;
+  outline: none;
+}
+
+.shell-selector:hover {
+  background: #505050;
+}
+
+.shell-selector:focus {
+  border-color: #007acc;
+}
+
+/* Terminal Buttons */
 .real-terminal-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 6px;
   background: transparent;
   border: none;
   color: #cccccc;
   cursor: pointer;
-  border-radius: 4px;
-  transition: background 0.2s;
+  padding: 4px 6px;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease;
 }
 
 .real-terminal-btn:hover {
   background: rgba(255, 255, 255, 0.1);
-  color: #ffffff;
 }
 
-.real-terminal-content {
+.real-terminal-btn:active {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* Terminal Body (Sidebar + Content) */
+.real-terminal-body {
+  display: flex;
   flex: 1;
   overflow: hidden;
+}
+
+/* Terminal Sidebar */
+.real-terminal-sidebar {
+  width: 200px;
+  background: #252526;
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.terminal-sessions-list {
+  padding: 4px;
+}
+
+/* Session Item */
+.terminal-session-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  cursor: pointer;
+  border-radius: 3px;
+  margin-bottom: 2px;
+  transition: background 0.15s ease;
   position: relative;
-  background: #1e1e1e;
+}
+
+.terminal-session-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.terminal-session-item.active {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.session-icon {
+  font-size: 14px;
+  color: #4ec9b0;
+  flex-shrink: 0;
+}
+
+.session-label {
+  flex: 1;
+  font-size: 12px;
+  color: #cccccc;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.session-close {
+  background: transparent;
+  border: none;
+  color: #cccccc;
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 2px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.7;
+  transition: opacity 0.15s ease, background 0.15s ease;
+}
+
+.terminal-session-item:hover .session-close {
+  display: flex;
+}
+
+.session-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  opacity: 1;
+}
+
+/* Terminal Content */
+.real-terminal-content {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .terminal-instance {
   width: 100%;
   height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+
+/* Xterm.js overrides */
+.terminal-instance .xterm {
+  height: 100% !important;
   padding: 8px;
 }
 
-/* Override xterm.js styles for better integration */
-.terminal-instance .xterm {
-  height: 100%;
-  padding: 0;
-}
-
 .terminal-instance .xterm-viewport {
-  overflow-y: auto !important;
-  scrollbar-width: thin;
+  overflow-y: scroll !important;
+  height: 100% !important;
 }
 
+.terminal-instance .xterm-screen {
+  height: auto !important;
+}
+
+/* Scrollbar styling */
+.real-terminal-sidebar::-webkit-scrollbar,
 .terminal-instance .xterm-viewport::-webkit-scrollbar {
-  width: 8px;
+  width: 10px;
 }
 
+.real-terminal-sidebar::-webkit-scrollbar-track,
 .terminal-instance .xterm-viewport::-webkit-scrollbar-track {
-  background: transparent;
+  background: #1e1e1e;
 }
 
+.real-terminal-sidebar::-webkit-scrollbar-thumb,
 .terminal-instance .xterm-viewport::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 4px;
+  background: #424242;
+  border-radius: 5px;
 }
 
+.real-terminal-sidebar::-webkit-scrollbar-thumb:hover,
 .terminal-instance .xterm-viewport::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.3);
+  background: #4e4e4e;
 }
 
-/* Selection styling */
-.terminal-instance .xterm .xterm-selection div {
-  background-color: rgba(255, 255, 255, 0.3) !important;
-}
-
-/* Cursor styling */
-.terminal-instance .xterm .xterm-cursor-layer .xterm-cursor {
-  background-color: #ffffff !important;
-}
-
-/* Link styling */
-.terminal-instance .xterm a {
-  color: #4ec9b0;
-  text-decoration: underline;
-}
-
-.terminal-instance .xterm a:hover {
-  color: #6fd9c0;
+/* Empty state */
+.terminal-sessions-list:empty::before {
+  content: 'No terminals';
+  display: block;
+  padding: 12px;
+  text-align: center;
+  color: #858585;
+  font-size: 12px;
 }

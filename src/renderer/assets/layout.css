@@ -266,7 +266,7 @@ body.no-transitions *:after {
 /* Terminal Host */
 #terminalHost {
   position: fixed;
-  bottom: 0;
+  bottom: var(--statusbar-height);
   left: var(--activity-width);
   right: 0;
   height: 400px;
