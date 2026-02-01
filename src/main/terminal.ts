@@ -1,7 +1,7 @@
 import { ipcMain } from 'electron'
 import * as pty from 'node-pty'
 import * as os from 'os'
-import * as path from 'path'
+import { execSync } from 'child_process'
 
 interface TerminalSession {
   id: string
@@ -125,6 +125,8 @@ class TerminalManager {
       switch (shellType) {
         case 'powershell':
           return 'powershell.exe'
+        case 'pwsh':
+          return 'pwsh.exe'
         case 'cmd':
           return 'cmd.exe'
         case 'bash':
@@ -153,9 +155,13 @@ class TerminalManager {
     const platform = os.platform()
 
     if (platform === 'win32') {
-      // Try PowerShell first, fallback to cmd
-      const pwsh = process.env.COMSPEC || 'C:\\Windows\\System32\\cmd.exe'
-      return pwsh.includes('powershell') ? pwsh : 'powershell.exe'
+      // Prioritize PowerShell Core (pwsh) if available, then PowerShell, then cmd
+      try {
+        execSync('pwsh --version', { stdio: 'ignore' })
+        return 'pwsh.exe'
+      } catch {
+        return 'powershell.exe'
+      }
     } else if (platform === 'darwin') {
       return process.env.SHELL || '/bin/zsh'
     } else {
@@ -187,23 +193,23 @@ const terminalManager = new TerminalManager()
  */
 export function registerTerminalHandlers(): void {
   // Create terminal
-  ipcMain.handle('terminal:create', (event, id: string, cwd?: string, shellType?: string) => {
+  ipcMain.handle('terminal:create', (_, id: string, cwd?: string, shellType?: string) => {
     terminalManager.createTerminal(id, cwd, shellType)
     return { success: true }
   })
 
   // Write to terminal
-  ipcMain.on('terminal:write', (event, id: string, data: string) => {
+  ipcMain.on('terminal:write', (_, id: string, data: string) => {
     terminalManager.writeToTerminal(id, data)
   })
 
   // Resize terminal
-  ipcMain.on('terminal:resize', (event, id: string, cols: number, rows: number) => {
+  ipcMain.on('terminal:resize', (_, id: string, cols: number, rows: number) => {
     terminalManager.resizeTerminal(id, cols, rows)
   })
 
   // Kill terminal
-  ipcMain.handle('terminal:kill', (event, id: string) => {
+  ipcMain.handle('terminal:kill', (_, id: string) => {
     terminalManager.killTerminal(id)
     return { success: true }
   })
@@ -229,6 +235,14 @@ export function registerTerminalHandlers(): void {
       available.push({ value: 'powershell', label: 'PowerShell' })
       available.push({ value: 'cmd', label: 'Command Prompt' })
 
+      // Check for PowerShell Core
+      try {
+        execSync('pwsh --version', { stdio: 'ignore' })
+        available.push({ value: 'pwsh', label: 'PowerShell Core' })
+      } catch {
+        // pwsh not installed
+      }
+
       // Check for Git Bash
       const gitBashPath = 'C:\\Program Files\\Git\\bin\\bash.exe'
       try {
@@ -241,7 +255,6 @@ export function registerTerminalHandlers(): void {
 
       // Check for WSL
       try {
-        const { execSync } = await import('child_process')
         execSync('wsl --list', { stdio: 'ignore' })
         available.push({ value: 'wsl', label: 'WSL' })
       } catch {

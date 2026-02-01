@@ -6,7 +6,6 @@ import { writeFile, mkdir, readFile } from 'fs/promises'
 import { existsSync, mkdirSync, cpSync, readdirSync } from 'fs'
 import { userInfo } from 'os'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
-import { version } from '../../package.json'
 import icon from '../../resources/icon.ico?asset'
 import { VaultManager } from './vault'
 import type { NotePayload } from './vault'
@@ -260,6 +259,42 @@ function createWindow(isNewInstance = false): void {
 
 app.whenReady().then(async () => {
   electronApp.setAppUserModelId('com.electron')
+
+  console.log('[Main] Registering config handlers...')
+  // Config Handlers (for .config.json in vault)
+  ipcMain.handle('config:get', async (event) => {
+    const v = getVaultManager(event.sender)
+    const root = v?.getRootPath() || resolveVaultPath()
+    const configPath = join(root, '.config.json')
+    try {
+      if (existsSync(configPath)) {
+        const raw = await readFile(configPath, 'utf-8')
+        return JSON.parse(raw)
+      }
+    } catch (e) {
+      console.error('[Config] Failed to read .config.json:', e)
+    }
+    return {}
+  })
+
+  ipcMain.handle('config:update', async (event, updates: Record<string, unknown>) => {
+    const v = getVaultManager(event.sender)
+    const root = v?.getRootPath() || resolveVaultPath()
+    const configPath = join(root, '.config.json')
+    try {
+      let current = {}
+      if (existsSync(configPath)) {
+        const raw = await readFile(configPath, 'utf-8')
+        current = JSON.parse(raw)
+      }
+      const updated = { ...current, ...updates }
+      await writeFile(configPath, JSON.stringify(updated, null, 2), 'utf-8')
+      return updated
+    } catch (e) {
+      console.error('[Config] Failed to update .config.json:', e)
+      return {}
+    }
+  })
 
   app.on('browser-window-created', (_, window) => {
     if (is.dev) {
@@ -560,7 +595,7 @@ app.whenReady().then(async () => {
   // Gist Sync Handlers
   ipcMain.handle(
     'sync:backup',
-    async (_event, token: string, gistId: string | undefined, vaultData: any) => {
+    async (_event, token: string, gistId: string | undefined, vaultData: unknown) => {
       try {
         const GIST_FILENAME = 'knowledge-hub-backup.json'
         const GIST_DESCRIPTION = 'Knowledge Hub Vault Backup'
@@ -798,11 +833,8 @@ app.whenReady().then(async () => {
   ipcMain.handle('app:getIcon', async () => {
     return icon
   })
-  // ipcMain.handle('app:getVersion', async () => {
-  //   return app.getVersion()
-  // })
   ipcMain.handle('app:getVersion', () => {
-    return version
+    return app.getVersion()
   })
   console.log('[Main] Registering app:getDocumentation handler')
   ipcMain.handle('app:getDocumentation', async () => {

@@ -45,6 +45,8 @@ export type Settings = {
   }
   ttsVoice?: string
   ttsSpeed?: number
+  terminalDefaultShell?: string
+  terminalSidebarVisible?: boolean
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -69,7 +71,9 @@ export const DEFAULT_SETTINGS: Settings = {
     lockScreenName: '',
     autoLockTimeout: 0
   },
-  ttsSpeed: 1.0
+  ttsSpeed: 1.0,
+  terminalDefaultShell: 'powershell',
+  terminalSidebarVisible: true
 }
 
 export function loadSettings(): Settings {

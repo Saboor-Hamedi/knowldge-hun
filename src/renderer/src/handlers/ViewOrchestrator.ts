@@ -187,7 +187,8 @@ export class ViewOrchestrator {
         chars: metrics.chars,
         lines: metrics.lines,
         wikiLinks: metrics.wikiLinks,
-        tags: metrics.tags
+        tags: metrics.tags,
+        mentions: metrics.mentions
       })
 
       const pos = state.cursorPositions.get(state.activeId)

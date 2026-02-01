@@ -90,6 +90,8 @@
   overflow-y: auto;
   overflow-x: hidden;
   transition: width 0.2s ease, opacity 0.2s ease;
+  padding-top: 12px;
+  padding-bottom: 12px;
 }
 
 .real-terminal-wrapper.sidebar-hidden .real-terminal-sidebar {
@@ -100,7 +102,13 @@
 }
 
 .terminal-sessions-list {
-  padding: 4px;
+  padding: 0 8px;
+  display: flex;
+  flex-direction: column;
+}
+
+.terminal-sessions-list:empty {
+  padding: 0;
 }
 
 /* Session Item */
@@ -125,9 +133,19 @@
 }
 
 .session-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
   font-size: 14px;
-  color: #4ec9b0;
+  color: var(--session-color, #4ec9b0);
   flex-shrink: 0;
+  transition: color 0.15s ease, transform 0.2s ease;
+}
+
+.terminal-session-item:hover .session-icon {
+  transform: scale(1.1);
 }
 
 .session-label {
@@ -137,29 +155,94 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  padding: 2px 0;
+}
+
+.terminal-session-item.active .session-label {
+  color: #ffffff;
+  font-weight: 500;
+}
+
+/* Use a dedicated element for the color indicator to avoid box-shadow artifacts */
+.terminal-session-item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 2px;
+  background: transparent;
+  border-radius: 0 2px 2px 0;
+  transition: background 0.15s ease;
+}
+
+.terminal-session-item.active::before {
+  background: var(--session-color, #4ec9b0);
 }
 
 .session-close {
   background: transparent;
   border: none;
-  color: #cccccc;
+  color: #858585;
   cursor: pointer;
-  padding: 2px;
-  border-radius: 2px;
-  display: none;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
   align-items: center;
   justify-content: center;
-  opacity: 0.7;
-  transition: opacity 0.15s ease, background 0.15s ease;
+  transition: all 0.2s ease;
 }
 
-.terminal-session-item:hover .session-close {
+.terminal-session-item:hover .session-close,
+.terminal-session-item:hover .session-color-btn {
   display: flex;
 }
 
-.session-close:hover {
+.session-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.session-color-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 50%;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease;
+}
+
+.session-color-btn:hover {
   background: rgba(255, 255, 255, 0.1);
-  opacity: 1;
+}
+
+.color-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.session-rename-input {
+  flex: 1;
+  background: #3c3c3c;
+  border: 1px solid #007acc;
+  color: #ffffff;
+  font-size: 12px;
+  padding: 2px 4px;
+  border-radius: 2px;
+  outline: none;
+  margin-right: 8px;
+}
+
+.session-close:hover {
+  background: rgba(205, 49, 49, 0.2);
+  color: #f14c4c;
 }
 
 /* Terminal Content */
@@ -170,6 +253,30 @@
   display: flex;
   flex-direction: column;
   background: #1e1e1e;
+}
+
+.real-terminal-container {
+  height: 100%;
+  width: 100%;
+  background: #1e1e1e;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.fade-in {
+  animation: terminalFadeIn 0.25s ease-out forwards;
+}
+
+@keyframes terminalFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .terminal-instance {
@@ -261,8 +368,11 @@
 .terminal-sessions-list:empty::before {
   content: 'No terminals';
   display: block;
-  padding: 12px;
+  padding: 24px 12px;
   text-align: center;
   color: #858585;
-  font-size: 12px;
+  font-size: 11px;
+  opacity: 0.6;
+  font-style: italic;
+  letter-spacing: 0.5px;
 }

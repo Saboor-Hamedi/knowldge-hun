@@ -9,6 +9,10 @@ interface TerminalSession {
   terminal: Terminal
   fitAddon: FitAddon
   isActive: boolean
+  shellType?: string
+  cwd?: string
+  customName?: string
+  color?: string
 }
 
 export class RealTerminalComponent {
@@ -34,6 +38,13 @@ export class RealTerminalComponent {
   private async init(): Promise<void> {
     await this.render()
     this.setupEventListeners()
+    await this.restoreSessions()
+
+    // Restore visibility if it was open
+    const savedVisibility = localStorage.getItem('terminal_panel_visible') === 'true'
+    if (savedVisibility) {
+      this.show()
+    }
   }
 
   private async render(): Promise<void> {
@@ -54,6 +65,12 @@ export class RealTerminalComponent {
             <select class="shell-selector" id="shell-selector" title="Select Shell">
               ${shellOptions}
             </select>
+            <button class="real-terminal-btn" id="toggle-sidebar-btn" title="Toggle Sidebar">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+                <line x1="9" y1="3" x2="9" y2="21"></line>
+              </svg>
+            </button>
             <button class="real-terminal-btn" id="new-terminal-btn" title="New Terminal">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <line x1="12" y1="5" x2="12" y2="19"></line>
@@ -88,6 +105,15 @@ export class RealTerminalComponent {
         </div>
       </div>
     `
+
+    // Get settings to set initial default shell
+    const settings = await window.api.invoke('settings:get')
+    const defaultShell = settings?.terminalDefaultShell || 'powershell'
+
+    const shellSelector = document.getElementById('shell-selector') as HTMLSelectElement
+    if (shellSelector) {
+      shellSelector.value = defaultShell
+    }
   }
 
   /**
@@ -113,7 +139,16 @@ export class RealTerminalComponent {
 
     newTerminalBtn?.addEventListener('click', () => {
       const shell = shellSelector?.value || 'powershell'
-      this.createNewTerminal(undefined, shell)
+      this.createNewTerminal(shell)
+    })
+
+    const toggleSidebarBtn = document.getElementById('toggle-sidebar-btn')
+    toggleSidebarBtn?.addEventListener('click', () => {
+      this.toggleSidebar()
+    })
+
+    shellSelector?.addEventListener('change', async () => {
+      await window.api.invoke('settings:update', { terminalDefaultShell: shellSelector.value })
     })
 
     closeTerminalBtn?.addEventListener('click', () => this.toggle())
@@ -143,9 +178,19 @@ export class RealTerminalComponent {
   /**
    * Create a new terminal session
    */
-  async createNewTerminal(cwd?: string, shell?: string): Promise<string> {
-    const sessionId = `terminal-${Date.now()}`
-    const shellType = shell || 'powershell'
+  async createNewTerminal(shell?: string, cwd?: string, id?: string): Promise<string> {
+    const sessionId = id || `terminal-${Date.now()}`
+
+    // Get default shell from settings if not provided
+    let shellType: string = shell || 'powershell'
+    if (!shell) {
+      const settings = await window.api.invoke('settings:get')
+      shellType = settings?.terminalDefaultShell || 'powershell'
+
+      // Update selector if it exists
+      const selector = document.getElementById('shell-selector') as HTMLSelectElement
+      if (selector) selector.value = shellType
+    }
 
     // Create xterm instance
     const terminal = new Terminal({
@@ -198,19 +243,12 @@ export class RealTerminalComponent {
     terminal.open(terminalElement)
     fitAddon.fit()
 
-    // Store session
-    this.sessions.set(sessionId, {
-      id: sessionId,
-      terminal,
-      fitAddon,
-      isActive: false
-    })
-
     // Create terminal in main process
     try {
       // Get current vault path
       const vaultPath = await this.getVaultPath()
-      await window.api.invoke('terminal:create', sessionId, vaultPath || cwd, shellType)
+      const workingDir = vaultPath || cwd
+      await window.api.invoke('terminal:create', sessionId, workingDir, shellType)
 
       // Setup data listener
       window.api.on(`terminal:data:${sessionId}`, (data: string) => {
@@ -238,7 +276,27 @@ export class RealTerminalComponent {
           }
           return false
         }
+        // Ctrl+V (paste)
+        if (event.ctrlKey && event.code === 'KeyV') {
+          navigator.clipboard.readText().then((text) => {
+            terminal.write(text)
+            window.api.send('terminal:write', sessionId, text)
+          })
+          return false
+        }
         return true
+      })
+
+      // Mouse Paste handling (Standard terminals often use Right-click or Middle-click)
+      // The user specifically asked for "left click pastes" or similar,
+      // but usually contextmenu (Right-click) is safer. I'll add both/ensure it works.
+      terminalElement.addEventListener('contextmenu', async (e) => {
+        e.preventDefault()
+        const text = await navigator.clipboard.readText()
+        if (text) {
+          terminal.write(text)
+          window.api.send('terminal:write', sessionId, text)
+        }
       })
 
       // Handle terminal panel resize
@@ -252,11 +310,40 @@ export class RealTerminalComponent {
       // Listen for terminal data
       window.api.send('terminal:listen', sessionId)
 
-      // Add to session list
-      this.addSessionToList(sessionId, shellType)
+      // Load session customizations from config with error handling
+      let sessionConfig: Record<string, string> = {}
+      try {
+        const config = (await window.api.invoke('config:get')) as Record<string, unknown>
+        const terminalSessions = config?.terminalSessions as Record<string, Record<string, string>>
+        sessionConfig = terminalSessions?.[sessionId] || {}
+      } catch (e) {
+        console.warn(`[RealTerminal] Failed to fetch config for session ${sessionId}:`, e)
+      }
+
+      // Store session with metadata for persistence
+      const session: TerminalSession = {
+        id: sessionId,
+        terminal,
+        fitAddon,
+        isActive: false,
+        shellType,
+        cwd: workingDir,
+        customName: sessionConfig.name,
+        color: sessionConfig.color
+      }
+      this.sessions.set(sessionId, session)
+
+      // Add to session list UI
+      this.addSessionToList(sessionId, shellType, sessionConfig.name, sessionConfig.color)
 
       // Update sidebar visibility
-      this.updateSidebarVisibility()
+      await this.updateSidebarVisibility()
+
+      // Save sessions to persistence
+      this.saveSessions()
+
+      // Switch to the new terminal immediately
+      this.switchToTerminal(sessionId)
 
       console.log(`[RealTerminal] Created session ${sessionId}`)
       return sessionId
@@ -271,35 +358,71 @@ export class RealTerminalComponent {
   /**
    * Add a session to the sidebar list
    */
-  private addSessionToList(sessionId: string, shellType: string): void {
+  private addSessionToList(
+    sessionId: string,
+    shellType: string,
+    customName?: string,
+    color?: string
+  ): void {
     const sessionsList = document.getElementById('terminal-sessions-list')
     if (!sessionsList) return
 
     const shellIcons = {
-      powershell: '❯',
-      cmd: '>_',
-      bash: '$',
-      wsl: '🐧'
+      powershell: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>`,
+      cmd: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>`,
+      bash: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 12H15L13.5 15.5H8.5L7 12H2"></path><path d="M5.45 5.11L2 12V18C2 19.1 2.9 20 4 20H20C21.1 20 22 19.1 22 18V12L18.55 5.11C18.19 4.45 17.51 4 16.76 4H7.24C6.49 4 5.81 4.45 5.45 5.11Z"></path></svg>`,
+      wsl: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9-4.03-9-9-9z"></path><path d="M12 8v4l3 3"></path></svg>`
     }
+
+    const sessionIndex = Array.from(this.sessions.keys()).indexOf(sessionId) + 1
+    const displayName = customName || `${shellType} ${sessionIndex}`
+    const iconColor = color || '#4ec9b0' // Default green
 
     const sessionItem = document.createElement('div')
     sessionItem.className = 'terminal-session-item'
     sessionItem.id = `session-${sessionId}`
+    sessionItem.style.setProperty('--session-color', iconColor)
+
     sessionItem.innerHTML = `
-      <span class="session-icon">${shellIcons[shellType] || '❯'}</span>
-      <span class="session-label">${shellType}: ${this.sessions.size}</span>
-      <button class="session-close" data-session-id="${sessionId}" title="Kill Terminal">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <line x1="18" y1="6" x2="6" y2="18"></line>
-          <line x1="6" y1="6" x2="18" y2="18"></line>
-        </svg>
-      </button>
+      <span class="session-icon" style="color: ${iconColor}">${shellIcons[shellType] || shellIcons.powershell}</span>
+      <span class="session-label" id="label-${sessionId}" title="${displayName}">${displayName}</span>
+      <div class="session-actions">
+        <button class="session-color-btn" data-session-id="${sessionId}" title="Change Color">
+          <div class="color-dot" style="background: ${iconColor}"></div>
+        </button>
+        <button class="session-close" data-session-id="${sessionId}" title="Kill Terminal">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="3 6 5 6 21 6"></polyline>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+          </svg>
+        </button>
+      </div>
     `
 
     sessionItem.addEventListener('click', (e) => {
-      if (!(e.target as HTMLElement).closest('.session-close')) {
-        this.switchToTerminal(sessionId)
+      const target = e.target as HTMLElement
+      if (
+        target.closest('.session-close') ||
+        target.closest('.session-color-btn') ||
+        target.closest('.session-rename-input')
+      ) {
+        return
       }
+      this.switchToTerminal(sessionId)
+    })
+
+    // Handle Rename (Double click)
+    const label = sessionItem.querySelector('.session-label') as HTMLElement
+    label?.addEventListener('dblclick', (e) => {
+      e.stopPropagation()
+      this.renameSession(sessionId)
+    })
+
+    // Handle Color Change
+    const colorBtn = sessionItem.querySelector('.session-color-btn')
+    colorBtn?.addEventListener('click', (e) => {
+      e.stopPropagation()
+      this.showColorPicker(sessionId)
     })
 
     const closeBtn = sessionItem.querySelector('.session-close')
@@ -318,6 +441,9 @@ export class RealTerminalComponent {
     const session = this.sessions.get(sessionId)
     if (!session) return
 
+    // Save active session for persistence
+    localStorage.setItem('terminal_active_session', sessionId)
+
     // Hide all terminals and deactivate sessions
     this.sessions.forEach((s, id) => {
       s.isActive = false
@@ -333,13 +459,24 @@ export class RealTerminalComponent {
     const element = document.getElementById(`terminal-${sessionId}`)
     if (element) {
       element.style.display = 'block'
-      session.fitAddon.fit()
-      this.resizeTerminal(sessionId)
-      session.terminal.focus()
+      element.classList.add('fade-in') // Add smooth entrance class
+
+      // Use requestAnimationFrame to ensure DOM is ready for fit calculation
+      requestAnimationFrame(() => {
+        session.fitAddon.fit()
+        this.resizeTerminal(sessionId)
+        session.terminal.focus()
+      })
     }
 
     const sessionItem = document.getElementById(`session-${sessionId}`)
     if (sessionItem) sessionItem.classList.add('active')
+
+    // Update shell selector to match this terminal's shell
+    const shellSelector = document.getElementById('shell-selector') as HTMLSelectElement
+    if (shellSelector && session.shellType) {
+      shellSelector.value = session.shellType
+    }
 
     this.activeSessionId = sessionId
   }
@@ -380,7 +517,10 @@ export class RealTerminalComponent {
       }
 
       // Update sidebar visibility
-      this.updateSidebarVisibility()
+      await this.updateSidebarVisibility()
+
+      // Save sessions to persistence
+      this.saveSessions()
 
       console.log(`[RealTerminal] Closed session ${sessionId}`)
     } catch (error) {
@@ -406,6 +546,10 @@ export class RealTerminalComponent {
     console.log('[RealTerminal] Toggle called, current visibility:', this.isVisible)
     this.isVisible = !this.isVisible
     this.container.style.display = this.isVisible ? 'block' : 'none'
+
+    // Persist visibility
+    localStorage.setItem('terminal_panel_visible', String(this.isVisible))
+
     console.log(
       '[RealTerminal] New visibility:',
       this.isVisible,
@@ -414,7 +558,7 @@ export class RealTerminalComponent {
     )
 
     if (this.isVisible) {
-      // Create first terminal if none exist
+      // Create first terminal if none exist (and we didn't just restore any)
       if (this.sessions.size === 0) {
         console.log('[RealTerminal] Creating first terminal session')
         this.createNewTerminal()
@@ -459,23 +603,187 @@ export class RealTerminalComponent {
    * Cleanup all terminals
    */
   destroy(): void {
-    this.sessions.forEach((session, id) => {
+    this.sessions.forEach((_, id) => {
       this.closeTerminal(id)
     })
   }
 
   /**
-   * Update sidebar visibility based on number of sessions
+   * Update sidebar visibility based on number of sessions and user preference
    */
-  private updateSidebarVisibility(): void {
+  private async updateSidebarVisibility(): Promise<void> {
     const wrapper = this.container.querySelector('.real-terminal-wrapper')
     if (wrapper) {
-      if (this.sessions.size <= 1) {
-        wrapper.classList.add('sidebar-hidden')
-      } else {
+      const settings = await window.api.invoke('settings:get')
+      const userPreference = settings?.terminalSidebarVisible !== false
+
+      // Auto-hide only if user hasn't explicitly set visibility or if sessions > 1
+      if (this.sessions.size > 1 || userPreference) {
         wrapper.classList.remove('sidebar-hidden')
+      } else {
+        wrapper.classList.add('sidebar-hidden')
       }
     }
+  }
+
+  /**
+   * Toggle sidebar visibility manually
+   */
+  private async toggleSidebar(): Promise<void> {
+    const settings = await window.api.invoke('settings:get')
+    if (settings) {
+      const current = settings.terminalSidebarVisible !== false
+      await window.api.invoke('settings:update', { terminalSidebarVisible: !current })
+      await this.updateSidebarVisibility()
+    }
+  }
+
+  /**
+   * Save current terminal sessions to local storage
+   */
+  private saveSessions(): void {
+    const sessionData = Array.from(this.sessions.entries()).map(([id, session]) => ({
+      id,
+      shellType: session.shellType || 'powershell',
+      cwd: session.cwd || ''
+    }))
+    localStorage.setItem('terminal_sessions', JSON.stringify(sessionData))
+  }
+
+  /**
+   * Restore terminal sessions from local storage
+   */
+  private async restoreSessions(): Promise<void> {
+    const saved = localStorage.getItem('terminal_sessions')
+    if (!saved) return
+
+    try {
+      const sessionData = JSON.parse(saved)
+      if (Array.isArray(sessionData)) {
+        for (const data of sessionData) {
+          // Re-create terminal with saved ID and data
+          // Signature: createNewTerminal(shell, cwd, id)
+          await this.createNewTerminal(data.shellType, data.cwd, data.id)
+        }
+
+        // Restore active session
+        const activeId = localStorage.getItem('terminal_active_session')
+        if (activeId && this.sessions.has(activeId)) {
+          this.switchToTerminal(activeId)
+        } else if (this.sessions.size > 0) {
+          // Default to first session if active one not found
+          const firstId = this.sessions.keys().next().value
+          if (firstId) this.switchToTerminal(firstId)
+        }
+      }
+    } catch (error) {
+      console.error('[RealTerminal] Failed to restore sessions:', error)
+      localStorage.removeItem('terminal_sessions')
+    }
+  }
+
+  /**
+   * Rename a terminal session
+   */
+  private renameSession(sessionId: string): void {
+    const label = document.getElementById(`label-${sessionId}`)
+    if (!label) return
+
+    const currentName = label.textContent || ''
+    const input = document.createElement('input')
+    input.type = 'text'
+    input.className = 'session-rename-input'
+    input.value = currentName
+
+    let isSaving = false
+    const saveRename = async (): Promise<void> => {
+      if (isSaving) return
+      isSaving = true
+
+      const newName = input.value.trim() || currentName
+      label.textContent = newName
+      if (input.parentNode) {
+        input.replaceWith(label)
+      }
+
+      // Update session object
+      const session = this.sessions.get(sessionId)
+      if (session) {
+        session.customName = newName
+      }
+
+      // Save to config
+      try {
+        const config = await window.api.invoke('config:get')
+        const terminalSessions = config.terminalSessions || {}
+        terminalSessions[sessionId] = {
+          ...terminalSessions[sessionId],
+          name: newName
+        }
+        await window.api.invoke('config:update', { terminalSessions })
+      } catch (err) {
+        console.error('[RealTerminal] Failed to save name:', err)
+      }
+    }
+
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault()
+        saveRename()
+      }
+      if (e.key === 'Escape') {
+        isSaving = true // Prevent saveRename on blur
+        if (input.parentNode) {
+          input.replaceWith(label)
+        }
+      }
+    })
+
+    input.addEventListener('blur', () => {
+      saveRename()
+    })
+
+    label.replaceWith(input)
+    setTimeout(() => {
+      input.focus()
+      input.select()
+    }, 50)
+  }
+
+  /**
+   * Show a color picker for session
+   */
+  private async showColorPicker(sessionId: string): Promise<void> {
+    const colors = ['#4ec9b0', '#cd3131', '#2472c8', '#e5e510', '#bc3fbc', '#11a8cd', '#ffffff']
+    const session = this.sessions.get(sessionId)
+    if (!session) return
+
+    const currentColor = session.color || '#4ec9b0'
+    const currentIndex = colors.indexOf(currentColor)
+    const nextIndex = (currentIndex + 1) % colors.length
+    const nextColor = colors[nextIndex]
+
+    // Update UI
+    const sessionItem = document.getElementById(`session-${sessionId}`)
+    if (sessionItem) {
+      sessionItem.style.setProperty('--session-color', nextColor)
+      const icon = sessionItem.querySelector('.session-icon') as HTMLElement
+      const dot = sessionItem.querySelector('.color-dot') as HTMLElement
+      if (icon) icon.style.color = nextColor
+      if (dot) dot.style.background = nextColor
+    }
+
+    // Update session
+    session.color = nextColor
+
+    // Save to config
+    const config = await window.api.invoke('config:get')
+    const terminalSessions = config.terminalSessions || {}
+    terminalSessions[sessionId] = {
+      ...terminalSessions[sessionId],
+      color: nextColor
+    }
+    await window.api.invoke('config:update', { terminalSessions })
   }
 
   /**
