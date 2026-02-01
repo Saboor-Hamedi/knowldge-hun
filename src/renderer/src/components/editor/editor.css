@@ -310,11 +310,19 @@
   opacity: 0.6;
 }
 
-/* Hashtag highlighting */
+/* Hashtag & Mention highlighting */
 .hashtag-highlight {
   color: var(--primary) !important;
-  font-weight: bold !important;
-  text-decoration: none !important;
+  font-weight: 600 !important;
+  background: color-mix(in srgb, var(--primary), transparent 90%);
+  border-radius: 3px;
+}
+
+.mention-highlight {
+  color: #a78bfa !important; /* Soft purple for mentions */
+  font-weight: 600 !important;
+  background: rgba(167, 139, 250, 0.1);
+  border-radius: 3px;
 }
 
 /* Modern suggest widget - positioned correctly, modern styling */

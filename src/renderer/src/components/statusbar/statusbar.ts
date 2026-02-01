@@ -60,6 +60,8 @@ export class StatusBar {
         <span class="statusbar__item statusbar__words" style="visibility: hidden;"></span>
         <span class="statusbar__item statusbar__chars" style="visibility: hidden;"></span>
         <span class="statusbar__item statusbar__lines" style="visibility: hidden;"></span>
+        <span class="statusbar__item statusbar__tags" style="visibility: hidden;"></span>
+        <span class="statusbar__item statusbar__links" style="visibility: hidden;"></span>
         <span class="statusbar__item statusbar__cursor" style="visibility: hidden;"></span>
         <div class="statusbar__sync" style="visibility: hidden;">
           <button class="statusbar__sync-button statusbar__item" title="Sync">
@@ -84,12 +86,12 @@ export class StatusBar {
   private initContextMenu(): void {
     this.container.addEventListener('contextmenu', (e: MouseEvent) => {
       e.preventDefault()
-      e.stopPropagation()
-
       const s = state.settings?.statusbar || {
         words: true,
         chars: true,
         lines: true,
+        tags: true,
+        links: true,
         cursor: true,
         sync: true,
         version: true
@@ -110,6 +112,16 @@ export class StatusBar {
           label: 'Lines',
           checked: s.lines !== false,
           onClick: () => this.toggleSetting('lines')
+        },
+        {
+          label: 'Tags',
+          checked: s.tags !== false,
+          onClick: () => this.toggleSetting('tags')
+        },
+        {
+          label: 'WikiLinks',
+          checked: s.links !== false,
+          onClick: () => this.toggleSetting('links')
         },
         { separator: true },
         {
@@ -137,6 +149,8 @@ export class StatusBar {
       words: true,
       chars: true,
       lines: true,
+      tags: true,
+      links: true,
       cursor: true,
       sync: true,
       version: true
@@ -161,6 +175,8 @@ export class StatusBar {
       words: true,
       chars: true,
       lines: true,
+      tags: true,
+      links: true,
       cursor: true,
       sync: true,
       version: true
@@ -169,6 +185,8 @@ export class StatusBar {
     const wordsEl = this.container.querySelector('.statusbar__words') as HTMLElement
     const charsEl = this.container.querySelector('.statusbar__chars') as HTMLElement
     const linesEl = this.container.querySelector('.statusbar__lines') as HTMLElement
+    const tagsEl = this.container.querySelector('.statusbar__tags') as HTMLElement
+    const linksEl = this.container.querySelector('.statusbar__links') as HTMLElement
     const cursorEl = this.container.querySelector('.statusbar__cursor') as HTMLElement
     const syncEl = this.container.querySelector('.statusbar__sync') as HTMLElement
     const versionEl = this.container.querySelector('.statusbar__version') as HTMLElement
@@ -185,6 +203,14 @@ export class StatusBar {
       linesEl.style.visibility = s.lines !== false ? 'visible' : 'hidden'
       linesEl.style.display = 'flex'
     }
+    if (tagsEl) {
+      tagsEl.style.visibility = s.tags !== false ? 'visible' : 'hidden'
+      tagsEl.style.display = 'flex'
+    }
+    if (linksEl) {
+      linksEl.style.visibility = s.links !== false ? 'visible' : 'hidden'
+      linksEl.style.display = 'flex'
+    }
     if (cursorEl) {
       cursorEl.style.visibility = s.cursor !== false ? 'visible' : 'hidden'
       cursorEl.style.display = 'flex'
@@ -199,21 +225,29 @@ export class StatusBar {
     }
   }
 
-  setMetrics(metrics: { words: number; chars: number; lines: number } | null): void {
+  setMetrics(
+    metrics: { words: number; chars: number; lines: number; wikiLinks: number; tags: number } | null
+  ): void {
     const wordsEl = this.container.querySelector('.statusbar__words')
     const charsEl = this.container.querySelector('.statusbar__chars')
     const linesEl = this.container.querySelector('.statusbar__lines')
+    const tagsEl = this.container.querySelector('.statusbar__tags')
+    const linksEl = this.container.querySelector('.statusbar__links')
 
     if (!metrics) {
       if (wordsEl) wordsEl.textContent = ''
       if (charsEl) charsEl.textContent = ''
       if (linesEl) linesEl.textContent = ''
+      if (tagsEl) tagsEl.textContent = ''
+      if (linksEl) linksEl.textContent = ''
       return
     }
 
     if (wordsEl) wordsEl.textContent = `Words ${metrics.words}`
     if (charsEl) charsEl.textContent = `Chars ${metrics.chars}`
     if (linesEl) linesEl.textContent = `Lines ${metrics.lines}`
+    if (tagsEl) tagsEl.textContent = `Tags ${metrics.tags}`
+    if (linksEl) linksEl.textContent = `Links ${metrics.wikiLinks}`
   }
 
   setCursor(pos: { ln: number; col: number } | null): void {

@@ -77,7 +77,9 @@
   cursor: pointer;
   font-size: 12px; /* User requested 12px */
   color: var(--text-soft);
-  transition: background 0.2s ease, color 0.2s ease; /* Removed transform/padding transition */
+  transition:
+    background 0.2s ease,
+    color 0.2s ease; /* Removed transform/padding transition */
   border: none;
   background: transparent;
   width: 100%;
@@ -850,7 +852,9 @@
   height: 10px;
   background: #10b981; /* Green dot */
   border-radius: 50%;
-  box-shadow: 0 0 0 2px var(--panel-strong), 0 0 8px rgba(16, 185, 129, 0.4);
+  box-shadow:
+    0 0 0 2px var(--panel-strong),
+    0 0 8px rgba(16, 185, 129, 0.4);
   display: none;
   z-index: 2;
 }

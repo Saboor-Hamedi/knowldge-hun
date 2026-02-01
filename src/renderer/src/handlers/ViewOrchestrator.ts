@@ -11,13 +11,23 @@ export class ViewOrchestrator {
       editor: {
         getValue: () => string
         getSelectionContent: () => string | null
+        layout: () => void
+        showEmpty: () => void
       }
       settingsView: { update: () => void; updateVaultPath: () => void }
       welcomePage: { isVisible: () => boolean; show: () => void; hide: () => void }
       tabBar: { render: () => void }
       statusBar: {
         setStatus: (msg: string) => void
-        setMetrics: (metrics: { words: number; chars: number; lines: number } | null) => void
+        setMetrics: (
+          metrics: {
+            words: number
+            chars: number
+            lines: number
+            wikiLinks: number
+            tags: number
+          } | null
+        ) => void
         setCursor: (pos: { ln: number; col: number } | null) => void
         updateVisibility: () => void
       }
@@ -171,7 +181,13 @@ export class ViewOrchestrator {
 
       // If there is a selection, we might want to signal it, or just show the metrics for the selection
       // For now, let's just show the metrics of whatever we have (selection or full content)
-      this.components.statusBar.setMetrics(metrics)
+      this.components.statusBar.setMetrics({
+        words: metrics.words,
+        chars: metrics.chars,
+        lines: metrics.lines,
+        wikiLinks: metrics.wikiLinks,
+        tags: metrics.tags
+      })
 
       const pos = state.cursorPositions.get(state.activeId)
       if (pos) {

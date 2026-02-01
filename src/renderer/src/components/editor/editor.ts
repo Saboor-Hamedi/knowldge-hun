@@ -1005,11 +1005,11 @@ export class EditorComponent {
           colors: {
             'editor.background': theme.colors['--bg'],
             'editor.foreground': theme.colors['--text'],
-            'editor.lineHighlightBackground': theme.colors['--hover'],
-            'editor.selectionBackground': theme.colors['--selection'],
-            'editor.selectionHighlightBackground': theme.colors['--selection'],
-            'editor.inactiveSelectionBackground': theme.colors['--selection'],
-            'editor.occurrenceHighlightBackground': theme.colors['--hover'],
+            'editor.lineHighlightBackground': 'rgba(0, 240, 255, 0.15)',
+            'editor.selectionBackground': '#00f0ff40',
+            'editor.selectionHighlightBackground': '#00f0ff40',
+            'editor.inactiveSelectionBackground': '#00f0ff40',
+            'editor.occurrenceHighlightBackground': 'rgba(0, 240, 255, 0.15)',
             'editorCursor.foreground': theme.colors['--primary'],
             'editorLineNumber.foreground': theme.colors['--muted'],
             'editorIndentGuide.background': theme.colors['--border-subtle'],
@@ -1127,12 +1127,14 @@ export class EditorComponent {
     const decorations: any[] = []
 
     lines.forEach((line, lineIndex) => {
-      // Find all hashtags in the line
-      const hashtagRegex = /#\w+/g
+      // Highlight both #tags and @mentions
+      // Highlight both #tags and @mentions (supporting letters, numbers, underscores, and dashes)
+      const highlightRegex = /([#@])[a-zA-Z0-9_-]+/g
       let match
-      while ((match = hashtagRegex.exec(line)) !== null) {
-        const startColumn = match.index + 1 // Monaco is 1-based
+      while ((match = highlightRegex.exec(line)) !== null) {
+        const startColumn = match.index + 1
         const endColumn = match.index + match[0].length + 1
+        const type = match[1] === '#' ? 'hashtag' : 'mention'
 
         decorations.push({
           range: new this.monacoInstance!.Range(
@@ -1142,9 +1144,9 @@ export class EditorComponent {
             endColumn
           ),
           options: {
-            inlineClassName: 'hashtag-highlight',
+            inlineClassName: `${type}-highlight`,
             stickiness:
-              this.monacoInstance!.editor.TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges
+              this.monacoInstance!.editor.TrackedRangeStickiness.AlwaysGrowsWhenTypingAtEdges
           }
         })
       }

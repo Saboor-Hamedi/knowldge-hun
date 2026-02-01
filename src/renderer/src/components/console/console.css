@@ -41,7 +41,7 @@
   max-height: none !important;
   border-top: none;
   /* MATCH MONACO MAX Z-INDEX TO ENSURE BODY IS NOT COVERED */
-  z-index: 2147483647 !important; 
+  z-index: 2147483647 !important;
   transition: none !important;
   overflow: hidden;
   pointer-events: auto;
@@ -55,9 +55,9 @@
   top: -8px; /* High hit area */
   left: 0;
   right: 0;
-  height: 16px; 
+  height: 16px;
   cursor: ns-resize;
-  z-index: 2147483647; 
+  z-index: 2147483647;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -72,7 +72,7 @@
   border-radius: 4px;
   opacity: 0.6;
   transition: all 0.2s ease;
-  box-shadow: 0 0 10px rgba(0,0,0,0.5);
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
 }
 
 .hub-console:hover .hub-console__resizer::after,
@@ -97,11 +97,11 @@
   justify-content: space-between;
   height: 35px;
   padding: 0 12px;
-  
+
   /* Appearance */
   background: var(--panel-strong);
   border-bottom: 1px solid var(--border);
-  
+
   /* Behavior */
   flex-shrink: 0;
   user-select: none;
@@ -173,14 +173,14 @@
   /* Layout - THIS IS CRITICAL */
   flex: 1 1 auto;
   min-height: 0;
-  
+
   /* Appearance */
   padding: 8px 12px; /* Slightly less vertical padding */
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 13px;
   line-height: 1.5;
   color: var(--text-soft);
-  
+
   /* Behavior */
   overflow-y: auto;
   overflow-x: hidden;
@@ -250,10 +250,6 @@
   margin-top: 0 !important;
 }
 
-
-
-
-
 .hub-console__user-content {
   color: var(--text-strong);
 }
@@ -304,7 +300,9 @@
 }
 
 @keyframes blink {
-  50% { opacity: 0; }
+  50% {
+    opacity: 0;
+  }
 }
 
 /* Entry animation for AI responses */
@@ -382,12 +380,24 @@
   animation: pulse 1.4s infinite ease-in-out both;
 }
 
-.hub-console__line--thinking span:nth-child(1) { animation-delay: -0.32s; }
-.hub-console__line--thinking span:nth-child(2) { animation-delay: -0.16s; }
+.hub-console__line--thinking span:nth-child(1) {
+  animation-delay: -0.32s;
+}
+.hub-console__line--thinking span:nth-child(2) {
+  animation-delay: -0.16s;
+}
 
 @keyframes pulse {
-  0%, 80%, 100% { transform: scale(0); opacity: 0.3; }
-  40% { transform: scale(1); opacity: 1; }
+  0%,
+  80%,
+  100% {
+    transform: scale(0);
+    opacity: 0.3;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 /* Scrollbar styling */
@@ -416,18 +426,18 @@
   display: flex;
   flex-direction: column;
   gap: 0;
-  
+
   /* Appearance */
   background: var(--panel-strong);
   border: 1px solid var(--border);
   border-radius: 5px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-  
+
   /* Positioning */
   position: relative; /* REQUIRED for absolute children like autocomplete to anchor correctly */
   margin: 0 12px 12px 12px;
   padding: 0;
-  
+
   /* Behavior */
   flex-shrink: 0;
   overflow: visible; /* Changed from hidden to allow autocomplete results to pop up */
