@@ -17,6 +17,7 @@ import { DocumentationModal } from './components/documentation/documentation'
 import { AISettingsModal } from './components/settings/ai-settings-modal'
 import { FuzzyFinder } from './components/fuzzy-finder/fuzzy-finder'
 import { ConsoleComponent } from './components/console/console'
+import { RealTerminalComponent } from './components/terminal/real-terminal'
 import { GraphView } from './components/graph/graph'
 import { themeManager } from './core/themeManager'
 import { ErrorHandler } from './utils/error-handler'
@@ -63,6 +64,7 @@ class App {
   private previewHandlers!: PreviewHandlers
   private vaultPicker!: VaultPicker
   private hubConsole: ConsoleComponent
+  private realTerminal: RealTerminalComponent
   private pendingPersist: number | null = null
   private pendingSettingsUpdate: number | null = null
   private welcomePage: WelcomePage
@@ -81,6 +83,7 @@ class App {
     this.statusBar = new StatusBar('statusBar')
     this.welcomePage = new WelcomePage('welcomeHost')
     this.hubConsole = new ConsoleComponent('consoleHost')
+    this.realTerminal = new RealTerminalComponent('terminalHost')
     this.settingsView = new SettingsView('settingsHost')
     this.themeModal = new ThemeModal('app')
     this.documentationModal = new DocumentationModal('app')
@@ -251,6 +254,12 @@ class App {
       const { id, type } = e.detail
       void this.fileOps.duplicateItem(id, type)
     }) as EventListener)
+
+    // Terminal toggle via custom event (triggered by Monaco command or global shortcut)
+    window.addEventListener('toggle-terminal', () => {
+      console.log('[App] toggle-terminal event received')
+      this.realTerminal.toggle()
+    })
 
     window.addEventListener('beforeunload', () => void this.vaultHandler.persistWorkspace())
   }

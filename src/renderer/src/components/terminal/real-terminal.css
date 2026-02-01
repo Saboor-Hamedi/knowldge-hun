@@ -1,0 +1,164 @@
+.real-terminal-wrapper {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: #1e1e1e;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.real-terminal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: #252526;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  min-height: 40px;
+}
+
+.real-terminal-tabs {
+  display: flex;
+  gap: 4px;
+  flex: 1;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.real-terminal-tabs::-webkit-scrollbar {
+  height: 4px;
+}
+
+.real-terminal-tabs::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+}
+
+.terminal-tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.2s;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.terminal-tab:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.terminal-tab.active {
+  background: rgba(0, 122, 204, 0.3);
+  border: 1px solid rgba(0, 122, 204, 0.5);
+}
+
+.terminal-tab-label {
+  font-size: 13px;
+  color: #cccccc;
+}
+
+.terminal-tab-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  background: transparent;
+  border: none;
+  color: #cccccc;
+  cursor: pointer;
+  border-radius: 3px;
+  transition: background 0.2s;
+}
+
+.terminal-tab-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+.real-terminal-actions {
+  display: flex;
+  gap: 4px;
+  margin-left: 8px;
+}
+
+.real-terminal-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  background: transparent;
+  border: none;
+  color: #cccccc;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.real-terminal-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+.real-terminal-content {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+  background: #1e1e1e;
+}
+
+.terminal-instance {
+  width: 100%;
+  height: 100%;
+  padding: 8px;
+}
+
+/* Override xterm.js styles for better integration */
+.terminal-instance .xterm {
+  height: 100%;
+  padding: 0;
+}
+
+.terminal-instance .xterm-viewport {
+  overflow-y: auto !important;
+  scrollbar-width: thin;
+}
+
+.terminal-instance .xterm-viewport::-webkit-scrollbar {
+  width: 8px;
+}
+
+.terminal-instance .xterm-viewport::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.terminal-instance .xterm-viewport::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+
+.terminal-instance .xterm-viewport::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Selection styling */
+.terminal-instance .xterm .xterm-selection div {
+  background-color: rgba(255, 255, 255, 0.3) !important;
+}
+
+/* Cursor styling */
+.terminal-instance .xterm .xterm-cursor-layer .xterm-cursor {
+  background-color: #ffffff !important;
+}
+
+/* Link styling */
+.terminal-instance .xterm a {
+  color: #4ec9b0;
+  text-decoration: underline;
+}
+
+.terminal-instance .xterm a:hover {
+  color: #6fd9c0;
+}

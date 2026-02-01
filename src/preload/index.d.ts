@@ -123,6 +123,10 @@ type NoteApi = {
   getUsername: () => Promise<string>
   onVaultChanged: (callback: (data: any) => void) => () => void
   onNoteOpened: (callback: (id: string) => void) => void
+  // Generic IPC methods for terminal
+  invoke: (channel: string, ...args: any[]) => Promise<any>
+  send: (channel: string, ...args: any[]) => void
+  on: (channel: string, callback: (...args: any[]) => void) => () => void
   statusBar: {
     setStatus: (msg: string) => void
     setMeta: (msg: string) => void

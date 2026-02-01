@@ -353,7 +353,11 @@ export class EditorComponent {
   private updatePreview(): void {
     if (!this.preview || !this.editor) return
     const content = this.editor.getValue()
-    this.preview.update(content)
+    // Pass the current note's title as file path for language detection
+    const filePath = state.activeId
+      ? state.notes.find((n) => n.id === state.activeId)?.title || state.activeId
+      : null
+    this.preview.update(content, filePath || undefined)
   }
 
   private reRegisterProviders(): void {
@@ -381,8 +385,11 @@ export class EditorComponent {
     this.previewHost.style.display = 'block'
     this.emptyState.style.display = 'none'
 
-    // Update preview content
-    this.preview.update(content)
+    // Update preview content with file path for language detection
+    const filePath = state.activeId
+      ? state.notes.find((n) => n.id === state.activeId)?.title || state.activeId
+      : null
+    this.preview.update(content, filePath || undefined)
     this.isPreviewMode = true
   }
 
@@ -878,6 +885,15 @@ export class EditorComponent {
           this.monacoInstance.KeyCode.Comma,
         () => {
           window.dispatchEvent(new CustomEvent('toggle-theme-modal'))
+        }
+      )
+
+      // Add Ctrl+` to toggle terminal
+      this.editor.addCommand(
+        this.monacoInstance.KeyMod.CtrlCmd | this.monacoInstance.KeyCode.Backquote,
+        () => {
+          console.log('[Editor] Ctrl+` pressed, dispatching toggle-terminal event')
+          window.dispatchEvent(new CustomEvent('toggle-terminal'))
         }
       )
 

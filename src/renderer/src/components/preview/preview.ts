@@ -51,6 +51,7 @@ export class PreviewComponent {
   private container: HTMLElement
   private md: MarkdownIt
   private onWikiLinkClick?: (target: string) => void
+  private currentFilePath: string | null = null
 
   private createLucideIcon(
     IconComponent: Parameters<typeof createElement>[0],
@@ -301,7 +302,109 @@ export class PreviewComponent {
   private lastContent: string | null = null
   private renderPending = false
 
-  update(content: string): void {
+  /**
+   * Detects if a file is a code file (not markdown) based on extension
+   */
+  private isCodeFile(filePath: string): boolean {
+    const lower = filePath.toLowerCase()
+    // Markdown extensions
+    if (lower.endsWith('.md') || lower.endsWith('.markdown')) {
+      return false
+    }
+    // Code file extensions
+    const codeExtensions = [
+      '.js',
+      '.jsx',
+      '.ts',
+      '.tsx',
+      '.json',
+      '.py',
+      '.rb',
+      '.php',
+      '.java',
+      '.c',
+      '.cpp',
+      '.cs',
+      '.go',
+      '.rs',
+      '.html',
+      '.css',
+      '.scss',
+      '.sass',
+      '.less',
+      '.sql',
+      '.sh',
+      '.bash',
+      '.yaml',
+      '.yml',
+      '.xml',
+      '.toml',
+      '.swift',
+      '.kt',
+      '.dart',
+      '.lua',
+      '.r',
+      '.m',
+      '.h'
+    ]
+    return codeExtensions.some((ext) => lower.endsWith(ext))
+  }
+
+  /**
+   * Maps file extension to language identifier for syntax highlighting
+   */
+  private getLanguageFromPath(filePath: string): string {
+    const lower = filePath.toLowerCase()
+    const extMap: Record<string, string> = {
+      '.js': 'javascript',
+      '.jsx': 'javascript',
+      '.ts': 'typescript',
+      '.tsx': 'typescript',
+      '.json': 'json',
+      '.py': 'python',
+      '.rb': 'ruby',
+      '.php': 'php',
+      '.java': 'java',
+      '.c': 'c',
+      '.cpp': 'cpp',
+      '.cs': 'csharp',
+      '.go': 'go',
+      '.rs': 'rust',
+      '.html': 'html',
+      '.css': 'css',
+      '.scss': 'scss',
+      '.sass': 'sass',
+      '.less': 'less',
+      '.sql': 'sql',
+      '.sh': 'bash',
+      '.bash': 'bash',
+      '.yaml': 'yaml',
+      '.yml': 'yaml',
+      '.xml': 'xml',
+      '.toml': 'toml',
+      '.swift': 'swift',
+      '.kt': 'kotlin',
+      '.dart': 'dart',
+      '.lua': 'lua',
+      '.r': 'r',
+      '.m': 'objective-c',
+      '.h': 'c'
+    }
+
+    for (const [ext, lang] of Object.entries(extMap)) {
+      if (lower.endsWith(ext)) {
+        return lang
+      }
+    }
+    return 'plaintext'
+  }
+
+  update(content: string, filePath?: string): void {
+    // Update file path if provided
+    if (filePath !== undefined) {
+      this.currentFilePath = filePath
+    }
+
     if (this.lastContent === content) return
     this.lastContent = content
 
@@ -323,9 +426,17 @@ export class PreviewComponent {
     // Save scroll position
     const scrollTop = this.container.scrollTop
 
+    // Determine if we need to wrap content in code fence
+    let renderContent = content
+    if (this.currentFilePath && this.isCodeFile(this.currentFilePath)) {
+      const language = this.getLanguageFromPath(this.currentFilePath)
+      // Wrap entire content in code fence for syntax highlighting
+      renderContent = `\`\`\`${language}\n${content}\n\`\`\``
+    }
+
     // Normalize image markdown syntax (fix spaces after !)
     // Fix cases like ![ Logo.png] to ![Logo.png]
-    const normalizedContent = content.replace(/!\[\s+([^\]]+)\]/g, '![$1]')
+    const normalizedContent = renderContent.replace(/!\[\s+([^\]]+)\]/g, '![$1]')
 
     // Render markdown to HTML
     const rawHtml = this.md.render(normalizedContent)

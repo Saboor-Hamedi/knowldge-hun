@@ -17,6 +17,7 @@ import {
   DEFAULT_SETTINGS,
   type Settings
 } from './settings'
+import { registerTerminalHandlers, cleanupTerminals } from './terminal'
 
 let mainWindowRef: BrowserWindow | null = null
 const freshWindows = new Set<number>()
@@ -286,6 +287,9 @@ app.whenReady().then(async () => {
   ]
   const menu = Menu.buildFromTemplate(template)
   Menu.setApplicationMenu(menu)
+
+  // Register terminal handlers
+  registerTerminalHandlers()
 
   ipcMain.handle('notes:list', async (event) => {
     const v = getVaultManager(event.sender)
@@ -842,5 +846,12 @@ app.whenReady().then(async () => {
 })
 
 app.on('window-all-closed', () => {
+  // Cleanup terminals before quitting
+  cleanupTerminals()
   if (process.platform !== 'darwin') app.quit()
+})
+
+app.on('before-quit', () => {
+  // Ensure terminals are cleaned up
+  cleanupTerminals()
 })

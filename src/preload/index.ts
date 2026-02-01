@@ -138,6 +138,14 @@ const api = {
     ipcRenderer.on('vault:changed', subscription)
     return () => ipcRenderer.removeListener('vault:changed', subscription)
   },
+  // Generic IPC methods for terminal
+  invoke: (channel: string, ...args: any[]) => ipcRenderer.invoke(channel, ...args),
+  send: (channel: string, ...args: any[]) => ipcRenderer.send(channel, ...args),
+  on: (channel: string, callback: (...args: any[]) => void) => {
+    const subscription = (_event: any, ...args: any[]) => callback(...args)
+    ipcRenderer.on(channel, subscription)
+    return () => ipcRenderer.removeListener(channel, subscription)
+  },
   onNoteOpened: (_callback: (id: string) => void) => {} // Unused but maybe needed for typing
 }
 

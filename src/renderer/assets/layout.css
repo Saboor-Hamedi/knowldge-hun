@@ -262,3 +262,17 @@ body.no-transitions *:after {
   transition: none !important;
   animation: none !important;
 }
+
+/* Terminal Host */
+#terminalHost {
+  position: fixed;
+  bottom: 0;
+  left: var(--activity-width);
+  right: 0;
+  height: 400px;
+  z-index: 1000;
+  background: #1e1e1e;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  display: none; /* Hidden by default */
+}
+
