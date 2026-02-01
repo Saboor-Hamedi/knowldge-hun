@@ -320,6 +320,10 @@ app.whenReady().then(async () => {
     const v = await ensureVault(event.sender)
     return v.moveNote(id, fromPath, toPath)
   })
+  ipcMain.handle('notes:duplicate', async (event, id: string) => {
+    const v = await ensureVault(event.sender)
+    return v.duplicateNote(id)
+  })
   ipcMain.handle('notes:rename', async (event, id: string, newId: string) => {
     const v = await ensureVault(event.sender)
     const newName = await v.renameNote(id, newId)

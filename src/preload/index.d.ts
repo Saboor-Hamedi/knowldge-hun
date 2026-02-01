@@ -79,6 +79,7 @@ type NoteApi = {
   deleteNote: (id: string, path?: string) => Promise<{ id: string }>
   moveNote: (id: string, fromPath?: string, toPath?: string) => Promise<NoteMeta>
   renameNote: (id: string, newId: string, path?: string) => Promise<NoteMeta>
+  duplicateNote: (id: string) => Promise<NoteMeta>
   importNote: (filePath: string, folderPath?: string) => Promise<NoteMeta>
   saveAsset: (buffer: ArrayBuffer, name: string) => Promise<string>
   createFolder: (name: string, parentPath?: string) => Promise<{ name: string; path: string }>

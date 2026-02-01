@@ -1,6 +1,7 @@
 import { state } from '../core/state'
 import { tabService } from '../services/tabService'
 import { contextMenu } from '../components/contextmenu/contextmenu'
+import { codicons } from '../utils/codicons'
 
 export interface TabHandlers {
   handleTabContextMenu: (id: string, e: MouseEvent) => void
@@ -34,26 +35,112 @@ export class TabHandlersImpl {
     closeAllTabsFn: () => Promise<void>
   ): void {
     const isPinned = state.pinnedTabs.has(id)
+    const tab = state.openTabs.find((t) => t.id === id)
+    const title = tab?.title || id
+
     contextMenu.show(e.clientX, e.clientY, [
       {
         label: isPinned ? 'Unpin Tab' : 'Pin Tab',
+        icon: codicons.pin,
         onClick: () => this.togglePinTab(id)
       },
       { separator: true },
       {
         label: 'Close',
+        icon: codicons.close,
         keybinding: 'Ctrl+W',
         onClick: () => closeTabFn(id, true)
       },
       {
         label: 'Close Others',
+        icon: codicons.closeOthers,
         onClick: () => closeOtherTabsFn(id)
       },
       {
+        label: 'Close to the Right',
+        icon: codicons.close, // Or a specific right-close icon if added
+        onClick: () => this.closeTabsToRight(id, closeTabFn)
+      },
+      {
         label: 'Close All',
+        icon: codicons.closeAll,
         onClick: () => closeAllTabsFn()
+      },
+      { separator: true },
+      {
+        label: 'Rename...',
+        icon: codicons.edit,
+        onClick: () => {
+          window.dispatchEvent(
+            new CustomEvent('knowledge-hub:rename-item', {
+              detail: { id, type: 'note', title }
+            })
+          )
+        }
+      },
+      {
+        label: 'Duplicate',
+        icon: codicons.duplicate,
+        onClick: () => {
+          window.dispatchEvent(
+            new CustomEvent('knowledge-hub:duplicate-item', {
+              detail: { id, type: 'note' }
+            })
+          )
+        }
+      },
+      {
+        label: 'Delete',
+        icon: codicons.trash,
+        danger: true,
+        onClick: () => {
+          window.dispatchEvent(
+            new CustomEvent('knowledge-hub:delete-item', {
+              detail: { items: [{ id, type: 'note', path: id }] }
+            })
+          )
+        }
+      },
+      { separator: true },
+      {
+        label: 'Copy Path',
+        icon: codicons.link,
+        onClick: () => {
+          navigator.clipboard.writeText(id)
+          // notificationManager is not imported here, but we can uses state or a standard alert if needed
+          // Better yet, just copy it.
+        }
+      },
+      {
+        label: 'Reveal in Sidebar',
+        icon: codicons.search,
+        onClick: () => {
+          window.dispatchEvent(
+            new CustomEvent('knowledge-hub:focus-folder', { detail: { path: id } })
+          )
+        }
+      },
+      {
+        label: 'Reveal in Explorer',
+        icon: codicons.folderOpened,
+        onClick: () => {
+          window.api.revealVault(id)
+        }
       }
     ])
+  }
+
+  async closeTabsToRight(
+    id: string,
+    closeTabFn: (id: string, force?: boolean) => Promise<void>
+  ): Promise<void> {
+    const index = state.openTabs.findIndex((t) => t.id === id)
+    if (index === -1) return
+
+    const toClose = state.openTabs.slice(index + 1).filter((t) => !state.pinnedTabs.has(t.id))
+    for (const tab of toClose) {
+      await closeTabFn(tab.id, true)
+    }
   }
 
   togglePinTab(id: string): void {

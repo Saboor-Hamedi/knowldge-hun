@@ -228,12 +228,27 @@ class App {
       }
     }) as EventListener)
 
+    window.addEventListener('knowledge-hub:delete-item', ((
+      e: CustomEvent<{ items: { id: string; type: 'note' | 'folder'; path?: string }[] }>
+    ) => {
+      const { items } = e.detail
+      void this.fileOps.deleteItems(items)
+    }) as EventListener)
+
     window.addEventListener('knowledge-hub:focus-folder', ((e: CustomEvent<{ path: string }>) => {
       const path = e.detail?.path
       if (path) {
+        this.sidebar.show()
         this.vaultHandler.revealPathInSidebar(path, true)
         this.sidebar.scrollToActive(false)
       }
+    }) as EventListener)
+
+    window.addEventListener('knowledge-hub:duplicate-item', ((
+      e: CustomEvent<{ id: string; type: 'note' | 'folder' }>
+    ) => {
+      const { id, type } = e.detail
+      void this.fileOps.duplicateItem(id, type)
     }) as EventListener)
 
     this.editor.setCursorPositionChangeHandler(() => this.schedulePersist())

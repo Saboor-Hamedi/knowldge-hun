@@ -70,6 +70,7 @@ const api = {
     ipcRenderer.invoke('notes:move', id, fromPath, toPath),
   renameNote: (id: string, newId: string, path?: string): Promise<NoteMeta> =>
     ipcRenderer.invoke('notes:rename', id, newId, path),
+  duplicateNote: (id: string): Promise<NoteMeta> => ipcRenderer.invoke('notes:duplicate', id),
   importNote: (filePath: string, folderPath?: string): Promise<NoteMeta> =>
     ipcRenderer.invoke('notes:import', filePath, folderPath),
   saveAsset: (buffer: ArrayBuffer, name: string): Promise<string> =>
@@ -147,7 +148,7 @@ if (process.contextIsolated) {
   try {
     contextBridge.exposeInMainWorld('electron', electronAPI)
     contextBridge.exposeInMainWorld('api', api)
-    console.log('[Preload] API exposed successfully with getDocumentation')
+    console.log('[Preload] API exposed successfully. Available keys:', Object.keys(api))
   } catch (error) {
     console.error(error)
   }

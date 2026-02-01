@@ -53,11 +53,11 @@ export class ContextMenu {
     // Focus the menu for keyboard navigation
     this.menu.focus()
 
-    // Close on click outside
+    // Close on click outside or escape
     setTimeout(() => {
-      document.addEventListener('click', this.handleOutsideClick)
-      document.addEventListener('contextmenu', this.handleOutsideClick)
-      document.addEventListener('keydown', this.handleKeyDown)
+      document.addEventListener('click', this.handleOutsideClick, true)
+      document.addEventListener('contextmenu', this.handleOutsideClick, true)
+      document.addEventListener('keydown', this.handleKeyDown, true)
       window.addEventListener('blur', this.handleWindowBlur)
       window.addEventListener('resize', this.handleResize)
     }, 0)
@@ -383,16 +383,18 @@ export class ContextMenu {
     this.menuItems = []
     this.items = []
 
-    document.removeEventListener('click', this.handleOutsideClick)
-    document.removeEventListener('contextmenu', this.handleOutsideClick)
-    document.removeEventListener('keydown', this.handleKeyDown)
+    document.removeEventListener('click', this.handleOutsideClick, true)
+    document.removeEventListener('contextmenu', this.handleOutsideClick, true)
+    document.removeEventListener('keydown', this.handleKeyDown, true)
     window.removeEventListener('blur', this.handleWindowBlur)
     window.removeEventListener('resize', this.handleResize)
   }
 
   private handleOutsideClick = (e: Event): void => {
+    if (!this.isOpen) return
     const target = e.target as HTMLElement
     if (!target.closest('.context-menu')) {
+      e.stopPropagation()
       this.close()
     }
   }

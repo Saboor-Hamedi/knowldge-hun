@@ -520,6 +520,34 @@ export class VaultManager {
     this.removeLinks(id)
   }
 
+  public async duplicateNote(id: string): Promise<NoteMeta> {
+    const sourceFullPath = join(this.rootPath, id)
+    if (!existsSync(sourceFullPath)) throw new Error('File not found')
+
+    const dir = dirname(id)
+    const filename = basename(id)
+    const ext = filename.includes('.') ? `.${filename.split('.').pop()}` : ''
+    const baseName = ext ? filename.slice(0, -ext.length) : filename
+
+    let counter = 1
+    let newFilename = `${baseName} copy${ext}`
+    let newFullPath = join(this.rootPath, dir, newFilename)
+
+    while (existsSync(newFullPath)) {
+      newFilename = `${baseName} copy ${counter}${ext}`
+      newFullPath = join(this.rootPath, dir, newFilename)
+      counter++
+    }
+
+    await copyFile(sourceFullPath, newFullPath)
+    const newId = join(dir, newFilename).replace(/\\/g, '/')
+    await this.indexFile(newFullPath)
+
+    const meta = this.notes.get(newId)
+    if (!meta) throw new Error('Failed to index duplicated note')
+    return meta
+  }
+
   public async renameNote(id: string, newTitle: string): Promise<string> {
     const meta = this.notes.get(id)
     if (!meta) throw new Error('File not found')

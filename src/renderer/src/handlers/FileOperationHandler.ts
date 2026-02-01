@@ -63,6 +63,31 @@ export class FileOperationHandler {
     }
   }
 
+  public async duplicateItem(id: string, type: 'note' | 'folder'): Promise<void> {
+    if (type === 'folder') {
+      this.components.statusBar.setStatus('Folder duplication is not supported yet')
+      return
+    }
+
+    try {
+      this.components.statusBar.setStatus(`Duplicating note...`)
+      const meta = await window.api.duplicateNote(id)
+
+      await this.callbacks.refreshNotes()
+      this.components.statusBar.setStatus(`Duplicated note to "${meta.title}"`)
+      void this.callbacks.persistWorkspace()
+
+      await this.callbacks.openNote(meta.id, meta.path, 'editor')
+
+      // Optionally start rename
+      setTimeout(() => {
+        this.components.sidebar.startRename(meta.id)
+      }, 100)
+    } catch (error) {
+      this.components.statusBar.setStatus(`Duplicate failed: ${(error as Error).message}`)
+    }
+  }
+
   public async createFolder(name: string = 'New Folder', parentPath?: string): Promise<void> {
     try {
       const result = await window.api.createFolder(name, parentPath)
