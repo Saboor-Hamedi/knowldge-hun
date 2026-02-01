@@ -112,6 +112,18 @@ export function extractTags(content: string): string[] {
   return [...new Set(tags)] // Remove duplicates
 }
 
+export function extractMentions(content: string): string[] {
+  const mentionRegex = /@([a-zA-Z0-9_-]+)/g
+  const mentions: string[] = []
+  let match
+
+  while ((match = mentionRegex.exec(content)) !== null) {
+    mentions.push(match[1].toLowerCase()) // Normalize to lowercase
+  }
+
+  return [...new Set(mentions)] // Remove duplicates
+}
+
 export function estimateReadTime(content: string, wordsPerMinute: number = 200): number {
   // Remove markdown formatting for more accurate word count
   const cleanContent = content
@@ -136,7 +148,15 @@ export function estimateReadTime(content: string, wordsPerMinute: number = 200):
   return Math.max(1, minutes) // At least 1 minute
 }
 
-export function getNoteMetrics(content: string) {
+export function getNoteMetrics(content: string): {
+  words: number
+  chars: number
+  lines: number
+  readTime: number
+  wikiLinks: number
+  tags: number
+  mentions: number
+} {
   const words = content.trim()
     ? content
         .trim()
@@ -148,6 +168,7 @@ export function getNoteMetrics(content: string) {
   const readTime = estimateReadTime(content)
   const wikiLinks = extractWikiLinks(content).length
   const tags = extractTags(content).length
+  const mentions = extractMentions(content).length
 
   return {
     words,
@@ -155,6 +176,7 @@ export function getNoteMetrics(content: string) {
     lines,
     readTime,
     wikiLinks,
-    tags
+    tags,
+    mentions
   }
 }

@@ -311,10 +311,12 @@
 .preview-content .tag {
   color: #d19a66; /* Orange/Yellowish */
   display: inline-block;
+  cursor: pointer;
 }
 
 .preview-content .mention {
   color: #61afef; /* Blue */
   display: inline-block;
   font-weight: 500;
+  cursor: pointer;
 }

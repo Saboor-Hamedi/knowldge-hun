@@ -245,9 +245,11 @@ export class PreviewComponent {
   }
 
   private attachEvents(): void {
-    // Handle wiki link clicks
+    // Handle click delegation
     this.container.addEventListener('click', (e) => {
       const target = e.target as HTMLElement
+
+      // 1. Handle Wiki Links
       const wikiLink = target.closest('.wiki-link') as HTMLElement
       if (wikiLink && this.onWikiLinkClick) {
         e.preventDefault()
@@ -255,6 +257,43 @@ export class PreviewComponent {
         if (linkTarget) {
           this.onWikiLinkClick(linkTarget)
         }
+        return
+      }
+
+      // 2. Handle Tags
+      const tagElement = target.closest('.tag') as HTMLElement
+      if (tagElement) {
+        e.preventDefault()
+        const tagText = tagElement.textContent?.replace(/^#/, '') || ''
+        if (tagText) {
+          // Open search with tag
+          window.dispatchEvent(
+            new CustomEvent('hub-open-search', {
+              detail: { query: `#${tagText}` }
+            })
+          )
+        }
+        return
+      }
+
+      // 3. Handle Mentions
+      const mentionElement = target.closest('.mention') as HTMLElement
+      if (mentionElement) {
+        e.preventDefault()
+        const mentionText = mentionElement.textContent?.replace(/^@/, '') || ''
+        if (mentionText) {
+          // Open search with mention
+          window.dispatchEvent(
+            new CustomEvent('hub-open-search', {
+              detail: { query: `@${mentionText}` }
+            })
+          )
+          // Also try to find a note with that name directly
+          if (this.onWikiLinkClick) {
+            this.onWikiLinkClick(mentionText)
+          }
+        }
+        return
       }
     })
   }

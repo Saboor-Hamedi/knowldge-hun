@@ -128,7 +128,8 @@
 .statusbar__chars,
 .statusbar__lines,
 .statusbar__tags,
-.statusbar__links {
+.statusbar__links,
+.statusbar__mentions {
   border-left: 1px solid rgba(255, 255, 255, 0.05);
 }
 

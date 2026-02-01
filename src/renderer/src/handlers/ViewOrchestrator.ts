@@ -26,6 +26,7 @@ export class ViewOrchestrator {
             lines: number
             wikiLinks: number
             tags: number
+            mentions: number
           } | null
         ) => void
         setCursor: (pos: { ln: number; col: number } | null) => void

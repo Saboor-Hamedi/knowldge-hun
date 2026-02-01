@@ -62,6 +62,7 @@ export class StatusBar {
         <span class="statusbar__item statusbar__lines" style="visibility: hidden;"></span>
         <span class="statusbar__item statusbar__tags" style="visibility: hidden;"></span>
         <span class="statusbar__item statusbar__links" style="visibility: hidden;"></span>
+        <span class="statusbar__item statusbar__mentions" style="visibility: hidden;"></span>
         <span class="statusbar__item statusbar__cursor" style="visibility: hidden;"></span>
         <div class="statusbar__sync" style="visibility: hidden;">
           <button class="statusbar__sync-button statusbar__item" title="Sync">
@@ -226,13 +227,21 @@ export class StatusBar {
   }
 
   setMetrics(
-    metrics: { words: number; chars: number; lines: number; wikiLinks: number; tags: number } | null
+    metrics: {
+      words: number
+      chars: number
+      lines: number
+      wikiLinks: number
+      tags: number
+      mentions: number
+    } | null
   ): void {
     const wordsEl = this.container.querySelector('.statusbar__words')
     const charsEl = this.container.querySelector('.statusbar__chars')
     const linesEl = this.container.querySelector('.statusbar__lines')
     const tagsEl = this.container.querySelector('.statusbar__tags')
     const linksEl = this.container.querySelector('.statusbar__links')
+    const mentionsEl = this.container.querySelector('.statusbar__mentions')
 
     if (!metrics) {
       if (wordsEl) wordsEl.textContent = ''
@@ -240,14 +249,21 @@ export class StatusBar {
       if (linesEl) linesEl.textContent = ''
       if (tagsEl) tagsEl.textContent = ''
       if (linksEl) linksEl.textContent = ''
+      if (mentionsEl) mentionsEl.textContent = ''
       return
     }
 
-    if (wordsEl) wordsEl.textContent = `Words ${metrics.words}`
-    if (charsEl) charsEl.textContent = `Chars ${metrics.chars}`
-    if (linesEl) linesEl.textContent = `Lines ${metrics.lines}`
-    if (tagsEl) tagsEl.textContent = `Tags ${metrics.tags}`
-    if (linksEl) linksEl.textContent = `Links ${metrics.wikiLinks}`
+    if (wordsEl) wordsEl.textContent = `${metrics.words} Word${metrics.words === 1 ? '' : 's'}`
+    if (charsEl) charsEl.textContent = `${metrics.chars} Char${metrics.chars === 1 ? '' : 's'}`
+    if (linesEl) linesEl.textContent = `${metrics.lines} Line${metrics.lines === 1 ? '' : 's'}`
+    if (tagsEl) tagsEl.textContent = `${metrics.tags} Tag${metrics.tags === 1 ? '' : 's'}`
+    if (linksEl)
+      linksEl.textContent = `${metrics.wikiLinks} Link${metrics.wikiLinks === 1 ? '' : 's'}`
+    if (mentionsEl) {
+      mentionsEl.textContent = `${metrics.mentions} Mention${metrics.mentions === 1 ? '' : 's'}`
+      ;(mentionsEl as HTMLElement).style.visibility = metrics.mentions > 0 ? 'visible' : 'hidden'
+      ;(mentionsEl as HTMLElement).style.display = metrics.mentions > 0 ? 'flex' : 'none'
+    }
   }
 
   setCursor(pos: { ln: number; col: number } | null): void {
