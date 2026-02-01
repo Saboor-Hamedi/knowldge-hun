@@ -1620,7 +1620,7 @@ export class SettingsView {
         <button class="settings-custom-dropdown__trigger">
           <div style="display: flex; align-items: center; gap: 8px;">
             <div class="settings-custom-dropdown__preview-dot" style="background: ${currentTheme.colors['--primary']};"></div>
-            ${shorten(currentTheme.name)}
+            ${shorten(currentTheme.name, currentTheme.id)}
           </div>
         </button>
         <div class="settings-custom-dropdown__menu">

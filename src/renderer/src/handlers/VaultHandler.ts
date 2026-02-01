@@ -22,7 +22,15 @@ export class VaultHandler {
       statusBar: {
         setStatus: (msg: string) => void
         setMeta: (msg: string) => void
-        setMetrics: (metrics: { words: number; chars: number; lines: number } | null) => void
+        setMetrics: (
+          metrics: {
+            words: number
+            chars: number
+            lines: number
+            wikiLinks: number
+            tags: number
+          } | null
+        ) => void
         setCursor: (pos: { ln: number; col: number } | null) => void
         updateVisibility: () => void
       }

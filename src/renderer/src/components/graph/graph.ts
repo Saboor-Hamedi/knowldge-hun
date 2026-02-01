@@ -40,8 +40,8 @@ export class GraphView {
   private forceStrength = -500
   private localGraphEnabled = false
   private localGraphDepth = 2
-  private pathFindMode = false
-  private pathFindStart: string | null = null
+  // private pathFindMode = false
+  // private pathFindStart: string | null = null
   private minimap: d3.Selection<SVGSVGElement, unknown, null, undefined> | null = null
   private minimapG: d3.Selection<SVGGElement, unknown, null, undefined> | null = null
   private minimapViewport: d3.Selection<SVGRectElement, unknown, null, undefined> | null = null
@@ -1117,8 +1117,8 @@ export class GraphView {
       .append('span')
       .attr('class', 'graph-panel-title')
       .text('Minimap')
-      .select(function () {
-        return (this as HTMLElement).parentNode?.parentNode as HTMLElement
+      .select(function (this: HTMLElement) {
+        return this.parentNode?.parentNode as HTMLElement
       })
       .append('div')
       .attr('class', 'graph-minimap__container')

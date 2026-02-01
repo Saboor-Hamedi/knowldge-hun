@@ -115,6 +115,8 @@ export type AppSettings = {
     words?: boolean
     chars?: boolean
     lines?: boolean
+    tags?: boolean
+    links?: boolean
     cursor?: boolean
     sync?: boolean
     version?: boolean

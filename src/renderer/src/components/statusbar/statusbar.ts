@@ -36,7 +36,7 @@ export class StatusBar {
   }
 
   private createLucideIcon(IconComponent: unknown, size: number = 12): string {
-    const svgElement = createElement(IconComponent as any, {
+    const svgElement = createElement(IconComponent as Parameters<typeof createElement>[0], {
       size: size,
       'stroke-width': 1.5,
       stroke: 'currentColor',
@@ -166,7 +166,7 @@ export class StatusBar {
       statusbar: updated
     }
 
-    await window.api.updateSettings({ statusbar: updated } as any)
+    await window.api.updateSettings({ statusbar: updated })
     this.updateVisibility()
   }
 
@@ -264,7 +264,7 @@ export class StatusBar {
   private attachSyncEvents(): void {
     const syncButton = this.container.querySelector('.statusbar__sync-button') as HTMLElement
     const syncMenu = this.container.querySelector('.statusbar__sync-menu') as HTMLElement
-    const menuItems = this.container.querySelectorAll('.statusbar__sync-menu-item')
+    const menuItems = this.container.querySelectorAll<HTMLElement>('.statusbar__sync-menu-item')
 
     if (syncButton && syncMenu) {
       syncButton.addEventListener('click', (e: MouseEvent) => {

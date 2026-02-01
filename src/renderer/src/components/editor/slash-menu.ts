@@ -134,10 +134,10 @@ export const SLASH_COMMANDS: SlashMenuItem[] = [
   }
 ]
 
-import * as monaco from 'monaco-editor'
+type Monaco = any
 
 export class SlashMenu {
-  private editor: monaco.editor.IStandaloneCodeEditor
+  private editor: Monaco
   private menuEl: HTMLElement | null = null
   // Robust no duplicate: Filter unique by ID
   private items: SlashMenuItem[] = Array.from(
@@ -145,9 +145,9 @@ export class SlashMenu {
   )
   private selectedIndex = 0
   private isVisible = false
-  private triggerPos: monaco.Position | null = null
+  private triggerPos: any | null = null
 
-  constructor(editor: monaco.editor.IStandaloneCodeEditor) {
+  constructor(editor: Monaco) {
     this.editor = editor
     this.attachEvents()
   }
@@ -218,7 +218,7 @@ export class SlashMenu {
     })
   }
 
-  private show(pos: monaco.Position): void {
+  private show(pos: any): void {
     if (this.isVisible) return
 
     this.triggerPos = pos

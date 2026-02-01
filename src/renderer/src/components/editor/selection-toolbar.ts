@@ -1,7 +1,8 @@
-import { aiService } from '../../services/aiService'
 import { state } from '../../core/state'
+import { aiService } from '../../services/aiService'
 import { ICONS } from '../icons/icons'
-import * as monaco from 'monaco-editor'
+
+type Monaco = any
 
 export interface ToolbarAction {
   id: string
@@ -12,7 +13,7 @@ export interface ToolbarAction {
 }
 
 export class SelectionToolbar {
-  private editor: monaco.editor.IStandaloneCodeEditor
+  private editor: Monaco
   private toolbarEl: HTMLElement | null = null
   private statsEl: HTMLElement | null = null
   private dropdownEl: HTMLElement | null = null
@@ -21,7 +22,7 @@ export class SelectionToolbar {
   private isProcessing = false
   private currentAudio: HTMLAudioElement | null = null
 
-  constructor(editor: monaco.editor.IStandaloneCodeEditor) {
+  constructor(editor: Monaco) {
     this.editor = editor
     this.attachEvents()
   }
@@ -41,7 +42,7 @@ export class SelectionToolbar {
       this.closeDropdown()
     })
 
-    this.editor.onKeyDown((e) => {
+    this.editor.onKeyDown((e: any) => {
       if (this.dropdownEl) {
         if (e.keyCode === 18 /* ArrowDown */) {
           this.navigateDropdown(1)
@@ -214,7 +215,7 @@ export class SelectionToolbar {
               if (state.settings.ttsVoice) {
                 const voice = window.speechSynthesis
                   .getVoices()
-                  .find((v) => v.voiceURI === state.settings.ttsVoice)
+                  .find((v) => v.voiceURI === state.settings?.ttsVoice)
                 if (voice) utterance.voice = voice
               }
               if (state.settings.ttsSpeed) {
@@ -279,11 +280,7 @@ export class SelectionToolbar {
     container.appendChild(div)
   }
 
-  private toggleWrap(
-    editor: monaco.editor.IStandaloneCodeEditor,
-    sym: string,
-    endSym?: string
-  ): void {
+  private toggleWrap(editor: any, sym: string, endSym?: string): void {
     const activeEnd = endSym || sym
     const sel = editor.getSelection()
     const mod = editor.getModel()
@@ -295,7 +292,7 @@ export class SelectionToolbar {
     this.hide()
   }
 
-  private wrapWith(editor: monaco.editor.IStandaloneCodeEditor, pre: string, suf: string): void {
+  private wrapWith(editor: any, pre: string, suf: string): void {
     const sel = editor.getSelection()
     const mod = editor.getModel()
     if (!sel || !mod) return
