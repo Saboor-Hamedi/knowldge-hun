@@ -121,4 +121,12 @@ export type AppSettings = {
     sync?: boolean
     version?: boolean
   }
+  // Terminal Customization
+  terminalFontSize?: number
+  terminalFontFamily?: string
+  terminalBackground?: string
+  terminalForeground?: string
+  terminalCursor?: string
+  terminalFrameColor?: string
+  terminalDefaultShell?: string
 }

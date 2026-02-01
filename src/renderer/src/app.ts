@@ -332,6 +332,7 @@ class App {
 
     if (state.settings) {
       this.editor.applySettings(state.settings)
+      await this.realTerminal.applySettings(state.settings)
       // Always restore layout, but force sidebars hidden for new instances
       this.viewOrchestrator.restoreLayout({
         ...state.settings,
@@ -500,6 +501,7 @@ class App {
 
       state.settings = updatedSettings
       this.editor.applySettings(state.settings)
+      void this.realTerminal.applySettings(state.settings)
       // Boost performance for live updates by syncing with frame rate
       requestAnimationFrame(() => {
         this.tabBar.render()

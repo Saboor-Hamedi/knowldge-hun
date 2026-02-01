@@ -291,27 +291,97 @@ export class RealTerminalComponent {
   }
 
   /**
+   * Apply settings to all active terminal sessions
+   */
+  public async applySettings(settings: any): Promise<void> {
+    if (!settings) return
+
+    const fontSize = settings.terminalFontSize || 14
+    const fontFamily = settings.terminalFontFamily || 'Consolas, "Courier New", monospace'
+    const background = settings.terminalBackground || '#1e1e1e'
+    const foreground = settings.terminalForeground || '#cccccc'
+    const cursor = settings.terminalCursor || '#ffffff'
+    const frameColor = settings.terminalFrameColor || '#1e1e1e'
+
+    // Update frame color (wrapper and its structural children)
+    const elementsToStyle = [
+      '.real-terminal-wrapper',
+      '.real-terminal-header',
+      '.real-terminal-body',
+      '.real-terminal-sidebar'
+    ]
+
+    elementsToStyle.forEach((selector) => {
+      const el = this.container.querySelector(selector) as HTMLElement
+      if (el) {
+        el.style.backgroundColor = frameColor
+      }
+    })
+
+    const theme = {
+      background,
+      foreground,
+      cursor,
+      black: '#000000',
+      red: '#cd3131',
+      green: '#0dbc79',
+      yellow: '#e5e510',
+      blue: '#2472c8',
+      magenta: '#bc3fbc',
+      cyan: '#11a8cd',
+      white: '#e5e5e5',
+      brightBlack: '#666666',
+      brightRed: '#f14c4c',
+      brightGreen: '#23d18b',
+      brightYellow: '#f5f543',
+      brightBlue: '#3b8eea',
+      brightMagenta: '#d670d6',
+      brightCyan: '#29b8db',
+      brightWhite: '#ffffff'
+    }
+
+    this.sessions.forEach((session) => {
+      session.terminal.options.fontSize = fontSize
+      session.terminal.options.fontFamily = fontFamily
+      session.terminal.options.theme = theme
+
+      // Force refresh of the terminal
+      session.terminal.refresh(0, session.terminal.rows - 1)
+      session.fitAddon.fit()
+    })
+  }
+
+  /**
    * Create a new terminal session
    */
   async createNewTerminal(shell?: string, cwd?: string, id?: string): Promise<string> {
     const sessionId = id || `terminal-${Date.now()}`
 
+    // Fetch settings explicitly to ensure fresh values
+    const settings = await window.api.invoke('settings:get')
+
     // Get default shell from settings if not provided
     let shellType: string = shell || 'powershell'
     if (!shell) {
-      const settings = await window.api.invoke('settings:get')
       shellType = settings?.terminalDefaultShell || 'powershell'
     }
+
+    // Get appearance settings
+    const fontSize = settings?.terminalFontSize || 14
+    const fontFamily = settings?.terminalFontFamily || 'Consolas, "Courier New", monospace'
+    const background = settings?.terminalBackground || '#1e1e1e'
+    const foreground = settings?.terminalForeground || '#cccccc'
+    const cursor = settings?.terminalCursor || '#ffffff'
 
     // Create xterm instance
     const terminal = new Terminal({
       cursorBlink: true,
-      fontSize: 14,
-      fontFamily: 'Consolas, "Courier New", monospace',
+      fontSize,
+      fontFamily,
       theme: {
-        background: '#1e1e1e',
-        foreground: '#cccccc',
-        cursor: '#ffffff',
+        background,
+        foreground,
+        cursor,
         black: '#000000',
         red: '#cd3131',
         green: '#0dbc79',

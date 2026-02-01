@@ -125,6 +125,9 @@ export class SettingsView {
           <button class="settings-view__sidebar-item ${this.activeSection === 'shortcuts' ? 'is-active' : ''}" data-section-tab="shortcuts">
             ${codicons.keyboard} Shortcuts
           </button>
+          <button class="settings-view__sidebar-item ${this.activeSection === 'terminal' ? 'is-active' : ''}" data-section-tab="terminal">
+            ${codicons.terminal} Terminal
+          </button>
           <button class="settings-view__sidebar-item ${this.activeSection === 'tab' ? 'is-active' : ''}" data-section-tab="tab">
             ${this.createLucideIcon(Layout, 16)} Tab
           </button>
@@ -601,6 +604,115 @@ export class SettingsView {
             </div>
             <div class="settings-shortcuts">
               ${renderShortcutItems()}
+            </div>
+          </div>
+
+          <!-- Terminal Section -->
+          <div class="settings-view__section ${this.activeSection === 'terminal' ? 'is-active' : ''}" data-section="terminal">
+            <div class="settings-view__section-header">
+              <h2 class="settings-view__section-title">Terminal Configuration</h2>
+            </div>
+
+            <div class="settings-list">
+              <!-- Font Size -->
+              <div class="settings-row" data-search="terminal font size">
+                <div class="settings-row__icon">${this.createLucideIcon(Type, 18)}</div>
+                <div class="settings-row__info">
+                  <label class="settings-row__label">Font Size</label>
+                  <p class="settings-row__hint">Size of the terminal text (px).</p>
+                </div>
+                <div class="settings-row__action">
+                  <div class="settings-color-group">
+                    <input type="number" data-setting="terminalFontSize" min="10" max="36" value="${state.settings?.terminalFontSize || 14}" style="width: 80px; background: transparent; border: none; padding: 0 4px; font-family: inherit; font-size: 13px; color: var(--text-strong); outline: none;" />
+                  </div>
+                </div>
+              </div>
+
+               <!-- Font Family -->
+              <div class="settings-row" data-search="terminal font family">
+                <div class="settings-row__icon">${this.createLucideIcon(Type, 18)}</div>
+                <div class="settings-row__info">
+                  <label class="settings-row__label">Font Family</label>
+                  <p class="settings-row__hint">Font family for the terminal.</p>
+                </div>
+                <div class="settings-row__action" style="flex: 1; max-width: 250px;">
+                   <input type="text" class="settings-input" data-setting="terminalFontFamily" value="${state.settings?.terminalFontFamily || 'Consolas, monospace'}" placeholder='Consolas, "Courier New", monospace' />
+                </div>
+              </div>
+              
+              <div class="settings-divider"></div>
+              <div class="settings-view__section-header" style="border: none; margin-top: 8px;">
+                <h3 class="settings-view__section-title">Terminal Colors</h3>
+              </div>
+
+               <!-- Frame Color -->
+               <div class="settings-row" data-search="terminal frame color">
+                <div class="settings-row__icon">${this.createLucideIcon(Layout, 18)}</div>
+                <div class="settings-row__info">
+                  <label class="settings-row__label">Frame Color</label>
+                  <p class="settings-row__hint">Color of the terminal window frame.</p>
+                </div>
+                <div class="settings-row__action">
+                  <div class="settings-color-group">
+                    <div class="settings-color-wrapper">
+                      <div class="settings-color-swatch" style="background-color: ${state.settings?.terminalFrameColor || '#1e1e1e'}"></div>
+                    </div>
+                    <input type="text" class="settings-input settings-color-text" data-setting="terminalFrameColor" value="${state.settings?.terminalFrameColor || '#1e1e1e'}" placeholder="#HEX" maxlength="7" />
+                  </div>
+                </div>
+              </div>
+
+              <!-- Background Color -->
+              <div class="settings-row" data-search="terminal background color">
+                <div class="settings-row__icon">${this.createLucideIcon(Pipette, 18)}</div>
+                <div class="settings-row__info">
+                  <label class="settings-row__label">Background Color</label>
+                  <p class="settings-row__hint">Background color of the terminal.</p>
+                </div>
+                <div class="settings-row__action">
+                  <div class="settings-color-group">
+                    <div class="settings-color-wrapper">
+                      <div class="settings-color-swatch" style="background-color: ${state.settings?.terminalBackground || '#1e1e1e'}"></div>
+                    </div>
+                    <input type="text" class="settings-input settings-color-text" data-setting="terminalBackground" value="${state.settings?.terminalBackground || '#1e1e1e'}" placeholder="#HEX" maxlength="7" />
+                  </div>
+                </div>
+              </div>
+
+              <!-- Foreground Color -->
+              <div class="settings-row" data-search="terminal text color">
+                <div class="settings-row__icon">${this.createLucideIcon(Pipette, 18)}</div>
+                <div class="settings-row__info">
+                  <label class="settings-row__label">Text Color</label>
+                  <p class="settings-row__hint">Default text color.</p>
+                </div>
+                <div class="settings-row__action">
+                  <div class="settings-color-group">
+                    <div class="settings-color-wrapper">
+                      <div class="settings-color-swatch" style="background-color: ${state.settings?.terminalForeground || '#cccccc'}"></div>
+                    </div>
+                    <input type="text" class="settings-input settings-color-text" data-setting="terminalForeground" value="${state.settings?.terminalForeground || '#cccccc'}" placeholder="#HEX" maxlength="7" />
+                  </div>
+                </div>
+              </div>
+              
+              <!-- Cursor Color -->
+              <div class="settings-row" data-search="terminal cursor color">
+                <div class="settings-row__icon">${this.createLucideIcon(Scan, 18)}</div>
+                <div class="settings-row__info">
+                  <label class="settings-row__label">Cursor Color</label>
+                  <p class="settings-row__hint">Color of the terminal cursor.</p>
+                </div>
+                <div class="settings-row__action">
+                  <div class="settings-color-group">
+                    <div class="settings-color-wrapper">
+                      <div class="settings-color-swatch" style="background-color: ${state.settings?.terminalCursor || '#ffffff'}"></div>
+                    </div>
+                    <input type="text" class="settings-input settings-color-text" data-setting="terminalCursor" value="${state.settings?.terminalCursor || '#ffffff'}" placeholder="#HEX" maxlength="7" />
+                  </div>
+                </div>
+              </div>
+
             </div>
           </div>
 
