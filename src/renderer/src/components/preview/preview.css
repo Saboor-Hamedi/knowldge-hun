@@ -306,3 +306,19 @@
 .preview-content pre::-webkit-scrollbar-thumb:hover {
   background: var(--muted);
 }
+
+/* Tags and Mentions */
+.preview-content .tag {
+  color: #d19a66; /* Orange/Yellowish */
+  display: inline-block;
+  font-family: 'Fira Code', 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 0.9em;
+}
+
+.preview-content .mention {
+  color: #61afef; /* Blue */
+  display: inline-block;
+  font-weight: 500;
+  font-family: 'Fira Code', 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 0.9em;
+}

@@ -36,6 +36,17 @@ hljs.registerLanguage('yml', yaml)
 // Safe as we sanitize with DOMPurify
 hljs.configure({ ignoreUnescapedHTML: true })
 
+// Helper for tag/mention matching
+const isIdentifierChar = (code: number): boolean => {
+  return (
+    (code >= 0x30 && code <= 0x39) || // 0-9
+    (code >= 0x41 && code <= 0x5a) || // A-Z
+    (code >= 0x61 && code <= 0x7a) || // a-z
+    code === 0x5f || // _
+    code === 0x2d // -
+  )
+}
+
 export class PreviewComponent {
   private container: HTMLElement
   private md: MarkdownIt
@@ -117,6 +128,74 @@ export class PreviewComponent {
       const token = tokens[idx]
       const label = token.content
       return `<a href="#" class="wiki-link" data-wiki-link="${this.md.utils.escapeHtml(label)}">${this.md.utils.escapeHtml(label)}</a>`
+    }
+
+    // Add custom rule for tags #tag
+    this.md.inline.ruler.after('wiki_link', 'tag', (state, silent) => {
+      const start = state.pos
+      if (state.src.charCodeAt(start) !== 0x23 /* # */) return false
+
+      const max = state.posMax
+      let pos = start + 1
+
+      if (pos >= max) return false
+
+      if (!isIdentifierChar(state.src.charCodeAt(pos))) return false
+
+      while (pos < max) {
+        if (!isIdentifierChar(state.src.charCodeAt(pos))) break
+        pos++
+      }
+
+      if (pos === start + 1) return false
+
+      if (!silent) {
+        const token = state.push('tag', 'span', 0)
+        token.content = state.src.slice(start + 1, pos)
+        token.markup = '#'
+      }
+
+      state.pos = pos
+      return true
+    })
+
+    // Add custom rule for mentions @mention
+    this.md.inline.ruler.after('tag', 'mention', (state, silent) => {
+      const start = state.pos
+      if (state.src.charCodeAt(start) !== 0x40 /* @ */) return false
+
+      const max = state.posMax
+      let pos = start + 1
+
+      if (pos >= max) return false
+
+      if (!isIdentifierChar(state.src.charCodeAt(pos))) return false
+
+      while (pos < max) {
+        if (!isIdentifierChar(state.src.charCodeAt(pos))) break
+        pos++
+      }
+
+      if (pos === start + 1) return false
+
+      if (!silent) {
+        const token = state.push('mention', 'span', 0)
+        token.content = state.src.slice(start + 1, pos)
+        token.markup = '@'
+      }
+
+      state.pos = pos
+      return true
+    })
+
+    this.md.renderer.rules.tag = (tokens, idx) => {
+      const label = tokens[idx].content
+      return `<span class="tag">#${this.md.utils.escapeHtml(label)}</span>`
+    }
+
+    this.md.renderer.rules.mention = (tokens, idx) => {
+      const label = tokens[idx].content
+      return `<span class="mention">@${this.md.utils.escapeHtml(label)}</span>`
     }
 
     this.render()
