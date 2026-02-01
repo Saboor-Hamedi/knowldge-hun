@@ -1,6 +1,8 @@
 import { ipcMain } from 'electron'
 import * as pty from 'node-pty'
 import * as os from 'os'
+import { join } from 'path'
+import { existsSync } from 'fs'
 import { execSync } from 'child_process'
 
 interface TerminalSession {
@@ -11,6 +13,8 @@ interface TerminalSession {
 
 class TerminalManager {
   private sessions: Map<string, TerminalSession> = new Map()
+  private dataBuffers: Map<string, string[]> = new Map()
+  private dataListeners: Map<string, boolean> = new Map()
 
   /**
    * Create a new terminal session
@@ -37,6 +41,18 @@ class TerminalManager {
       id,
       ptyProcess,
       cwd: workingDir
+    })
+
+    // Prepare buffer for initial output
+    this.dataBuffers.set(id, [])
+    this.dataListeners.set(id, false)
+
+    // Start listening for data immediately to buffer it
+    ptyProcess.onData((data) => {
+      const buffer = this.dataBuffers.get(id)
+      if (buffer && !this.dataListeners.get(id)) {
+        buffer.push(data)
+      }
     })
 
     console.log(`[Terminal] Created session ${id} with shell ${shell} in ${workingDir}`)
@@ -80,6 +96,8 @@ class TerminalManager {
     try {
       session.ptyProcess.kill()
       this.sessions.delete(id)
+      this.dataBuffers.delete(id)
+      this.dataListeners.delete(id)
       console.log(`[Terminal] Killed session ${id}`)
     } catch (error) {
       console.error(`[Terminal] Error killing session ${id}:`, error)
@@ -94,6 +112,15 @@ class TerminalManager {
     if (!session) {
       console.error(`[Terminal] Session ${id} not found for data listener`)
       return
+    }
+
+    this.dataListeners.set(id, true)
+
+    // Flush buffered data
+    const buffer = this.dataBuffers.get(id)
+    if (buffer && buffer.length > 0) {
+      buffer.forEach((data) => callback(data))
+      this.dataBuffers.set(id, []) // Clear after flush
     }
 
     session.ptyProcess.onData(callback)
@@ -112,6 +139,8 @@ class TerminalManager {
     session.ptyProcess.onExit(({ exitCode }) => {
       callback(exitCode)
       this.sessions.delete(id)
+      this.dataBuffers.delete(id)
+      this.dataListeners.delete(id)
     })
   }
 
@@ -129,8 +158,18 @@ class TerminalManager {
           return 'pwsh.exe'
         case 'cmd':
           return 'cmd.exe'
-        case 'bash':
-          return 'C:\\Program Files\\Git\\bin\\bash.exe'
+        case 'bash': {
+          // Check common paths for Git Bash
+          const commonPaths = [
+            'C:\\Program Files\\Git\\bin\\bash.exe',
+            'C:\\Program Files (x86)\\Git\\bin\\bash.exe',
+            join(os.homedir(), 'AppData\\Local\\Programs\\Git\\bin\\bash.exe')
+          ]
+          for (const path of commonPaths) {
+            if (existsSync(path)) return path
+          }
+          return 'bash.exe' // Try PATH
+        }
         case 'wsl':
           return 'wsl.exe'
         default:

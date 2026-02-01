@@ -21,6 +21,7 @@ export class RealTerminalComponent {
   private sessions: Map<string, TerminalSession> = new Map()
   private activeSessionId: string | null = null
   private isVisible: boolean = false
+  private isRestoring: boolean = false
 
   constructor(containerId: string) {
     const container = document.getElementById(containerId)
@@ -245,9 +246,9 @@ export class RealTerminalComponent {
 
     // Create terminal in main process
     try {
-      // Get current vault path
+      // Prioritize provided cwd (e.g. from restored session) over default vault path
       const vaultPath = await this.getVaultPath()
-      const workingDir = vaultPath || cwd
+      const workingDir = cwd || vaultPath
       await window.api.invoke('terminal:create', sessionId, workingDir, shellType)
 
       // Setup data listener
@@ -339,8 +340,10 @@ export class RealTerminalComponent {
       // Update sidebar visibility
       await this.updateSidebarVisibility()
 
-      // Save sessions to persistence
-      this.saveSessions()
+      // Save sessions to persistence if not restoring
+      if (!this.isRestoring) {
+        this.saveSessions()
+      }
 
       // Switch to the new terminal immediately
       this.switchToTerminal(sessionId)
@@ -459,13 +462,23 @@ export class RealTerminalComponent {
     const element = document.getElementById(`terminal-${sessionId}`)
     if (element) {
       element.style.display = 'block'
-      element.classList.add('fade-in') // Add smooth entrance class
 
-      // Use requestAnimationFrame to ensure DOM is ready for fit calculation
+      // Stop ongoing animations and reset state to prevent "jumps"
+      element.classList.remove('fade-in')
+      void element.offsetWidth // Force reflow
+      element.classList.add('fade-in')
+
+      // Use requestAnimationFrame for more reliable timing
       requestAnimationFrame(() => {
-        session.fitAddon.fit()
-        this.resizeTerminal(sessionId)
-        session.terminal.focus()
+        if (session.terminal) {
+          session.fitAddon.fit()
+          this.resizeTerminal(sessionId)
+          // Use another frame to ensure dimensions are fully applied before focusing
+          requestAnimationFrame(() => {
+            session.terminal.focus()
+            session.terminal.scrollToBottom()
+          })
+        }
       })
     }
 
@@ -657,13 +670,19 @@ export class RealTerminalComponent {
     const saved = localStorage.getItem('terminal_sessions')
     if (!saved) return
 
+    this.isRestoring = true
     try {
       const sessionData = JSON.parse(saved)
       if (Array.isArray(sessionData)) {
+        console.log(`[RealTerminal] Restoring ${sessionData.length} sessions...`)
+
+        // Use a for...of loop with individual try/catch to ensure one failure doesn't stop others
         for (const data of sessionData) {
-          // Re-create terminal with saved ID and data
-          // Signature: createNewTerminal(shell, cwd, id)
-          await this.createNewTerminal(data.shellType, data.cwd, data.id)
+          try {
+            await this.createNewTerminal(data.shellType, data.cwd, data.id)
+          } catch (err) {
+            console.error(`[RealTerminal] Failed to restore session ${data.id}:`, err)
+          }
         }
 
         // Restore active session
@@ -671,14 +690,16 @@ export class RealTerminalComponent {
         if (activeId && this.sessions.has(activeId)) {
           this.switchToTerminal(activeId)
         } else if (this.sessions.size > 0) {
-          // Default to first session if active one not found
           const firstId = this.sessions.keys().next().value
           if (firstId) this.switchToTerminal(firstId)
         }
       }
     } catch (error) {
-      console.error('[RealTerminal] Failed to restore sessions:', error)
-      localStorage.removeItem('terminal_sessions')
+      console.error('[RealTerminal] Failed to parse saved sessions:', error)
+    } finally {
+      this.isRestoring = false
+      // Save the final state once after all restorations are done (or attempted)
+      this.saveSessions()
     }
   }
 
