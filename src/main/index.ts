@@ -1,6 +1,14 @@
 // --- App Update Integration ---
 import { setupUpdateApp } from '../renderer/src/components/updateApp/updateApp'
-import { app, shell, BrowserWindow, ipcMain, dialog, Menu } from 'electron'
+import {
+  app,
+  shell,
+  BrowserWindow,
+  ipcMain,
+  dialog,
+  Menu,
+  type MenuItemConstructorOptions
+} from 'electron'
 import { join, basename, dirname, isAbsolute, resolve } from 'path'
 import { writeFile, mkdir, readFile } from 'fs/promises'
 import { existsSync, mkdirSync, cpSync, readdirSync } from 'fs'
@@ -304,7 +312,7 @@ app.whenReady().then(async () => {
 
   // Set up Application Menu
   const isMac = process.platform === 'darwin'
-  const template: any[] = [
+  const template: MenuItemConstructorOptions[] = [
     {
       label: 'File',
       submenu: [
@@ -560,10 +568,13 @@ app.whenReady().then(async () => {
     return { foundPath: null }
   })
 
-  ipcMain.handle('notes:search', async (event, query: string, options?: any) => {
-    const v = getVaultManager(event.sender)
-    return v ? v.search(query, options) : []
-  })
+  ipcMain.handle(
+    'notes:search',
+    async (event, query: string, options?: Record<string, unknown>) => {
+      const v = getVaultManager(event.sender)
+      return v ? v.search(query, options) : []
+    }
+  )
   ipcMain.handle('notes:getBacklinks', async (event, id: string) => {
     const v = getVaultManager(event.sender)
     return v ? v.getBacklinks(id) : []
@@ -612,7 +623,7 @@ app.whenReady().then(async () => {
           2
         )
 
-        const body: any = {
+        const body: Record<string, unknown> = {
           description: GIST_DESCRIPTION,
           public: false,
           files: {
@@ -624,7 +635,7 @@ app.whenReady().then(async () => {
 
         // Use Bearer for fine-grained tokens (ghp_) or token for classic tokens
         const authHeader = token.startsWith('ghp_') ? `Bearer ${token}` : `token ${token}`
-        const headers: any = {
+        const headers: Record<string, string> = {
           Authorization: authHeader,
           Accept: 'application/vnd.github.v3+json',
           'Content-Type': 'application/json'

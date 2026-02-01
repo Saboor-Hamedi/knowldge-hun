@@ -1,9 +1,9 @@
 import { ipcMain } from 'electron'
 import * as pty from 'node-pty'
 import * as os from 'os'
-import { join } from 'path'
+import { join, isAbsolute } from 'path'
 import { existsSync } from 'fs'
-import { execSync } from 'child_process'
+import { execSync, spawnSync } from 'child_process'
 
 interface TerminalSession {
   id: string
@@ -26,8 +26,18 @@ class TerminalManager {
     this.killTerminal(id)
 
     // Determine shell based on parameter or platform
-    const shell = shellType ? this.getShellPath(shellType) : this.getDefaultShell()
-    const workingDir = cwd || os.homedir()
+    const { exe: shell, args } = shellType
+      ? this.getShellPath(shellType)
+      : { exe: this.getDefaultShell(), args: [] }
+
+    // Validate working directory
+    let workingDir = cwd || os.homedir()
+    if (!existsSync(workingDir)) {
+      console.warn(
+        `[Terminal] Working directory ${workingDir} does not exist, falling back to homedir`
+      )
+      workingDir = os.homedir()
+    }
 
     // Scrub environment variables that can confuse shells on Windows
     // Especially if Electron was started from a Bash/Unix-like environment (e.g. Git Bash)
@@ -45,13 +55,21 @@ class TerminalManager {
     }
 
     // Create PTY process
-    const ptyProcess = pty.spawn(shell, [], {
-      name: 'xterm-256color',
-      cols: 80,
-      rows: 24,
-      cwd: workingDir,
-      env
-    })
+    let ptyProcess: pty.IPty
+    try {
+      ptyProcess = pty.spawn(shell, args, {
+        name: 'xterm-256color',
+        cols: 80,
+        rows: 24,
+        cwd: workingDir,
+        env
+      })
+    } catch (err) {
+      console.error(`[Terminal] Failed to spawn pty:`, err)
+      throw new Error(
+        `Failed to spawn terminal process: ${err instanceof Error ? err.message : String(err)}`
+      )
+    }
 
     // Store session
     this.sessions.set(id, {
@@ -175,43 +193,96 @@ class TerminalManager {
   /**
    * Get shell path based on shell type
    */
-  private getShellPath(shellType: string): string {
+  private getShellPath(shellType: string): { exe: string; args: string[] } {
     const platform = os.platform()
 
     if (platform === 'win32') {
+      if (shellType.startsWith('wsl:')) {
+        const distro = shellType.split(':')[1]
+        // Verify wsl.exe exists first
+        if (this.isExecutableAvailable('wsl.exe')) {
+          return { exe: 'wsl.exe', args: ['-d', distro] }
+        }
+      }
+
+      let targetExe = ''
+      const targetArgs: string[] = []
+
       switch (shellType) {
         case 'powershell':
-          return 'powershell.exe'
+          targetExe = 'powershell.exe'
+          break
         case 'pwsh':
-          return 'pwsh.exe'
+          targetExe = 'pwsh.exe'
+          break
         case 'cmd':
-          return 'cmd.exe'
+          targetExe = 'cmd.exe'
+          break
         case 'bash': {
-          // Check common paths for Git Bash
           const commonPaths = [
             'C:\\Program Files\\Git\\bin\\bash.exe',
             'C:\\Program Files (x86)\\Git\\bin\\bash.exe',
             join(os.homedir(), 'AppData\\Local\\Programs\\Git\\bin\\bash.exe')
           ]
           for (const path of commonPaths) {
-            if (existsSync(path)) return path
+            if (existsSync(path)) {
+              targetExe = path
+              break
+            }
           }
-          return 'bash.exe' // Try PATH
+          if (!targetExe) targetExe = 'bash.exe'
+          break
         }
         case 'wsl':
-          return 'wsl.exe'
+          targetExe = 'wsl.exe'
+          break
         default:
-          return 'powershell.exe'
+          targetExe = 'powershell.exe'
       }
+
+      // Final check: if the selected exe is not available, fallback to default
+      if (this.isExecutableAvailable(targetExe)) {
+        return { exe: targetExe, args: targetArgs }
+      }
+
+      console.warn(
+        `[Terminal] Requested shell ${shellType} (${targetExe}) not found. Falling back to default shell.`
+      )
+      return { exe: this.getDefaultShell(), args: [] }
     } else {
+      let targetExe = ''
       switch (shellType) {
         case 'bash':
-          return '/bin/bash'
+          targetExe = '/bin/bash'
+          break
         case 'zsh':
-          return '/bin/zsh'
+          targetExe = '/bin/zsh'
+          break
         default:
-          return process.env.SHELL || '/bin/bash'
+          targetExe = process.env.SHELL || '/bin/bash'
       }
+
+      if (this.isExecutableAvailable(targetExe)) {
+        return { exe: targetExe, args: [] }
+      }
+      return { exe: '/bin/sh', args: [] }
+    }
+  }
+
+  /**
+   * Helper to verify if an executable exists or is in PATH
+   */
+  private isExecutableAvailable(exe: string): boolean {
+    if (isAbsolute(exe)) {
+      return existsSync(exe)
+    }
+
+    try {
+      const cmd = os.platform() === 'win32' ? 'where.exe' : 'which'
+      const result = spawnSync(cmd, [exe], { stdio: 'ignore' })
+      return result.status === 0
+    } catch {
+      return false
     }
   }
 
@@ -288,6 +359,13 @@ export function registerTerminalHandlers(): void {
     return { success: true }
   })
 
+  // Restart terminal (for robust reconnection)
+  ipcMain.handle('terminal:restart', (_, id: string, cwd?: string, shellType?: string) => {
+    terminalManager.killTerminal(id)
+    terminalManager.createTerminal(id, cwd, shellType)
+    return { success: true }
+  })
+
   // Setup data listener
   ipcMain.on('terminal:listen', (event, id: string) => {
     terminalManager.onTerminalData(id, (data) => {
@@ -333,10 +411,21 @@ export function registerTerminalHandlers(): void {
 
       // Check for WSL
       try {
-        execSync('wsl --list', { stdio: 'ignore' })
-        available.push({ value: 'wsl', label: 'WSL' })
+        const stdout = execSync('wsl --list --quiet', { encoding: 'utf8' })
+        const distros = stdout
+          .split('\n')
+          .map((d) => d.trim())
+          .filter((d) => d.length > 0)
+
+        available.push({ value: 'wsl', label: 'WSL (Default)' })
+        distros.forEach((distro) => {
+          const lowerDistro = distro.toLowerCase()
+          if (!lowerDistro.includes('docker')) {
+            available.push({ value: `wsl:${distro}`, label: `WSL: ${distro}` })
+          }
+        })
       } catch {
-        // WSL not installed
+        // WSL not installed or failed
       }
     } else {
       // Unix-like systems

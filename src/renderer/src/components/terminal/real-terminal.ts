@@ -1,6 +1,9 @@
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { WebLinksAddon } from '@xterm/addon-web-links'
+import { SearchAddon } from '@xterm/addon-search'
+import { WebglAddon } from '@xterm/addon-webgl'
+import { CanvasAddon } from '@xterm/addon-canvas'
 import '@xterm/xterm/css/xterm.css'
 import './real-terminal.css'
 
@@ -8,11 +11,13 @@ interface TerminalSession {
   id: string
   terminal: Terminal
   fitAddon: FitAddon
+  searchAddon: SearchAddon
   isActive: boolean
   shellType?: string
   cwd?: string
   customName?: string
   color?: string
+  isSplit?: boolean
 }
 
 export class RealTerminalComponent {
@@ -20,9 +25,11 @@ export class RealTerminalComponent {
   private terminalContainer: HTMLElement
   private sessions: Map<string, TerminalSession> = new Map()
   private activeSessionId: string | null = null
+  private secondaryActiveSessionId: string | null = null // For split view
   private isVisible: boolean = false
   private isRestoring: boolean = false
   private isQuitting: boolean = false
+  private isSplitMode: boolean = false
 
   constructor(containerId: string) {
     const container = document.getElementById(containerId)
@@ -63,10 +70,24 @@ export class RealTerminalComponent {
           <div class="real-terminal-title">
             <span>TERMINAL</span>
           </div>
+          <div class="real-terminal-search-container" id="terminal-search-container" style="display: none;">
+            <input type="text" id="terminal-search-input" placeholder="Search..." />
+            <div class="search-actions">
+              <button id="search-prev" title="Previous Result">↑</button>
+              <button id="search-next" title="Next Result">↓</button>
+              <button id="search-close" title="Close Search">✕</button>
+            </div>
+          </div>
           <div class="real-terminal-actions">
             <select class="shell-selector" id="shell-selector" title="Select Shell">
               ${shellOptions}
             </select>
+            <button class="real-terminal-btn" id="toggle-search-btn" title="Find (Ctrl+F)">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+            </button>
             <button class="real-terminal-btn" id="toggle-sidebar-btn" title="Toggle Sidebar">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <rect x="3" y="3" width="18" height="18" rx="2"></rect>
@@ -79,7 +100,7 @@ export class RealTerminalComponent {
                 <line x1="5" y1="12" x2="19" y2="12"></line>
               </svg>
             </button>
-            <button class="real-terminal-btn" id="split-terminal-btn" title="Split Terminal">
+            <button class="real-terminal-btn" id="split-terminal-btn" title="Toggle Split View">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <rect x="3" y="3" width="18" height="18" rx="2"></rect>
                 <line x1="12" y1="3" x2="12" y2="21"></line>
@@ -155,9 +176,41 @@ export class RealTerminalComponent {
 
     closeTerminalBtn?.addEventListener('click', () => this.toggle())
 
+    const toggleSearchBtn = document.getElementById('toggle-search-btn')
+    const searchInput = document.getElementById('terminal-search-input') as HTMLInputElement
+    const searchPrev = document.getElementById('search-prev')
+    const searchNext = document.getElementById('search-next')
+    const searchClose = document.getElementById('search-close')
+
+    toggleSearchBtn?.addEventListener('click', () => this.toggleSearch())
+    searchClose?.addEventListener('click', () => this.toggleSearch(false))
+
+    searchInput?.addEventListener('input', () => {
+      this.doSearch(searchInput.value)
+    })
+
+    searchInput?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        this.doSearch(searchInput.value, e.shiftKey ? 'prev' : 'next')
+      }
+      if (e.key === 'Escape') {
+        this.toggleSearch(false)
+      }
+    })
+
+    searchPrev?.addEventListener('click', () => this.doSearch(searchInput.value, 'prev'))
+    searchNext?.addEventListener('click', () => this.doSearch(searchInput.value, 'next'))
+
     splitTerminalBtn?.addEventListener('click', () => {
-      // TODO: Implement split terminal
-      console.log('[RealTerminal] Split terminal not yet implemented')
+      this.toggleSplitView()
+    })
+
+    // Global Keybinds
+    window.addEventListener('keydown', (e) => {
+      if (e.ctrlKey && e.key === 'f' && this.isVisible) {
+        e.preventDefault()
+        this.toggleSearch(true)
+      }
     })
 
     trashTerminalBtn?.addEventListener('click', () => {
@@ -233,9 +286,27 @@ export class RealTerminalComponent {
     // Add addons
     const fitAddon = new FitAddon()
     const webLinksAddon = new WebLinksAddon()
+    const searchAddon = new SearchAddon()
 
     terminal.loadAddon(fitAddon)
     terminal.loadAddon(webLinksAddon)
+    terminal.loadAddon(searchAddon)
+
+    // Hardware Acceleration: Try WebGL first, fallback to Canvas
+    try {
+      const webglAddon = new WebglAddon()
+      terminal.loadAddon(webglAddon)
+      console.log(`[RealTerminal] WebGL acceleration enabled for ${sessionId}`)
+    } catch (e) {
+      console.warn(`[RealTerminal] WebGL failed for ${sessionId}, falling back to Canvas`, e)
+      try {
+        const canvasAddon = new CanvasAddon()
+        terminal.loadAddon(canvasAddon)
+        console.log(`[RealTerminal] Canvas acceleration enabled for ${sessionId}`)
+      } catch (e2) {
+        console.warn(`[RealTerminal] All hardware acceleration failed for ${sessionId}`, e2)
+      }
+    }
 
     // Create terminal element
     const terminalElement = document.createElement('div')
@@ -267,7 +338,19 @@ export class RealTerminalComponent {
       // Setup exit listener
       window.api.on(`terminal:exit:${sessionId}`, (exitCode: number) => {
         console.log(`Terminal ${sessionId} exited with code ${exitCode}`)
-        this.closeTerminal(sessionId)
+
+        // Don't close if we want robust reconnection, just show a message
+        const sess = this.sessions.get(sessionId)
+        if (sess && !this.isQuitting) {
+          sess.terminal.write(
+            '\r\n\x1b[31m[Process Exited] Click the session icon to restart.\x1b[0m\r\n'
+          )
+          // Add a visual indicator to the sidebar
+          const item = document.getElementById(`session-${sessionId}`)
+          if (item) item.classList.add('exited')
+        } else {
+          this.closeTerminal(sessionId)
+        }
       })
 
       // Setup input handler
@@ -334,6 +417,7 @@ export class RealTerminalComponent {
         id: sessionId,
         terminal,
         fitAddon,
+        searchAddon,
         isActive: false,
         shellType,
         cwd: workingDir,
@@ -394,6 +478,7 @@ export class RealTerminalComponent {
     sessionItem.className = 'terminal-session-item'
     sessionItem.id = `session-${sessionId}`
     sessionItem.style.setProperty('--session-color', iconColor)
+    sessionItem.draggable = true
 
     sessionItem.innerHTML = `
       <span class="session-icon" style="color: ${iconColor}">${shellIcons[shellType] || shellIcons.powershell}</span>
@@ -410,6 +495,8 @@ export class RealTerminalComponent {
         </button>
       </div>
     `
+
+    this.setupDragAndDrop(sessionItem)
 
     sessionItem.addEventListener('click', (e) => {
       const target = e.target as HTMLElement
@@ -453,54 +540,173 @@ export class RealTerminalComponent {
     const session = this.sessions.get(sessionId)
     if (!session) return
 
+    // If session has exited, treat click as restart
+    const item = document.getElementById(`session-${sessionId}`)
+    if (item?.classList.contains('exited')) {
+      this.restartSession(sessionId)
+      return
+    }
+
     // Save active session for persistence
     localStorage.setItem('terminal_active_session', sessionId)
 
-    // Hide all terminals and deactivate sessions
+    if (this.isSplitMode) {
+      this.handleSplitSwitch(sessionId)
+      return
+    }
+
+    // Normal Switch: Hide all others
     this.sessions.forEach((s, id) => {
       s.isActive = false
       const element = document.getElementById(`terminal-${id}`)
-      if (element) element.style.display = 'none'
-
+      if (element) {
+        element.style.display = 'none'
+        element.classList.remove('split-active')
+      }
       const sessionItem = document.getElementById(`session-${id}`)
-      if (sessionItem) sessionItem.classList.remove('active')
+      if (sessionItem) sessionItem.classList.remove('active', 'active-secondary')
     })
 
-    // Show this terminal and activate session
+    this.activateTerminalUI(sessionId, 'primary')
+    this.activeSessionId = sessionId
+    this.secondaryActiveSessionId = null
+  }
+
+  private activateTerminalUI(sessionId: string, mode: 'primary' | 'secondary'): void {
+    const session = this.sessions.get(sessionId)
+    if (!session) return
+
     session.isActive = true
     const element = document.getElementById(`terminal-${sessionId}`)
+    const sessionItem = document.getElementById(`session-${sessionId}`)
+
     if (element) {
       element.style.display = 'block'
-
-      // Stop ongoing animations and reset state to prevent "jumps"
       element.classList.remove('fade-in')
-      void element.offsetWidth // Force reflow
+      void element.offsetWidth
       element.classList.add('fade-in')
 
-      // Use requestAnimationFrame for more reliable timing
+      if (this.isSplitMode) {
+        element.classList.add('split-active')
+      }
+
       requestAnimationFrame(() => {
-        if (session.terminal) {
-          session.fitAddon.fit()
-          this.resizeTerminal(sessionId)
-          // Use another frame to ensure dimensions are fully applied before focusing
-          requestAnimationFrame(() => {
-            session.terminal.focus()
-            session.terminal.scrollToBottom()
-          })
-        }
+        session.fitAddon.fit()
+        this.resizeTerminal(sessionId)
+        requestAnimationFrame(() => {
+          session.terminal.focus()
+        })
       })
     }
 
-    const sessionItem = document.getElementById(`session-${sessionId}`)
-    if (sessionItem) sessionItem.classList.add('active')
+    if (sessionItem) {
+      sessionItem.classList.add(mode === 'primary' ? 'active' : 'active-secondary')
+    }
+  }
 
-    // Update shell selector to match this terminal's shell
-    const shellSelector = document.getElementById('shell-selector') as HTMLSelectElement
-    if (shellSelector && session.shellType) {
-      shellSelector.value = session.shellType
+  private handleSplitSwitch(sessionId: string): void {
+    // In split mode, the clicked session becomes primary,
+    // and the old primary becomes secondary.
+    if (this.activeSessionId === sessionId) return
+
+    this.secondaryActiveSessionId = this.activeSessionId
+    this.activeSessionId = sessionId
+
+    // Update UI
+    this.sessions.forEach((s, id) => {
+      s.isActive = id === this.activeSessionId || id === this.secondaryActiveSessionId
+      const element = document.getElementById(`terminal-${id}`)
+      if (element) {
+        element.style.display = s.isActive ? 'block' : 'none'
+        element.classList.toggle('split-active', this.isSplitMode && s.isActive)
+      }
+      const item = document.getElementById(`session-${id}`)
+      if (item) {
+        item.classList.remove('active', 'active-secondary')
+        if (id === this.activeSessionId) item.classList.add('active')
+        if (id === this.secondaryActiveSessionId) item.classList.add('active-secondary')
+      }
+    })
+
+    if (this.activeSessionId) this.activateTerminalUI(this.activeSessionId, 'primary')
+    if (this.secondaryActiveSessionId)
+      this.activateTerminalUI(this.secondaryActiveSessionId, 'secondary')
+
+    this.updateSplitLayout()
+  }
+
+  private toggleSplitView(): void {
+    this.isSplitMode = !this.isSplitMode
+    const wrapper = this.container.querySelector('.real-terminal-wrapper')
+    wrapper?.classList.toggle('split-mode', this.isSplitMode)
+
+    if (this.isSplitMode) {
+      // If we only have one session, nothing to split with yet
+      const ids = Array.from(this.sessions.keys())
+      if (ids.length > 1 && !this.secondaryActiveSessionId) {
+        // Pick the second most recent or just the first available non-active
+        this.secondaryActiveSessionId = ids.find((id) => id !== this.activeSessionId) || null
+      }
+    } else {
+      this.secondaryActiveSessionId = null
     }
 
-    this.activeSessionId = sessionId
+    if (this.activeSessionId) this.switchToTerminal(this.activeSessionId)
+    this.updateSplitLayout()
+  }
+
+  private updateSplitLayout(): void {
+    const content = document.getElementById('terminal-content')
+    if (content) {
+      content.classList.toggle('split-layout', this.isSplitMode && !!this.secondaryActiveSessionId)
+    }
+  }
+
+  private async restartSession(sessionId: string): Promise<void> {
+    const session = this.sessions.get(sessionId)
+    if (!session) return
+
+    try {
+      const item = document.getElementById(`session-${sessionId}`)
+      item?.classList.remove('exited')
+
+      session.terminal.reset()
+      session.terminal.write('\x1b[32m[Restarting Session...]\x1b[0m\r\n')
+
+      await window.api.invoke('terminal:restart', sessionId, session.cwd, session.shellType)
+      console.log(`[RealTerminal] Session ${sessionId} restarted`)
+
+      this.switchToTerminal(sessionId)
+    } catch (err) {
+      console.error(`[RealTerminal] Failed to restart session ${sessionId}:`, err)
+    }
+  }
+
+  private toggleSearch(force?: boolean): void {
+    const searchContainer = document.getElementById('terminal-search-container')
+    const searchInput = document.getElementById('terminal-search-input') as HTMLInputElement
+
+    const show = force !== undefined ? force : searchContainer?.style.display === 'none'
+
+    if (searchContainer) {
+      searchContainer.style.display = show ? 'flex' : 'none'
+      if (show) {
+        searchInput?.focus()
+        searchInput?.select()
+      }
+    }
+  }
+
+  private doSearch(term: string, direction: 'next' | 'prev' = 'next'): void {
+    if (!this.activeSessionId) return
+    const session = this.sessions.get(this.activeSessionId)
+    if (!session) return
+
+    if (direction === 'next') {
+      session.searchAddon.findNext(term)
+    } else {
+      session.searchAddon.findPrevious(term)
+    }
   }
 
   /**
@@ -535,7 +741,12 @@ export class RealTerminalComponent {
           this.switchToTerminal(remainingSessions[0])
         } else {
           this.activeSessionId = null
+          // Automatically hide the terminal panel if no sessions are left
+          this.hide()
         }
+      } else if (this.sessions.size === 0) {
+        // Fallback for cases where activeSessionId might have been out of sync
+        this.hide()
       }
 
       // Update sidebar visibility
@@ -639,9 +850,9 @@ export class RealTerminalComponent {
     const wrapper = this.container.querySelector('.real-terminal-wrapper')
     if (wrapper) {
       const settings = await window.api.invoke('settings:get')
-      const userPreference = settings?.terminalSidebarVisible !== false
+      const userPreference = settings?.terminalSidebarVisible === true // Default to false or strictly follow user toggle
 
-      // Auto-hide only if user hasn't explicitly set visibility or if sessions > 1
+      // Auto-hide if only 1 session exists, unless user explicitly toggled it ON
       if (this.sessions.size > 1 || userPreference) {
         wrapper.classList.remove('sidebar-hidden')
       } else {
@@ -830,6 +1041,40 @@ export class RealTerminalComponent {
       color: nextColor
     }
     await window.api.invoke('config:update', { terminalSessions })
+  }
+
+  /**
+   * Setup drag and drop for session reordering
+   */
+  private setupDragAndDrop(item: HTMLElement): void {
+    item.addEventListener('dragstart', (e) => {
+      e.dataTransfer?.setData('text/plain', item.id)
+      item.classList.add('dragging')
+    })
+
+    item.addEventListener('dragend', () => {
+      item.classList.remove('dragging')
+      this.saveSessions()
+    })
+
+    const list = document.getElementById('terminal-sessions-list')
+    list?.addEventListener('dragover', (e) => {
+      e.preventDefault()
+      const draggingItem = document.querySelector('.dragging') as HTMLElement
+      if (!draggingItem) return
+
+      const siblings = Array.from(list.querySelectorAll('.terminal-session-item:not(.dragging)'))
+      const nextSibling = siblings.find((sibling) => {
+        const rect = sibling.getBoundingClientRect()
+        return e.clientY <= rect.top + rect.height / 2
+      })
+
+      if (nextSibling) {
+        list.insertBefore(draggingItem, nextSibling)
+      } else {
+        list.appendChild(draggingItem)
+      }
+    })
   }
 
   /**
