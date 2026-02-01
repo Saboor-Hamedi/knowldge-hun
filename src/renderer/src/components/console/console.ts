@@ -559,7 +559,10 @@ export class ConsoleComponent {
       const onMouseMove = (moveEvent: MouseEvent): void => {
         if (!this.isDragging) return
         const delta = this.startY - moveEvent.clientY
-        this.height = Math.max(150, Math.min(window.innerHeight - 100, this.startHeight + delta))
+        // Limit height so it doesn't cover breadcrumbs (approx 68px from top of .main)
+        const mainEl = document.querySelector('.main')
+        const maxAllowed = mainEl ? mainEl.clientHeight - 80 : window.innerHeight - 200
+        this.height = Math.max(150, Math.min(maxAllowed, this.startHeight + delta))
         this.updateHeight()
       }
 

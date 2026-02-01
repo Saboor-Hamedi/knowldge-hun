@@ -13,23 +13,25 @@
   flex-shrink: 0; /* Don't let editor squash it */
 }
 
-.hub-console.is-resizing {
+.hub-console.is-resizing,
+.hub-console.is-maximized {
   transition: none !important;
 }
 
 .hub-console.is-open {
   height: var(--console-height, 300px);
   pointer-events: auto;
+  overflow: visible; /* Allow knob to float outside container when open */
 }
 
 .hub-console__resizer {
   position: absolute;
-  top: -2px; /* Pull slightly up to not cover header text as much */
+  top: 0; 
   left: 0;
   right: 0;
-  height: 6px; /* Slightly larger targets */
+  height: 10px; /* Larger hit area */
   cursor: ns-resize;
-  z-index: 20; /* Above header */
+  z-index: 1000; /* Always on top of other content */
   transition: background 0.2s ease;
   display: flex;
   align-items: center;
@@ -53,13 +55,14 @@
 }
 
 .hub-console.is-maximized .hub-console__resizer {
-  display: none;
+  display: flex; /* Keep visible so we can un-maximize or see state */
 }
 
 .hub-console.is-open.is-maximized {
-  height: 100% !important;
+  height: calc(100% - 68px) !important;
+  max-height: none !important;
   position: absolute;
-  top: 0;
+  top: 68px; /* Tabbar (40px) + Breadcrumbs (28px) */
   left: 0;
   right: 0;
   bottom: 0;
