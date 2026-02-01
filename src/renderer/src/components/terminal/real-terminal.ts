@@ -22,6 +22,7 @@ export class RealTerminalComponent {
   private activeSessionId: string | null = null
   private isVisible: boolean = false
   private isRestoring: boolean = false
+  private isQuitting: boolean = false
 
   constructor(containerId: string) {
     const container = document.getElementById(containerId)
@@ -173,6 +174,13 @@ export class RealTerminalComponent {
           this.resizeTerminal(session.id)
         }
       })
+    })
+
+    // Track when the app is quitting to prevent partial session saves
+    window.addEventListener('beforeunload', () => {
+      this.isQuitting = true
+      // Dispose all terminal instances to free up resources
+      this.sessions.forEach((s) => s.terminal.dispose())
     })
   }
 
@@ -372,6 +380,7 @@ export class RealTerminalComponent {
 
     const shellIcons = {
       powershell: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>`,
+      pwsh: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>`,
       cmd: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>`,
       bash: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 12H15L13.5 15.5H8.5L7 12H2"></path><path d="M5.45 5.11L2 12V18C2 19.1 2.9 20 4 20H20C21.1 20 22 19.1 22 18V12L18.55 5.11C18.19 4.45 17.51 4 16.76 4H7.24C6.49 4 5.81 4.45 5.45 5.11Z"></path></svg>`,
       wsl: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9-4.03-9-9-9z"></path><path d="M12 8v4l3 3"></path></svg>`
@@ -532,8 +541,10 @@ export class RealTerminalComponent {
       // Update sidebar visibility
       await this.updateSidebarVisibility()
 
-      // Save sessions to persistence
-      this.saveSessions()
+      // Save sessions to persistence if not quitting
+      if (!this.isQuitting) {
+        this.saveSessions()
+      }
 
       console.log(`[RealTerminal] Closed session ${sessionId}`)
     } catch (error) {
@@ -655,12 +666,15 @@ export class RealTerminalComponent {
    * Save current terminal sessions to local storage
    */
   private saveSessions(): void {
+    if (this.isQuitting) return
+
     const sessionData = Array.from(this.sessions.entries()).map(([id, session]) => ({
       id,
       shellType: session.shellType || 'powershell',
       cwd: session.cwd || ''
     }))
     localStorage.setItem('terminal_sessions', JSON.stringify(sessionData))
+    console.log(`[RealTerminal] Saved ${sessionData.length} sessions to persistence`)
   }
 
   /**
@@ -677,9 +691,11 @@ export class RealTerminalComponent {
         console.log(`[RealTerminal] Restoring ${sessionData.length} sessions...`)
 
         // Use a for...of loop with individual try/catch to ensure one failure doesn't stop others
+        const restoredIds: string[] = []
         for (const data of sessionData) {
           try {
             await this.createNewTerminal(data.shellType, data.cwd, data.id)
+            restoredIds.push(data.id)
           } catch (err) {
             console.error(`[RealTerminal] Failed to restore session ${data.id}:`, err)
           }
@@ -692,6 +708,15 @@ export class RealTerminalComponent {
         } else if (this.sessions.size > 0) {
           const firstId = this.sessions.keys().next().value
           if (firstId) this.switchToTerminal(firstId)
+        }
+
+        // Final verification: if we restored fewer sessions than we were supposed to,
+        // we should still keep the others in localStorage for the next attempt
+        // OR we should at least log it.
+        if (restoredIds.length < sessionData.length) {
+          console.warn(
+            `[RealTerminal] Only restored ${restoredIds.length} out of ${sessionData.length} sessions.`
+          )
         }
       }
     } catch (error) {

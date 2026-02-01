@@ -9,12 +9,14 @@ interface TerminalSession {
   id: string
   ptyProcess: pty.IPty
   cwd: string
+  disposables: pty.IDisposable[]
 }
 
 class TerminalManager {
   private sessions: Map<string, TerminalSession> = new Map()
   private dataBuffers: Map<string, string[]> = new Map()
   private dataListeners: Map<string, boolean> = new Map()
+  private isCleaningUp: boolean = false
 
   /**
    * Create a new terminal session
@@ -27,20 +29,36 @@ class TerminalManager {
     const shell = shellType ? this.getShellPath(shellType) : this.getDefaultShell()
     const workingDir = cwd || os.homedir()
 
+    // Scrub environment variables that can confuse shells on Windows
+    // Especially if Electron was started from a Bash/Unix-like environment (e.g. Git Bash)
+    const env = { ...process.env } as Record<string, string>
+    if (os.platform() === 'win32') {
+      // These variables cause tools like oh-my-posh to use the wrong path style
+      delete env.SHELL
+      delete env.TERM
+      delete env.TERM_PROGRAM
+
+      // Ensure we have a sensible TERM for xterm.js
+      env.TERM = 'xterm-256color'
+      // Identify our app as the terminal program
+      env.TERM_PROGRAM = 'knowledge-hub'
+    }
+
     // Create PTY process
     const ptyProcess = pty.spawn(shell, [], {
       name: 'xterm-256color',
       cols: 80,
       rows: 24,
       cwd: workingDir,
-      env: process.env as { [key: string]: string }
+      env
     })
 
     // Store session
     this.sessions.set(id, {
       id,
       ptyProcess,
-      cwd: workingDir
+      cwd: workingDir,
+      disposables: []
     })
 
     // Prepare buffer for initial output
@@ -48,12 +66,15 @@ class TerminalManager {
     this.dataListeners.set(id, false)
 
     // Start listening for data immediately to buffer it
-    ptyProcess.onData((data) => {
+    const dataDisp = ptyProcess.onData((data) => {
       const buffer = this.dataBuffers.get(id)
       if (buffer && !this.dataListeners.get(id)) {
         buffer.push(data)
       }
     })
+
+    const session = this.sessions.get(id)
+    if (session) session.disposables.push(dataDisp)
 
     console.log(`[Terminal] Created session ${id} with shell ${shell} in ${workingDir}`)
   }
@@ -94,6 +115,10 @@ class TerminalManager {
     }
 
     try {
+      // Dispose listeners first
+      session.disposables.forEach((d) => d.dispose())
+      session.disposables = []
+
       session.ptyProcess.kill()
       this.sessions.delete(id)
       this.dataBuffers.delete(id)
@@ -123,7 +148,8 @@ class TerminalManager {
       this.dataBuffers.set(id, []) // Clear after flush
     }
 
-    session.ptyProcess.onData(callback)
+    const dataDisp = session.ptyProcess.onData(callback)
+    session.disposables.push(dataDisp)
   }
 
   /**
@@ -136,12 +162,14 @@ class TerminalManager {
       return
     }
 
-    session.ptyProcess.onExit(({ exitCode }) => {
+    const exitDisp = session.ptyProcess.onExit(({ exitCode }) => {
+      // Very important: don't notify renderer if we are cleaning up for app quit
+      if (this.isCleaningUp) return
+
       callback(exitCode)
-      this.sessions.delete(id)
-      this.dataBuffers.delete(id)
-      this.dataListeners.delete(id)
+      this.killTerminal(id) // use killTerminal for consistent cleanup
     })
+    session.disposables.push(exitDisp)
   }
 
   /**
@@ -212,8 +240,13 @@ class TerminalManager {
    * Cleanup all sessions
    */
   cleanup(): void {
+    this.isCleaningUp = true
     for (const [id, session] of this.sessions) {
       try {
+        // Dispose all listeners to prevent callbacks from firing during cleanup
+        session.disposables.forEach((d) => d.dispose())
+        session.disposables = []
+
         session.ptyProcess.kill()
         console.log(`[Terminal] Cleaned up session ${id}`)
       } catch (error) {
@@ -221,6 +254,8 @@ class TerminalManager {
       }
     }
     this.sessions.clear()
+    this.dataBuffers.clear()
+    this.dataListeners.clear()
   }
 }
 
@@ -256,11 +291,15 @@ export function registerTerminalHandlers(): void {
   // Setup data listener
   ipcMain.on('terminal:listen', (event, id: string) => {
     terminalManager.onTerminalData(id, (data) => {
-      event.sender.send(`terminal:data:${id}`, data)
+      if (!event.sender.isDestroyed()) {
+        event.sender.send(`terminal:data:${id}`, data)
+      }
     })
 
     terminalManager.onTerminalExit(id, (exitCode) => {
-      event.sender.send(`terminal:exit:${id}`, exitCode)
+      if (!event.sender.isDestroyed()) {
+        event.sender.send(`terminal:exit:${id}`, exitCode)
+      }
     })
   })
 
