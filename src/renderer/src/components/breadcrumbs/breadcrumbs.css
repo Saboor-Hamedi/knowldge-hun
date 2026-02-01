@@ -4,7 +4,7 @@
   height: 28px;
   min-height: 28px;
   flex-shrink: 0;
-  padding: 0 16px;
+  padding: 0 12px;
   background: var(--panel);
   border-bottom: 1px solid var(--border);
   font-size: 11.5px;
@@ -13,6 +13,7 @@
   overflow-y: hidden;
   white-space: nowrap;
   -webkit-app-region: no-drag;
+  scrollbar-width: none;
 }
 
 .breadcrumbs::-webkit-scrollbar {
@@ -24,16 +25,23 @@
   align-items: center;
   gap: 4px;
   cursor: pointer;
-  padding: 2px 4px;
+  padding: 2px 6px;
   border-radius: 4px;
   transition:
-    background 0.1s,
-    color 0.1s;
+    background 0.15s ease,
+    color 0.15s ease;
+  user-select: none;
+  position: relative;
 }
 
 .breadcrumb-item:hover {
   background: var(--hover);
   color: var(--text-strong);
+}
+
+.breadcrumb-item.is-active {
+  color: var(--text-strong);
+  font-weight: 500;
 }
 
 .breadcrumb-item__icon {
@@ -42,6 +50,11 @@
   justify-content: center;
   width: 16px;
   height: 16px;
+  opacity: 0.85;
+}
+
+.breadcrumb-item:hover .breadcrumb-item__icon {
+  opacity: 1;
 }
 
 .breadcrumb-item__icon svg {
@@ -50,15 +63,16 @@
 }
 
 .breadcrumb-item__label {
-  line-height: 1;
+  line-height: normal;
 }
 
 .breadcrumb-separator {
-  margin: 0 4px;
+  margin: 0 2px;
   color: var(--muted);
   display: flex;
   align-items: center;
   justify-content: center;
+  opacity: 0.6;
 }
 
 .breadcrumb-separator svg {
@@ -66,7 +80,47 @@
   height: 12px;
 }
 
-.breadcrumb-item.is-active {
-  color: var(--text-strong);
-  font-weight: 500;
+/* Dirty indicator */
+.breadcrumb-item.is-dirty .breadcrumb-item__label::after {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  background: var(--primary);
+  border-radius: 50%;
+  margin-left: 6px;
+  vertical-align: middle;
+  box-shadow: 0 0 4px var(--primary);
 }
+
+/* Root item specific */
+.breadcrumb-item--root {
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.breadcrumb-item--root:hover {
+  color: var(--text-strong);
+}
+
+/* Dropdown arrow for segments */
+.breadcrumb-item__chevron {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  font-size: 10px;
+  margin-left: -2px;
+  opacity: 0;
+  transition: opacity 0.1s;
+}
+
+.breadcrumb-item:hover .breadcrumb-item__chevron {
+  opacity: 0.5;
+}
+
+.breadcrumb-item__chevron:hover {
+  opacity: 1 !important;
+}
+

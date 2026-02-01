@@ -1,7 +1,6 @@
 import { test, expect } from '@playwright/test'
 import { _electron as electron } from 'playwright'
 import path from 'path'
-
 const electronPath = require('electron')
 
 test.describe('Lock Screen End-to-End Tests', () => {

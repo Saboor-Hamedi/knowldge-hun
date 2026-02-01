@@ -13,6 +13,7 @@ export class FileOperationHandler {
       tabBar: { render: () => void }
       statusBar: { setStatus: (msg: string) => void; setMeta: (msg: string) => void }
       editor: { showEmpty: () => void }
+      breadcrumbs: { render: () => void }
     },
     private callbacks: {
       refreshNotes: () => Promise<void>
@@ -120,6 +121,7 @@ export class FileOperationHandler {
           window.dispatchEvent(new CustomEvent('vault-changed'))
 
           tabService.syncTabs()
+          this.components.breadcrumbs.render()
 
           if (!state.activeId || !state.openTabs.some((t) => t.id === state.activeId)) {
             const nextTab = tabService.findNextTabToOpen()
@@ -142,7 +144,7 @@ export class FileOperationHandler {
         }
 
         await this.callbacks.refreshNotes()
-      } catch (error) {
+      } catch {
         this.components.statusBar.setStatus('Some items could not be deleted')
         await this.callbacks.refreshNotes()
       }
@@ -192,6 +194,7 @@ export class FileOperationHandler {
       tabService.syncTabs()
       this.components.sidebar.renderTree()
       this.components.tabBar.render()
+      this.components.breadcrumbs.render()
       this.components.statusBar.setStatus('Autosaved')
 
       ragService
@@ -244,6 +247,7 @@ export class FileOperationHandler {
       } else {
         this.components.tabBar.render()
       }
+      this.components.breadcrumbs.render()
 
       this.components.statusBar.setStatus(`Renamed to "${newTitle}"`)
       void this.callbacks.persistWorkspace()
@@ -315,7 +319,7 @@ export class FileOperationHandler {
       await noteService.moveFolder(sourcePath, targetPath)
       this.components.tabBar.render()
       await this.callbacks.refreshNotes()
-    } catch (error) {
+    } catch {
       this.components.statusBar.setStatus('Move failed')
     }
   }

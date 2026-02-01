@@ -126,7 +126,8 @@ class App {
         sidebar: this.sidebar,
         tabBar: this.tabBar,
         statusBar: this.statusBar,
-        editor: this.editor
+        editor: this.editor,
+        breadcrumbs: this.breadcrumbs
       },
       {
         refreshNotes: () => this.vaultHandler.refreshNotes(),
@@ -177,6 +178,9 @@ class App {
     this.welcomePage.setOpenDocsHandler(() => this.documentationModal.open())
 
     this.breadcrumbs.setNoteOpenHandler((id) => this.vaultHandler.openNote(id))
+    this.breadcrumbs.setDeleteItemHandler((item) => {
+      void this.fileOps.deleteItems([item])
+    })
 
     this.wireComponents()
     this.registerGlobalShortcuts()
@@ -407,6 +411,7 @@ class App {
     this.editor.setContentChangeHandler(() => {
       this.statusBar.setStatus('Unsaved changes')
       this.tabBar.render()
+      this.breadcrumbs.render()
       this.sidebar.updateDirtyState()
     })
     this.editor.setSaveHandler((payload) => void this.fileOps.saveNote(payload))
