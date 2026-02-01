@@ -72,18 +72,10 @@ export class RealTerminalComponent {
       .join('')
 
     this.container.innerHTML = `
-      <div class="real-terminal-wrapper">
+      <div class="real-terminal-wrapper" style="position: relative;">
         <div class="real-terminal-header">
           <div class="real-terminal-title">
             <span>TERMINAL</span>
-          </div>
-          <div class="real-terminal-search-container" id="terminal-search-container" style="display: none;">
-            <input type="text" id="terminal-search-input" placeholder="Search..." />
-            <div class="search-actions">
-              <button id="search-prev" title="Previous Result">↑</button>
-              <button id="search-next" title="Next Result">↓</button>
-              <button id="search-close" title="Close Search">✕</button>
-            </div>
           </div>
           <div class="real-terminal-actions">
             <button class="real-terminal-btn" id="toggle-search-btn" title="Find (Ctrl+F)">
@@ -139,6 +131,16 @@ export class RealTerminalComponent {
             </button>
           </div>
         </div>
+
+        <div class="real-terminal-search-container" id="terminal-search-container" style="display: none;">
+          <input type="text" id="terminal-search-input" placeholder="Search..." />
+          <div class="search-actions">
+            <button id="search-prev" title="Previous Result">↑</button>
+            <button id="search-next" title="Next Result">↓</button>
+            <button id="search-close" title="Close Search">✕</button>
+          </div>
+        </div>
+
         <div class="real-terminal-body">
           <div class="real-terminal-sidebar">
             <div class="terminal-sessions-list" id="terminal-sessions-list"></div>
@@ -195,7 +197,14 @@ export class RealTerminalComponent {
     shellMenuTrigger?.addEventListener('click', (e) => {
       e.stopPropagation()
       const isVisible = shellMenu?.style.display === 'block'
-      if (shellMenu) shellMenu.style.display = isVisible ? 'none' : 'block'
+      const nextVisible = !isVisible
+
+      if (shellMenu) shellMenu.style.display = nextVisible ? 'block' : 'none'
+
+      // If we are opening the shell menu, close the search
+      if (nextVisible) {
+        this.toggleSearch(false)
+      }
     })
 
     document.addEventListener('click', () => {
@@ -723,6 +732,10 @@ export class RealTerminalComponent {
     if (searchContainer) {
       searchContainer.style.display = show ? 'flex' : 'none'
       if (show) {
+        // If we are opening search, close the shell menu
+        const shellMenu = document.getElementById('shell-dropdown-menu')
+        if (shellMenu) shellMenu.style.display = 'none'
+
         searchInput?.focus()
         searchInput?.select()
       }
