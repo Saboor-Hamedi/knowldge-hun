@@ -22,7 +22,10 @@ import {
   X,
   ChevronDown,
   Terminal,
-  LogIn
+  LogIn,
+  FileUp,
+  FileOutput,
+  PlusSquare
 } from 'lucide'
 
 /**
@@ -133,7 +136,10 @@ export const codicons = {
   chevronDownLucide: lucideIcon(ChevronDown, 14, 2),
   terminal: lucideIcon(Terminal, 14, 2),
   agent: lucideIcon(Sparkles, 14, 2),
-  signIn: lucideIcon(LogIn, 16, 2)
+  signIn: lucideIcon(LogIn, 16, 2),
+  archive: lucideIcon(FileUp, 14, 2),
+  insertPlus: lucideIcon(PlusSquare, 14, 2),
+  export: lucideIcon(FileOutput, 14, 2)
 }
 
 // Folder type detector based on folder name

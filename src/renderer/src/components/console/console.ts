@@ -387,7 +387,19 @@ export class ConsoleComponent {
   public log(message: string, type: 'command' | 'error' | 'system' | 'output' = 'output'): void {
     const line = document.createElement('div')
     line.className = `hub-console__line hub-console__line--${type}`
-    line.textContent = message
+
+    if (type === 'command') {
+      line.innerHTML = `
+        <div class="hub-console__user-header">
+          <div class="hub-console__user-avatar">${codicons.keyboard}</div>
+          <div class="hub-console__user-name">USER</div>
+        </div>
+        <div class="hub-console__user-content">${message}</div>
+      `
+    } else {
+      line.textContent = message
+    }
+
     this.bodyEl.appendChild(line)
     this.bodyEl.scrollTop = this.bodyEl.scrollHeight
   }
@@ -486,6 +498,38 @@ export class ConsoleComponent {
           } else if (this.historyIndex === 0) {
             this.historyIndex = -1
             this.inputEl.innerHTML = ''
+          }
+        }
+      } else if (e.key === 'Backspace') {
+        const selection = window.getSelection()
+        if (selection && selection.rangeCount > 0) {
+          const range = selection.getRangeAt(0)
+          if (range.collapsed) {
+            const node = range.startContainer
+            const offset = range.startOffset
+
+            // Case 1: Cursor is at start of a text node that follows a mention
+            if (node.nodeType === Node.TEXT_NODE && offset === 0) {
+              const prev = node.previousSibling
+              if (prev instanceof HTMLElement && prev.classList.contains('hub-console__mention')) {
+                e.preventDefault()
+                prev.remove()
+                return
+              }
+            }
+            // Case 2: Cursor is in the main container, right after a mention
+            else if (node === this.inputEl && offset > 0) {
+              const prev = node.childNodes[offset - 1]
+              if (prev instanceof HTMLElement && prev.classList.contains('hub-console__mention')) {
+                e.preventDefault()
+                prev.remove()
+                return
+              }
+            }
+            // Case 3: Cursor is inside a text node, and we might be deleting the space after a mention
+            // Browsers often weirdly handle the transition from text node to mention.
+            // If the char before is a space and before THAT is a mention, we might want to handle it.
+            // But let's keep it simple for now as Case 1 and 2 cover 99% of realistic scenarios.
           }
         }
       } else if (e.key === 'Tab') {
@@ -778,8 +822,17 @@ export class ConsoleComponent {
     this.log(input, 'command')
 
     const outputLine = document.createElement('div')
-    outputLine.className = 'hub-console__line hub-console__line--ai'
+    outputLine.className = 'hub-console__line hub-console__line--ai is-typing'
+    outputLine.innerHTML = `
+      <div class="hub-console__ai-header">
+        <div class="hub-console__ai-avatar">${codicons.agent}</div>
+        <div class="hub-console__ai-name">HUB Agent</div>
+      </div>
+      <div class="hub-console__ai-content"></div>
+    `
     this.bodyEl.appendChild(outputLine)
+
+    const contentEl = outputLine.querySelector('.hub-console__ai-content') as HTMLElement
 
     // Show stop button
     const stopBtn = this.consoleEl.querySelector('.hub-console__stop-btn') as HTMLElement
@@ -788,8 +841,9 @@ export class ConsoleComponent {
     // Thinking indicator
     const thinkingEl = document.createElement('span')
     thinkingEl.className = 'hub-console__line--thinking'
+    thinkingEl.style.marginLeft = '28px' // Align with content
     thinkingEl.innerHTML = `<span></span><span></span><span></span>`
-    outputLine.appendChild(thinkingEl)
+    contentEl.appendChild(thinkingEl)
 
     this.bodyEl.scrollTop = this.bodyEl.scrollHeight
 
@@ -903,14 +957,17 @@ export class ConsoleComponent {
           // Build formatting on demand if not imported (to avoid circular deps or missing utils)
           try {
             const { formatMarkdown } = await import('../../utils/markdown')
-            outputLine.innerHTML = formatMarkdown(visibleText)
+            contentEl.innerHTML = formatMarkdown(visibleText)
           } catch {
-            outputLine.textContent = visibleText
+            contentEl.textContent = visibleText
           }
           this.bodyEl.scrollTop = this.bodyEl.scrollHeight
         },
         this.aiAbortController.signal
       )
+
+      // Remove typing indicator class
+      outputLine.classList.remove('is-typing')
 
       // Ensure thinking dots are gone
       if (thinkingEl.parentNode) thinkingEl.remove()
@@ -985,7 +1042,7 @@ export class ConsoleComponent {
         const insertBtn = document.createElement('button')
         insertBtn.className = 'hub-console__ai-action-btn'
         insertBtn.title = 'Insert this response at the current cursor position'
-        insertBtn.innerHTML = `${codicons.insert || '🖋️'} Insert at Cursor`
+        insertBtn.innerHTML = `${codicons.insertPlus} <span>Insert at Cursor</span>`
         insertBtn.addEventListener('click', () => {
           window.dispatchEvent(
             new CustomEvent('knowledge-hub:insert-at-cursor', {
@@ -1000,7 +1057,7 @@ export class ConsoleComponent {
         const archiveBtn = document.createElement('button')
         archiveBtn.className = 'hub-console__ai-action-btn'
         archiveBtn.title = 'Create a new note with this response'
-        archiveBtn.innerHTML = `${codicons.file || '📄'} Archive to New Note`
+        archiveBtn.innerHTML = `${codicons.archive} <span>Archive to Note</span>`
         archiveBtn.addEventListener('click', async () => {
           const noteId = await agentService.archiveResponse(fullText, input)
           this.log(`Archived to new note.`, 'system')
@@ -1021,9 +1078,16 @@ export class ConsoleComponent {
           this.bodyEl.appendChild(actionArea)
         }
 
-        // Final text update to ensure clean look
+        // Final text update to ensure clean look with proper markdown
         const finalText = fullText.replace(/\[RUN:[\s\S]*?\]/g, '').trim()
-        outputLine.textContent = finalText
+        try {
+          const { formatMarkdown } = await import('../../utils/markdown')
+          contentEl.innerHTML = formatMarkdown(finalText)
+        } catch {
+          contentEl.textContent = finalText
+        }
+
+        outputLine.classList.remove('is-typing')
 
         // Update History
         this.chatHistory.push({ role: 'user', content: input, timestamp: Date.now() })
@@ -1033,6 +1097,7 @@ export class ConsoleComponent {
         this.bodyEl.scrollTop = this.bodyEl.scrollHeight
       }
     } catch (err) {
+      outputLine.classList.remove('is-typing')
       if ((err as Error).name === 'AbortError') {
         this.log('AI request cancelled.', 'system')
       } else {
