@@ -206,7 +206,8 @@
 .real-terminal-body {
   display: flex;
   flex: 1;
-  overflow: hidden;
+  overflow-y: hidden;
+  overflow-x: auto; /* Allow horizontal scroll if content + sidebar > screen width */
   background: #1e1e1e;
 }
 
@@ -220,6 +221,7 @@
   transition: width 0.2s ease, opacity 0.2s ease;
   padding-top: 12px;
   padding-bottom: 12px;
+  flex-shrink: 0;
 }
 
 .real-terminal-wrapper.sidebar-hidden .real-terminal-sidebar {
@@ -407,6 +409,7 @@
   flex: 1;
   background: #1e1e1e;
   position: relative;
+  min-width: 150px; /* Ensure terminal never collapses to < ~15 cols */
 }
 
 .real-terminal-content.split-layout {
@@ -442,6 +445,8 @@
   height: 100%;
   position: relative;
   overflow: hidden;
+  padding: 5px;
+  box-sizing: border-box;
 }
 
 .terminal-instance.split-active {
