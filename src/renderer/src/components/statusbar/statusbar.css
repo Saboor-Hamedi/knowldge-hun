@@ -2,72 +2,83 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 4px 10px;
+  gap: 0;
+  padding: 0 4px;
   color: #dfe7f3;
   font-size: 11px;
   background: var(--status);
   border-top: 1px solid #0b4f7c;
   position: relative;
-  z-index: 10003; /* Higher than rightbar (0) and AI menu (10002) */
+  z-index: 10003;
+  height: 24px;
 }
 
 .statusbar__left,
 .statusbar__right {
   display: flex;
   align-items: center;
-  gap: 8px;
+  height: 100%;
+}
+
+.statusbar__item {
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  height: 100%;
+  color: var(--text-soft);
+  white-space: nowrap;
+  font-size: 11px;
+  cursor: default;
+  transition: all 150ms ease;
+  user-select: none;
+}
+
+.statusbar__item:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-strong);
 }
 
 .statusbar__meta {
-  display: flex;
-  align-items: center;
+  color: var(--accent);
 }
 
 .statusbar__sync {
   position: relative;
-  z-index: 10004; /* Ensure sync button and menu are above rightbar */
-  isolation: isolate; /* Create new stacking context */
+  height: 100%;
 }
 
 .statusbar__sync-button {
+  background: transparent;
+  border: none;
+  padding: 0 10px;
+  color: var(--text-soft);
+  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 4px 8px;
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: 4px;
-  color: var(--text-soft);
-  cursor: pointer;
-  transition: all 150ms ease;
-  font-size: 12px;
+}
+
+.statusbar__sync-button .lucide-icon {
+  width: 12px;
+  height: 12px;
 }
 
 .statusbar__sync-button:hover {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: var(--border);
+  background: rgba(255, 255, 255, 0.08);
   color: var(--text-strong);
 }
 
-.statusbar__sync-button svg {
-  width: 14px;
-  height: 14px;
-}
-
 .statusbar__sync-menu {
-  position: fixed !important; /* Use fixed positioning to escape rightbar stacking context */
+  position: fixed !important;
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 4px;
-  box-shadow:
-    0 4px 12px rgba(0, 0, 0, 0.3),
-    0 0 0 1px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   min-width: 180px;
   display: none;
   flex-direction: column;
   overflow: hidden;
-  z-index: 10005 !important; /* Highest z-index - appears above everything including rightbar (0), AI menu (10002), and statusbar (10003) */
+  z-index: 10005 !important;
 }
 
 .statusbar__sync-menu.is-open {
@@ -86,7 +97,6 @@
   font-size: 12px;
   text-align: left;
   transition: background 150ms ease;
-  white-space: nowrap;
   width: 100%;
 }
 
@@ -97,10 +107,29 @@
 .statusbar__sync-menu-icon {
   display: flex;
   align-items: center;
+  justify-content: center;
+  width: 12px;
+  height: 12px;
   flex-shrink: 0;
 }
 
-.statusbar__sync-menu-icon svg {
-  width: 14px;
-  height: 14px;
+.statusbar__sync-menu-icon .lucide-icon {
+  width: 10px;
+  height: 10px;
+}
+
+.statusbar__cursor {
+  font-family: var(--font-mono, monospace);
+  min-width: 90px;
+  border-left: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.statusbar__words,
+.statusbar__chars,
+.statusbar__lines {
+  border-left: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.statusbar__version {
+  border-right: 1px solid rgba(255, 255, 255, 0.05);
 }

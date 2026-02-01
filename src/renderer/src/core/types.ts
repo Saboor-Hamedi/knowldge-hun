@@ -111,4 +111,12 @@ export type AppSettings = {
     activeIconColor?: string
     inactiveIconColor?: string
   }
+  statusbar?: {
+    words?: boolean
+    chars?: boolean
+    lines?: boolean
+    cursor?: boolean
+    sync?: boolean
+    version?: boolean
+  }
 }

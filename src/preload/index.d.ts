@@ -59,6 +59,14 @@ type AppSettings = {
   caretMaxWidth?: number
   cursorPositions?: Record<string, { lineNumber: number; column: number }>
   graphTheme?: string
+  statusbar?: {
+    words?: boolean
+    chars?: boolean
+    lines?: boolean
+    cursor?: boolean
+    sync?: boolean
+    version?: boolean
+  }
 }
 
 type WindowApi = {
@@ -115,6 +123,13 @@ type NoteApi = {
   getUsername: () => Promise<string>
   onVaultChanged: (callback: (data: any) => void) => () => void
   onNoteOpened: (callback: (id: string) => void) => void
+  statusBar: {
+    setStatus: (msg: string) => void
+    setMeta: (msg: string) => void
+    setMetrics: (metrics: { words: number; chars: number; lines: number } | null) => void
+    setCursor: (pos: { ln: number; col: number } | null) => void
+    updateVisibility: () => void
+  }
 }
 
 declare global {

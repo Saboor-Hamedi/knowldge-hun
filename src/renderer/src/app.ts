@@ -117,7 +117,8 @@ class App {
         updateViewVisibility: () => this.viewOrchestrator.updateViewVisibility(),
         showWelcomePage: () => this.viewOrchestrator.showWelcomePage(),
         openSettings: () => this.viewOrchestrator.openSettings(),
-        openGraph: () => this.viewOrchestrator.openGraph()
+        openGraph: () => this.viewOrchestrator.openGraph(),
+        onNoteOpened: () => this.viewOrchestrator.updateEditorMetrics()
       }
     )
 
@@ -251,7 +252,6 @@ class App {
       void this.fileOps.duplicateItem(id, type)
     }) as EventListener)
 
-    this.editor.setCursorPositionChangeHandler(() => this.schedulePersist())
     window.addEventListener('beforeunload', () => void this.vaultHandler.persistWorkspace())
   }
 
@@ -328,6 +328,7 @@ class App {
       // Ensure UI components reflect loaded settings immediately
       this.sidebar.applyStyles()
       this.activityBar.applyStyles()
+      this.statusBar.updateVisibility()
     }
   }
 
@@ -372,8 +373,8 @@ class App {
       this.editor.highlightTerm(query, options.matchCase, options.wholeWord, options.useRegex)
     })
 
-    window.addEventListener('knowledge-hub:propose-note', async (e: any) => {
-      const { id, content } = e.detail
+    window.addEventListener('knowledge-hub:propose-note', async (e: Event) => {
+      const { id, content } = (e as CustomEvent<{ id: string; content: string }>).detail
       // 1. Ensure the note is open
       await this.vaultHandler.openNote(id, undefined, 'editor')
       // 2. Propose changes in the editor
@@ -428,12 +429,18 @@ class App {
       this.tabBar.render()
       this.breadcrumbs.render()
       this.sidebar.updateDirtyState()
+      this.viewOrchestrator.updateEditorMetrics()
+    })
+    this.editor.setCursorPositionChangeHandler(() => {
+      this.viewOrchestrator.updateEditorMetrics()
+      this.schedulePersist()
     })
     this.editor.setSaveHandler((payload) => void this.fileOps.saveNote(payload))
     this.editor.setDropHandler((p, f) => this.handleDrop(p, f))
     this.editor.setLinkClickHandler((t) => void this.wikiLinkService.openWikiLink(t))
     this.editor.setHoverContentHandler((t) => this.wikiLinkService.getNotePreview(t))
     this.editor.setContextMenuHandler((e) => this.handleEditorContextMenu(e))
+    this.editor.setCursorPositionChangeHandler(() => this.viewOrchestrator.updateEditorMetrics())
     this.editor.attachKeyboardShortcuts()
 
     this.themeModal.setThemeChangeHandler((themeId) => {

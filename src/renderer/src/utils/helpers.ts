@@ -135,3 +135,26 @@ export function estimateReadTime(content: string, wordsPerMinute: number = 200):
   const minutes = Math.ceil(words.length / wordsPerMinute)
   return Math.max(1, minutes) // At least 1 minute
 }
+
+export function getNoteMetrics(content: string) {
+  const words = content.trim()
+    ? content
+        .trim()
+        .split(/\s+/)
+        .filter((w: string) => w).length
+    : 0
+  const chars = content.length
+  const lines = content.split('\n').length
+  const readTime = estimateReadTime(content)
+  const wikiLinks = extractWikiLinks(content).length
+  const tags = extractTags(content).length
+
+  return {
+    words,
+    chars,
+    lines,
+    readTime,
+    wikiLinks,
+    tags
+  }
+}

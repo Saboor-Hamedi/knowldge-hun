@@ -1,5 +1,5 @@
 import { state } from '../core/state'
-import type { TreeItem, NoteMeta, AppSettings } from '../core/types'
+import type { TreeItem, NoteMeta, AppSettings, NotePayload } from '../core/types'
 import { sortNotes } from '../utils/helpers'
 import { sortTreeRecursive } from '../utils/tree-utils'
 import { vaultService } from '../services/vaultService'
@@ -19,13 +19,20 @@ export class VaultHandler {
         setVisible: (visible: boolean) => void
       }
       tabBar: { render: () => void }
-      statusBar: { setStatus: (msg: string) => void; setMeta: (msg: string) => void }
+      statusBar: {
+        setStatus: (msg: string) => void
+        setMeta: (msg: string) => void
+        setMetrics: (metrics: { words: number; chars: number; lines: number } | null) => void
+        setCursor: (pos: { ln: number; col: number } | null) => void
+        updateVisibility: () => void
+      }
       editor: {
-        loadNote: (note: any) => Promise<void>
+        loadNote: (note: NotePayload) => Promise<void>
         showEmpty: () => void
         layout: () => void
         isPreviewMode: boolean
-        [key: string]: any
+        highlightTerm?: (q: string, mc?: boolean, ww?: boolean, ur?: boolean) => void
+        focus?: () => void
       }
       breadcrumbs: { render: () => void; clear: () => void }
       activityBar: { setActiveView: (view: 'notes' | 'search' | 'settings') => void }
@@ -277,6 +284,7 @@ export class VaultHandler {
     void this.persistWorkspace()
 
     this.callbacks.onNoteOpened?.(id, path)
+    // viewOrchestrator is not directly accessible here, but callbacks.onNoteOpened is called.
   }
 
   public revealPathInSidebar(path?: string, isFolder = false): boolean {
@@ -365,7 +373,7 @@ export class VaultHandler {
 
     for (const note of potentiallyChanged) {
       try {
-        const content = await window.api.loadNote(note.id, note.path)
+        const content = (await window.api.loadNote(note.id, note.path)) as NotePayload | null
         if (!content || !content.content.trim() || content.content.length > 1024 * 1024) continue
 
         if (!isInitialized) {

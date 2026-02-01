@@ -9,7 +9,7 @@
   padding: 6px;
   min-width: 180px;
   max-width: 280px;
-  z-index: 10000;
+  z-index: 10010;
   font-size: 13px;
   outline: none;
   animation: contextMenuIn 0.12s ease-out;
@@ -128,6 +128,14 @@
   flex-shrink: 0;
   color: var(--text-soft, #8b95a8);
   transition: color 80ms ease;
+}
+
+.context-menu__item.is-checked .context-menu__icon {
+  color: var(--primary, #7fa7ff);
+}
+
+.context-menu__item:hover:not(.is-disabled) .context-menu__icon {
+  color: #0b1220;
 }
 
 .context-menu__icon svg {

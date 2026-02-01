@@ -1,6 +1,6 @@
 import { state } from '../core/state'
 import { tabService } from '../services/tabService'
-import { estimateReadTime, extractWikiLinks, extractTags, timeAgo } from '../utils/helpers'
+import { timeAgo, getNoteMetrics } from '../utils/helpers'
 import { detailsModal } from '../components/details-modal/details-modal'
 import type { AppSettings } from '../core/types'
 import { tooltipManager } from '../components/tooltip/tooltip'
@@ -8,11 +8,19 @@ import { tooltipManager } from '../components/tooltip/tooltip'
 export class ViewOrchestrator {
   constructor(
     private components: {
-      editor: any
+      editor: {
+        getValue: () => string
+        getSelectionContent: () => string | null
+      }
       settingsView: { update: () => void; updateVaultPath: () => void }
       welcomePage: { isVisible: () => boolean; show: () => void; hide: () => void }
       tabBar: { render: () => void }
-      statusBar: { setStatus: (msg: string) => void }
+      statusBar: {
+        setStatus: (msg: string) => void
+        setMetrics: (metrics: { words: number; chars: number; lines: number } | null) => void
+        setCursor: (pos: { ln: number; col: number } | null) => void
+        updateVisibility: () => void
+      }
       activityBar: { setActiveView: (view: 'notes' | 'search' | 'settings' | 'graph') => void }
       breadcrumbs: { render: () => void }
       graphTabView: { open: () => Promise<void>; close: () => void }
@@ -125,17 +133,7 @@ export class ViewOrchestrator {
 
   public showDetailsModal(): void {
     const content = this.components.editor.getValue()
-    const words = content.trim()
-      ? content
-          .trim()
-          .split(/\s+/)
-          .filter((w: string) => w).length
-      : 0
-    const chars = content.length
-    const lines = content.split('\n').length
-    const readTime = estimateReadTime(content)
-    const wikiLinks = extractWikiLinks(content).length
-    const tags = extractTags(content).length
+    const metrics = getNoteMetrics(content)
     const currentNoteId = state.activeId
 
     if (currentNoteId && currentNoteId !== 'settings') {
@@ -144,12 +142,9 @@ export class ViewOrchestrator {
         const created = note.createdAt && note.createdAt > 0 ? timeAgo(note.createdAt) : '-'
         const modified = timeAgo(note.updatedAt)
         detailsModal.show({
-          words,
-          chars,
-          lines,
-          readTime: `${readTime} min`,
-          wikiLinks,
-          tags,
+          ...metrics,
+          chars: metrics.chars,
+          readTime: `${metrics.readTime} min`,
           created,
           modified
         })
@@ -165,6 +160,28 @@ export class ViewOrchestrator {
         created: '-',
         modified: '-'
       })
+    }
+  }
+
+  public updateEditorMetrics(): void {
+    if (state.activeId && state.activeId !== 'settings' && state.activeId !== 'graph') {
+      const selection = this.components.editor.getSelectionContent()
+      const content = selection || this.components.editor.getValue()
+      const metrics = getNoteMetrics(content)
+
+      // If there is a selection, we might want to signal it, or just show the metrics for the selection
+      // For now, let's just show the metrics of whatever we have (selection or full content)
+      this.components.statusBar.setMetrics(metrics)
+
+      const pos = state.cursorPositions.get(state.activeId)
+      if (pos) {
+        this.components.statusBar.setCursor({ ln: pos.lineNumber, col: pos.column })
+      } else {
+        this.components.statusBar.setCursor(null)
+      }
+    } else {
+      this.components.statusBar.setMetrics(null)
+      this.components.statusBar.setCursor(null)
     }
   }
 

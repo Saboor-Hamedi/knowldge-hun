@@ -412,6 +412,13 @@ export class EditorComponent {
     return this.editor?.getValue() ?? ''
   }
 
+  getSelectionContent(): string | null {
+    if (!this.editor) return null
+    const selection = this.editor.getSelection()
+    if (!selection || selection.isEmpty()) return null
+    return this.editor.getModel()?.getValueInRange(selection) || null
+  }
+
   getSelection(): string {
     if (!this.editor) return ''
     const selection = this.editor.getSelection()
@@ -630,17 +637,27 @@ export class EditorComponent {
           this.markDirty()
         })
 
-        this.editor.onDidChangeCursorPosition((e) => {
-          if (state.activeId && state.activeId !== 'settings') {
+        const updateCursorState = () => {
+          if (!this.editor) return
+          const pos = this.editor.getPosition()
+          if (
+            pos &&
+            state.activeId &&
+            state.activeId !== 'settings' &&
+            state.activeId !== 'graph'
+          ) {
             state.cursorPositions.set(state.activeId, {
-              lineNumber: e.position.lineNumber,
-              column: e.position.column
+              lineNumber: pos.lineNumber,
+              column: pos.column
             })
             if (this.onCursorPositionChange) {
               this.onCursorPositionChange()
             }
           }
-        })
+        }
+
+        this.editor.onDidChangeCursorPosition(() => updateCursorState())
+        this.editor.onDidChangeCursorSelection(() => updateCursorState())
 
         // Register WikiLink Providers
         try {

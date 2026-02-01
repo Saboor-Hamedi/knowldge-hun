@@ -9,6 +9,7 @@ export interface ContextMenuItem {
   disabled?: boolean
   danger?: boolean
   submenu?: ContextMenuItem[]
+  checked?: boolean
 }
 
 export class ContextMenu {
@@ -82,10 +83,15 @@ export class ContextMenu {
       menuItem.classList.add('has-submenu')
     }
 
-    if (item.icon) {
+    if (item.icon || item.checked) {
       const icon = document.createElement('span')
       icon.className = 'context-menu__icon'
-      icon.innerHTML = item.icon
+      if (item.checked) {
+        icon.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`
+        menuItem.classList.add('is-checked')
+      } else if (item.icon) {
+        icon.innerHTML = item.icon
+      }
       menuItem.appendChild(icon)
     } else {
       // Add empty icon space for alignment
@@ -161,10 +167,15 @@ export class ContextMenu {
       if (item.disabled) menuItem.classList.add('is-disabled')
       if (item.danger) menuItem.classList.add('is-danger')
 
-      if (item.icon) {
+      if (item.icon || item.checked) {
         const icon = document.createElement('span')
         icon.className = 'context-menu__icon'
-        icon.innerHTML = item.icon
+        if (item.checked) {
+          icon.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`
+          menuItem.classList.add('is-checked')
+        } else if (item.icon) {
+          icon.innerHTML = item.icon
+        }
         menuItem.appendChild(icon)
       } else {
         const iconSpace = document.createElement('span')
@@ -243,11 +254,11 @@ export class ContextMenu {
     // Get menu dimensions
     const rect = menu.getBoundingClientRect()
 
-    // Get safe area (accounting for statusbar ~22px at bottom)
-    const statusbarHeight = 22
+    // Get safe area (accounting for statusbar ~24px at bottom)
+    const statusbarHeight = 24
     const padding = 8
     const maxX = window.innerWidth - padding
-    const maxY = window.innerHeight - statusbarHeight - padding
+    const maxY = window.innerHeight - statusbarHeight
 
     // Adjust horizontal position
     if (rect.right > maxX) {
@@ -257,13 +268,16 @@ export class ContextMenu {
 
     // Adjust vertical position
     if (rect.bottom > maxY) {
-      // Try positioning above the click point first
-      const newY = y - rect.height
+      // If we are likely clicking on the status bar or near it, anchor to the top of status bar
+      const anchorY = Math.min(y, maxY)
+      const newY = anchorY - rect.height
+
       if (newY >= padding) {
         menu.style.top = `${newY}px`
       } else {
-        // If that doesn't work, position at max visible area
-        menu.style.top = `${Math.max(padding, maxY - rect.height)}px`
+        // If it doesn't fit above, push it as high as possible
+        menu.style.top = `${padding}px`
+        // And it will be capped by maxHeight below
       }
     }
 
@@ -360,7 +374,6 @@ export class ContextMenu {
       case 'ArrowLeft':
         e.preventDefault()
         this.closeSubmenu()
-        break
     }
   }
 
