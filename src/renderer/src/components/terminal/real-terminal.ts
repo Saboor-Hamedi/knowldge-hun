@@ -60,8 +60,15 @@ export class RealTerminalComponent {
     // Get available shells
     const availableShells = await this.getAvailableShells()
 
-    const shellOptions = availableShells
-      .map((shell) => `<option value="${shell.value}">${shell.label}</option>`)
+    const menuItems = availableShells
+      .map(
+        (shell) => `
+        <div class="shell-menu-item" data-value="${shell.value}">
+          <span class="shell-icon">${this.getShellIconSVG(shell.value)}</span>
+          <span class="shell-label">${shell.label}</span>
+        </div>
+      `
+      )
       .join('')
 
     this.container.innerHTML = `
@@ -79,9 +86,6 @@ export class RealTerminalComponent {
             </div>
           </div>
           <div class="real-terminal-actions">
-            <select class="shell-selector" id="shell-selector" title="Select Shell">
-              ${shellOptions}
-            </select>
             <button class="real-terminal-btn" id="toggle-search-btn" title="Find (Ctrl+F)">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <circle cx="11" cy="11" r="8"></circle>
@@ -94,12 +98,27 @@ export class RealTerminalComponent {
                 <line x1="9" y1="3" x2="9" y2="21"></line>
               </svg>
             </button>
-            <button class="real-terminal-btn" id="new-terminal-btn" title="New Terminal">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <line x1="12" y1="5" x2="12" y2="19"></line>
-                <line x1="5" y1="12" x2="19" y2="12"></line>
-              </svg>
-            </button>
+            
+            <div class="terminal-actions-group">
+              <div class="new-terminal-split-btn">
+                <button class="real-terminal-btn" id="new-terminal-btn" title="New Terminal (Default)">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                  </svg>
+                </button>
+                <button class="real-terminal-btn shell-dropdown-chevron" id="shell-menu-trigger" title="Select Default Profile">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div class="shell-dropdown-menu" id="shell-dropdown-menu">
+              ${menuItems}
+            </div>
+
             <button class="real-terminal-btn" id="split-terminal-btn" title="Toggle Split View">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <rect x="3" y="3" width="18" height="18" rx="2"></rect>
@@ -130,13 +149,7 @@ export class RealTerminalComponent {
     `
 
     // Get settings to set initial default shell
-    const settings = await window.api.invoke('settings:get')
-    const defaultShell = settings?.terminalDefaultShell || 'powershell'
-
-    const shellSelector = document.getElementById('shell-selector') as HTMLSelectElement
-    if (shellSelector) {
-      shellSelector.value = defaultShell
-    }
+    // No longer need to update a selector here since it's replaced by a dropdown
   }
 
   /**
@@ -153,25 +166,56 @@ export class RealTerminalComponent {
     }
   }
 
+  private getShellIconSVG(shell: string): string {
+    const icons: Record<string, string> = {
+      powershell: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>`,
+      pwsh: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>`,
+      cmd: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>`,
+      bash: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 12H15L13.5 15.5H8.5L7 12H2"></path><path d="M5.45 5.11L2 12V18C2 19.1 2.9 20 4 20H20C21.1 20 22 19.1 22 18V12L18.55 5.11C18.19 4.45 17.51 4 16.76 4H7.24C6.49 4 5.81 4.45 5.45 5.11Z"></path></svg>`,
+      wsl: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9-4.03-9-9-9z"></path><path d="M12 8v4l3 3"></path></svg>`
+    }
+
+    if (shell.startsWith('wsl:')) return icons.wsl
+    return icons[shell] || icons.powershell
+  }
+
   private setupEventListeners(): void {
     const newTerminalBtn = document.getElementById('new-terminal-btn')
     const closeTerminalBtn = document.getElementById('close-terminal-btn')
     const splitTerminalBtn = document.getElementById('split-terminal-btn')
     const trashTerminalBtn = document.getElementById('trash-terminal-btn')
-    const shellSelector = document.getElementById('shell-selector') as HTMLSelectElement
 
     newTerminalBtn?.addEventListener('click', () => {
-      const shell = shellSelector?.value || 'powershell'
-      this.createNewTerminal(shell)
+      this.createNewTerminal()
+    })
+
+    const shellMenuTrigger = document.getElementById('shell-menu-trigger')
+    const shellMenu = document.getElementById('shell-dropdown-menu')
+
+    shellMenuTrigger?.addEventListener('click', (e) => {
+      e.stopPropagation()
+      const isVisible = shellMenu?.style.display === 'block'
+      if (shellMenu) shellMenu.style.display = isVisible ? 'none' : 'block'
+    })
+
+    document.addEventListener('click', () => {
+      if (shellMenu) shellMenu.style.display = 'none'
+    })
+
+    shellMenu?.querySelectorAll('.shell-menu-item').forEach((item) => {
+      item.addEventListener('click', (e) => {
+        e.stopPropagation()
+        const shell = (item as HTMLElement).dataset.value
+        if (shell) {
+          this.createNewTerminal(shell)
+          if (shellMenu) shellMenu.style.display = 'none'
+        }
+      })
     })
 
     const toggleSidebarBtn = document.getElementById('toggle-sidebar-btn')
     toggleSidebarBtn?.addEventListener('click', () => {
       this.toggleSidebar()
-    })
-
-    shellSelector?.addEventListener('change', async () => {
-      await window.api.invoke('settings:update', { terminalDefaultShell: shellSelector.value })
     })
 
     closeTerminalBtn?.addEventListener('click', () => this.toggle())
@@ -248,10 +292,6 @@ export class RealTerminalComponent {
     if (!shell) {
       const settings = await window.api.invoke('settings:get')
       shellType = settings?.terminalDefaultShell || 'powershell'
-
-      // Update selector if it exists
-      const selector = document.getElementById('shell-selector') as HTMLSelectElement
-      if (selector) selector.value = shellType
     }
 
     // Create xterm instance
@@ -462,14 +502,6 @@ export class RealTerminalComponent {
     const sessionsList = document.getElementById('terminal-sessions-list')
     if (!sessionsList) return
 
-    const shellIcons = {
-      powershell: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>`,
-      pwsh: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>`,
-      cmd: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>`,
-      bash: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 12H15L13.5 15.5H8.5L7 12H2"></path><path d="M5.45 5.11L2 12V18C2 19.1 2.9 20 4 20H20C21.1 20 22 19.1 22 18V12L18.55 5.11C18.19 4.45 17.51 4 16.76 4H7.24C6.49 4 5.81 4.45 5.45 5.11Z"></path></svg>`,
-      wsl: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9-4.03-9-9-9z"></path><path d="M12 8v4l3 3"></path></svg>`
-    }
-
     const sessionIndex = Array.from(this.sessions.keys()).indexOf(sessionId) + 1
     const displayName = customName || `${shellType} ${sessionIndex}`
     const iconColor = color || '#4ec9b0' // Default green
@@ -481,7 +513,7 @@ export class RealTerminalComponent {
     sessionItem.draggable = true
 
     sessionItem.innerHTML = `
-      <span class="session-icon" style="color: ${iconColor}">${shellIcons[shellType] || shellIcons.powershell}</span>
+      <span class="session-icon" style="color: ${iconColor}">${this.getShellIconSVG(shellType)}</span>
       <span class="session-label" id="label-${sessionId}" title="${displayName}">${displayName}</span>
       <div class="session-actions">
         <button class="session-color-btn" data-session-id="${sessionId}" title="Change Color">
