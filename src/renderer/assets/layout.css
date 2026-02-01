@@ -115,6 +115,10 @@ body {
   flex-direction: column;
 }
 
+.main.console-maximized {
+  z-index: 100; /* Cover status bar (50) and other siblings */
+}
+
 .right-panel {
   grid-column: 4;
   grid-row: 1;

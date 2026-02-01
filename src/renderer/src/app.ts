@@ -765,7 +765,12 @@ class App {
       this.documentationModal.toggle()
       return true
     })
-    reg('Control+j', 'Toggle Console', () => this.hubConsole.toggle())
+    reg('Control+j', 'Toggle Console', () => {
+      this.hubConsole.toggle()
+      if (!this.hubConsole.getOpen()) {
+        this.editor.focus()
+      }
+    })
     reg('Control+l', 'Lock Application', () => void securityService.promptAndLock())
     reg('Alt+l', 'Lock Application', () => void securityService.promptAndLock())
     reg('Control+w', 'Close active tab', () => {

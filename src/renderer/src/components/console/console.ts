@@ -102,6 +102,17 @@ export class ConsoleComponent {
 
     // Restore saved state
     const savedState = localStorage.getItem('hub-console-open')
+    const savedMax = localStorage.getItem('hub-console-maximized') === 'true'
+
+    if (savedMax) {
+      this.isMaximized = true
+      this.consoleEl.classList.add('is-maximized')
+      document.querySelector('.main')?.classList.add('console-maximized')
+
+      const icon = this.consoleEl.querySelector('.hub-console__maximize-icon')
+      if (icon) icon.innerHTML = codicons.minimize
+    }
+
     if (savedState === 'true') {
       this.setVisible(true)
     }
@@ -271,7 +282,26 @@ export class ConsoleComponent {
   }
 
   public toggle(): void {
-    this.setVisible(!this.isOpen)
+    const willOpen = !this.isOpen
+    this.setVisible(willOpen)
+
+    // Force re-apply maximization logic if opening into a maximized state
+    if (willOpen && this.isMaximized) {
+      document.querySelector('.main')?.classList.add('console-maximized')
+    } else if (!willOpen) {
+      document.querySelector('.main')?.classList.remove('console-maximized')
+      // Ensure focus returns to editor when closing
+      // (This is a focused backup to the global shortcut handler)
+      const editorHost = document.getElementById('editorContainer')
+      if (editorHost && !editorHost.style.display.includes('none')) {
+        // We can't easily access the editor instance here directly without tight coupling,
+        // but the global handler in app.ts covers the primary case.
+      }
+    }
+  }
+
+  public getOpen(): boolean {
+    return this.isOpen
   }
 
   public setMode(mode: 'terminal' | 'ai'): void {
@@ -307,6 +337,17 @@ export class ConsoleComponent {
     const wasOpen = this.isOpen
     this.isOpen = visible
     this.consoleEl.classList.toggle('is-open', this.isOpen)
+
+    // Maximized state should persist on the element whenever it is open
+    this.consoleEl.classList.toggle('is-maximized', !!this.isMaximized)
+
+    // Update .main element's console-maximized class based on both visibility and maximization
+    const mainEl = document.querySelector('.main')
+    if (this.isOpen && this.isMaximized) {
+      mainEl?.classList.add('console-maximized')
+    } else {
+      mainEl?.classList.remove('console-maximized')
+    }
 
     // If closing via UI, abort active AI
     if (wasOpen && !visible && this.isBusy && this.aiAbortController) {
@@ -526,21 +567,24 @@ export class ConsoleComponent {
 
     // Handle chevron button click (toggle)
     const chevronBtn = this.consoleEl.querySelector('.hub-console__chevron-btn')
-    chevronBtn?.addEventListener('click', (e) => {
+    chevronBtn?.addEventListener('mousedown', (e) => {
+      e.preventDefault()
       e.stopPropagation()
       this.toggle()
     })
 
     // Handle maximize button click
     const maximizeBtn = this.consoleEl.querySelector('.hub-console__maximize-btn')
-    maximizeBtn?.addEventListener('click', (e) => {
+    maximizeBtn?.addEventListener('mousedown', (e) => {
+      e.preventDefault()
       e.stopPropagation()
       this.toggleMaximize()
     })
 
     // Handle close button click
     const closeBtn = this.consoleEl.querySelector('.hub-console__close-btn')
-    closeBtn?.addEventListener('click', (e) => {
+    closeBtn?.addEventListener('mousedown', (e) => {
+      e.preventDefault()
       e.stopPropagation() // Prevent triggering the focus listener above
       this.toggle()
     })
@@ -628,8 +672,35 @@ export class ConsoleComponent {
   }
 
   private toggleMaximize(): void {
+    // If console is closed, open it in maximized mode
+    if (!this.isOpen) {
+      // Set maximized state FIRST, before opening
+      this.isMaximized = true
+      localStorage.setItem('hub-console-maximized', 'true')
+
+      // Now open the console - setVisible will apply both is-open and is-maximized
+      this.setVisible(true)
+
+      // Update icon
+      const icon = this.consoleEl.querySelector('.hub-console__maximize-icon')
+      if (icon) {
+        icon.innerHTML = codicons.minimize
+        const maximizeBtn = this.consoleEl.querySelector('.hub-console__maximize-btn')
+        maximizeBtn?.setAttribute('title', 'Restore Panel')
+      }
+      return
+    }
+
+    // Console is open, toggle maximization
     this.isMaximized = !this.isMaximized
     this.consoleEl.classList.toggle('is-maximized', this.isMaximized)
+
+    // Also boost .main z-index to cover status bar
+    const mainEl = document.querySelector('.main')
+    mainEl?.classList.toggle('console-maximized', this.isMaximized)
+
+    // Persist maximized state
+    localStorage.setItem('hub-console-maximized', String(this.isMaximized))
 
     // Update maximize button icon
     const icon = this.consoleEl.querySelector('.hub-console__maximize-icon')
