@@ -425,6 +425,10 @@ export class RealTerminalComponent {
           })
           return false
         }
+        // Ctrl+` (Toggle Terminal) - Allow to bubble up to global manager
+        if (event.ctrlKey && event.code === 'Backquote') {
+          return false
+        }
         return true
       })
 
@@ -822,7 +826,7 @@ export class RealTerminalComponent {
   /**
    * Toggle terminal visibility
    */
-  toggle(): void {
+  toggle(): boolean {
     console.log('[RealTerminal] Toggle called, current visibility:', this.isVisible)
     this.isVisible = !this.isVisible
     this.container.style.display = this.isVisible ? 'block' : 'none'
@@ -846,12 +850,17 @@ export class RealTerminalComponent {
         // Focus active terminal
         const session = this.sessions.get(this.activeSessionId)
         if (session) {
-          session.terminal.focus()
-          session.fitAddon.fit()
-          this.resizeTerminal(this.activeSessionId)
+          // Wrap in RAF to ensure display: block has taken effect
+          requestAnimationFrame(() => {
+            session.fitAddon.fit()
+            this.resizeTerminal(this.activeSessionId!)
+            session.terminal.focus()
+          })
         }
       }
     }
+
+    return this.isVisible
   }
 
   /**

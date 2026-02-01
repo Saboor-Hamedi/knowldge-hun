@@ -888,15 +888,6 @@ export class EditorComponent {
         }
       )
 
-      // Add Ctrl+` to toggle terminal
-      this.editor.addCommand(
-        this.monacoInstance.KeyMod.CtrlCmd | this.monacoInstance.KeyCode.Backquote,
-        () => {
-          console.log('[Editor] Ctrl+` pressed, dispatching toggle-terminal event')
-          window.dispatchEvent(new CustomEvent('toggle-terminal'))
-        }
-      )
-
       this.shortcutsAttached = true
     }
   }

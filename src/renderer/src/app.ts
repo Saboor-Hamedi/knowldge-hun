@@ -258,7 +258,11 @@ class App {
     // Terminal toggle via custom event (triggered by Monaco command or global shortcut)
     window.addEventListener('toggle-terminal', () => {
       console.log('[App] toggle-terminal event received')
-      this.realTerminal.toggle()
+      const isOpen = this.realTerminal.toggle()
+      if (!isOpen) {
+        // Restore focus to editor when terminal is closed
+        this.editor.focus()
+      }
     })
 
     window.addEventListener('beforeunload', () => void this.vaultHandler.persistWorkspace())
@@ -806,6 +810,9 @@ class App {
       if (!this.hubConsole.getOpen()) {
         this.editor.focus()
       }
+    })
+    reg('Control+`', 'Toggle Terminal', () => {
+      window.dispatchEvent(new CustomEvent('toggle-terminal'))
     })
     reg('Control+l', 'Lock Application', () => void securityService.promptAndLock())
     reg('Alt+l', 'Lock Application', () => void securityService.promptAndLock())
