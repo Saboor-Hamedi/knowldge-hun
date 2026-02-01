@@ -219,6 +219,45 @@ export function registerTerminalHandlers(): void {
     })
   })
 
+  // Get available shells
+  ipcMain.handle('terminal:get-available-shells', async () => {
+    const platform = os.platform()
+    const available: Array<{ value: string; label: string }> = []
+
+    if (platform === 'win32') {
+      // Always available on Windows
+      available.push({ value: 'powershell', label: 'PowerShell' })
+      available.push({ value: 'cmd', label: 'Command Prompt' })
+
+      // Check for Git Bash
+      const gitBashPath = 'C:\\Program Files\\Git\\bin\\bash.exe'
+      try {
+        const fs = await import('fs/promises')
+        await fs.access(gitBashPath)
+        available.push({ value: 'bash', label: 'Git Bash' })
+      } catch {
+        // Git Bash not installed
+      }
+
+      // Check for WSL
+      try {
+        const { execSync } = await import('child_process')
+        execSync('wsl --list', { stdio: 'ignore' })
+        available.push({ value: 'wsl', label: 'WSL' })
+      } catch {
+        // WSL not installed
+      }
+    } else {
+      // Unix-like systems
+      available.push({ value: 'bash', label: 'Bash' })
+      if (platform === 'darwin') {
+        available.push({ value: 'zsh', label: 'Zsh' })
+      }
+    }
+
+    return available
+  })
+
   console.log('[Terminal] IPC handlers registered')
 }
 

@@ -79,6 +79,7 @@
   display: flex;
   flex: 1;
   overflow: hidden;
+  background: #1e1e1e;
 }
 
 /* Terminal Sidebar */
@@ -88,6 +89,14 @@
   border-right: 1px solid rgba(255, 255, 255, 0.1);
   overflow-y: auto;
   overflow-x: hidden;
+  transition: width 0.2s ease, opacity 0.2s ease;
+}
+
+.real-terminal-wrapper.sidebar-hidden .real-terminal-sidebar {
+  width: 0;
+  opacity: 0;
+  border-right: none;
+  pointer-events: none;
 }
 
 .terminal-sessions-list {
@@ -160,6 +169,7 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  background: #1e1e1e;
 }
 
 .terminal-instance {
@@ -170,21 +180,59 @@
   left: 0;
   right: 0;
   bottom: 0;
+  padding: 0;
+  margin: 0;
+  overflow: hidden;
 }
 
 /* Xterm.js overrides */
 .terminal-instance .xterm {
-  height: 100% !important;
-  padding: 8px;
+  padding: 0 !important;
+  margin: 0 !important;
+  user-select: text !important;
+  -webkit-user-select: text !important;
 }
 
 .terminal-instance .xterm-viewport {
   overflow-y: scroll !important;
-  height: 100% !important;
+  padding: 0 !important;
+  margin: 0 !important;
 }
 
 .terminal-instance .xterm-screen {
-  height: auto !important;
+  padding: 2px 5px !important;
+  background: #1e1e1e !important;
+}
+
+/* Remove padding from all xterm renderer elements */
+.terminal-instance .xterm-dom-renderer-owner-1,
+.terminal-instance .xterm-dom-renderer-owner-2,
+.terminal-instance .xterm-dom-renderer-owner-3,
+.terminal-instance .xterm-dom-renderer-owner-4,
+.terminal-instance .xterm-dom-renderer-owner-5 {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+/* Remove padding to avoid gaps */
+.terminal-instance .xterm-rows {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+/* Enable text selection */
+.terminal-instance .xterm-selection,
+.terminal-instance .xterm-selection div {
+  user-select: text !important;
+  -webkit-user-select: text !important;
+  cursor: text !important;
+}
+
+/* Ensure helper textarea is accessible for copy/paste */
+.terminal-instance .xterm-helper-textarea {
+  position: absolute !important;
+  opacity: 0 !important;
+  left: -9999px !important;
 }
 
 /* Scrollbar styling */

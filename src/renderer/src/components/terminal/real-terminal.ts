@@ -28,11 +28,22 @@ export class RealTerminalComponent {
     this.terminalContainer.className = 'real-terminal-container'
     this.container.appendChild(this.terminalContainer)
 
-    this.render()
+    this.init()
+  }
+
+  private async init(): Promise<void> {
+    await this.render()
     this.setupEventListeners()
   }
 
-  private render(): void {
+  private async render(): Promise<void> {
+    // Get available shells
+    const availableShells = await this.getAvailableShells()
+
+    const shellOptions = availableShells
+      .map((shell) => `<option value="${shell.value}">${shell.label}</option>`)
+      .join('')
+
     this.container.innerHTML = `
       <div class="real-terminal-wrapper">
         <div class="real-terminal-header">
@@ -41,10 +52,7 @@ export class RealTerminalComponent {
           </div>
           <div class="real-terminal-actions">
             <select class="shell-selector" id="shell-selector" title="Select Shell">
-              <option value="powershell">PowerShell</option>
-              <option value="cmd">Command Prompt</option>
-              <option value="bash">Git Bash</option>
-              <option value="wsl">WSL</option>
+              ${shellOptions}
             </select>
             <button class="real-terminal-btn" id="new-terminal-btn" title="New Terminal">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -80,6 +88,20 @@ export class RealTerminalComponent {
         </div>
       </div>
     `
+  }
+
+  /**
+   * Get available shells on the system
+   */
+  private async getAvailableShells(): Promise<Array<{ value: string; label: string }>> {
+    try {
+      const available = await window.api.invoke('terminal:get-available-shells')
+      return available
+    } catch (error) {
+      console.error('[RealTerminal] Failed to get available shells:', error)
+      // Fallback to PowerShell on Windows
+      return [{ value: 'powershell', label: 'PowerShell' }]
+    }
   }
 
   private setupEventListeners(): void {
@@ -134,7 +156,6 @@ export class RealTerminalComponent {
         background: '#1e1e1e',
         foreground: '#cccccc',
         cursor: '#ffffff',
-        selection: 'rgba(255, 255, 255, 0.3)',
         black: '#000000',
         red: '#cd3131',
         green: '#0dbc79',
@@ -187,7 +208,9 @@ export class RealTerminalComponent {
 
     // Create terminal in main process
     try {
-      await window.api.invoke('terminal:create', sessionId, cwd, shellType)
+      // Get current vault path
+      const vaultPath = await this.getVaultPath()
+      await window.api.invoke('terminal:create', sessionId, vaultPath || cwd, shellType)
 
       // Setup data listener
       window.api.on(`terminal:data:${sessionId}`, (data: string) => {
@@ -205,14 +228,35 @@ export class RealTerminalComponent {
         window.api.send('terminal:write', sessionId, data)
       })
 
+      // Setup copy/paste handling
+      terminal.attachCustomKeyEventHandler((event) => {
+        // Ctrl+C (copy when text is selected)
+        if (event.ctrlKey && event.code === 'KeyC' && terminal.hasSelection()) {
+          const selectedText = terminal.getSelection()
+          if (selectedText) {
+            navigator.clipboard.writeText(selectedText)
+          }
+          return false
+        }
+        return true
+      })
+
+      // Handle terminal panel resize
+      const resizeObserver = new ResizeObserver(() => {
+        if (terminalElement.style.display !== 'none') {
+          fitAddon.fit()
+        }
+      })
+      resizeObserver.observe(this.container)
+
       // Listen for terminal data
       window.api.send('terminal:listen', sessionId)
 
       // Add to session list
       this.addSessionToList(sessionId, shellType)
 
-      // Activate this terminal
-      this.switchToTerminal(sessionId)
+      // Update sidebar visibility
+      this.updateSidebarVisibility()
 
       console.log(`[RealTerminal] Created session ${sessionId}`)
       return sessionId
@@ -335,6 +379,9 @@ export class RealTerminalComponent {
         }
       }
 
+      // Update sidebar visibility
+      this.updateSidebarVisibility()
+
       console.log(`[RealTerminal] Closed session ${sessionId}`)
     } catch (error) {
       console.error(`[RealTerminal] Error closing terminal:`, error)
@@ -415,5 +462,33 @@ export class RealTerminalComponent {
     this.sessions.forEach((session, id) => {
       this.closeTerminal(id)
     })
+  }
+
+  /**
+   * Update sidebar visibility based on number of sessions
+   */
+  private updateSidebarVisibility(): void {
+    const wrapper = this.container.querySelector('.real-terminal-wrapper')
+    if (wrapper) {
+      if (this.sessions.size <= 1) {
+        wrapper.classList.add('sidebar-hidden')
+      } else {
+        wrapper.classList.remove('sidebar-hidden')
+      }
+    }
+  }
+
+  /**
+   * Get current vault path
+   */
+  private async getVaultPath(): Promise<string | undefined> {
+    try {
+      // Try to get vault path from window API
+      const vaultPath = await window.api.invoke('vault:get-path')
+      return vaultPath
+    } catch (error) {
+      console.warn('[RealTerminal] Could not get vault path:', error)
+      return undefined
+    }
   }
 }

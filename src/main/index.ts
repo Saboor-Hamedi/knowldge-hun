@@ -369,6 +369,11 @@ app.whenReady().then(async () => {
     return { path, name: basename(path) }
   })
 
+  ipcMain.handle('vault:get-path', async (event) => {
+    const v = getVaultManager(event.sender)
+    return v ? v.getRootPath() : resolveVaultPath()
+  })
+
   ipcMain.handle('vault:reveal', async (event, targetPath?: string) => {
     const v = getVaultManager(event.sender)
     const root = v?.getRootPath() || resolveVaultPath()
