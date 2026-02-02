@@ -47,6 +47,16 @@ export type Settings = {
   ttsSpeed?: number
   terminalDefaultShell?: string
   terminalSidebarVisible?: boolean
+  searchInput?: {
+    backgroundColor?: string
+    borderColor?: string
+    focusBorderColor?: string
+    textColor?: string
+    placeholderColor?: string
+    buttonColor?: string
+    buttonHoverColor?: string
+    buttonActiveColor?: string
+  }
 }
 
 export const DEFAULT_SETTINGS: Settings = {

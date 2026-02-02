@@ -128,6 +128,9 @@ export class SettingsView {
           <button class="settings-view__sidebar-item ${this.activeSection === 'terminal' ? 'is-active' : ''}" data-section-tab="terminal">
             ${codicons.terminal} Terminal
           </button>
+          <button class="settings-view__sidebar-item ${this.activeSection === 'search' ? 'is-active' : ''}" data-section-tab="search">
+            ${codicons.search} Search
+          </button>
           <button class="settings-view__sidebar-item ${this.activeSection === 'tab' ? 'is-active' : ''}" data-section-tab="tab">
             ${this.createLucideIcon(Layout, 16)} Tab
           </button>
@@ -709,6 +712,158 @@ export class SettingsView {
                       <div class="settings-color-swatch" style="background-color: ${state.settings?.terminalCursor || '#ffffff'}"></div>
                     </div>
                     <input type="text" class="settings-input settings-color-text" data-setting="terminalCursor" value="${state.settings?.terminalCursor || '#ffffff'}" placeholder="#HEX" maxlength="7" />
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- Search Input Section -->
+          <div class="settings-view__section ${this.activeSection === 'search' ? 'is-active' : ''}" data-section="search">
+            <div class="settings-view__section-header">
+              <h2 class="settings-view__section-title">Search Input Styling</h2>
+              <p class="settings-row__hint" style="margin-top: 4px; padding-left: 0;">Customize the appearance of search inputs across terminal, editor, and global search.</p>
+            </div>
+
+            <div class="settings-list">
+              <!-- Background Color -->
+              <div class="settings-row" data-search="search input background color">
+                <div class="settings-row__icon">${this.createLucideIcon(Pipette, 18)}</div>
+                <div class="settings-row__info">
+                  <label class="settings-row__label">Background Color</label>
+                  <p class="settings-row__hint">Background color of the search input field.</p>
+                </div>
+                <div class="settings-row__action">
+                  <div class="settings-color-group">
+                    <div class="settings-color-wrapper">
+                      <div class="settings-color-swatch" style="background-color: ${state.settings?.searchInput?.backgroundColor || '#3c3c3c'}"></div>
+                    </div>
+                    <input type="text" class="settings-input settings-color-text" data-setting="searchInput.backgroundColor" value="${state.settings?.searchInput?.backgroundColor || '#3c3c3c'}" placeholder="#HEX" maxlength="9" />
+                  </div>
+                </div>
+              </div>
+
+              <!-- Border Color -->
+              <div class="settings-row" data-search="search input border color">
+                <div class="settings-row__icon">${this.createLucideIcon(Pipette, 18)}</div>
+                <div class="settings-row__info">
+                  <label class="settings-row__label">Border Color</label>
+                  <p class="settings-row__hint">Border color of the search input.</p>
+                </div>
+                <div class="settings-row__action">
+                  <div class="settings-color-group">
+                    <div class="settings-color-wrapper">
+                      <div class="settings-color-swatch" style="background-color: ${state.settings?.searchInput?.borderColor || 'rgba(255, 255, 255, 0.1)'}"></div>
+                    </div>
+                    <input type="text" class="settings-input settings-color-text" data-setting="searchInput.borderColor" value="${state.settings?.searchInput?.borderColor || 'rgba(255, 255, 255, 0.1)'}" placeholder="#HEX or rgba()" />
+                  </div>
+                </div>
+              </div>
+
+              <!-- Focus Border Color -->
+              <div class="settings-row" data-search="search input focus border color">
+                <div class="settings-row__icon">${this.createLucideIcon(Pipette, 18)}</div>
+                <div class="settings-row__info">
+                  <label class="settings-row__label">Focus Border Color</label>
+                  <p class="settings-row__hint">Border color when input is focused.</p>
+                </div>
+                <div class="settings-row__action">
+                  <div class="settings-color-group">
+                    <div class="settings-color-wrapper">
+                      <div class="settings-color-swatch" style="background-color: ${state.settings?.searchInput?.focusBorderColor || '#007acc'}"></div>
+                    </div>
+                    <input type="text" class="settings-input settings-color-text" data-setting="searchInput.focusBorderColor" value="${state.settings?.searchInput?.focusBorderColor || '#007acc'}" placeholder="#HEX" maxlength="9" />
+                  </div>
+                </div>
+              </div>
+
+              <!-- Text Color -->
+              <div class="settings-row" data-search="search input text color">
+                <div class="settings-row__icon">${this.createLucideIcon(Pipette, 18)}</div>
+                <div class="settings-row__info">
+                  <label class="settings-row__label">Text Color</label>
+                  <p class="settings-row__hint">Color of the search text.</p>
+                </div>
+                <div class="settings-row__action">
+                  <div class="settings-color-group">
+                    <div class="settings-color-wrapper">
+                      <div class="settings-color-swatch" style="background-color: ${state.settings?.searchInput?.textColor || '#ffffff'}"></div>
+                    </div>
+                    <input type="text" class="settings-input settings-color-text" data-setting="searchInput.textColor" value="${state.settings?.searchInput?.textColor || '#ffffff'}" placeholder="#HEX" maxlength="9" />
+                  </div>
+                </div>
+              </div>
+
+              <!-- Placeholder Color -->
+              <div class="settings-row" data-search="search input placeholder color">
+                <div class="settings-row__icon">${this.createLucideIcon(Pipette, 18)}</div>
+                <div class="settings-row__info">
+                  <label class="settings-row__label">Placeholder Color</label>
+                  <p class="settings-row__hint">Color of the placeholder text.</p>
+                </div>
+                <div class="settings-row__action">
+                  <div class="settings-color-group">
+                    <div class="settings-color-wrapper">
+                      <div class="settings-color-swatch" style="background-color: ${state.settings?.searchInput?.placeholderColor || '#858585'}"></div>
+                    </div>
+                    <input type="text" class="settings-input settings-color-text" data-setting="searchInput.placeholderColor" value="${state.settings?.searchInput?.placeholderColor || '#858585'}" placeholder="#HEX" maxlength="9" />
+                  </div>
+                </div>
+              </div>
+
+              <div class="settings-divider"></div>
+              <div class="settings-view__section-header" style="border: none; margin-top: 8px;">
+                <h3 class="settings-view__section-title">Button Colors</h3>
+              </div>
+
+              <!-- Button Color -->
+              <div class="settings-row" data-search="search button color">
+                <div class="settings-row__icon">${this.createLucideIcon(Pipette, 18)}</div>
+                <div class="settings-row__info">
+                  <label class="settings-row__label">Button Color</label>
+                  <p class="settings-row__hint">Color of search action buttons.</p>
+                </div>
+                <div class="settings-row__action">
+                  <div class="settings-color-group">
+                    <div class="settings-color-wrapper">
+                      <div class="settings-color-swatch" style="background-color: ${state.settings?.searchInput?.buttonColor || '#cccccc'}"></div>
+                    </div>
+                    <input type="text" class="settings-input settings-color-text" data-setting="searchInput.buttonColor" value="${state.settings?.searchInput?.buttonColor || '#cccccc'}" placeholder="#HEX" maxlength="9" />
+                  </div>
+                </div>
+              </div>
+
+              <!-- Button Hover Color -->
+              <div class="settings-row" data-search="search button hover color">
+                <div class="settings-row__icon">${this.createLucideIcon(Pipette, 18)}</div>
+                <div class="settings-row__info">
+                  <label class="settings-row__label">Button Hover Color</label>
+                  <p class="settings-row__hint">Color of buttons on hover.</p>
+                </div>
+                <div class="settings-row__action">
+                  <div class="settings-color-group">
+                    <div class="settings-color-wrapper">
+                      <div class="settings-color-swatch" style="background-color: ${state.settings?.searchInput?.buttonHoverColor || '#ffffff'}"></div>
+                    </div>
+                    <input type="text" class="settings-input settings-color-text" data-setting="searchInput.buttonHoverColor" value="${state.settings?.searchInput?.buttonHoverColor || '#ffffff'}" placeholder="#HEX" maxlength="9" />
+                  </div>
+                </div>
+              </div>
+
+              <!-- Button Active Color -->
+              <div class="settings-row" data-search="search button active color">
+                <div class="settings-row__icon">${this.createLucideIcon(Pipette, 18)}</div>
+                <div class="settings-row__info">
+                  <label class="settings-row__label">Button Active Color</label>
+                  <p class="settings-row__hint">Color of active/selected buttons.</p>
+                </div>
+                <div class="settings-row__action">
+                  <div class="settings-color-group">
+                    <div class="settings-color-wrapper">
+                      <div class="settings-color-swatch" style="background-color: ${state.settings?.searchInput?.buttonActiveColor || '#007acc'}"></div>
+                    </div>
+                    <input type="text" class="settings-input settings-color-text" data-setting="searchInput.buttonActiveColor" value="${state.settings?.searchInput?.buttonActiveColor || '#007acc'}" placeholder="#HEX" maxlength="9" />
                   </div>
                 </div>
               </div>

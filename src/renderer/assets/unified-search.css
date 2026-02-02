@@ -1,0 +1,278 @@
+/**
+ * Unified Search Input Styling
+ * Applied to:
+ * - Terminal search (Ctrl+F in terminal)
+ * - Editor find widget (Ctrl+F in editor)
+ * - Global search (Ctrl+Shift+F in sidebar)
+ */
+
+:root {
+  /* Search Input Colors - Can be overridden by settings */
+  --search-bg: var(--panel-strong, #3c3c3c);
+  --search-border: var(--border, rgba(255, 255, 255, 0.1));
+  --search-focus-border: var(--primary, #007acc);
+  --search-text: var(--text-strong, #ffffff);
+  --search-placeholder: var(--text-soft, #858585);
+  --search-button: var(--text-soft, #cccccc);
+  --search-button-hover: var(--text-strong, #ffffff);
+  --search-button-active: var(--primary, #007acc);
+}
+
+/* Base search container styling */
+.unified-search-container {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--panel, #252526);
+  padding: 6px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--search-border);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* Search input wrapper */
+.unified-search-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: var(--search-bg);
+  border: 1px solid var(--search-border);
+  border-radius: 3px;
+  transition: border-color 0.15s ease;
+  min-width: 200px;
+}
+
+.unified-search-wrapper:focus-within {
+  border-color: var(--search-focus-border);
+  box-shadow: 0 0 0 1px var(--search-focus-border);
+}
+
+/* Search input field */
+.unified-search-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--search-text);
+  font-size: 13px;
+  padding: 4px 8px;
+  outline: none;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+}
+
+.unified-search-input::placeholder {
+  color: var(--search-placeholder);
+  opacity: 0.7;
+}
+
+/* Search options/buttons container */
+.unified-search-options {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 4px;
+  border-right: 1px solid var(--search-border);
+  margin-right: 4px;
+}
+
+/* Search option buttons (Match Case, Whole Word, Regex) */
+.unified-search-option {
+  width: 20px;
+  height: 20px;
+  background: transparent;
+  border: none;
+  color: var(--search-button);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  padding: 0;
+}
+
+.unified-search-option:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--search-button-hover);
+}
+
+.unified-search-option.active {
+  background: var(--selection, rgba(0, 122, 204, 0.3));
+  color: var(--search-button-active);
+}
+
+/* Search action buttons (Previous, Next, Close) */
+.unified-search-action {
+  background: transparent;
+  border: none;
+  color: var(--search-button);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+  transition: all 0.15s ease;
+  width: 24px;
+  height: 24px;
+}
+
+.unified-search-action:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--search-button-hover);
+}
+
+.unified-search-action.close:hover {
+  background: #e81123;
+  color: #ffffff;
+}
+
+/* Search result counter */
+.unified-search-counter {
+  font-size: 11px;
+  color: var(--search-placeholder);
+  padding: 0 6px;
+  white-space: nowrap;
+  user-select: none;
+}
+
+/* Animation for search container appearance */
+@keyframes searchSlideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.unified-search-container.animated {
+  animation: searchSlideDown 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .unified-search-wrapper {
+    min-width: 150px;
+  }
+  
+  .unified-search-counter {
+    display: none;
+  }
+}
+
+/* ========================================
+   MONACO EDITOR FIND WIDGET OVERRIDES
+   ======================================== */
+
+/* Override Monaco's find widget with our custom colors */
+.monaco-editor .find-widget {
+  background-color: var(--search-bg) !important;
+  border: 1px solid var(--search-border) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+}
+
+.monaco-editor .find-widget .monaco-inputbox {
+  background-color: var(--search-bg) !important;
+  border: 1px solid var(--search-border) !important;
+}
+
+.monaco-editor .find-widget .monaco-inputbox.synthetic-focus,
+.monaco-editor .find-widget .monaco-inputbox:focus-within {
+  border-color: var(--search-focus-border) !important;
+  box-shadow: 0 0 0 1px var(--search-focus-border) !important;
+}
+
+.monaco-editor .find-widget .monaco-inputbox input {
+  color: var(--search-text) !important;
+  background-color: transparent !important;
+}
+
+.monaco-editor .find-widget .monaco-inputbox input::placeholder {
+  color: var(--search-placeholder) !important;
+}
+
+/* Monaco find widget buttons */
+.monaco-editor .find-widget .button {
+  background-color: transparent !important;
+  color: var(--search-button) !important;
+}
+
+.monaco-editor .find-widget .button:hover {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+  color: var(--search-button-hover) !important;
+}
+
+.monaco-editor .find-widget .button.checked,
+.monaco-editor .find-widget .button.active {
+  background-color: var(--selection, rgba(0, 122, 204, 0.3)) !important;
+  color: var(--search-button-active) !important;
+}
+
+/* Monaco find widget close button */
+.monaco-editor .find-widget .codicon-widget-close {
+  color: var(--search-button) !important;
+}
+
+.monaco-editor .find-widget .codicon-widget-close:hover {
+  background-color: #e81123 !important;
+  color: #ffffff !important;
+}
+
+/* ========================================
+   SIDEBAR SEARCH OVERRIDES
+   ======================================== */
+
+/* Sidebar search wrapper */
+.sidebar__search-wrapper {
+  background-color: var(--search-bg) !important;
+  border-color: var(--search-border) !important;
+}
+
+.sidebar__search-wrapper:focus-within {
+  border-color: var(--search-focus-border) !important;
+  box-shadow: 0 0 0 1px var(--search-focus-border) !important;
+}
+
+/* Sidebar search inputs */
+#global-search-input,
+#global-replace-input {
+  color: var(--search-text) !important;
+  background-color: transparent !important;
+}
+
+#global-search-input::placeholder,
+#global-replace-input::placeholder {
+  color: var(--search-placeholder) !important;
+}
+
+/* Sidebar search option buttons (Match Case, Whole Word, Regex) */
+.search-options .search-option {
+  background-color: transparent !important;
+  color: var(--search-button) !important;
+}
+
+.search-options .search-option:hover {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+  color: var(--search-button-hover) !important;
+}
+
+.search-options .search-option.active {
+  background-color: var(--selection, rgba(0, 122, 204, 0.3)) !important;
+  color: var(--search-button-active) !important;
+}
+
+/* Sidebar action buttons (replace, etc) */
+.sidebar__action {
+  background-color: var(--search-bg) !important;
+  border-color: var(--search-border) !important;
+  color: var(--search-button) !important;
+}
+
+.sidebar__action:hover {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+  color: var(--search-button-hover) !important;
+}

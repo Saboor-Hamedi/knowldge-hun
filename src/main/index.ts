@@ -24,7 +24,7 @@ import {
   DEFAULT_SETTINGS,
   type Settings
 } from './settings'
-import { registerTerminalHandlers, cleanupTerminals } from './terminal'
+import { registerTerminalHandlers, cleanupTerminals } from './modules/terminal'
 
 let mainWindowRef: BrowserWindow | null = null
 const freshWindows = new Set<number>()

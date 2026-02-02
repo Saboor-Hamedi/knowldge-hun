@@ -37,6 +37,7 @@ import { VaultHandler } from './handlers/VaultHandler'
 import { FileOperationHandler } from './handlers/FileOperationHandler'
 import { ViewOrchestrator } from './handlers/ViewOrchestrator'
 import { SyncHandler } from './services/sync/syncHandler'
+import { applySearchInputStyles } from './utils/searchInputStyles'
 
 declare global {
   interface Window {
@@ -347,6 +348,7 @@ class App {
       this.sidebar.applyStyles()
       this.activityBar.applyStyles()
       this.statusBar.updateVisibility()
+      applySearchInputStyles(state.settings)
     }
   }
 
@@ -511,6 +513,7 @@ class App {
         this.tabBar.render()
         this.sidebar.applyStyles()
         this.activityBar.applyStyles()
+        applySearchInputStyles(state.settings!)
       })
 
       // Debounce the actual disk/IPC update to prevent lag during rapid sliding
