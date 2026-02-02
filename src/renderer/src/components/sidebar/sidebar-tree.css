@@ -529,26 +529,35 @@
 
 /* Dirty state indicator with pulse animation */
 .tree-item__dirty-dot {
+  display: block;
   width: 8px;
   height: 8px;
-  background-color: #cca700;
+  background-color: var(--primary, #569cd6);
   border-radius: 50%;
   margin-left: auto;
-  margin-right: 4px;
+  margin-right: 12px;
   flex-shrink: 0;
-  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-  box-shadow: 0 0 3px rgba(204, 167, 0, 0.4);
+  /* Removed box-shadow for a cleaner look */
+  transition: transform 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  animation: dotPop 0.2s ease-out;
 }
 
-@keyframes pulse {
-  0%,
+.tree-item:hover .tree-item__dirty-dot {
+  transform: scale(1.2);
+}
+
+@keyframes dotPop {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
   100% {
+    transform: scale(1);
     opacity: 1;
   }
-  50% {
-    opacity: 0.6;
-  }
 }
+
+/* Remove old pulse keyframes if no longer used */
 
 /* Search result selection */
 .search-result-item.selected {
