@@ -338,7 +338,7 @@ export class SidebarTree {
       }
 
       const currentId = ++searchRequestId
-      if (searchTimeout) clearTimeout(searchTimeout)
+      if (searchTimeout) window.clearTimeout(searchTimeout)
 
       const execute = async () => {
         try {
@@ -648,7 +648,7 @@ export class SidebarTree {
   }
 
   private createLucideIcon(
-    IconComponent: any,
+    IconComponent: React.ComponentType,
     size: number = 16,
     strokeWidth: number = 1.5
   ): string {
@@ -773,7 +773,7 @@ export class SidebarTree {
       return
     }
 
-    this.renderItems(items, innerContainer, 0)
+    this.renderItems(items, innerContainer, 1)
     this.bodyEl.appendChild(innerContainer)
   }
 
@@ -849,7 +849,7 @@ export class SidebarTree {
 
     const arrow = document.createElement('span')
     arrow.className = 'tree-item__expand sidebar__icon'
-    arrow.innerHTML = codicons.chevronRight
+    arrow.innerHTML = isExpanded ? codicons.chevronDown : codicons.chevronRight
 
     const icon = document.createElement('span')
     icon.className = 'tree-item__icon sidebar__icon'
@@ -1503,17 +1503,15 @@ export class SidebarTree {
       }
 
       // Logic to jump to parent (previous sibling with less indent)
-      const depth =
-        parseInt((item.querySelector('.tree-item__indent') as HTMLElement)?.style.width || '0') / 16
+      const guides = Array.from(item.querySelectorAll('.tree-item__indent-guide'))
+      const depth = guides.length
       if (depth > 0) {
         let prev = item.previousElementSibling
         // Limit parent jump loop to avoid infinite loop
         let attempts = 0
         while (prev && attempts < 50) {
           attempts++
-          const prevIndentEl = prev.querySelector('.tree-item__indent') as HTMLElement
-          const prevIndent = prevIndentEl?.style.width || '0'
-          const prevDepth = parseInt(prevIndent) / 16
+          const prevDepth = prev.querySelectorAll('.tree-item__indent-guide').length
 
           if (prevDepth < depth) {
             // Found the parent folder item
