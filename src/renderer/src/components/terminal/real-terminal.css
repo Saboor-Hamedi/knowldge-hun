@@ -219,8 +219,8 @@
   overflow-y: auto;
   overflow-x: hidden;
   transition: width 0.2s ease, opacity 0.2s ease;
-  padding-top: 12px;
-  padding-bottom: 12px;
+  padding-top: 2px;
+  padding-bottom: 2px;
   flex-shrink: 0;
 }
 
@@ -248,8 +248,8 @@
 .terminal-session-item {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 8px;
+  gap: 6px;
+  padding: 2px 4px;
   cursor: pointer;
   border-radius: 3px;
   margin-bottom: 2px;
@@ -295,9 +295,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  height: 18px;
-  font-size: 14px;
+  width: 16px;
+  height: 16px;
+  font-size: 13px;
   color: var(--session-color, #4ec9b0);
   flex-shrink: 0;
   transition: color 0.15s ease, transform 0.2s ease;
@@ -327,9 +327,9 @@
   content: '';
   position: absolute;
   left: 0;
-  top: 6px;
-  bottom: 6px;
-  width: 2px;
+  top: 2px;
+  bottom: 2px;
+  width: 3px;
   background: transparent;
   border-radius: 0 2px 2px 0;
   transition: background 0.15s ease;
@@ -344,12 +344,14 @@
   border: none;
   color: #858585;
   cursor: pointer;
-  padding: 4px;
+  padding: 2px;
   border-radius: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
   transition: all 0.2s ease;
+  width: 18px;
+  height: 18px;
 }
 
 .terminal-session-item:hover .session-close,
@@ -407,7 +409,7 @@
 /* Terminal Content */
 .real-terminal-content {
   flex: 1;
-  background: #1e1e1e;
+  background: transparent; /* Allow frame color to show through */
   position: relative;
   min-width: 150px; /* Ensure terminal never collapses to < ~15 cols */
 }
@@ -445,7 +447,7 @@
   height: 100%;
   position: relative;
   overflow: hidden;
-  padding: 5px;
+  padding: 2px;
   box-sizing: border-box;
 }
 
@@ -469,8 +471,8 @@
 }
 
 .terminal-instance .xterm-screen {
-  padding: 2px 5px !important;
-  background: #1e1e1e !important;
+  padding: 0 !important;
+  background: transparent !important; /* Allow frame color to show through */
 }
 
 /* Remove padding from all xterm renderer elements */
