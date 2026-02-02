@@ -209,16 +209,18 @@ export class VaultHandler {
     const shell = document.querySelector('.vscode-shell')
     const isSidebarVisible = shell && !shell.classList.contains('sidebar-hidden')
 
-    // Check if search is currently active in the activity bar
+    // Check if search or history is currently active in the activity bar
     const isSearchActive =
       state.activeView === 'search' ||
       document
         .querySelector('.activitybar__item[data-view="search"]')
         ?.classList.contains('is-active')
 
-    // Only switch to 'notes' if we aren't in search mode.
-    // This allows opening search results without losing the search context.
-    if (isSidebarVisible && !isSearchActive) {
+    const isHistoryActive = state.activeView === 'history'
+
+    // Only switch to 'notes' if we aren't in search or history mode.
+    // This allows opening search results or viewing history without losing the context.
+    if (isSidebarVisible && !isSearchActive && !isHistoryActive) {
       this.components.activityBar.setActiveView('notes')
     }
 

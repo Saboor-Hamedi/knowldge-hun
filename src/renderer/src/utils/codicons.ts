@@ -51,7 +51,8 @@ import {
   CopyPlus,
   Layers,
   LayoutGrid,
-  Terminal
+  Terminal,
+  History
 } from 'lucide'
 
 /**
@@ -148,7 +149,8 @@ export const codicons = {
   export: lucideIcon(FileOutput, 14, 2),
   duplicate: lucideIcon(CopyPlus),
   closeAll: lucideIcon(Layers),
-  closeOthers: lucideIcon(LayoutGrid)
+  closeOthers: lucideIcon(LayoutGrid),
+  history: lucideIcon(History)
 }
 
 // Folder type detector based on folder name

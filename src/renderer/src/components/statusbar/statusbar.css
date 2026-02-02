@@ -1,50 +1,82 @@
 .statusbar {
-  height: 24px;
-  background: var(--bg-dark);
-  border-top: 1px solid var(--border-soft);
+  height: 26px;
+  background: var(--panel-strong, rgba(20, 26, 38, 0.95));
+  backdrop-filter: blur(12px);
+  border-top: 1px solid var(--border-soft, rgba(255, 255, 255, 0.05));
   display: flex;
   justify-content: space-between;
-  align-items: stretch; /* Change from center to stretch */
+  align-items: stretch;
   padding: 0;
-  color: var(--text-soft);
-  font-family: var(--font-ui);
+  color: var(--text-soft, #8b95a8);
+  font-family: var(--font-ui, 'Inter', sans-serif);
   z-index: 1000;
   box-sizing: border-box;
+  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .statusbar__left,
 .statusbar__right {
   display: flex;
-  align-items: stretch; /* Change from center to stretch */
+  align-items: stretch;
   height: 100%;
 }
 
 .statusbar__item {
   display: flex;
   align-items: center;
-  padding: 0 10px;
-  height: 24px; /* Explicit height */
-  color: var(--text-soft);
+  padding: 0 12px;
+  height: 26px;
+  color: var(--text-soft, #8b95a8);
   white-space: nowrap;
   font-size: 11px;
+  font-weight: 500;
   cursor: default;
-  transition: all 150ms ease;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   user-select: none;
   box-sizing: border-box;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Subtle separator line */
+.statusbar__item::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.statusbar__item:last-child::after {
+  display: none;
 }
 
 .statusbar__item:hover {
-  background: rgba(255, 255, 255, 0.12);
-  color: var(--text-strong);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-strong, #e4e8f1);
+}
+
+/* Active indicator for actionable items */
+.statusbar__item[data-action]:hover::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--primary, #7fa7ff);
 }
 
 .statusbar__meta {
-  color: var(--accent);
+  color: var(--primary, #7fa7ff);
+  font-weight: 600;
 }
 
 .statusbar__sync {
   position: relative;
-  height: 24px; /* Explicit height */
+  height: 26px;
   display: flex;
   align-items: stretch;
 }
@@ -52,38 +84,61 @@
 .statusbar__sync-button {
   background: transparent;
   border: none;
-  padding: 0 10px;
-  height: 24px; /* Explicit height */
-  color: var(--text-soft);
+  padding: 0 12px;
+  height: 26px;
+  color: var(--text-soft, #8b95a8);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 150ms ease;
+  transition: all 0.2s ease;
   box-sizing: border-box;
+  position: relative;
 }
 
 .statusbar__sync-button .lucide-icon {
-  width: 12px;
-  height: 12px;
+  width: 13px;
+  height: 13px;
+  transition: transform 0.3s ease;
 }
 
 .statusbar__sync-button:hover {
-  background: rgba(255, 255, 255, 0.12);
-  color: var(--text-strong);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-strong, #e4e8f1);
+}
+
+.statusbar__sync-button:hover .lucide-icon {
+  transform: rotate(180deg);
+}
+
+.statusbar__sync-button.is-syncing .lucide-icon {
+  animation: status-spin 2s linear infinite;
+}
+
+@keyframes status-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 .statusbar__sync-menu {
   position: fixed !important;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  min-width: 180px;
+  background: var(--panel-strong, #1a1f2c);
+  border: 1px solid var(--border, #2d3548);
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  min-width: 200px;
   display: none;
   flex-direction: column;
   overflow: hidden;
   z-index: 10005 !important;
+  padding: 6px;
+  backdrop-filter: blur(16px);
+  animation: statusMenuIn 0.15s cubic-bezier(0, 0, 0.2, 1);
+}
+
+@keyframes statusMenuIn {
+  from { opacity: 0; transform: translateY(10px) scale(0.95); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 .statusbar__sync-menu.is-open {
@@ -93,76 +148,58 @@
 .statusbar__sync-menu-item {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   padding: 8px 12px;
   background: transparent;
   border: none;
-  color: var(--text-strong);
+  color: var(--text-strong, #e4e8f1);
   cursor: pointer;
   font-size: 12px;
+  font-weight: 500;
   text-align: left;
-  transition: background 150ms ease;
+  border-radius: 6px;
+  transition: all 0.15s ease;
   width: 100%;
 }
 
 .statusbar__sync-menu-item:hover {
-  background: var(--hover);
-}
-
-.statusbar__sync-menu-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 12px;
-  height: 12px;
-  flex-shrink: 0;
-}
-
-.statusbar__sync-menu-icon .lucide-icon {
-  width: 10px;
-  height: 10px;
+  background: var(--selection, rgba(255, 255, 255, 0.08));
+  transform: translateX(4px);
 }
 
 .statusbar__cursor {
-  font-family: var(--font-mono, monospace);
-  min-width: 90px;
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+  min-width: 100px;
+  font-variant-numeric: tabular-nums;
   border-left: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.statusbar__words,
-.statusbar__chars,
-.statusbar__lines,
-.statusbar__tags,
-.statusbar__links,
-.statusbar__mentions {
-  border-left: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.statusbar__version {
-  border-right: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .statusbar__git {
-  gap: 6px;
+  gap: 8px;
   cursor: pointer;
+  padding-left: 14px;
   border-right: 1px solid rgba(255, 255, 255, 0.05);
 }
 
+.statusbar__git.is-init-needed {
+  color: var(--primary, #7fa7ff);
+  font-weight: 600;
+}
+
+.statusbar__git.is-init-needed:hover {
+  background: rgba(127, 167, 255, 0.1);
+}
+
 .statusbar__git .lucide-icon {
-  width: 12px;
-  height: 12px;
-  opacity: 0.8;
+  width: 13px;
+  height: 13px;
+  opacity: 0.9;
 }
 
 .statusbar__git-branch {
   font-weight: 500;
   display: flex;
   align-items: center;
-}
-
-.statusbar__git:hover {
-  background: rgba(255, 255, 255, 0.12);
-  color: #fff;
 }
 
 /* Premium Custom Tooltip */

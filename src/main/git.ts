@@ -1,6 +1,7 @@
 import { exec } from 'child_process'
 import { promisify } from 'util'
 import { existsSync } from 'fs'
+import { writeFile } from 'fs/promises'
 import { join } from 'path'
 
 const execAsync = promisify(exec)
@@ -24,10 +25,13 @@ export interface GitInfo {
  * Executes a git command and returns the stdout
  */
 async function runGit(args: string[], cwd: string): Promise<string> {
-  const { stdout } = await execAsync(`git ${args.join(' ')}`, {
+  // On Windows, we need to use shell: true to properly handle git commands
+  const command = `git ${args.join(' ')}`
+  const { stdout } = await execAsync(command, {
     cwd,
     windowsHide: true,
-    timeout: 5000 // 5 second timeout for git commands
+    timeout: 5000, // 5 second timeout for git commands
+    shell: true // Required for Windows to handle special characters
   })
   return stdout.trim()
 }
@@ -130,6 +134,81 @@ export async function getGitInfo(rootPath: string): Promise<GitInfo> {
   } catch (error) {
     console.error('[Main:Git] Failed to fetch git info:', error)
     return defaultInfo
+  }
+}
+
+/**
+ * Initializes a new git repository in the given path and adds a default .gitignore.
+ */
+export async function initGit(rootPath: string): Promise<boolean> {
+  if (!rootPath || !existsSync(rootPath)) {
+    return false
+  }
+
+  try {
+    await runGit(['init'], rootPath)
+
+    // Add default .gitignore if it doesn't exist
+    const ignorePath = join(rootPath, '.gitignore')
+    if (!existsSync(ignorePath)) {
+      const defaultIgnore = `# KnowledgeHub\n.config.json\nassets/\n.DS_Store\nThumbs.db\n*.tmp\n`
+      await writeFile(ignorePath, defaultIgnore)
+    }
+
+    return true
+  } catch (error) {
+    console.error('[Main:Git] Failed to initialize git repository:', error)
+    return false
+  }
+}
+
+/**
+ * Returns the history of a specific file.
+ */
+export async function getFileHistory(rootPath: string, filePath: string): Promise<any[]> {
+  if (!rootPath || !existsSync(rootPath)) return []
+  try {
+    // On Windows CMD, % needs to be escaped as %% in format strings
+    const isWindows = process.platform === 'win32'
+    const formatString = isWindows
+      ? '--pretty=format:%%H|%%at|%%an|%%s'
+      : '--pretty=format:%H|%at|%an|%s'
+
+    const output = await runGit(['log', '--max-count=50', formatString, '--', filePath], rootPath)
+    if (!output) return []
+    return output
+      .split(/\r?\n/)
+      .filter((line) => line.trim())
+      .map((line) => {
+        const [hash, timestamp, author, subject] = line.split('|')
+        return {
+          hash,
+          timestamp: parseInt(timestamp) * 1000,
+          author,
+          subject
+        }
+      })
+  } catch (err) {
+    console.error('[Main:Git] Failed to fetch file history:', err)
+    return []
+  }
+}
+
+/**
+ * Returns the content of a file at a specific commit.
+ */
+export async function getFileContentAtCommit(
+  rootPath: string,
+  filePath: string,
+  hash: string
+): Promise<string> {
+  if (!rootPath || !existsSync(rootPath)) return ''
+  try {
+    // filePath is expected to be relative to the repo root
+    return await runGit(['show', `${hash}:${filePath}`], rootPath)
+  } catch (err) {
+    console.error('[Main:Git] Failed to get file content at commit:', err)
+    return ''
   }
 }
 

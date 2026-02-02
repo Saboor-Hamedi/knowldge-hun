@@ -5,6 +5,7 @@ import { modalManager } from '../components/modal/modal'
 import { securityService } from '../services/security/securityService'
 import { ragService } from '../services/rag/ragService'
 import { tabService } from '../services/tabService'
+import { gitService } from '../services/git/gitService'
 
 export class FileOperationHandler {
   constructor(
@@ -221,6 +222,9 @@ export class FileOperationHandler {
       this.components.tabBar.render()
       this.components.breadcrumbs.render()
       this.components.statusBar.setStatus('Autosaved')
+
+      // Refresh git status for the timeline and status bar
+      gitService.refreshStatus()
 
       ragService
         .indexNote(payload.id, payload.content, {

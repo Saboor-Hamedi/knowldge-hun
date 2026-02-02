@@ -13,6 +13,13 @@ type NoteMeta = {
 
 type TreeItem = NoteMeta
 
+type GitCommit = {
+  hash: string
+  timestamp: number
+  author: string
+  subject: string
+}
+
 type NotePayload = NoteMeta & {
   content: string
 }
@@ -39,7 +46,7 @@ type AppSettings = {
   openTabs?: { id: string; path?: string; title?: string }[]
   pinnedTabs?: string[]
   activeId?: string
-  activeView?: 'notes' | 'search' | 'settings' | 'graph'
+  activeView?: 'notes' | 'search' | 'settings' | 'graph' | 'history'
   windowBounds?: { width: number; height: number; x?: number; y?: number }
   deepseekApiKey?: string
   openaiApiKey?: string
@@ -94,11 +101,17 @@ type NoteApi = {
   renameFolder: (path: string, newName: string) => Promise<{ path: string }>
   deleteFolder: (path: string) => Promise<{ path: string }>
   moveFolder: (sourcePath: string, targetPath: string) => Promise<{ path: string }>
-  searchNotes: (query: string, options?: any) => Promise<NoteMeta[]>
+  searchNotes: (
+    query: string,
+    options?: { matchCase?: boolean; wholeWord?: boolean; useRegex?: boolean }
+  ) => Promise<NoteMeta[]>
   getBacklinks: (id: string) => Promise<string[]>
   getGraph: () => Promise<{ links: { source: string; target: string }[] }>
   getGitStatus: () => Promise<Record<string, string>>
   getGitInfo: () => Promise<{ status: Record<string, string>; metadata: GitMetadata }>
+  gitInit: () => Promise<boolean>
+  getGitHistory: (filePath: string) => Promise<GitCommit[]>
+  getGitContentAtCommit: (filePath: string, hash: string) => Promise<string>
   getVault: () => Promise<VaultInfo>
   chooseVault: () => Promise<VaultInfo>
   setVault: (dir: string) => Promise<VaultInfo>

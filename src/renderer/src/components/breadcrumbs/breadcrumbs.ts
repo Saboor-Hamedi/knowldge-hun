@@ -149,13 +149,13 @@ export class Breadcrumbs {
     // Add dropdown chevron only if not the last item (the active file)
     // This avoids redundancy and prevents showing the entire root tree for files at the root
     if (!isLast) {
-      this.addDropdownChevron(item, id, type)
+      this.addDropdownChevron(item, id)
     }
 
     this.container.appendChild(item)
   }
 
-  private addDropdownChevron(parent: HTMLElement, path: string, type?: 'note' | 'folder'): void {
+  private addDropdownChevron(parent: HTMLElement, path: string): void {
     const chevron = document.createElement('span')
     chevron.className = 'breadcrumb-item__chevron'
     chevron.innerHTML = codicons.chevronDown
@@ -163,7 +163,7 @@ export class Breadcrumbs {
     chevron.addEventListener('click', (e) => {
       e.stopPropagation()
       const rect = chevron.getBoundingClientRect()
-      this.showChildrenMenu(rect.left, rect.bottom, path, type)
+      this.showChildrenMenu(rect.left, rect.bottom, path)
     })
 
     parent.appendChild(chevron)
@@ -219,7 +219,7 @@ export class Breadcrumbs {
     contextMenu.show(e.clientX, e.clientY, items)
   }
 
-  private showChildrenMenu(x: number, y: number, path: string, _type?: 'note' | 'folder'): void {
+  private showChildrenMenu(x: number, y: number, path: string): void {
     let children: TreeItem[] = []
 
     // For breadcrumbs, we always want to show the siblings of the current segment

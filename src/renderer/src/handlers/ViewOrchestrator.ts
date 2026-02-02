@@ -32,9 +32,15 @@ export class ViewOrchestrator {
         setCursor: (pos: { ln: number; col: number } | null) => void
         updateVisibility: () => void
       }
-      activityBar: { setActiveView: (view: 'notes' | 'search' | 'settings' | 'graph') => void }
+      activityBar: {
+        setActiveView: (view: 'notes' | 'search' | 'settings' | 'graph' | 'history') => void
+      }
       breadcrumbs: { render: () => void }
       graphTabView: { open: () => Promise<void>; close: () => void }
+      timeline: {
+        setVisible: (visible: boolean) => void
+        update: (id: string, path: string) => Promise<void>
+      }
     }
   ) {}
 
@@ -45,6 +51,8 @@ export class ViewOrchestrator {
     const welcomeHost = document.getElementById('welcomeHost')
     const tabBar = document.getElementById('tabBar')
     const breadcrumbs = document.getElementById('breadcrumbs')
+    const timelineHost = document.getElementById('timelineHost')
+    const sidebar = document.getElementById('sidebar')
 
     const isWelcomeVisible = this.components.welcomePage.isVisible()
 
@@ -80,6 +88,40 @@ export class ViewOrchestrator {
       if (tabBar) tabBar.style.display = 'flex'
       if (breadcrumbs) breadcrumbs.style.display = 'flex'
       this.components.editor.layout()
+    }
+
+    // Update sidebar views - use visibility instead of display to preserve layout
+    const view = state.activeView || 'notes'
+    if (view === 'history') {
+      if (sidebar) {
+        sidebar.style.visibility = 'hidden'
+        sidebar.style.position = 'absolute'
+        sidebar.style.pointerEvents = 'none'
+      }
+      if (timelineHost) {
+        timelineHost.style.display = 'flex'
+        timelineHost.style.visibility = 'visible'
+        timelineHost.style.position = 'relative'
+      }
+      this.components.timeline.setVisible(true)
+
+      // Update with current note if available
+      if (state.activeId && state.activeId !== 'settings' && state.activeId !== 'graph') {
+        const note = state.notes.find((n) => n.id === state.activeId)
+        if (note && note.path) {
+          this.components.timeline.update(note.id, note.path)
+        }
+      }
+    } else {
+      if (sidebar) {
+        sidebar.style.visibility = 'visible'
+        sidebar.style.position = 'relative'
+        sidebar.style.pointerEvents = 'auto'
+      }
+      if (timelineHost) {
+        timelineHost.style.display = 'none'
+      }
+      this.components.timeline.setVisible(false)
     }
 
     // Refresh breadcrumbs whenever visibility state changes

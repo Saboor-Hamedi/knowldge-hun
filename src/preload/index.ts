@@ -103,6 +103,7 @@ const api = {
     status: Record<string, string>
     metadata: { branch: string; remote?: string; repoName?: string }
   }> => ipcRenderer.invoke('git:info'),
+  gitInit: (): Promise<boolean> => ipcRenderer.invoke('git:init'),
 
   getSettings: (): Promise<AppSettings> => ipcRenderer.invoke('settings:get'),
   updateSettings: (updates: Partial<AppSettings>): Promise<AppSettings> =>
@@ -167,7 +168,10 @@ const api = {
   onNoteOpened: (callback: (id: string) => void): void => {
     // This is currently a stub if not used, but let's keep the parameter to match expected interface
     void callback
-  }
+  },
+  getGitHistory: (filePath: string): Promise<any[]> => ipcRenderer.invoke('git:history', filePath),
+  getGitContentAtCommit: (filePath: string, hash: string): Promise<string> =>
+    ipcRenderer.invoke('git:show-content', filePath, hash)
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

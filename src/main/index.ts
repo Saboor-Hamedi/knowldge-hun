@@ -25,7 +25,7 @@ import {
   type Settings
 } from './settings'
 import { registerTerminalHandlers, cleanupTerminals } from './modules/terminal'
-import { getGitStatus, getGitInfo } from './git'
+import { getGitStatus, getGitInfo, initGit, getFileHistory, getFileContentAtCommit } from './git'
 
 let mainWindowRef: BrowserWindow | null = null
 const freshWindows = new Set<number>()
@@ -925,6 +925,24 @@ app.whenReady().then(async () => {
     const v = getVaultManager(event.sender)
     const root = v?.getRootPath() || resolveVaultPath()
     return getGitInfo(root)
+  })
+
+  ipcMain.handle('git:init', async (event) => {
+    const v = getVaultManager(event.sender)
+    const root = v?.getRootPath() || resolveVaultPath()
+    return initGit(root)
+  })
+
+  ipcMain.handle('git:history', async (event, filePath: string) => {
+    const v = getVaultManager(event.sender)
+    const root = v?.getRootPath() || resolveVaultPath()
+    return getFileHistory(root, filePath)
+  })
+
+  ipcMain.handle('git:show-content', async (event, filePath: string, hash: string) => {
+    const v = getVaultManager(event.sender)
+    const root = v?.getRootPath() || resolveVaultPath()
+    return getFileContentAtCommit(root, filePath, hash)
   })
 
   ipcMain.handle('system:getUsername', () => {

@@ -19,6 +19,7 @@ import { FuzzyFinder } from './components/fuzzy-finder/fuzzy-finder'
 import { ConsoleComponent } from './components/console/console'
 import { RealTerminalComponent } from './components/terminal/real-terminal'
 import { GraphView } from './components/graph/graph'
+import { TimelineComponent } from './components/timeline/timeline'
 import { themeManager } from './core/themeManager'
 import { ErrorHandler } from './utils/error-handler'
 import { notificationManager } from './components/notification/notification'
@@ -69,6 +70,7 @@ class App {
   private pendingPersist: number | null = null
   private pendingSettingsUpdate: number | null = null
   private welcomePage: WelcomePage
+  private timeline: TimelineComponent
 
   private vaultHandler: VaultHandler
   private fileOps: FileOperationHandler
@@ -95,6 +97,7 @@ class App {
 
     const graphHost = document.getElementById('graphHost')
     this.graphTabView = new GraphView(graphHost || document.body, false) // Tab instance
+    this.timeline = new TimelineComponent('timelineHost')
 
     this.viewOrchestrator = new ViewOrchestrator({
       editor: this.editor,
@@ -104,7 +107,8 @@ class App {
       statusBar: this.statusBar,
       activityBar: this.activityBar,
       breadcrumbs: this.breadcrumbs,
-      graphTabView: this.graphTabView
+      graphTabView: this.graphTabView,
+      timeline: this.timeline
     })
 
     this.vaultHandler = new VaultHandler(
@@ -122,7 +126,13 @@ class App {
         showWelcomePage: () => this.viewOrchestrator.showWelcomePage(),
         openSettings: () => this.viewOrchestrator.openSettings(),
         openGraph: () => this.viewOrchestrator.openGraph(),
-        onNoteOpened: () => this.viewOrchestrator.updateEditorMetrics()
+        onNoteOpened: (id: string, path?: string) => {
+          this.viewOrchestrator.updateEditorMetrics()
+          // Update timeline if in history view
+          if (state.activeView === 'history' && path) {
+            this.timeline.update(id, path)
+          }
+        }
       }
     )
 
@@ -324,6 +334,11 @@ class App {
         console.log(`[App] Restored ${state.openTabs.length} tabs from settings`)
       }
       if (state.settings.activeId) state.activeId = state.settings.activeId
+      // Restore active view (explorer, search, history, etc.)
+      if (state.settings.activeView) {
+        state.activeView = state.settings.activeView
+        this.activityBar.setActiveView(state.settings.activeView)
+      }
     }
 
     if (state.settings.theme) themeManager.setTheme(state.settings.theme)
@@ -348,7 +363,7 @@ class App {
       this.sidebar.applyStyles()
       this.activityBar.applyStyles()
       this.statusBar.updateVisibility()
-      applySearchInputStyles(state.settings)
+      applySearchInputStyles(state.settings!)
     }
   }
 
@@ -366,10 +381,17 @@ class App {
       if (view === 'theme') return this.themeModal.open()
       if (view === 'graph') return void this.viewOrchestrator.openGraph()
       if (view === 'documentation') return this.documentationModal.toggle()
+      if (view === 'history') {
+        this.sidebar.show()
+        this.viewOrchestrator.updateViewVisibility()
+        return
+      }
+      if (view === 'lock') return void securityService.lock()
 
       const isSidebarView = view === 'notes' || view === 'search'
       this.sidebar.setVisible(isSidebarView)
       this.sidebar.setMode(view === 'search' ? 'search' : 'explorer')
+      this.viewOrchestrator.updateViewVisibility()
       this.editor.layout()
     })
 

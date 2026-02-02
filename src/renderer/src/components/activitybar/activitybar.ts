@@ -1,14 +1,23 @@
 import { state } from '../../core/state'
 import { codicons } from '../../utils/codicons'
 import { updateApp } from '../updateApp/updateRender'
-import { createElement, File, Search, Settings, Palette, Library, Lock } from 'lucide'
+import { createElement, File, Search, Settings, Palette, Library, Lock, History } from 'lucide'
 import { securityService } from '../../services/security/securityService'
 import './activitybar.css'
 
 export class ActivityBar {
   private container: HTMLElement
   private onViewChange?: (
-    view: 'notes' | 'search' | 'settings' | 'theme' | 'graph' | 'documentation' | 'lock' | null
+    view:
+      | 'notes'
+      | 'search'
+      | 'settings'
+      | 'theme'
+      | 'graph'
+      | 'documentation'
+      | 'lock'
+      | 'history'
+      | null
   ) => void
   private updateState: 'idle' | 'checking' | 'progress' | 'restart' = 'idle'
   private updateProgress: number = 0
@@ -26,13 +35,22 @@ export class ActivityBar {
 
   setViewChangeHandler(
     handler: (
-      view: 'notes' | 'search' | 'settings' | 'theme' | 'graph' | 'documentation' | 'lock' | null
+      view:
+        | 'notes'
+        | 'search'
+        | 'settings'
+        | 'theme'
+        | 'graph'
+        | 'documentation'
+        | 'lock'
+        | 'history'
+        | null
     ) => void
   ): void {
     this.onViewChange = handler
   }
 
-  setActiveView(view: 'notes' | 'search' | 'settings' | 'graph'): void {
+  setActiveView(view: 'notes' | 'search' | 'settings' | 'graph' | 'history'): void {
     // Update UI
     this.container.querySelectorAll('.activitybar__item').forEach((item) => {
       item.classList.remove('is-active')
@@ -98,16 +116,17 @@ export class ActivityBar {
     const paletteIcon = this.createLucideIcon(Palette)
     const libraryIcon = this.createLucideIcon(Library)
     const lockIcon = this.createLucideIcon(Lock)
+    const historyIcon = this.createLucideIcon(History)
 
     this.container.innerHTML = `
       <div class="activitybar__top">
-        <button class="activitybar__item${state.activeView === 'notes' ? ' is-active' : ''}" data-view="notes" title="Explorer">
+        <button class="activitybar__item${state.activeView === 'notes' ? ' is-active' : ''}" data-view="notes" data-tooltip="Explorer">
           <span class="activitybar__icon">${fileIcon}</span>
         </button>
-        <button class="activitybar__item${state.activeView === 'search' ? ' is-active' : ''}" data-view="search" title="Search">
+        <button class="activitybar__item${state.activeView === 'search' ? ' is-active' : ''}" data-view="search" data-tooltip="Search">
           <span class="activitybar__icon">${searchIcon}</span>
         </button>
-        <button class="activitybar__item${state.activeView === 'graph' ? ' is-active' : ''}" data-view="graph" title="Graph View">
+        <button class="activitybar__item${state.activeView === 'graph' ? ' is-active' : ''}" data-view="graph" data-tooltip="Graph View">
           <span class="activitybar__icon">
             <svg width="20" height="20" viewBox="0 0 16 16" fill="none">
               <circle cx="4" cy="4" r="2" stroke-width="1.5" fill="none"/>
@@ -117,21 +136,24 @@ export class ActivityBar {
             </svg>
           </span>
         </button>
-        <button class="activitybar__item${this.updateState !== 'idle' ? ' has-notification' : ''}" data-view="update" title="Update">
+        <button class="activitybar__item${state.activeView === 'history' ? ' is-active' : ''}" data-view="history" data-tooltip="Timeline">
+          <span class="activitybar__icon">${historyIcon}</span>
+        </button>
+        <button class="activitybar__item${this.updateState !== 'idle' ? ' has-notification' : ''}" data-view="update" data-tooltip="Update">
           <span class="activitybar__icon">${updateIcon}</span>
         </button>
-        <button class="activitybar__item" data-view="documentation" title="Documentation">
+        <button class="activitybar__item" data-view="documentation" data-tooltip="Documentation">
           <span class="activitybar__icon">${libraryIcon}</span>
         </button>
       </div>
       <div class="activitybar__bottom">
-        <button class="activitybar__item" data-view="lock" title="Lock App">
+        <button class="activitybar__item" data-view="lock" data-tooltip="Lock App">
           <span class="activitybar__icon">${lockIcon}</span>
         </button>
-        <button class="activitybar__item" data-view="theme" title="Theme">
+        <button class="activitybar__item" data-view="theme" data-tooltip="Theme">
           <span class="activitybar__icon">${paletteIcon}</span>
         </button>
-        <button class="activitybar__item${state.activeView === 'settings' ? ' is-active' : ''}" data-view="settings" title="Settings">
+        <button class="activitybar__item${state.activeView === 'settings' ? ' is-active' : ''}" data-view="settings" data-tooltip="Settings">
           <span class="activitybar__icon">${settingsIcon}</span>
         </button>
       </div>
@@ -212,6 +234,7 @@ export class ActivityBar {
         | 'settings'
         | 'theme'
         | 'graph'
+        | 'history'
         | 'update'
         | 'documentation'
         | 'lock'
@@ -262,9 +285,13 @@ export class ActivityBar {
       // Save active view to settings
       if (
         state.settings &&
-        (view === 'notes' || view === 'search' || view === 'settings' || view === 'graph')
+        (view === 'notes' ||
+          view === 'search' ||
+          view === 'settings' ||
+          view === 'graph' ||
+          view === 'history')
       ) {
-        state.settings.activeView = view as any
+        state.settings.activeView = view as 'notes' | 'search' | 'settings' | 'graph' | 'history'
         void window.api.updateSettings({ activeView: view })
       }
 

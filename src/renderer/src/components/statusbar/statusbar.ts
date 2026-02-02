@@ -4,6 +4,7 @@ import { createElement, CloudUpload, CloudDownload, RefreshCw, GitBranch } from 
 import { state } from '../../core/state'
 import { ContextMenu } from '../contextmenu/contextmenu'
 import { gitService } from '../../services/git/gitService'
+import { notificationManager } from '../notification/notification'
 import { RichTooltip } from '../common/tooltip'
 import '../common/tooltip.css'
 
@@ -358,9 +359,13 @@ export class StatusBar {
         e.preventDefault()
         const action = (item as HTMLElement).dataset.action
         if (action === 'backup' || action === 'restore') {
+          syncButton.classList.add('is-syncing')
           this.container.dispatchEvent(
             new CustomEvent('sync-action', { detail: { action }, bubbles: true })
           )
+
+          // Auto-remove syncing class after 2 seconds (or wait for event)
+          setTimeout(() => syncButton.classList.remove('is-syncing'), 2000)
         }
         syncMenu.classList.remove('is-open')
       })
@@ -420,14 +425,65 @@ export class StatusBar {
     }
   }
 
+  private attachGitTooltip(): void {
+    if (!this.gitBranchEl || !this.tooltip) return
+
+    const el = this.gitBranchEl
+
+    el.addEventListener('mouseenter', () => {
+      if (!this.tooltip) return
+
+      const metadata = gitService.getMetadata()
+      const summary = gitService.getSummary()
+      if (!metadata.branch) return
+
+      const content = `
+        <div class="rich-tooltip__header">
+          <span class="rich-tooltip__title">${metadata.repoName || 'Local Repository'}</span>
+          <span class="rich-tooltip__badge">${metadata.branch}</span>
+        </div>
+        <div class="rich-tooltip__body">
+          ${
+            metadata.remote
+              ? `
+            <div class="rich-tooltip__row">
+              <a href="${metadata.remote}" class="rich-tooltip__link" target="_blank" style="color: var(--accent); text-decoration: none; border-bottom: 1px dashed rgba(86, 156, 214, 0.4); padding-bottom: 1px;">${metadata.remote}</a>
+            </div>
+          `
+              : ''
+          }
+          <div class="rich-tooltip__stats">
+            <div class="rich-tooltip__stat modified" title="Modified">${summary.modified} M</div>
+            <div class="rich-tooltip__stat added" title="Added/Untracked">${summary.added} A</div>
+            <div class="rich-tooltip__stat deleted" title="Deleted">${summary.deleted} D</div>
+          </div>
+        </div>
+        <div class="rich-tooltip__footer">Click for Source Control actions</div>
+      `
+
+      this.tooltip.setCompact(false)
+      this.tooltip.show(el, content)
+    })
+
+    el.addEventListener('mouseleave', () => {
+      this.tooltip?.hide()
+    })
+  }
+
   private attachGitEvents(): void {
     window.addEventListener('git-status-changed', () => {
       this.updateGitInfo()
     })
 
-    // Attach tooltips to all statusbar items
+    // Attach Git tooltip
+    this.attachGitTooltip()
+
+    // Attach tooltips to all other statusbar items
     this.container.querySelectorAll('.statusbar__item').forEach((item) => {
       const el = item as HTMLElement
+
+      // Skip git item as it's handled separately
+      if (el.classList.contains('statusbar__git')) return
 
       el.addEventListener('mouseenter', () => {
         if (!this.tooltip) return
@@ -435,35 +491,7 @@ export class StatusBar {
         let content = ''
         const cl = el.classList
 
-        if (cl.contains('statusbar__git')) {
-          const metadata = gitService.getMetadata()
-          const summary = gitService.getSummary()
-          if (!metadata.branch) return
-
-          content = `
-            <div class="rich-tooltip__header">
-              <span class="rich-tooltip__title">${metadata.repoName || 'Local Repository'}</span>
-              <span class="rich-tooltip__badge">${metadata.branch}</span>
-            </div>
-            <div class="rich-tooltip__body">
-              ${
-                metadata.remote
-                  ? `
-                <div class="rich-tooltip__row">
-                  <a href="${metadata.remote}" class="rich-tooltip__link" target="_blank" style="color: var(--accent); text-decoration: none; border-bottom: 1px dashed rgba(86, 156, 214, 0.4); padding-bottom: 1px;">${metadata.remote}</a>
-                </div>
-              `
-                  : ''
-              }
-              <div class="rich-tooltip__stats">
-                <div class="rich-tooltip__stat modified" title="Modified">${summary.modified} M</div>
-                <div class="rich-tooltip__stat added" title="Added/Untracked">${summary.added} A</div>
-                <div class="rich-tooltip__stat deleted" title="Deleted">${summary.deleted} D</div>
-              </div>
-            </div>
-            <div class="rich-tooltip__footer">Click for Source Control actions</div>
-          `
-        } else if (cl.contains('statusbar__version')) {
+        if (cl.contains('statusbar__version')) {
           content = `
             <div class="rich-tooltip__header">
               <span class="rich-tooltip__title">Knowledge Hub</span>
@@ -494,12 +522,7 @@ export class StatusBar {
         }
 
         if (content) {
-          // Add a class for smaller tooltips if it's not the Git one
-          if (!cl.contains('statusbar__git')) {
-            this.tooltip.setCompact(true)
-          } else {
-            this.tooltip.setCompact(false)
-          }
+          this.tooltip.setCompact(true)
           this.tooltip.show(el, content)
         }
       })
@@ -518,11 +541,34 @@ export class StatusBar {
 
     if (metadata && metadata.branch) {
       this.gitBranchEl.style.display = 'flex'
+      this.gitBranchEl.classList.remove('is-init-needed')
       if (branchEl) branchEl.textContent = metadata.branch
       // Remove standard title to avoid double tooltips
       this.gitBranchEl.removeAttribute('title')
     } else {
-      this.gitBranchEl.style.display = 'none'
+      // Not a git repo
+      this.gitBranchEl.style.display = 'flex'
+      this.gitBranchEl.classList.add('is-init-needed')
+      if (branchEl) branchEl.textContent = 'Initialize'
+      this.gitBranchEl.title = 'Click to initialize Git repository'
+
+      // Clean listener to avoid duplicates
+      const newEl = this.gitBranchEl.cloneNode(true) as HTMLElement
+      this.gitBranchEl.parentNode?.replaceChild(newEl, this.gitBranchEl)
+      this.gitBranchEl = newEl
+
+      this.gitBranchEl.addEventListener('click', async () => {
+        const success = await window.api.gitInit()
+        if (success) {
+          notificationManager.show('Git repository initialized', 'success')
+          gitService.refreshStatus()
+        } else {
+          notificationManager.show('Failed to initialize Git', 'error')
+        }
+      })
+
+      // Re-attach tooltip event listeners after cloning
+      this.attachGitTooltip()
     }
   }
 }
