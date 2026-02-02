@@ -30,8 +30,8 @@ async function runGit(args: string[], cwd: string): Promise<string> {
   const { stdout } = await execAsync(command, {
     cwd,
     windowsHide: true,
-    timeout: 5000, // 5 second timeout for git commands
-    shell: true // Required for Windows to handle special characters
+    timeout: 5000 // 5 second timeout for git commands
+    // shell: true - removed as exec runs in shell by default and expects string
   })
   return stdout.trim()
 }
