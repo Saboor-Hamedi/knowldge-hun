@@ -246,32 +246,33 @@ export class SidebarTree {
       const chevronRightIcon = this.createLucideIcon(ChevronRight, 14)
 
       const searchMarkup = `
-         <div class="sidebar__search-container" style="padding: 8px 8px 8px 4px; display: flex; flex-direction: column; gap: 6px; border-bottom: 1px solid var(--border);">
-            <div style="display: flex; align-items: flex-start; gap: 2px;">
-              <button id="toggle-replace" class="sidebar__action" style="width: 20px; height: 26px; padding: 0; display: flex; align-items: center; justify-content: center; border-radius: 3px;">
+         <div class="sidebar__search-container">
+            <div class="sidebar__search-layout">
+              <button id="toggle-replace" class="sidebar__action toggle-replace-btn">
                 ${chevronRightIcon}
               </button>
-              <div style="flex: 1; display: flex; flex-direction: column; gap: 6px;">
-                <div class="sidebar__search-wrapper" style="position: relative; display: flex; align-items: center; background: var(--panel-strong); border: 1px solid var(--border); border-radius: 4px; height: 26px;">
-                    <div class="search-options" style="display: flex; gap: 1px; padding-left: 2px; border-right: 1px solid var(--border); margin-right: 4px;">
-                      <button class="search-option" data-option="matchCase" title="Match Case" style="width: 20px; height: 20px; background: transparent; border: none; color: var(--text-soft); cursor: pointer; font-size: 10px; border-radius: 2px; display: flex; align-items: center; justify-content: center;">Ab</button>
-                      <button class="search-option" data-option="wholeWord" title="Match Whole Word" style="width: 20px; height: 20px; background: transparent; border: none; color: var(--text-soft); cursor: pointer; font-size: 10px; border-radius: 2px; display: flex; align-items: center; justify-content: center;">W</button>
-                      <button class="search-option" data-option="useRegex" title="Use Regular Expression" style="width: 20px; height: 20px; background: transparent; border: none; color: var(--text-soft); cursor: pointer; font-size: 10px; border-radius: 2px; display: flex; align-items: center; justify-content: center;">.*</button>
-                    </div>
-                    <input type="text" placeholder="Search" id="global-search-input" autocomplete="off" style="flex: 1; background: transparent; border: none; padding: 2px 4px; color: var(--text-strong); font-size: 13px; outline: none; height: 100%;">
-                </div>
-                <div id="replace-container" style="display: none; align-items: center; gap: 4px;">
-                  <div style="display: flex; gap: 2px; border-right: 1px solid var(--border); padding-right: 4px; margin-right: 2px;">
-                    <button id="replace-next-btn" class="sidebar__action" title="Replace Next" style="border: 1px solid var(--border); background: var(--panel-strong); width: 22px; height: 22px; padding: 0; display: flex; align-items: center; justify-content: center; border-radius: 3px;">
-                      ${replaceNextIcon}
-                    </button>
-                    <button id="replace-all-btn" class="sidebar__action" title="Replace All" style="border: 1px solid var(--border); background: var(--panel-strong); width: 22px; height: 22px; padding: 0; display: flex; align-items: center; justify-content: center; border-radius: 3px;">
-                      ${replaceAllIcon}
-                    </button>
+              <div class="sidebar__search-fields">
+                <div class="sidebar__search-item">
+                  <div class="sidebar__search-input-wrapper">
+                      <div class="sidebar__actions-left">
+                        <button class="sidebar__action search-option" data-option="matchCase" title="Match Case">Ab</button>
+                        <button class="sidebar__action search-option" data-option="wholeWord" title="Match Whole Word">W</button>
+                        <button class="sidebar__action search-option" data-option="useRegex" title="Use Regular Expression">.*</button>
+                      </div>
+                      <input type="text" placeholder="Search" id="global-search-input" autocomplete="off">
                   </div>
-                  <div class="sidebar__search-wrapper" style="position: relative; flex: 1; display: flex; align-items: center; background: var(--panel-strong); border: 1px solid var(--border); border-radius: 4px; height: 26px;">
-                      <input type="text" placeholder="Replace" id="global-replace-input" autocomplete="off" style="flex: 1; background: transparent; border: none; padding: 2px 8px; color: var(--text-strong); font-size: 13px; outline: none; height: 100%;">
-                      <button id="clear-replace" class="sidebar__action" style="width: 18px; height: 18px; margin-right: 2px; opacity: 0.5; display: none;">×</button>
+                </div>
+                <div id="replace-container" class="sidebar__replace-container">
+                  <div class="sidebar__search-input-wrapper replace-input-wrapper">
+                      <div class="sidebar__actions-left">
+                        <button id="replace-next-btn" class="sidebar__action replace-btn" title="Replace Next">
+                          ${replaceNextIcon}
+                        </button>
+                        <button id="replace-all-btn" class="sidebar__action replace-btn" title="Replace All">
+                          ${replaceAllIcon}
+                        </button>
+                      </div>
+                      <input type="text" placeholder="Replace" id="global-replace-input" autocomplete="off">
                   </div>
                 </div>
               </div>
@@ -409,8 +410,8 @@ export class SidebarTree {
       }
 
       results.innerHTML = `
-          <div style="padding: 8px 10px; display: flex; flex-direction: column; gap: 2px;">
-            <div style="font-size: 11px; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; padding-left: 6px;">
+          <div class="search-results-list">
+            <div class="search-results-summary">
               ${notes.length} ${notes.length === 1 ? 'file' : 'files'} found
             </div>
             ${notes
@@ -438,12 +439,17 @@ export class SidebarTree {
                 }
 
                 return `
-                <div class="search-result-item" data-id="${n.id}" data-path="${n.path || ''}" tabindex="0" style="position:relative; padding:6px 8px;cursor:pointer;border-radius:4px;display:flex;flex-direction:column;gap:1px;outline:none; transition: background 0.1s;">
-                  <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <span style="font-weight:600;color:var(--text-strong);">${title}</span>
-                  </div>
-                  <span style="font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${n.path || ''}</span>
-                  <span style="font-size:12px;color:var(--text-soft);max-height:2.6em;overflow:hidden;text-overflow:ellipsis;line-height:1.3;">${snippet}</span>
+                <div class="search-file-group">
+                   <header class="search-file-header" data-id="${n.id}">
+                      <span class="search-file-icon">${getFileIcon(n.title || n.id, n.path || n.title)}</span>
+                      <span class="search-file-title">${title}</span>
+                      <span class="search-file-path">${n.path || ''}</span>
+                   </header>
+                   <div class="search-file-matches">
+                      <div class="search-result-item" data-id="${n.id}" data-path="${n.path || ''}" tabindex="0">
+                        <span class="search-result-snippet">${snippet}</span>
+                      </div>
+                   </div>
                 </div>
               `
               })
@@ -547,6 +553,11 @@ export class SidebarTree {
     toggleBtn.addEventListener('click', () => {
       isReplaceVisible = !isReplaceVisible
       replaceContainer.style.display = isReplaceVisible ? 'flex' : 'none'
+
+      if (!isReplaceVisible) {
+        replaceInput.value = ''
+      }
+
       const chevronRightIcon = this.createLucideIcon(ChevronRight, 14)
       const chevronDownIcon = this.createLucideIcon(ChevronDown, 14)
       toggleBtn.innerHTML = isReplaceVisible ? chevronDownIcon : chevronRightIcon

@@ -89,8 +89,15 @@
   - ✅ Action execution
   - ✅ Keyboard shortcuts display
 - ✅ Sidebar search/filter:
-  - ✅ Real-time filtering
-  - ✅ Highlight matches
+  - ✅ Overhauled Global Search UI (VS Code-style)
+  - ✅ Standardized Search/Replace action rows
+  - ✅ Fixed width alignment & structural symmetry
+  - ✅ File grouping with collapsible headers
+  - ✅ Hierarchical indentation for matches
+  - ✅ Match filters (Match Case, Whole Word, Regex)
+  - ✅ Auto-clear replace input on collapse
+  - ✅ Replaced all inline styles with semantic CSS
+  - ✅ Real-time filtering with highlighted snippets
   - ✅ Search in title, content, tags
 - ✅ Search mode toggle
 - ✅ WikiLink navigation (Ctrl+Click on [[link]])
@@ -218,7 +225,11 @@
 - ✅ Custom window header (frameless window)
 - ✅ Window controls (minimize, maximize, close)
 - ✅ Activity bar (left sidebar icons)
-- ✅ Sidebar (file tree explorer)
+- ✅ Sidebar UI Overhaul:
+  - ✅ VS Code-style header redesign (35px height)
+  - ✅ Standardized action buttons (24px hit areas)
+  - ✅ Structural bottom border and 12px padding
+  - ✅ Premium typography (uppercase, expanded spacing)
 - ✅ Tab bar (multi-tab interface)
 - ✅ Editor (Monaco-based)
 - ✅ Status bar (bottom bar with stats)

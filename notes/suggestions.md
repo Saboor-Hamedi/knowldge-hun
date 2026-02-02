@@ -7,7 +7,7 @@
 3. **Plugin system**: Support third-party plugins/extensions for advanced workflows and integrations.
 4. **Bi-directional links graph**: Visualize and navigate all note connections with a robust, interactive graph view. ✅ _Graph view implemented with D3.js force layout_
 5. **Mobile & tablet UI**: Responsive design and touch-friendly controls for mobile and tablet devices.
-6. **Full-text search with filters**: Advanced search with filters for tags, dates, file types, and content snippets. ✅ _Basic search implemented (title & content), tag filtering via #tag syntax_
+6. **Full-text search with filters**: Advanced search with filters for tags, dates, file types, and content snippets. ✅ _Implemented: Global Search with file grouping, collapsible results, highlighted snippets, and match filters (Case/Word/Regex)._
 7. **Version history & undo**: Per-note version history, diff viewer, and easy undo/redo for all changes.
 8. **Encrypted vaults**: End-to-end encryption for sensitive notes and vaults, with secure password management.
 9. **Cloud sync & backup**: Automatic sync and backup to popular cloud providers (OneDrive, Google Drive, Dropbox).
@@ -54,7 +54,7 @@
 38. **Search history**: Save and recall previous searches.
 39. **Saved searches**: Bookmark frequently used search queries.
 40. **Search in graph**: Search functionality within the graph view.
-41. **Content snippets**: Show search result previews with highlighted matches. ✅ _Search results show highlighted matches_
+41. **Content snippets**: Show search result previews with highlighted matches. ✅ _Implemented: VS Code-style results with file grouping, hierarchical indentation, and collapsible sections._
 42. **Search across vaults**: If multi-vault is implemented, search across all open vaults.
 
 ## Collaboration & Sharing
@@ -88,7 +88,7 @@
 
 61. **Welcome screen**: Onboarding flow for new users with tutorial and sample notes.
 62. **Command palette**: Global command palette (Ctrl+P or Ctrl+Shift+P) for all actions. ✅ _Fuzzy finder (Ctrl+P) implemented_
-63. **Customizable UI**: Drag-and-drop panel arrangement, resizable panels, customizable layouts.
+63. **Customizable UI**: Drag-and-drop panel arrangement, resizable panels, customizable layouts. ✅ _Implemented: VS Code-style sidebar header redesign (35px, 12px padding), standardized action buttons, and integrated search/replace bars._
 64. **Workspace layouts**: Save and restore different UI layouts for different workflows. ✅ _Workspace state (tabs, expanded folders) persisted_
 65. **Notification system improvements**: More notification types, notification history, do-not-disturb mode. ✅ _Notification system implemented_
 66. **Accessibility**: Screen reader support, keyboard navigation improvements, high contrast themes.

@@ -251,8 +251,9 @@ body:not(.is-loading) #loadingOverlay {
 .activitybar,
 .statusbar,
 .main {
-  background: var(--panel) !important;
-  border-color: var(--border) !important;
+  /* Removed !important overrides to allow specific component styling */
+  background: var(--panel);
+  border-color: var(--border);
 }
 /* Disable transitions globally during boot and shortly after to prevent layout "walking" */
 body.is-loading *,
