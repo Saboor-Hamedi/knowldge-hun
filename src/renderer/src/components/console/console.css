@@ -730,7 +730,7 @@
   background: transparent !important;
   border-top: none;
   min-height: 32px;
-  padding: 0 12px 4px 12px;
+  padding: 0 12px 0 12px;
   cursor: text; /* Ensure the whole bar feels like an input field */
 }
 

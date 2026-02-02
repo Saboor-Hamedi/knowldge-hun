@@ -208,7 +208,7 @@ export class RealTerminalComponent {
       }
     } else {
       if (termBody) termBody.style.display = 'none'
-      if (consoleHost) consoleHost.style.display = 'block'
+      if (consoleHost) consoleHost.style.display = 'flex'
 
       // Focus console input
       const input = consoleHost.querySelector('.hub-console__input') as HTMLElement

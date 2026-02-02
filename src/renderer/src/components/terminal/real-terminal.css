@@ -501,7 +501,7 @@
   height: 100%;
   position: relative;
   overflow: hidden;
-  padding: 2px;
+  padding: 2px 2px 0 2px;
   box-sizing: border-box;
 }
 
