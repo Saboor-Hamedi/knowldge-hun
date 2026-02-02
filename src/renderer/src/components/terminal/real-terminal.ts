@@ -272,10 +272,13 @@ export class RealTerminalComponent {
 
         requestAnimationFrame(() => {
           const delta = this.startY - moveEvent.clientY
-          const newHeight = Math.max(
-            100,
-            Math.min(window.innerHeight - 100, this.startHeight + delta)
-          )
+
+          // CRITICAL: Limit height so we don't push breadcrumbs/tabs out of view.
+          // This ensures the terminal layout never breaks the main workspace navigation.
+          // Calculation: Header (32) + Tabs (40) + Breadcrumbs (28) + Statusbar (28) + Min Editor (50)
+          const maxHeight = window.innerHeight - (32 + 40 + 28 + 28 + 50)
+
+          const newHeight = Math.max(100, Math.min(maxHeight, this.startHeight + delta))
 
           if (host) {
             host.style.height = `${newHeight}px`
@@ -437,20 +440,28 @@ export class RealTerminalComponent {
     const cursor = settings.terminalCursor || '#ffffff'
     const frameColor = settings.terminalFrameColor || '#1e1e1e'
 
-    // Update frame color (wrapper and its structural children)
-    const elementsToStyle = [
+    // Update frame colors
+    const frameElements = [
       '.real-terminal-wrapper',
       '.real-terminal-header',
-      '.real-terminal-body',
       '.real-terminal-sidebar'
     ]
 
-    elementsToStyle.forEach((selector) => {
+    frameElements.forEach((selector) => {
       const el = this.container.querySelector(selector) as HTMLElement
       if (el) {
         el.style.backgroundColor = frameColor
       }
     })
+
+    // CRITICAL: The body and instances must match the terminal background EXACTLY to hide any "bottom gap"
+    // caused by the terminal height not being a perfect multiple of line height.
+    this.container.style.setProperty('--terminal-bg', background)
+
+    const bodyEl = this.container.querySelector('.real-terminal-body') as HTMLElement
+    if (bodyEl) {
+      bodyEl.style.backgroundColor = background
+    }
 
     const theme = {
       background,
@@ -1059,12 +1070,13 @@ export class RealTerminalComponent {
         // Focus active terminal
         const session = this.sessions.get(this.activeSessionId)
         if (session) {
-          // Wrap in RAF to ensure display: block has taken effect
-          requestAnimationFrame(() => {
+          // Use setTimeout to allow layout to settle and prevent ResizeObserver loops
+          // when switching to absolute positioning overlays
+          setTimeout(() => {
             session.fitAddon.fit()
             this.resizeTerminal(this.activeSessionId!)
             session.terminal.focus()
-          })
+          }, 10)
         }
       }
     }

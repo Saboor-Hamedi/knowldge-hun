@@ -86,41 +86,37 @@ KnowledgeHub is split into three distinct layers to ensure that heavy AI computa
 
 ---
 
-## 💻 HUB Console: Command-Line Interface
+## 💻 Terminal Panel: Unified Command Center
 
-The **HUB Console** is a powerful VSCode-style terminal integrated directly into KnowledgeHub, providing keyboard-centric access to advanced features, semantic search, and vault management.
+The **Terminal Panel** is the command center of KnowledgeHub, seamlessly integrating a standard system terminal with the AI-powered HUB Console.
 
-### Opening the Console
+### Opening the Panel
 
 **Keyboard Shortcut**: `Ctrl + J`
 
 **Alternative Methods**:
 
 - Click the terminal icon in the status bar
-- Use Command Palette (`Ctrl + Shift + P`) → "Toggle Console"
+- Use Command Palette (`Ctrl + Shift + P`) → "Toggle Terminal"
 
-### Console Interface
+### Interface Overview
 
-```
-┌─ HUB Console ─────────────────────────────────────────────────────┐
-│ ▶ HUB Console                                          ⌄  □  ✕    │
-├───────────────────────────────────────────────────────────────────┤
-│ HUB Console initialized. Type "help" for a list of commands.     │
-│                                                                   │
-│ saboor@KnowledgeHub λ _                                           │
-└───────────────────────────────────────────────────────────────────┘
-```
+The panel features two main tabs:
 
-**Interface Elements**:
+1. **TERMINAL**: A fully functional system shell (PowerShell, CMD, Bash, etc.)
+2. **CONSOLE**: The AI-powered HUB Console for semantic search and vault management
 
-- **Dynamic Prompt**: Shows `username@vaultname λ` (updates when you switch vaults)
-- **Chevron Button (⌄)**: Minimize/restore console
-- **Maximize Button (□)**: Expand console to full height
-- **Close Button (✕)**: Hide console (same as `Ctrl + J`)
+**Key Features**:
+
+- **Tabbed Interface**: Switch instantly between system operations and AI commands
+- **Resize Knob**: Drag the top edge handle to resize the panel smoothly
+- **Split View**: Run multiple terminal sessions side-by-side
+- **Session Management**: Create, rename, and color-code terminal sessions
+- **Consistent Shortcut**: `Ctrl + J` toggles the entire panel visibility
 
 ---
 
-## 📚 Console Commands Reference
+## 📚 Console Tab Reference
 
 ### Core Commands
 
@@ -501,15 +497,16 @@ alice@CodeDocs λ
 | **Search Graph**           | `/` (in Graph view) |
 | **Reset Graph Camera**     | `R` (in Graph view) |
 
-### 💻 Console Shortcuts
+### 💻 Terminal & Console Shortcuts
 
-| Action               | Shortcut       |
-| :------------------- | :------------- |
-| **Toggle Console**   | `Ctrl + J`     |
-| **Previous Command** | `↑` (Up Arrow) |
-| **Next Command**     | `↓` (Down)     |
-| **Clear Console**    | Type `clear`   |
-| **Close Console**    | `Esc` or `✕`   |
+| Action                    | Shortcut                            |
+| :------------------------ | :---------------------------------- |
+| **Toggle Terminal Panel** | `Ctrl + J`                          |
+| **New Terminal Tab**      | `Ctrl + Shift + T`                  |
+| **Previous Command**      | `↑` (Up Arrow)                      |
+| **Next Command**          | `↓` (Down)                          |
+| **Clear**                 | `clear` (Console) / `Ctrl+L` (Term) |
+| **Close Panel**           | `Esc` (if focused)                  |
 
 ---
 

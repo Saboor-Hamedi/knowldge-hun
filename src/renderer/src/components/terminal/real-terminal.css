@@ -1,9 +1,9 @@
-/* Terminal Wrapper */
 .real-terminal-wrapper {
   display: flex;
   flex-direction: column;
   height: 100%;
   background: #1e1e1e;
+  overflow: visible !important;
 }
 
 /* Terminal Header */
@@ -15,7 +15,7 @@
   right: 0;
   height: 12px;
   cursor: ns-resize;
-  z-index: 1000;
+  z-index: 99999 !important;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -494,15 +494,19 @@
 /* Terminal Content */
 .real-terminal-content {
   flex: 1;
-  background: transparent; /* Allow frame color to show through */
+  background: transparent;
   position: relative;
-  min-width: 150px; /* Ensure terminal never collapses to < ~15 cols */
+  min-width: 150px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .real-terminal-content.split-layout {
   display: flex;
   gap: 2px;
-  background: #2d2d2d; /* Separator color */
+  background: #2d2d2d;
 }
 
 .real-terminal-container {
@@ -532,8 +536,9 @@
   height: 100%;
   position: relative;
   overflow: hidden;
-  padding: 0 2px;
+  padding: 0; /* Removed padding to ensure full height/width */
   box-sizing: border-box;
+  background-color: var(--terminal-bg, #1e1e1e);
 }
 
 .terminal-instance.split-active {
@@ -541,24 +546,42 @@
   height: 100% !important;
 }
 
-/* Xterm.js overrides */
+/* 
+ * CRITICAL LAYOUT OVERRIDES - DO NOT CHANGE WITHOUT CAUTION
+ * This configuration ensures the terminal fills the entire panel with zero gaps 
+ * on the bottom or right. It has been perfected through several iterations.
+ * DO NOT REMOVE the width/height !important overrides.
+ */
 .terminal-instance .xterm {
   padding: 0 !important;
   margin: 0 !important;
   user-select: text !important;
   -webkit-user-select: text !important;
+  height: 100% !important;
+  width: 100% !important;
 }
 
 .terminal-instance .xterm-viewport {
-  overflow-y: scroll !important;
+  overflow-y: auto !important;
   padding: 0 !important;
   margin: 0 !important;
+  height: 100% !important;
+  width: 100% !important;
 }
 
 .terminal-instance .xterm-screen {
   padding: 0 !important;
   margin: 0 !important;
-  background: transparent !important; /* Allow frame color to show through */
+  background: transparent !important;
+  height: 100% !important;
+  width: 100% !important;
+}
+
+.terminal-instance .xterm-scrollable-element {
+  height: 100% !important;
+  width: 100% !important;
+  padding: 0 !important;
+  margin: 0 !important;
 }
 
 /* Remove padding from all xterm renderer elements */

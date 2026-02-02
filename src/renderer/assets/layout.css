@@ -263,10 +263,8 @@ body.no-transitions *:after {
   animation: none !important;
 }
 
-/* Terminal Host */
 #terminalHost {
   position: relative;
-  /* Removed fixed positioning to respect grid layout (between sidebars) */
   bottom: auto;
   left: auto;
   right: auto;
@@ -276,6 +274,19 @@ body.no-transitions *:after {
   background: #1e1e1e;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
   display: none; /* Hidden by default */
-  flex-shrink: 0; /* Prevent it from collapsing completely */
-  z-index: 2000; /* Ensure terminal sits above settings panel (1000) */
+  flex-shrink: 0;
+  z-index: 500;
+  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.3);
+  overflow: visible !important;
+  
+  /* 
+   * STRATEGY CHANGE: 
+   * Since absolute positioning crashes xterm.js in this env,
+   * we use relative positioning. 
+   * To achieve "overlap" (go over breadcrumbs), we will use 
+   * negative top margins dynamically in JS if needed, 
+   * or rely on high z-index if they share a stacking context 
+   * that allows overlap (e.g. grid areas).
+   */
+  margin-top: 0; 
 }

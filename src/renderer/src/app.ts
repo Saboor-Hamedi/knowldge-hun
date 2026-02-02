@@ -807,13 +807,8 @@ class App {
       this.documentationModal.toggle()
       return true
     })
-    reg('Control+j', 'Toggle Console', () => {
-      this.hubConsole.toggle()
-      if (!this.hubConsole.getOpen()) {
-        this.editor.focus()
-      }
-    })
-    reg('Control+`', 'Toggle Terminal', () => {
+
+    reg('Control+j', 'Toggle Terminal', () => {
       window.dispatchEvent(new CustomEvent('toggle-terminal'))
     })
     reg('Control+l', 'Lock Application', () => void securityService.promptAndLock())

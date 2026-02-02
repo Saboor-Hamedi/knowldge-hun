@@ -14,6 +14,8 @@
   white-space: nowrap;
   -webkit-app-region: no-drag;
   scrollbar-width: none;
+  position: relative;
+  z-index: auto; /* Avoid stacking context issues */
 }
 
 .breadcrumbs::-webkit-scrollbar {
