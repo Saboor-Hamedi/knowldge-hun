@@ -30,6 +30,9 @@ export class RealTerminalComponent {
   private isRestoring: boolean = false
   private isQuitting: boolean = false
   private isSplitMode: boolean = false
+  private isResizing: boolean = false
+  private startY: number = 0
+  private startHeight: number = 0
 
   constructor(containerId: string) {
     const container = document.getElementById(containerId)
@@ -73,6 +76,7 @@ export class RealTerminalComponent {
 
     this.container.innerHTML = `
       <div class="real-terminal-wrapper" style="position: relative;">
+        <div class="real-terminal-knob"></div>
         <div class="real-terminal-header">
           <div class="real-terminal-tabs">
             <button class="terminal-tab active" data-tab="terminal">TERMINAL</button>
@@ -243,7 +247,67 @@ export class RealTerminalComponent {
     return icons[shell] || icons.powershell
   }
 
+  /**
+   * Setup resizing logic for the terminal panel knob
+   */
+  private setupSyncResizing(): void {
+    const knob = this.container.querySelector('.real-terminal-knob') as HTMLElement
+    if (!knob) return
+
+    knob.addEventListener('mousedown', (e) => {
+      e.preventDefault()
+      e.stopPropagation()
+
+      this.isResizing = true
+      this.startY = e.clientY
+      const host = document.getElementById('terminalHost')
+      if (!host) return
+      this.startHeight = host.offsetHeight
+
+      document.body.style.cursor = 'ns-resize'
+      this.container.classList.add('is-resizing')
+
+      const onMouseMove = (moveEvent: MouseEvent): void => {
+        if (!this.isResizing) return
+
+        requestAnimationFrame(() => {
+          const delta = this.startY - moveEvent.clientY
+          const newHeight = Math.max(
+            100,
+            Math.min(window.innerHeight - 100, this.startHeight + delta)
+          )
+
+          if (host) {
+            host.style.height = `${newHeight}px`
+            // optimization: Do NOT fit() during drag to prevent flickering.
+            // The text will reflow once when the user releases the mouse.
+          }
+        })
+      }
+
+      const onMouseUp = (): void => {
+        this.isResizing = false
+        document.body.style.cursor = ''
+        this.container.classList.remove('is-resizing')
+
+        window.removeEventListener('mousemove', onMouseMove)
+        window.removeEventListener('mouseup', onMouseUp)
+
+        // Final fit to be sure
+        setTimeout(() => {
+          this.sessions.forEach((session) => session.fitAddon.fit())
+        }, 50)
+      }
+
+      window.addEventListener('mousemove', onMouseMove)
+      window.addEventListener('mouseup', onMouseUp)
+    })
+  }
+
   private setupEventListeners(): void {
+    // Setup resize knob
+    this.setupSyncResizing()
+
     const tabs = this.container.querySelectorAll('.terminal-tab')
     tabs.forEach((t) => {
       t.addEventListener('click', (e) => {

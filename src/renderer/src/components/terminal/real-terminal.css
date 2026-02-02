@@ -4,10 +4,41 @@
   flex-direction: column;
   height: 100%;
   background: #1e1e1e;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 /* Terminal Header */
+/* Resize Handle */
+.real-terminal-knob {
+  position: absolute;
+  top: -6px;
+  left: 0;
+  right: 0;
+  height: 12px;
+  cursor: ns-resize;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.real-terminal-knob::after {
+  content: '';
+  width: 100px;
+  height: 3px;
+  background: var(--border, rgba(255, 255, 255, 0.1));
+  border-radius: 4px;
+  opacity: 0;
+  transition: all 0.2s ease;
+}
+
+.real-terminal-wrapper:hover .real-terminal-knob::after,
+.real-terminal-knob:hover::after,
+.real-terminal-wrapper.is-resizing .real-terminal-knob::after {
+  opacity: 1;
+  background: #007acc;
+  box-shadow: 0 0 8px rgba(0, 122, 204, 0.5);
+}
+
 .real-terminal-header {
   height: 48px;
   background: #2d2d2d;
@@ -501,7 +532,7 @@
   height: 100%;
   position: relative;
   overflow: hidden;
-  padding: 2px 2px 0 2px;
+  padding: 0 2px;
   box-sizing: border-box;
 }
 
@@ -526,6 +557,7 @@
 
 .terminal-instance .xterm-screen {
   padding: 0 !important;
+  margin: 0 !important;
   background: transparent !important; /* Allow frame color to show through */
 }
 
@@ -558,6 +590,11 @@
   position: absolute !important;
   opacity: 0 !important;
   left: -9999px !important;
+  top: 0 !important;
+  width: 0 !important;
+  height: 0 !important;
+  z-index: -1;
+  overflow: hidden;
 }
 
 /* Scrollbar styling */

@@ -277,4 +277,5 @@ body.no-transitions *:after {
   border-top: 1px solid rgba(255, 255, 255, 0.1);
   display: none; /* Hidden by default */
   flex-shrink: 0; /* Prevent it from collapsing completely */
+  z-index: 2000; /* Ensure terminal sits above settings panel (1000) */
 }
