@@ -148,17 +148,17 @@ export class RealTerminalComponent {
           </div>
           <div class="search-actions">
             <button id="search-prev" class="unified-search-action" title="Previous Match (Shift+Enter)">
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
                 <polyline points="11 13 6 8 11 3"></polyline>
               </svg>
             </button>
             <button id="search-next" class="unified-search-action" title="Next Match (Enter)">
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
                 <polyline points="5 3 10 8 5 13"></polyline>
               </svg>
             </button>
             <button id="search-close" class="unified-search-action close" title="Close (Escape)">
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
                 <line x1="4" y1="4" x2="12" y2="12"></line>
                 <line x1="12" y1="4" x2="4" y2="12"></line>
               </svg>
