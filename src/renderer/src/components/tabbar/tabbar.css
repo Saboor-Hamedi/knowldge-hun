@@ -11,8 +11,10 @@
   overflow-y: hidden;
   scrollbar-width: none;
   white-space: nowrap;
-  flex-shrink: 0; /* Never squash the tab bar */
+  flex-shrink: 0;
   z-index: 50;
+  /* Subtle gradient to make it feel less flat */
+  background-image: linear-gradient(to bottom, rgba(255,255,255,0.02), transparent);
 }
 
 .tabbar:empty {
@@ -30,17 +32,11 @@
   align-items: center;
   gap: 8px;
   border: none;
-  border-right: 1px solid var(--border-subtle);
   padding: 0 16px;
   background: var(--tab-inactive-bg, var(--bg));
   color: var(--tab-inactive-text, var(--text-soft));
   cursor: pointer;
-  transition:
-    background-color var(--transition-base),
-    color var(--transition-base),
-    border-color var(--transition-base),
-    box-shadow var(--transition-base),
-    opacity var(--transition-base);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   box-sizing: border-box;
   position: relative;
   min-width: 140px;
@@ -48,23 +44,46 @@
   flex-shrink: 0;
 }
 
-.tab.is-reordering {
-  transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1) !important;
+/* Partial Height Separator */
+.tab::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 25%;
+  height: 50%;
+  width: 1px;
+  background: var(--border-subtle);
+  opacity: 0.5;
+  transition: opacity 0.2s;
 }
 
-.tab:last-child {
-  border-right: none;
+.tab.is-active::after,
+.tab:hover::after,
+.tab:last-child::after {
+  opacity: 0;
+}
+
+.tab.is-reordering {
+  transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1) !important;
 }
 
 /* Active Tab */
 .tab.is-active {
   background: var(--tab-active-bg, var(--panel));
   color: var(--tab-active-text, var(--text-strong));
-  box-shadow: var(--tab-active-shadow, inset 0 2px 0 var(--primary));
+  box-shadow: var(--tab-active-shadow, inset 0 2px 0 var(--tab-border-color, var(--primary)));
 }
 
-.tab.is-active::after {
-  display: none; /* Replaced by inset box shadow for cleaner look */
+/* Highlight for Active Tab - High-end feel */
+.tab.is-active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08); /* Subtle highlight at the very top */
+  pointer-events: none;
 }
 
 /* Hover State */
@@ -86,7 +105,8 @@
   width: 16px;
   height: 16px;
   opacity: 0.8;
-  transition: opacity var(--transition-base);
+  transition: opacity 0.2s;
+  filter: drop-shadow(0 1px 1px rgba(0,0,0,0.1));
 }
 
 .tab:hover .tab__icon,
@@ -94,25 +114,13 @@
   opacity: 1;
 }
 
-/* Dynamic Icon Colors - refined */
-.tab[data-ext='md'] .tab__icon {
-  color: #818cf8;
-}
-.tab[data-ext='js'] .tab__icon {
-  color: #fbbf24;
-}
-.tab[data-ext='ts'] .tab__icon {
-  color: #60a5fa;
-}
-.tab[data-ext='html'] .tab__icon {
-  color: #f87171;
-}
-.tab[data-ext='css'] .tab__icon {
-  color: #38bdf8;
-}
-.tab[data-ext='json'] .tab__icon {
-  color: #fbbf24;
-}
+/* Dynamic Icon Colors - preserved */
+.tab[data-ext='md'] .tab__icon { color: #818cf8; }
+.tab[data-ext='js'] .tab__icon { color: #fbbf24; }
+.tab[data-ext='ts'] .tab__icon { color: #60a5fa; }
+.tab[data-ext='html'] .tab__icon { color: #f87171; }
+.tab[data-ext='css'] .tab__icon { color: #38bdf8; }
+.tab[data-ext='json'] .tab__icon { color: #fbbf24; }
 
 /* Tab Label */
 .tab__label {
@@ -123,24 +131,25 @@
   font-weight: 500;
   flex: 1;
   min-width: 0;
-  opacity: 0.9;
+  opacity: 0.8;
+  transition: opacity 0.2s;
 }
 
 .tab.is-active .tab__label {
   opacity: 1;
 }
 
-/* Close Button */
+/* Close/Dirty Container */
 .tab__close {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
-  border-radius: 6px;
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
   color: var(--text-muted);
   opacity: 0;
-  transition: all var(--transition-base);
+  transition: all 0.2s;
   flex-shrink: 0;
   margin-left: 8px;
   position: relative;
@@ -148,7 +157,7 @@
 
 .tab:hover .tab__close,
 .tab.is-dirty .tab__close {
-  opacity: 0.6;
+  opacity: 0.7;
 }
 
 .tab__close:hover {
@@ -157,6 +166,7 @@
   color: var(--text-strong);
 }
 
+/* Unsaved Changes Gem */
 .tab.is-dirty:not(:hover) .tab__close svg {
   display: none;
 }
@@ -168,7 +178,14 @@
   background-color: var(--primary);
   border-radius: 50%;
   display: block;
-  box-shadow: 0 0 8px var(--primary);
+  box-shadow: 0 0 8px var(--primary); /* Glowing effect */
+  animation: tab-dirty-pulse 2s infinite ease-in-out;
+}
+
+@keyframes tab-dirty-pulse {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.2); opacity: 0.7; }
+  100% { transform: scale(1); opacity: 1; }
 }
 
 .tab__close svg {
@@ -187,7 +204,7 @@
   color: var(--text-muted);
   opacity: 0.6;
   flex-shrink: 0;
-  transition: all var(--transition-base);
+  transition: all 0.2s;
 }
 
 .tab:hover .tab__pin-icon,
@@ -207,41 +224,20 @@
   flex: 0 0 auto;
 }
 
-.tab.is-pinned .tab__label {
-  max-width: 80px;
-}
-
-/* Compact Mode */
+/* Compact Mode Polish */
 .tabbar.is-compact {
   height: 28px;
 }
 
 .tabbar.is-compact .tab {
-  padding: 0 4px 0 8px; /* Tighter right padding to keep close button close */
-  min-width: 32px; /* Allow very small tabs in compact mode */
-  max-width: 120px; /* Smaller max width for compact feel */
-  gap: 4px; /* Tighter gap */
+  padding: 0 4px 0 8px;
+  min-width: 32px;
+  max-width: 120px;
+  gap: 4px;
 }
 
 .tabbar.is-compact .tab__label {
   font-size: 12px;
-}
-
-.tabbar.is-compact .tab__icon,
-.tabbar.is-compact .tab__icon svg {
-  width: 10px !important;
-  height: 10px !important;
-  font-size: 10px !important;
-}
-
-.tabbar.is-compact .tab__close {
-  width: 16px;
-  height: 16px;
-}
-
-.tabbar.is-compact .tab__close svg {
-  width: 12px;
-  height: 12px;
 }
 
 /* Drag and Drop Visuals */
@@ -249,5 +245,7 @@
   opacity: 0.4;
   background: var(--hover) !important;
   z-index: 100;
+  box-shadow: var(--shadow-strong);
 }
+
 

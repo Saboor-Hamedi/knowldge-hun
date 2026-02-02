@@ -117,7 +117,7 @@ export class ActivityBar {
             </svg>
           </span>
         </button>
-        <button class="activitybar__item" data-view="update" title="Update">
+        <button class="activitybar__item${this.updateState !== 'idle' ? ' has-notification' : ''}" data-view="update" title="Update">
           <span class="activitybar__icon">${updateIcon}</span>
         </button>
         <button class="activitybar__item" data-view="documentation" title="Documentation">

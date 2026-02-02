@@ -384,6 +384,7 @@ export class TabBar {
 
     // We already do live reordering, but this ensures state is fully synced
     this.container.dispatchEvent(new CustomEvent('tabs-reordered', { detail: { order: newOrder } }))
+    this.onTabReorder?.()
     this.draggedTabId = null
   }
 
