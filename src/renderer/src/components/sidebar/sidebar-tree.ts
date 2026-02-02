@@ -25,6 +25,7 @@ import {
 } from 'lucide'
 import { setTooltip } from '../tooltip/tooltip'
 import './sidebar-tree.css'
+import { gitService } from '../../services/git/gitService'
 
 interface SearchOptions {
   matchCase: boolean
@@ -74,6 +75,13 @@ export class SidebarTree {
 
     this.attachEvents()
     this.attachBackdropListener()
+
+    // Listen for Git status changes
+    window.addEventListener('git-status-changed', () => {
+      if (this.currentMode === 'explorer') {
+        this.renderTree(this.searchEl.value)
+      }
+    })
   }
 
   setGraphClickHandler(handler: () => void): void {
@@ -829,8 +837,16 @@ export class SidebarTree {
     const isActive = this.selectedId === folder.id
     const isSelected = state.selectedIds.has(folder.id)
 
+    // Check for git status in this folder or its children
+    const gitStatus = this.getFolderGitStatus(folder)
+
     const el = document.createElement('div')
     el.className = `tree-item tree-item--folder${isExpanded ? ' is-expanded' : ''}${isActive ? ' is-active' : ''}${isSelected ? ' is-selected' : ''}`
+    if (gitStatus !== 'none') {
+      el.classList.add(`git-status--${gitStatus}`)
+      el.dataset.gitStatus = gitStatus
+    }
+
     el.dataset.id = folder.id
     el.dataset.type = 'folder'
     if (folder.path) el.dataset.path = folder.path
@@ -880,8 +896,16 @@ export class SidebarTree {
     const isActive = this.selectedId === note.id
     const isSelected = state.selectedIds.has(note.id)
 
+    // Check for git status
+    const gitStatus = gitService.getStatus(note.id)
+
     const el = document.createElement('div')
     el.className = `tree-item tree-item--note${isActive ? ' is-active' : ''}${isSelected ? ' is-selected' : ''}`
+    if (gitStatus !== 'none') {
+      el.classList.add(`git-status--${gitStatus}`)
+      el.dataset.gitStatus = gitStatus
+    }
+
     el.dataset.id = note.id
     el.dataset.type = 'note'
     if (note.path) el.dataset.path = note.path
@@ -1986,5 +2010,32 @@ export class SidebarTree {
     const q = title.toLowerCase().trim()
     const item = state.notes.find((n) => n.title.toLowerCase() === q)
     return item?.path
+  }
+
+  private getFolderGitStatus(folder: FolderItem): string {
+    let status: string = 'none'
+
+    const check = (item: FolderItem | NoteMeta): void => {
+      if (item.type === 'note') {
+        const s = gitService.getStatus(item.id)
+        if (s !== 'none') {
+          // Priority: modified > staged > untracked
+          if (s === 'modified') status = 'modified'
+          else if (s === 'staged' && status !== 'modified') status = 'staged'
+          else if (status === 'none') status = s
+        }
+      } else {
+        const f = item as FolderItem
+        if (f.children) {
+          f.children.forEach(check)
+        }
+      }
+    }
+
+    if (folder.children) {
+      folder.children.forEach(check)
+    }
+
+    return status
   }
 }

@@ -98,6 +98,7 @@ const api = {
   getBacklinks: (id: string): Promise<string[]> => ipcRenderer.invoke('notes:getBacklinks', id),
   getGraph: (): Promise<{ links: { source: string; target: string }[] }> =>
     ipcRenderer.invoke('graph:get'),
+  getGitStatus: (): Promise<Record<string, string>> => ipcRenderer.invoke('git:status'),
 
   getSettings: (): Promise<AppSettings> => ipcRenderer.invoke('settings:get'),
   updateSettings: (updates: Partial<AppSettings>): Promise<AppSettings> =>

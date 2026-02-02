@@ -913,6 +913,67 @@ app.whenReady().then(async () => {
     }
   })
 
+  ipcMain.handle('git:status', async (event) => {
+    const v = getVaultManager(event.sender)
+    const root = v?.getRootPath() || resolveVaultPath()
+    if (!root || !existsSync(root)) return {}
+
+    const { exec } = await import('child_process')
+    const { promisify } = await import('util')
+    const execAsync = promisify(exec)
+
+    try {
+      // Check if we are inside a git repo (handles subdirectories)
+      try {
+        await execAsync('git rev-parse --is-inside-work-tree', { cwd: root })
+      } catch (e) {
+        return {} // Not a git repo or git not installed
+      }
+
+      // Get the relative path from git root to our vault root
+      const { stdout: prefixRaw } = await execAsync('git rev-parse --show-prefix', { cwd: root })
+      const prefix = prefixRaw.trim() // e.g., "src/" or empty
+
+      const { stdout } = await execAsync('git status --porcelain', { cwd: root })
+      const statusMap: Record<string, string> = {}
+
+      stdout.split('\n').forEach((line) => {
+        if (!line.trim()) return
+        const status = line.slice(0, 2)
+        let rawPath = line.slice(3).trim()
+
+        // Handle renames "old -> new"
+        if (status.startsWith('R')) {
+          const parts = rawPath.split(' -> ')
+          rawPath = parts[parts.length - 1].trim()
+        }
+
+        // Remove quotes if git config core.quotepath is on
+        const cleanPath = rawPath.replace(/["']/g, '')
+
+        // If we are in a subdirectory of the repo (prefix exists), we need to strip it
+        // Note: git porcelain paths are always relative to repository root
+        let finalPath = cleanPath
+        if (prefix) {
+          if (cleanPath.startsWith(prefix)) {
+            finalPath = cleanPath.slice(prefix.length)
+          } else {
+            // This modified file is outside our vault, ignore it
+            return
+          }
+        }
+
+        // Canonical form for map: always forward slashes
+        statusMap[finalPath.replace(/\\/g, '/')] = status
+      })
+
+      return statusMap
+    } catch (e) {
+      console.error('[Git] Status check failed:', e)
+      return {}
+    }
+  })
+
   ipcMain.handle('system:getUsername', () => {
     try {
       return userInfo().username

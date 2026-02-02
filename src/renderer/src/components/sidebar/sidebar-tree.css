@@ -568,3 +568,72 @@
 .search-result-item:hover {
   background: var(--hover);
 }
+
+/* Git Status Colors (VS Code style) */
+:root {
+  --git-modified: #e2c522;
+  --git-staged: #73c991;
+  --git-untracked: #73c991;
+  --git-deleted: #f14c4c;
+  --git-added: #73c991;
+  --git-conflicting: #ffa500;
+}
+
+/* Base item color when it has a git status */
+.tree-item.git-status--modified .tree-item__label { color: var(--git-modified); }
+.tree-item.git-status--staged .tree-item__label { color: var(--git-staged); }
+.tree-item.git-status--untracked .tree-item__label { color: var(--git-untracked); }
+.tree-item.git-status--deleted .tree-item__label { color: var(--git-deleted); }
+
+/* Icons matching git status */
+.tree-item.git-status--modified .tree-item__icon { color: var(--git-modified) !important; }
+.tree-item.git-status--staged .tree-item__icon { color: var(--git-staged) !important; }
+.tree-item.git-status--untracked .tree-item__icon { color: var(--git-untracked) !important; }
+.tree-item.git-status--deleted .tree-item__icon { color: var(--git-deleted) !important; }
+
+/* Status letter indicator for folders and files */
+.tree-item[class*='git-status--']::after {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 800;
+  margin-right: 10px;
+  flex-shrink: 0;
+  opacity: 0.9;
+  min-width: 12px;
+  text-align: center;
+}
+
+.tree-item.git-status--modified::after { content: 'M'; color: var(--git-modified); }
+.tree-item.git-status--staged::after { content: 'A'; color: var(--git-staged); }
+.tree-item.git-status--untracked::after { content: 'U'; color: var(--git-untracked); }
+.tree-item.git-status--deleted::after { content: 'D'; color: var(--git-deleted); }
+
+/* If item is active, preserve strong text color but keep the letter indicator */
+.tree-item.is-active[class*='git-status--'] .tree-item__label {
+  color: var(--sidebar-active-text, var(--text-strong)) !important;
+}
+
+/* Ensure dirty dot stays on the right even with git status letters */
+.tree-item__dirty-dot {
+  width: 8px;
+  height: 8px;
+  background-color: var(--primary, #569cd6);
+  border-radius: 50%;
+  margin-right: 8px; /* Spacing between dot and edge or git letter */
+  flex-shrink: 0;
+  transition: transform 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  animation: dotPop 0.2s ease-out;
+}
+
+/* When both dot and git letter exist, order them nicely */
+.tree-item[class*='git-status--'] .tree-item__dirty-dot {
+  margin-right: 6px;
+}
+
+/* Folders with git status should be slightly less opaque for the letter to distinguish from content */
+.tree-item--folder[class*='git-status--']::after {
+  opacity: 0.7;
+  font-weight: 600;
+}

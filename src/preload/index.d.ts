@@ -97,6 +97,7 @@ type NoteApi = {
   searchNotes: (query: string, options?: any) => Promise<NoteMeta[]>
   getBacklinks: (id: string) => Promise<string[]>
   getGraph: () => Promise<{ links: { source: string; target: string }[] }>
+  getGitStatus: () => Promise<Record<string, string>>
   getVault: () => Promise<VaultInfo>
   chooseVault: () => Promise<VaultInfo>
   setVault: (dir: string) => Promise<VaultInfo>
