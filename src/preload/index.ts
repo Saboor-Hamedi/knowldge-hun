@@ -112,7 +112,8 @@ const api = {
   },
   getAppIcon: (): Promise<string> => ipcRenderer.invoke('app:getIcon'),
   getAppVersion: (): Promise<string> => ipcRenderer.invoke('app:getVersion'),
-  getDocumentation: (): Promise<string> => ipcRenderer.invoke('app:getDocumentation'),
+  getDocumentation: (section?: string): Promise<any> =>
+    ipcRenderer.invoke('app:getDocumentation', section),
   getUsername: (): Promise<string> => ipcRenderer.invoke('system:getUsername'),
   syncBackup: (
     token: string,

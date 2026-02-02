@@ -247,13 +247,19 @@ export class ConsoleComponent {
               <span class="hub-console__prompt">λ</span>
             </div>
 
-            <select class="hub-console__capability-select" title="AI Capability" style="display: ${this.currentMode === 'ai' ? 'block' : 'none'};">
-              <option value="balanced">Balanced</option>
-              <option value="thinking">Thinking</option>
-              <option value="code">Code</option>
-              <option value="precise">Precise</option>
-              <option value="creative">Creative</option>
-            </select>
+            <div class="hub-console__custom-select capability-select" title="AI Capability" style="display: ${this.currentMode === 'ai' ? 'flex' : 'none'};">
+              <div class="custom-select__trigger">
+                <span class="custom-select__value">Balanced</span>
+                <span class="custom-select__arrow">${codicons.chevronDownLucide}</span>
+              </div>
+              <div class="custom-select__options">
+                <div class="custom-select__option" data-value="balanced">Balanced</div>
+                <div class="custom-select__option" data-value="thinking">Thinking</div>
+                <div class="custom-select__option" data-value="code">Code</div>
+                <div class="custom-select__option" data-value="precise">Precise</div>
+                <div class="custom-select__option" data-value="creative">Creative</div>
+              </div>
+            </div>
           </div>
           
           <div class="hub-console__footer-right">
@@ -316,10 +322,10 @@ export class ConsoleComponent {
     }
 
     const capabilitySelect = this.consoleEl.querySelector(
-      '.hub-console__capability-select'
+      '.hub-console__custom-select'
     ) as HTMLElement
     if (capabilitySelect) {
-      capabilitySelect.style.display = mode === 'ai' ? 'block' : 'none'
+      capabilitySelect.style.display = mode === 'ai' ? 'flex' : 'none'
     }
 
     const prompt = this.consoleEl.querySelector('.hub-console__prompt')
@@ -571,9 +577,9 @@ export class ConsoleComponent {
       })
     })
 
-    const capabilitySelect = this.consoleEl.querySelector(
-      '.hub-console__capability-select'
-    ) as HTMLSelectElement
+    const customSelect = this.consoleEl.querySelector('.hub-console__custom-select') as HTMLElement
+    const trigger = customSelect?.querySelector('.custom-select__trigger') as HTMLElement
+    const valueDisplay = customSelect?.querySelector('.custom-select__value') as HTMLElement
 
     // Crucial: Stop click/mousedown from bubbling up to consoleEl and stealing focus
     const stopBubbling = (el: HTMLElement | null): void => {
@@ -581,19 +587,43 @@ export class ConsoleComponent {
       el?.addEventListener('click', (e) => e.stopPropagation())
     }
 
-    stopBubbling(capabilitySelect as HTMLElement)
+    // Toggle dropdown
+    trigger?.addEventListener('click', (e) => {
+      e.stopPropagation()
+      customSelect.classList.toggle('is-open')
+    })
 
-    modeBtns.forEach((btn) => stopBubbling(btn as HTMLElement))
+    // Handle option selection
+    customSelect?.querySelectorAll('.custom-select__option').forEach((opt) => {
+      opt.addEventListener('click', (e) => {
+        e.stopPropagation()
+        const val = (opt as HTMLElement).dataset.value || 'balanced'
 
-    capabilitySelect?.addEventListener('change', () => {
-      import('../../services/aiService').then(({ aiService, CHAT_MODES }) => {
-        const mode = capabilitySelect.value as import('../../services/aiService').ChatMode
-        if (CHAT_MODES.some((m) => m.id === mode)) {
-          aiService.setMode(mode)
-          this.log(`AI Capability switched to: ${mode}`, 'system')
+        // Update display text
+        if (valueDisplay) {
+          valueDisplay.textContent = (opt as HTMLElement).textContent
         }
+
+        // Trigger mode change
+        import('../../services/aiService').then(({ aiService, CHAT_MODES }) => {
+          const mode = val as import('../../services/aiService').ChatMode
+          if (CHAT_MODES.some((m) => m.id === mode)) {
+            aiService.setMode(mode)
+            this.log(`AI Capability switched to: ${mode}`, 'system')
+          }
+        })
+
+        customSelect.classList.remove('is-open')
       })
     })
+
+    // Close on click outside
+    document.addEventListener('click', () => {
+      customSelect?.classList.remove('is-open')
+    })
+
+    stopBubbling(customSelect)
+    modeBtns.forEach((btn) => stopBubbling(btn as HTMLElement))
 
     // Handle stop button
     const stopBtn = this.consoleEl.querySelector('.hub-console__stop-btn') as HTMLElement

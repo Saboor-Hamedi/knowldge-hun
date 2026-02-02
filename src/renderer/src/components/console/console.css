@@ -176,9 +176,9 @@
   min-height: 0;
 
   /* Appearance */
-  padding: 8px 12px; /* Slightly less vertical padding */
+  padding: 6px 10px;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 13px;
+  font-size: 12.5px;
   line-height: 1.5;
   color: var(--text-soft);
 
@@ -196,7 +196,7 @@
 }
 
 .hub-console__line--command {
-  margin: 16px 0 0 0; /* Clear turn start */
+  margin: 12px 0 0 0; /* Tightened turn start */
   padding: 0;
 }
 
@@ -211,13 +211,13 @@
 
 .hub-console__user-avatar,
 .hub-console__ai-avatar {
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
   border-radius: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 12px;
+  font-size: 11px;
   flex-shrink: 0;
 }
 
@@ -233,16 +233,17 @@
 
 .hub-console__user-name,
 .hub-console__ai-name {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
   color: var(--text-strong);
+  opacity: 0.9;
 }
 
 .hub-console__user-content,
 .hub-console__ai-content {
-  padding-left: 34px;
-  font-size: 14px;
-  line-height: 1.6;
+  padding-left: 30px;
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 /* Remove default paragraph margins to prevent vertical gaps */
@@ -448,29 +449,29 @@
 
 .hub-console__footer:focus-within {
   border-color: var(--primary);
-  background: rgba(255, 255, 255, 0.04);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  background: rgba(255, 255, 255, 0.02);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 /* Input container */
 .hub-console__input-container {
-  padding: 12px;
-  min-height: 44px;
+  padding: 8px 12px;
+  min-height: 36px;
   max-height: 200px;
   overflow-y: auto;
 }
 
 .hub-console__input {
   width: 100%;
-  min-height: 20px;
+  min-height: 18px;
   max-height: 176px;
   outline: none;
   border: none;
   background: transparent;
-  color: var(--text);
+  color: var(--text-soft);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 13px;
-  line-height: 1.5;
+  line-height: 1.4;
   white-space: pre-wrap;
   word-wrap: break-word;
   overflow-y: auto;
@@ -488,28 +489,28 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 12px;
-  background: var(--panel);
+  padding: 3px 10px;
+  background: var(--panel-strong);
   border-top: 1px solid var(--border);
-  min-height: 36px;
+  min-height: 26px;
 }
 
 .hub-console__footer-left,
 .hub-console__footer-right {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
 /* Mode switcher */
 .hub-console__mode-switcher {
   display: flex;
   align-items: center;
-  gap: 4px;
-  background: var(--panel-strong);
+  gap: 2px;
+  background: rgba(255, 255, 255, 0.03);
   border: 1px solid var(--border);
   border-radius: 4px;
-  padding: 2px;
+  padding: 1px;
 }
 
 .hub-console__mode-btn {
@@ -517,18 +518,18 @@
   border: none;
   color: var(--text-muted);
   cursor: pointer;
-  padding: 3px 6px; /* Smaller padding */
+  padding: 2px 5px;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 3px;
   transition: all 0.15s ease;
-  font-size: 12px; /* Smaller font */
-  opacity: 0.7; /* More subtle */
+  font-size: 11px;
+  opacity: 0.5; /* Even more subtle */
 }
 
 .hub-console__mode-btn:hover {
-  color: var(--text);
+  color: var(--text-soft);
   background: rgba(255, 255, 255, 0.05);
   opacity: 1;
 }
@@ -540,53 +541,112 @@
 }
 
 .hub-console__mode-btn svg {
-  width: 14px; /* Smaller icons */
-  height: 14px;
+  width: 11px;
+  height: 11px;
 }
 
 /* Status info */
 .hub-console__status-info {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 5px;
 }
 
 .hub-console__prompt {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 12px;
-  color: var(--text-soft);
-  font-weight: 600;
+  font-size: 10px;
+  color: var(--text-muted);
+  font-weight: 500;
+  opacity: 0.6;
 }
 
 .hub-console__prompt--ai {
   color: var(--primary);
 }
 
-/* Capability select */
-.hub-console__capability-select {
-  background: var(--panel-strong);
+/* Custom Capability Dropdown */
+.hub-console__custom-select {
+  position: relative;
+  display: flex;
+  align-items: center;
+  user-select: none;
+}
+
+.custom-select__trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 5px;
+  background: transparent;
   border: 1px solid var(--border);
   border-radius: 4px;
-  color: var(--text);
-  padding: 4px 10px;
-  font-size: 12px;
+  padding: 0 6px;
+  height: 18px;
+  min-width: 80px;
   cursor: pointer;
-  outline: none;
-  transition: all 0.15s ease;
-  height: 28px;
-  min-width: 120px;
-  font-weight: 500;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  color: var(--text-muted);
+  opacity: 0.8;
 }
 
-.hub-console__capability-select:hover {
+.custom-select__trigger:hover {
   border-color: var(--primary);
   background: rgba(127, 167, 255, 0.05);
+  color: var(--text);
 }
 
-.hub-console__capability-select:focus {
-  border-color: var(--primary);
-  box-shadow: 0 0 0 2px rgba(127, 167, 255, 0.2);
-  background: rgba(127, 167, 255, 0.08);
+.custom-select__value {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
+.custom-select__arrow {
+  display: flex;
+  align-items: center;
+  transition: transform 0.2s ease;
+  color: var(--text-muted);
+  opacity: 0.4;
+}
+
+.hub-console__custom-select.is-open .custom-select__arrow {
+  transform: rotate(180deg);
+}
+
+.custom-select__options {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  min-width: 140px;
+  background: var(--panel-strong);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  padding: 4px;
+  display: none;
+  flex-direction: column;
+  z-index: 1000;
+}
+
+.hub-console__custom-select.is-open .custom-select__options {
+  display: flex;
+}
+
+.custom-select__option {
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-soft);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.1s ease;
+}
+
+.custom-select__option:hover {
+  background: rgba(127, 167, 255, 0.1);
+  color: var(--primary);
 }
 
 /* Stop button */
@@ -774,6 +834,15 @@
   user-select: text !important;
   -webkit-user-select: text !important;
   caret-color: #0dbc79; /* Green caret to match prompt */
+}
+
+/* Fix select font inheritance and capability select 'white' issue. */
+.hub-console.hub-console--embedded input,
+.hub-console.hub-console--embedded button,
+.hub-console.hub-console--embedded select,
+.hub-console.hub-console--embedded textarea {
+  font-family: inherit;
+  color: inherit; /* Ensure text color is inherited, fixing 'white' issue */
 }
 
 /* Make prompt look like shell prompt */

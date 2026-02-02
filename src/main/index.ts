@@ -10,7 +10,7 @@ import {
   type MenuItemConstructorOptions
 } from 'electron'
 import { join, basename, dirname, isAbsolute, resolve } from 'path'
-import { writeFile, mkdir, readFile } from 'fs/promises'
+import { writeFile, mkdir, readFile, readdir } from 'fs/promises'
 import { existsSync, mkdirSync, cpSync, readdirSync } from 'fs'
 import { userInfo } from 'os'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
@@ -860,15 +860,56 @@ app.whenReady().then(async () => {
     return app.getVersion()
   })
   console.log('[Main] Registering app:getDocumentation handler')
-  ipcMain.handle('app:getDocumentation', async () => {
-    const docPath = is.dev
-      ? join(__dirname, '../../resources/documentation.md')
-      : join(process.resourcesPath, 'resources/documentation.md')
+  ipcMain.handle('app:getDocumentation', async (_event, section?: string) => {
+    let docsDir = is.dev
+      ? join(process.cwd(), 'resources/docs')
+      : join(process.resourcesPath, 'resources/docs')
+
+    // Extra fallback for strange dev environments
+    if (is.dev && !existsSync(docsDir)) {
+      docsDir = join(__dirname, '../../resources/docs')
+    }
+
+    console.log(`[Main] Documentation request: ${section}, dir: ${docsDir}`)
+
+    // If section is 'list', return available sections
+    if (section === 'list') {
+      try {
+        if (!existsSync(docsDir)) {
+          console.error(`[Main] Docs directory not found: ${docsDir}`)
+          return ['introduction']
+        }
+        const files = await readdir(docsDir)
+        const result = files.filter((f) => f.endsWith('.md')).map((f) => f.replace('.md', ''))
+        console.log(`[Main] Found sections: ${result.join(', ')}`)
+        return result
+      } catch (e) {
+        console.error('[Main] Failed to list sections', e)
+        return ['introduction']
+      }
+    }
+
+    const targetSection = section || 'introduction'
+    const docPath = join(docsDir, `${targetSection}.md`)
+    console.log(`[Main] Reading doc: ${docPath}`)
+
     try {
-      return await readFile(docPath, 'utf-8')
-    } catch (e) {
-      console.error('Failed to read documentation', e)
+      if (existsSync(docPath)) {
+        return await readFile(docPath, 'utf-8')
+      }
+
+      // Fallback to original path if not found in docs dir (silent check)
+      const oldDocPath = is.dev
+        ? resolve(app.getAppPath(), 'resources/documentation.md')
+        : join(process.resourcesPath, 'resources/documentation.md')
+
+      if (existsSync(oldDocPath)) {
+        return await readFile(oldDocPath, 'utf-8')
+      }
       return '# Documentation Not Found'
+    } catch (e) {
+      // Only log unexpected errors, not file-not-found
+      return '# Error Loading Documentation'
     }
   })
 

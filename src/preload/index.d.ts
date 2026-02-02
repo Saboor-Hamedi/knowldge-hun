@@ -119,7 +119,7 @@ type NoteApi = {
   window: WindowApi
   getAppIcon: () => Promise<string>
   getAppVersion: () => Promise<string>
-  getDocumentation: () => Promise<string>
+  getDocumentation: (section?: string) => Promise<any>
   getUsername: () => Promise<string>
   onVaultChanged: (callback: (data: any) => void) => () => void
   onNoteOpened: (callback: (id: string) => void) => void
