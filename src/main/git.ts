@@ -9,6 +9,17 @@ export interface GitStatusResult {
   [path: string]: string
 }
 
+export interface GitMetadata {
+  branch: string
+  remote?: string
+  repoName?: string
+}
+
+export interface GitInfo {
+  status: GitStatusResult
+  metadata: GitMetadata
+}
+
 /**
  * Executes a git command and returns the stdout
  */
@@ -22,71 +33,110 @@ async function runGit(args: string[], cwd: string): Promise<string> {
 }
 
 /**
- * Fetches the porcelain git status for a repository,
- * correctly handling subdirectories and path prefixes.
+ * Fetches the porcelain git status and repository metadata.
  */
-export async function getGitStatus(rootPath: string): Promise<GitStatusResult> {
+export async function getGitInfo(rootPath: string): Promise<GitInfo> {
+  const defaultInfo: GitInfo = {
+    status: {},
+    metadata: { branch: '' }
+  }
+
   if (!rootPath || !existsSync(rootPath)) {
-    return {}
+    return defaultInfo
   }
 
   try {
     // 1. Verify we are in a git work tree
     try {
       const isInside = await runGit(['rev-parse', '--is-inside-work-tree'], rootPath)
-      if (isInside !== 'true') return {}
+      if (isInside !== 'true') return defaultInfo
     } catch {
-      return {} // Not a git repo
+      return defaultInfo // Not a git repo
     }
 
-    // 2. Get the prefix (path from git root to vault root)
-    const prefix = await runGit(['rev-parse', '--show-prefix'], rootPath)
+    // 2. Get Metadata (Branch, Remote) - Parallelize for performance
+    const metadataPromise = (async (): Promise<GitMetadata> => {
+      try {
+        const [branch, remoteUrl] = await Promise.all([
+          runGit(['branch', '--show-current'], rootPath).catch(() => ''),
+          runGit(['remote', 'get-url', 'origin'], rootPath).catch(() => '')
+        ])
 
-    // 3. Get the porcelain status
-    // -z to get NUL separated output (better for special characters)
-    // --untracked-files=all to ensure all untracked files are listed
-    const statusOutput = await runGit(['status', '--porcelain', '--untracked-files=all'], rootPath)
-
-    if (!statusOutput) return {}
-
-    const statusMap: GitStatusResult = {}
-    const lines = statusOutput.split('\n')
-
-    for (const line of lines) {
-      if (!line || line.length < 4) continue
-
-      const status = line.slice(0, 2)
-      let rawPath = line.slice(3)
-
-      // Handle renames
-      if (status.startsWith('R')) {
-        const parts = rawPath.split(' -> ')
-        rawPath = parts[parts.length - 1]
-      }
-
-      // Cleanup path (remove quotes if any)
-      let cleanPath = rawPath.replace(/^["']|["']$/g, '')
-
-      // If we're in a subdirectory, check if the file belongs to our vault
-      if (prefix) {
-        if (cleanPath.startsWith(prefix)) {
-          cleanPath = cleanPath.slice(prefix.length)
+        let repoName = ''
+        if (remoteUrl) {
+          // Extract repo name from URL (e.g. https://github.com/user/repo.git -> repo)
+          const parts = remoteUrl.split('/')
+          repoName = parts[parts.length - 1].replace(/\.git$/, '')
         } else {
-          // File is outside the vault directory
-          continue
+          // Fallback to directory name
+          repoName = join(rootPath).split(/[\\/]/).pop() || ''
         }
-      }
 
-      // Ensure consistent path separators (forward slashes)
-      const normalizedPath = cleanPath.replace(/\\/g, '/')
-      if (normalizedPath) {
-        statusMap[normalizedPath] = status
+        return { branch, remote: remoteUrl, repoName }
+      } catch {
+        return { branch: '' }
       }
-    }
+    })()
 
-    return statusMap
+    // 3. Get Status with prefix handling
+    const statusPromise = (async (): Promise<GitStatusResult> => {
+      try {
+        const prefix = await runGit(['rev-parse', '--show-prefix'], rootPath)
+        const statusOutput = await runGit(
+          ['status', '--porcelain', '--untracked-files=all'],
+          rootPath
+        )
+
+        if (!statusOutput) return {}
+
+        const statusMap: GitStatusResult = {}
+        const lines = statusOutput.split('\n')
+
+        for (const line of lines) {
+          if (!line || line.length < 4) continue
+
+          const status = line.slice(0, 2)
+          let rawPath = line.slice(3)
+
+          if (status.startsWith('R')) {
+            const parts = rawPath.split(' -> ')
+            rawPath = parts[parts.length - 1]
+          }
+
+          let cleanPath = rawPath.replace(/^["']|["']$/g, '')
+
+          if (prefix) {
+            if (cleanPath.startsWith(prefix)) {
+              cleanPath = cleanPath.slice(prefix.length)
+            } else {
+              continue
+            }
+          }
+
+          const normalizedPath = cleanPath.replace(/\\/g, '/')
+          if (normalizedPath) {
+            statusMap[normalizedPath] = status
+          }
+        }
+        return statusMap
+      } catch {
+        return {}
+      }
+    })()
+
+    const [status, metadata] = await Promise.all([statusPromise, metadataPromise])
+
+    return { status, metadata }
   } catch (error) {
-    console.error('[Main:Git] Failed to fetch status:', error)
-    return {}
+    console.error('[Main:Git] Failed to fetch git info:', error)
+    return defaultInfo
   }
+}
+
+/**
+ * Legacy support for just status
+ */
+export async function getGitStatus(rootPath: string): Promise<GitStatusResult> {
+  const info = await getGitInfo(rootPath)
+  return info.status
 }

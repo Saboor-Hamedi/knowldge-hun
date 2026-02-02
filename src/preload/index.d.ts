@@ -98,6 +98,7 @@ type NoteApi = {
   getBacklinks: (id: string) => Promise<string[]>
   getGraph: () => Promise<{ links: { source: string; target: string }[] }>
   getGitStatus: () => Promise<Record<string, string>>
+  getGitInfo: () => Promise<{ status: Record<string, string>; metadata: GitMetadata }>
   getVault: () => Promise<VaultInfo>
   chooseVault: () => Promise<VaultInfo>
   setVault: (dir: string) => Promise<VaultInfo>

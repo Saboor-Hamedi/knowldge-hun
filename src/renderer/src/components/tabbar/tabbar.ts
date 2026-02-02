@@ -224,6 +224,11 @@ export class TabBar {
   }
 
   private attachEvents(): void {
+    this.container.addEventListener('wheel', (_event: WheelEvent) => {
+      // Prevent horizontal scrolling from propagating to the parent when scrolling on tabs
+      // This is a common UX pattern for horizontal scrollable elements
+      _event.stopPropagation()
+    })
     this.container.addEventListener('click', this.handleClick)
     this.container.addEventListener('contextmenu', this.handleContextMenu)
     this.container.addEventListener('dragstart', this.handleDragStart)
@@ -363,7 +368,7 @@ export class TabBar {
     event.preventDefault()
   }
 
-  private handleDragLeave = (event: DragEvent): void => {
+  private handleDragLeave = (): void => {
     // Logic removed as it conflicted with live reordering
   }
 
@@ -373,23 +378,22 @@ export class TabBar {
 
     // Final state sync
     const tabElements = Array.from(this.container.querySelectorAll('.tab')) as HTMLElement[]
-    const newOrderIds = tabElements.map((el) => el.dataset.id)
-    const reorderedTabs = newOrderIds
-      .map((id) => state.openTabs.find((t) => t.id === id))
-      .filter(Boolean) as typeof state.openTabs
+    const newOrder = tabElements
+      .map((el) => (el as HTMLElement).dataset.id)
+      .filter(Boolean) as string[]
 
-    state.openTabs = reorderedTabs
-    this.onTabReorder?.()
-    this.render()
+    // We already do live reordering, but this ensures state is fully synced
+    this.container.dispatchEvent(new CustomEvent('tabs-reordered', { detail: { order: newOrder } }))
+    this.draggedTabId = null
   }
 
   private handleDragEnd = (): void => {
-    this.draggedTabId = null
-    this.container.querySelectorAll('.tab').forEach((tab) => {
-      const el = tab as HTMLElement
-      el.classList.remove('is-dragging', 'is-reordering')
-      el.style.transform = ''
-      el.style.transition = ''
+    this.container.classList.remove('is-dragging-tab')
+    const tabs = this.container.querySelectorAll('.tab')
+    tabs.forEach((tab) => {
+      ;(tab as HTMLElement).classList.remove('is-dragging', 'is-hidden')
+      ;(tab as HTMLElement).style.transform = ''
     })
+    this.draggedTabId = null
   }
 }

@@ -1,8 +1,15 @@
 export type GitStatus = 'modified' | 'staged' | 'untracked' | 'deleted' | 'none'
 
+export interface GitMetadata {
+  branch: string
+  remote?: string
+  repoName?: string
+}
+
 export class GitService {
   private static instance: GitService
   private statusMap: Record<string, GitStatus> = {}
+  private metadata: GitMetadata = { branch: '' }
   private pollInterval: ReturnType<typeof setInterval> | null = null
   private isRefreshing = false
 
@@ -19,19 +26,19 @@ export class GitService {
   }
 
   /**
-   * Refreshes the Git status from the main process.
+   * Refreshes the Git status and metadata from the main process.
    */
   public async refreshStatus(): Promise<void> {
     if (this.isRefreshing) return
 
     // Check if API is available (it might not be in some contexts)
-    if (!window.api || typeof window.api.getGitStatus !== 'function') {
+    if (!window.api || typeof window.api.getGitInfo !== 'function') {
       return
     }
 
     this.isRefreshing = true
     try {
-      const rawStatus = await window.api.getGitStatus()
+      const { status: rawStatus, metadata: rawMetadata } = await window.api.getGitInfo()
       const newMap: Record<string, GitStatus> = {}
 
       Object.entries(rawStatus).forEach(([filePath, status]) => {
@@ -53,15 +60,22 @@ export class GitService {
         }
       })
 
-      // Only dispatch if status actually changed
-      const hasChanged = JSON.stringify(this.statusMap) !== JSON.stringify(newMap)
-      this.statusMap = newMap
+      // Only dispatch if status or metadata actually changed
+      const statusChanged = JSON.stringify(this.statusMap) !== JSON.stringify(newMap)
+      const metadataChanged = JSON.stringify(this.metadata) !== JSON.stringify(rawMetadata)
 
-      if (hasChanged) {
-        window.dispatchEvent(new CustomEvent('git-status-changed', { detail: this.statusMap }))
+      this.statusMap = newMap
+      this.metadata = rawMetadata
+
+      if (statusChanged || metadataChanged) {
+        window.dispatchEvent(
+          new CustomEvent('git-status-changed', {
+            detail: { status: this.statusMap, metadata: this.metadata }
+          })
+        )
       }
     } catch (err) {
-      console.error('[GitService] Failed to refresh status:', err)
+      console.error('[GitService] Failed to refresh info:', err)
     } finally {
       this.isRefreshing = false
     }
@@ -74,6 +88,13 @@ export class GitService {
     // Normalize path for lookup
     const path = id.replace(/\\/g, '/')
     return this.statusMap[path] || 'none'
+  }
+
+  /**
+   * Returns the repository metadata.
+   */
+  public getMetadata(): GitMetadata {
+    return this.metadata
   }
 
   private startPolling(): void {

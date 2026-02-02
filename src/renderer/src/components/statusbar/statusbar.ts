@@ -1,13 +1,16 @@
 import './statusbar.css'
 import { VersionFetcher } from '../../utils/versionFetcher'
-import { createElement, CloudUpload, CloudDownload, RefreshCw } from 'lucide'
+import { createElement, CloudUpload, CloudDownload, RefreshCw, GitBranch } from 'lucide'
 import { state } from '../../core/state'
 import { ContextMenu } from '../contextmenu/contextmenu'
+import { gitService } from '../../services/git/gitService'
 
 export class StatusBar {
   private container: HTMLElement
   private statusText: HTMLElement
   private metaText: HTMLElement
+  private gitBranchEl: HTMLElement | null = null
+  private tooltipEl: HTMLElement | null = null
   private version: string | null = null
   private statusTimeout: NodeJS.Timeout | null = null
   private contextMenu: ContextMenu
@@ -16,13 +19,24 @@ export class StatusBar {
     this.container = document.getElementById(containerId) as HTMLElement
     this.contextMenu = new ContextMenu()
     this.render()
-    this.statusText = this.container.querySelector('.statusbar__left') as HTMLElement
+    this.statusText = this.container.querySelector('.statusbar__version') as HTMLElement
+    this.gitBranchEl = this.container.querySelector('.statusbar__git') as HTMLElement
     const rightContainer = this.container.querySelector('.statusbar__right') as HTMLElement
     this.metaText = rightContainer?.querySelector('.statusbar__meta') as HTMLElement
+
+    // Create custom tooltip element
+    this.tooltipEl = document.createElement('div')
+    this.tooltipEl.className = 'statusbar-tooltip'
+    document.body.appendChild(this.tooltipEl)
+
     this.updateStatusText()
     this.attachSyncEvents()
     this.initContextMenu()
     this.updateVisibility()
+    this.attachGitEvents()
+
+    // Initial git update
+    this.updateGitInfo()
 
     // Fetch and set the app version
     VersionFetcher.fetchVersion()
@@ -55,7 +69,13 @@ export class StatusBar {
     const downloadIconMenu = this.createLucideIcon(CloudDownload, 10)
 
     this.container.innerHTML = `
-      <span class="statusbar__left statusbar__item statusbar__version"></span>
+      <div class="statusbar__left">
+        <span class="statusbar__item statusbar__version"></span>
+        <span class="statusbar__item statusbar__git" title="No repository">
+          ${this.createLucideIcon(GitBranch, 12)}
+          <span class="statusbar__git-branch"></span>
+        </span>
+      </div>
       <span class="statusbar__right">
         <span class="statusbar__item statusbar__words" style="visibility: hidden;"></span>
         <span class="statusbar__item statusbar__chars" style="visibility: hidden;"></span>
@@ -95,10 +115,17 @@ export class StatusBar {
         links: true,
         cursor: true,
         sync: true,
-        version: true
+        version: true,
+        git: true
       }
 
       this.contextMenu.show(e.clientX, e.clientY, [
+        {
+          label: 'Git Status',
+          checked: s.git !== false,
+          onClick: () => this.toggleSetting('git')
+        },
+        { separator: true },
         {
           label: 'Words',
           checked: s.words !== false,
@@ -191,6 +218,7 @@ export class StatusBar {
     const cursorEl = this.container.querySelector('.statusbar__cursor') as HTMLElement
     const syncEl = this.container.querySelector('.statusbar__sync') as HTMLElement
     const versionEl = this.container.querySelector('.statusbar__version') as HTMLElement
+    const gitEl = this.container.querySelector('.statusbar__git') as HTMLElement
 
     if (wordsEl) {
       wordsEl.style.visibility = s.words !== false ? 'visible' : 'hidden'
@@ -223,6 +251,10 @@ export class StatusBar {
     if (versionEl) {
       versionEl.style.visibility = s.version !== false ? 'visible' : 'hidden'
       versionEl.style.display = 'flex'
+    }
+    if (gitEl) {
+      gitEl.style.visibility = s.git !== false ? 'visible' : 'hidden'
+      // We don't force display: flex here because updateGitInfo handles show/hide logic based on branch existence
     }
   }
 
@@ -383,6 +415,56 @@ export class StatusBar {
 
     if (this.metaText) {
       this.metaText.textContent = text
+    }
+  }
+
+  private attachGitEvents(): void {
+    window.addEventListener('git-status-changed', () => {
+      this.updateGitInfo()
+    })
+
+    if (this.gitBranchEl) {
+      this.gitBranchEl.addEventListener('mouseenter', () => {
+        const metadata = gitService.getMetadata()
+        if (metadata && metadata.branch && this.tooltipEl && this.gitBranchEl) {
+          // Build rich tooltip content
+          this.tooltipEl.innerHTML = `
+            <div class="statusbar-tooltip__header">
+              <span class="statusbar-tooltip__repo">${metadata.repoName || 'Local Repository'}</span>
+              <span class="statusbar-tooltip__branch">${metadata.branch}</span>
+            </div>
+            ${metadata.remote ? `<div class="statusbar-tooltip__remote">${metadata.remote}</div>` : ''}
+            <div class="statusbar-tooltip__footer">Click to view source control</div>
+          `
+
+          const rect = this.gitBranchEl.getBoundingClientRect()
+          this.tooltipEl.style.left = `${rect.left}px`
+          this.tooltipEl.style.bottom = `${window.innerHeight - rect.top + 8}px`
+          this.tooltipEl.classList.add('is-visible')
+        }
+      })
+
+      this.gitBranchEl.addEventListener('mouseleave', () => {
+        if (this.tooltipEl) {
+          this.tooltipEl.classList.remove('is-visible')
+        }
+      })
+    }
+  }
+
+  private updateGitInfo(): void {
+    if (!this.gitBranchEl) return
+
+    const metadata = gitService.getMetadata()
+    const branchEl = this.gitBranchEl.querySelector('.statusbar__git-branch')
+
+    if (metadata && metadata.branch) {
+      this.gitBranchEl.style.display = 'flex'
+      if (branchEl) branchEl.textContent = metadata.branch
+      // Remove standard title to avoid double tooltips
+      this.gitBranchEl.removeAttribute('title')
+    } else {
+      this.gitBranchEl.style.display = 'none'
     }
   }
 }

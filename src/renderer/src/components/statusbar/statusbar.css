@@ -136,3 +136,92 @@
 .statusbar__version {
   border-right: 1px solid rgba(255, 255, 255, 0.05);
 }
+
+.statusbar__git {
+  gap: 6px;
+  cursor: pointer;
+  border-right: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.statusbar__git .lucide-icon {
+  width: 12px;
+  height: 12px;
+  opacity: 0.8;
+}
+
+.statusbar__git-branch {
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+}
+
+.statusbar__git:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+/* Premium Custom Tooltip */
+.statusbar-tooltip {
+  position: fixed;
+  background: rgba(30, 31, 34, 0.95);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  padding: 12px;
+  color: #e3e3e3;
+  font-size: 11px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  z-index: 100000;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  min-width: 220px;
+  max-width: 400px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.statusbar-tooltip.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.statusbar-tooltip__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: 6px;
+  margin-bottom: 2px;
+}
+
+.statusbar-tooltip__repo {
+  font-weight: 700;
+  color: #fff;
+  font-size: 12px;
+}
+
+.statusbar-tooltip__branch {
+  color: var(--accent, #569cd6);
+  font-family: var(--font-mono, monospace);
+  background: rgba(86, 156, 214, 0.1);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.statusbar-tooltip__remote {
+  color: #9da5b4;
+  word-break: break-all;
+  font-family: var(--font-mono, monospace);
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.statusbar-tooltip__footer {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.4);
+  margin-top: 4px;
+  font-style: italic;
+}

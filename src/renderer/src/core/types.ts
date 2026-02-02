@@ -120,6 +120,7 @@ export type AppSettings = {
     cursor?: boolean
     sync?: boolean
     version?: boolean
+    git?: boolean
   }
   // Terminal Customization
   terminalFontSize?: number

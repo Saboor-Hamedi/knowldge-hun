@@ -99,6 +99,10 @@ const api = {
   getGraph: (): Promise<{ links: { source: string; target: string }[] }> =>
     ipcRenderer.invoke('graph:get'),
   getGitStatus: (): Promise<Record<string, string>> => ipcRenderer.invoke('git:status'),
+  getGitInfo: (): Promise<{
+    status: Record<string, string>
+    metadata: { branch: string; remote?: string; repoName?: string }
+  }> => ipcRenderer.invoke('git:info'),
 
   getSettings: (): Promise<AppSettings> => ipcRenderer.invoke('settings:get'),
   updateSettings: (updates: Partial<AppSettings>): Promise<AppSettings> =>
