@@ -662,6 +662,11 @@ export class RealTerminalComponent {
       return
     }
 
+    // Optimization: Don't re-activate if already active (prevents "jump")
+    if (!this.isSplitMode && this.activeSessionId === sessionId) {
+      return
+    }
+
     // Save active session for persistence
     localStorage.setItem('terminal_active_session', sessionId)
 
