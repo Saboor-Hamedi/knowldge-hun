@@ -304,6 +304,18 @@ app.whenReady().then(async () => {
     }
   })
 
+  // Path Helpers
+  ipcMain.handle('path:join', async (_, ...args: string[]) => join(...args))
+  ipcMain.handle('path:resolve', async (_, ...args: string[]) => resolve(...args))
+  ipcMain.handle('path:isAbsolute', async (_, p: string) => isAbsolute(p))
+  ipcMain.handle('path:exists', async (_, p: string) => existsSync(p))
+
+  ipcMain.on('app:open-external', (_, url: string) => {
+    shell.openExternal(url).catch((err) => {
+      console.error(`[Main] Failed to open external link: ${url}`, err)
+    })
+  })
+
   app.on('browser-window-created', (_, window) => {
     if (is.dev) {
       optimizer.watchWindowShortcuts(window)

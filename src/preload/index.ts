@@ -139,12 +139,19 @@ const api = {
     return () => ipcRenderer.removeListener('vault:changed', subscription)
   },
   // Generic IPC methods for terminal
+  openExternal: (url: string) => ipcRenderer.send('app:open-external', url),
   invoke: (channel: string, ...args: any[]) => ipcRenderer.invoke(channel, ...args),
   send: (channel: string, ...args: any[]) => ipcRenderer.send(channel, ...args),
   on: (channel: string, callback: (...args: any[]) => void) => {
     const subscription = (_event: any, ...args: any[]) => callback(...args)
     ipcRenderer.on(channel, subscription)
     return () => ipcRenderer.removeListener(channel, subscription)
+  },
+  path: {
+    join: (...args: string[]): Promise<string> => ipcRenderer.invoke('path:join', ...args),
+    resolve: (...args: string[]): Promise<string> => ipcRenderer.invoke('path:resolve', ...args),
+    isAbsolute: (p: string): Promise<boolean> => ipcRenderer.invoke('path:isAbsolute', p),
+    exists: (p: string): Promise<boolean> => ipcRenderer.invoke('path:exists', p)
   },
   onNoteOpened: (_callback: (id: string) => void) => {} // Unused but maybe needed for typing
 }

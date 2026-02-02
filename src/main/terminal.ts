@@ -18,12 +18,18 @@ class TerminalManager {
   private dataListeners: Map<string, boolean> = new Map()
   private isCleaningUp: boolean = false
 
-  /**
-   * Create a new terminal session
-   */
-  createTerminal(id: string, cwd?: string, shellType?: string): void {
-    // Clean up existing session if it exists
-    this.killTerminal(id)
+  createTerminal(
+    id: string,
+    cwd?: string,
+    shellType?: string,
+    cols: number = 80,
+    rows: number = 24
+  ): void {
+    // Re-use existing session if it exists (handles window reloads)
+    if (this.sessions.has(id)) {
+      console.log(`[Terminal] Re-using existing session ${id} for reconnection`)
+      return
+    }
 
     // Determine shell based on parameter or platform
     const { exe: shell, args } = shellType
@@ -59,8 +65,8 @@ class TerminalManager {
     try {
       ptyProcess = pty.spawn(shell, args, {
         name: 'xterm-256color',
-        cols: 80,
-        rows: 24,
+        cols,
+        rows,
         cwd: workingDir,
         env
       })
@@ -338,10 +344,13 @@ const terminalManager = new TerminalManager()
  */
 export function registerTerminalHandlers(): void {
   // Create terminal
-  ipcMain.handle('terminal:create', (_, id: string, cwd?: string, shellType?: string) => {
-    terminalManager.createTerminal(id, cwd, shellType)
-    return { success: true }
-  })
+  ipcMain.handle(
+    'terminal:create',
+    (_, id: string, cwd?: string, shellType?: string, cols?: number, rows?: number) => {
+      terminalManager.createTerminal(id, cwd, shellType, cols, rows)
+      return { success: true }
+    }
+  )
 
   // Write to terminal
   ipcMain.on('terminal:write', (_, id: string, data: string) => {
@@ -360,11 +369,14 @@ export function registerTerminalHandlers(): void {
   })
 
   // Restart terminal (for robust reconnection)
-  ipcMain.handle('terminal:restart', (_, id: string, cwd?: string, shellType?: string) => {
-    terminalManager.killTerminal(id)
-    terminalManager.createTerminal(id, cwd, shellType)
-    return { success: true }
-  })
+  ipcMain.handle(
+    'terminal:restart',
+    (_, id: string, cwd?: string, shellType?: string, cols?: number, rows?: number) => {
+      terminalManager.killTerminal(id)
+      terminalManager.createTerminal(id, cwd, shellType, cols, rows)
+      return { success: true }
+    }
+  )
 
   // Setup data listener
   ipcMain.on('terminal:listen', (event, id: string) => {

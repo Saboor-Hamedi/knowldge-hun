@@ -265,6 +265,10 @@ class App {
       }
     })
 
+    this.realTerminal.setNoteSelectHandler((id: string, path?: string) => {
+      void this.vaultHandler.openNote(id, path)
+    })
+
     window.addEventListener('beforeunload', () => void this.vaultHandler.persistWorkspace())
   }
 

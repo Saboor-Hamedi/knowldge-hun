@@ -1,9 +1,11 @@
-import { Terminal } from '@xterm/xterm'
+import { Terminal, ILink } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 import { SearchAddon } from '@xterm/addon-search'
 import { WebglAddon } from '@xterm/addon-webgl'
 import { CanvasAddon } from '@xterm/addon-canvas'
+import { SerializeAddon } from '@xterm/addon-serialize'
+import { state } from '../../core/state'
 import '@xterm/xterm/css/xterm.css'
 import './real-terminal.css'
 
@@ -18,6 +20,7 @@ interface TerminalSession {
   customName?: string
   color?: string
   isSplit?: boolean
+  serializeAddon: SerializeAddon
 }
 
 export class RealTerminalComponent {
@@ -33,6 +36,7 @@ export class RealTerminalComponent {
   private isResizing: boolean = false
   private startY: number = 0
   private startHeight: number = 0
+  private onNoteSelect?: (id: string, path?: string) => void
 
   constructor(containerId: string) {
     const container = document.getElementById(containerId)
@@ -162,6 +166,10 @@ export class RealTerminalComponent {
 
     // Embed Console
     this.initConsoleEmbedding()
+  }
+
+  setNoteSelectHandler(handler: (id: string, path?: string) => void): void {
+    this.onNoteSelect = handler
   }
 
   private initConsoleEmbedding(): void {
@@ -549,12 +557,27 @@ export class RealTerminalComponent {
 
     // Add addons
     const fitAddon = new FitAddon()
-    const webLinksAddon = new WebLinksAddon()
+    // Explicitly handle web links using Electron's shell to avoid protocol issues
+    const webLinksAddon = new WebLinksAddon((_event, url) => {
+      console.log(`[RealTerminal] Opening external link: ${url}`)
+      // Defensive: preload changes require a full app restart, fallback if needed
+      if (typeof window.api.openExternal === 'function') {
+        window.api.openExternal(url)
+      } else if (typeof window.api.send === 'function') {
+        window.api.send('app:open-external', url)
+      } else {
+        window.open(url, '_blank')
+      }
+    })
     const searchAddon = new SearchAddon()
+    const serializeAddon = new SerializeAddon()
 
     terminal.loadAddon(fitAddon)
     terminal.loadAddon(webLinksAddon)
     terminal.loadAddon(searchAddon)
+    terminal.loadAddon(serializeAddon)
+
+    this.setupPathLinks(terminal, cwd)
 
     // Hardware Acceleration: Try WebGL first, fallback to Canvas
     try {
@@ -592,6 +615,14 @@ export class RealTerminalComponent {
       await new Promise((r) => requestAnimationFrame(r))
 
       fitAddon.fit()
+
+      // RESTORE BUFFER: If we have a saved buffer for this ID, write it now
+      const savedBuffer = localStorage.getItem(`terminal_buffer_${sessionId}`)
+      if (savedBuffer) {
+        terminal.write(savedBuffer)
+        // Add a small visual marker that this is restored history
+        terminal.write('\r\n\x1b[2m--- Restored History ---\x1b[0m\r\n')
+      }
 
       // If this is a secondary terminal being created in background, hide it again
       if (this.sessions.size > 0 && !this.isVisible) {
@@ -723,7 +754,8 @@ export class RealTerminalComponent {
         shellType,
         cwd: workingDir,
         customName: sessionConfig.name,
-        color: sessionConfig.color
+        color: sessionConfig.color,
+        serializeAddon
       }
       this.sessions.set(sessionId, session)
 
@@ -971,7 +1003,16 @@ export class RealTerminalComponent {
       session.terminal.reset()
       session.terminal.write('\x1b[32m[Restarting Session...]\x1b[0m\r\n')
 
-      await window.api.invoke('terminal:restart', sessionId, session.cwd, session.shellType)
+      const cols = session.terminal.cols || 80
+      const rows = session.terminal.rows || 24
+      await window.api.invoke(
+        'terminal:restart',
+        sessionId,
+        session.cwd,
+        session.shellType,
+        cols,
+        rows
+      )
       console.log(`[RealTerminal] Session ${sessionId} restarted`)
 
       this.switchToTerminal(sessionId)
@@ -1204,6 +1245,17 @@ export class RealTerminalComponent {
       cwd: session.cwd || ''
     }))
     localStorage.setItem('terminal_sessions', JSON.stringify(sessionData))
+
+    // Save buffers for each session (last 1000 lines)
+    this.sessions.forEach((session, id) => {
+      try {
+        const buffer = session.serializeAddon.serialize()
+        localStorage.setItem(`terminal_buffer_${id}`, buffer)
+      } catch (err) {
+        console.error(`[RealTerminal] Failed to save buffer for ${id}:`, err)
+      }
+    })
+
     console.log(`[RealTerminal] Saved ${sessionData.length} sessions to persistence`)
   }
 
@@ -1407,6 +1459,118 @@ export class RealTerminalComponent {
     } catch (error) {
       console.warn('[RealTerminal] Could not get vault path:', error)
       return undefined
+    }
+  }
+
+  /**
+   * Setup interactive link provider for file paths
+   */
+  private setupPathLinks(terminal: Terminal, cwd?: string): void {
+    terminal.registerLinkProvider({
+      provideLinks: (bufferLine: any, callback: (links: ILink[] | undefined) => void) => {
+        // Use a safe way to get the line text, supporting different xterm versions
+        const line =
+          typeof bufferLine === 'object' && bufferLine.translateToString
+            ? bufferLine.translateToString(true)
+            : terminal.buffer.active.getLine(bufferLine as number)?.translateToString(true) || ''
+
+        // Detection regex for common path patterns - improved boundary checks to avoid matching URLs
+        const pathRegex =
+          /(((?:\/|\b[A-Za-z]:[\\/])[\w\-.\\/]+)|(\.\.?[\/][\w\-.\\/]+))(:\d+)?(:\d+)?/g
+
+        const links: ILink[] = []
+        let match: RegExpExecArray | null
+        while ((match = pathRegex.exec(line)) !== null) {
+          const matchedPath = match[1]
+          const lineNum = match[4] ? parseInt(match[4].slice(1)) : 1
+
+          // NEW: Heuristic to avoid overlapping with URLs (http://, etc)
+          // If the match is preceded by 'http:' or 'https:' or is part of a '//', skip it.
+          const beforeMatch = line.slice(Math.max(0, match.index - 8), match.index).toLowerCase()
+          if (
+            beforeMatch.includes('http') ||
+            beforeMatch.includes('://') ||
+            beforeMatch.endsWith('/')
+          ) {
+            continue
+          }
+
+          links.push({
+            range: {
+              start: { x: match.index + 1, y: 1 },
+              end: { x: match.index + match[0].length, y: 1 }
+            },
+            text: match[0],
+            activate: () => {
+              void this.handlePathClick(matchedPath, lineNum, cwd)
+            }
+          })
+        }
+        callback(links)
+      }
+    })
+  }
+
+  /**
+   * Resolve a clicked path and try to open it
+   */
+  private async handlePathClick(
+    pathStr: string,
+    _lineNum: number,
+    sessionCwd?: string
+  ): Promise<void> {
+    try {
+      const vaultPath = await this.getVaultPath()
+      if (!vaultPath) return
+
+      let fullPath = pathStr
+      const isAbs = await window.api.path.isAbsolute(pathStr)
+
+      if (!isAbs) {
+        // Resolve relative to session CWD or vault root
+        const base = sessionCwd || vaultPath
+        fullPath = await window.api.path.join(base, pathStr)
+      }
+
+      // Check if it exists
+      const exists = await window.api.path.exists(fullPath)
+      if (!exists) {
+        console.warn(`[RealTerminal] Path does not exist: ${fullPath}`)
+        return
+      }
+
+      // Normalize for comparison
+      const normalizedPath = fullPath.replace(/\\/g, '/')
+      const normalizedVaultRoot = vaultPath.replace(/\\/g, '/')
+
+      // If it's inside the vault, open in our editor
+      if (normalizedPath.startsWith(normalizedVaultRoot)) {
+        // Get relative path from vault root
+        const relativePath = normalizedPath
+          .substring(normalizedVaultRoot.length)
+          .replace(/^[\\/]/, '')
+
+        // Find if this note exists in state
+        const note = state.notes.find(
+          (n: any) =>
+            n.path === relativePath ||
+            n.path ===
+              (relativePath.includes('/')
+                ? relativePath.replace(/\//g, '\\')
+                : relativePath.replace(/\\/g, '/'))
+        )
+        if (note && this.onNoteSelect) {
+          this.onNoteSelect(note.id, note.path)
+        } else {
+          // Not in notes list (maybe hidden or not a note), try reveal in vault anyway
+          window.api.revealVault(fullPath)
+        }
+      } else {
+        // Outside vault, reveal in explorer
+        window.api.revealVault(fullPath)
+      }
+    } catch (err) {
+      console.error('[RealTerminal] Failed to handle path click:', err)
     }
   }
 }
