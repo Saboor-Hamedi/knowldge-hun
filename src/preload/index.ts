@@ -93,7 +93,7 @@ const api = {
   locateMovedVault: (originalPath: string): Promise<{ foundPath: string | null }> =>
     ipcRenderer.invoke('vault:locate', originalPath),
 
-  searchNotes: (query: string, options?: any): Promise<NoteMeta[]> =>
+  searchNotes: (query: string, options?: Record<string, unknown>): Promise<NoteMeta[]> =>
     ipcRenderer.invoke('notes:search', query, options),
   getBacklinks: (id: string): Promise<string[]> => ipcRenderer.invoke('notes:getBacklinks', id),
   getGraph: (): Promise<{ links: { source: string; target: string }[] }> =>
@@ -113,39 +113,44 @@ const api = {
   },
   getAppIcon: (): Promise<string> => ipcRenderer.invoke('app:getIcon'),
   getAppVersion: (): Promise<string> => ipcRenderer.invoke('app:getVersion'),
-  getDocumentation: (section?: string): Promise<any> =>
+  getDocumentation: (section?: string): Promise<unknown> =>
     ipcRenderer.invoke('app:getDocumentation', section),
   getUsername: (): Promise<string> => ipcRenderer.invoke('system:getUsername'),
   syncBackup: (
     token: string,
     gistId: string | undefined,
-    vaultData: any
+    vaultData: unknown
   ): Promise<{ success: boolean; message: string; gistId?: string }> =>
     ipcRenderer.invoke('sync:backup', token, gistId, vaultData),
   syncRestore: (
     token: string,
     gistId: string
-  ): Promise<{ success: boolean; message: string; data?: any }> =>
+  ): Promise<{ success: boolean; message: string; data?: unknown }> =>
     ipcRenderer.invoke('sync:restore', token, gistId),
   syncTestToken: (token: string): Promise<{ valid: boolean; message: string }> =>
     ipcRenderer.invoke('sync:testToken', token),
   sessions: {
     backup: (): Promise<{ success: boolean; message?: string; path?: string }> =>
       ipcRenderer.invoke('sessions:backup'),
-    restore: (): Promise<{ success: boolean; message?: string; data?: any }> =>
+    restore: (): Promise<{ success: boolean; message?: string; data?: unknown }> =>
       ipcRenderer.invoke('sessions:restore')
   },
-  onVaultChanged: (callback: (data: any) => void) => {
-    const subscription = (_event: any, data: any) => callback(data)
+  onVaultChanged: (callback: (data: unknown) => void): (() => void) => {
+    const subscription = (_event: unknown, data: unknown): void => callback(data)
     ipcRenderer.on('vault:changed', subscription)
     return () => ipcRenderer.removeListener('vault:changed', subscription)
   },
   // Generic IPC methods for terminal
-  openExternal: (url: string) => ipcRenderer.send('app:open-external', url),
-  invoke: (channel: string, ...args: any[]) => ipcRenderer.invoke(channel, ...args),
-  send: (channel: string, ...args: any[]) => ipcRenderer.send(channel, ...args),
-  on: (channel: string, callback: (...args: any[]) => void) => {
-    const subscription = (_event: any, ...args: any[]) => callback(...args)
+  openExternal: (url: string): void => {
+    ipcRenderer.send('app:open-external', url)
+  },
+  invoke: (channel: string, ...args: unknown[]): Promise<unknown> =>
+    ipcRenderer.invoke(channel, ...args),
+  send: (channel: string, ...args: unknown[]): void => {
+    ipcRenderer.send(channel, ...args)
+  },
+  on: (channel: string, callback: (...args: unknown[]) => void): (() => void) => {
+    const subscription = (_event: unknown, ...args: unknown[]): void => callback(...args)
     ipcRenderer.on(channel, subscription)
     return () => ipcRenderer.removeListener(channel, subscription)
   },
@@ -155,7 +160,10 @@ const api = {
     isAbsolute: (p: string): Promise<boolean> => ipcRenderer.invoke('path:isAbsolute', p),
     exists: (p: string): Promise<boolean> => ipcRenderer.invoke('path:exists', p)
   },
-  onNoteOpened: (_callback: (id: string) => void) => {} // Unused but maybe needed for typing
+  onNoteOpened: (callback: (id: string) => void): void => {
+    // This is currently a stub if not used, but let's keep the parameter to match expected interface
+    void callback
+  }
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

@@ -25,6 +25,7 @@ import {
   type Settings
 } from './settings'
 import { registerTerminalHandlers, cleanupTerminals } from './modules/terminal'
+import { getGitStatus } from './git'
 
 let mainWindowRef: BrowserWindow | null = null
 const freshWindows = new Set<number>()
@@ -860,6 +861,9 @@ app.whenReady().then(async () => {
     return app.getVersion()
   })
   console.log('[Main] Registering app:getDocumentation handler')
+
+  // ... (existing code)
+
   ipcMain.handle('app:getDocumentation', async (_event, section?: string) => {
     let docsDir = is.dev
       ? join(process.cwd(), 'resources/docs')
@@ -883,8 +887,7 @@ app.whenReady().then(async () => {
         const result = files.filter((f) => f.endsWith('.md')).map((f) => f.replace('.md', ''))
         console.log(`[Main] Found sections: ${result.join(', ')}`)
         return result
-      } catch (e) {
-        console.error('[Main] Failed to list sections', e)
+      } catch {
         return ['introduction']
       }
     }
@@ -907,8 +910,7 @@ app.whenReady().then(async () => {
         return await readFile(oldDocPath, 'utf-8')
       }
       return '# Documentation Not Found'
-    } catch (e) {
-      // Only log unexpected errors, not file-not-found
+    } catch {
       return '# Error Loading Documentation'
     }
   })
@@ -916,62 +918,7 @@ app.whenReady().then(async () => {
   ipcMain.handle('git:status', async (event) => {
     const v = getVaultManager(event.sender)
     const root = v?.getRootPath() || resolveVaultPath()
-    if (!root || !existsSync(root)) return {}
-
-    const { exec } = await import('child_process')
-    const { promisify } = await import('util')
-    const execAsync = promisify(exec)
-
-    try {
-      // Check if we are inside a git repo (handles subdirectories)
-      try {
-        await execAsync('git rev-parse --is-inside-work-tree', { cwd: root })
-      } catch (e) {
-        return {} // Not a git repo or git not installed
-      }
-
-      // Get the relative path from git root to our vault root
-      const { stdout: prefixRaw } = await execAsync('git rev-parse --show-prefix', { cwd: root })
-      const prefix = prefixRaw.trim() // e.g., "src/" or empty
-
-      const { stdout } = await execAsync('git status --porcelain', { cwd: root })
-      const statusMap: Record<string, string> = {}
-
-      stdout.split('\n').forEach((line) => {
-        if (!line.trim()) return
-        const status = line.slice(0, 2)
-        let rawPath = line.slice(3).trim()
-
-        // Handle renames "old -> new"
-        if (status.startsWith('R')) {
-          const parts = rawPath.split(' -> ')
-          rawPath = parts[parts.length - 1].trim()
-        }
-
-        // Remove quotes if git config core.quotepath is on
-        const cleanPath = rawPath.replace(/["']/g, '')
-
-        // If we are in a subdirectory of the repo (prefix exists), we need to strip it
-        // Note: git porcelain paths are always relative to repository root
-        let finalPath = cleanPath
-        if (prefix) {
-          if (cleanPath.startsWith(prefix)) {
-            finalPath = cleanPath.slice(prefix.length)
-          } else {
-            // This modified file is outside our vault, ignore it
-            return
-          }
-        }
-
-        // Canonical form for map: always forward slashes
-        statusMap[finalPath.replace(/\\/g, '/')] = status
-      })
-
-      return statusMap
-    } catch (e) {
-      console.error('[Git] Status check failed:', e)
-      return {}
-    }
+    return getGitStatus(root)
   })
 
   ipcMain.handle('system:getUsername', () => {

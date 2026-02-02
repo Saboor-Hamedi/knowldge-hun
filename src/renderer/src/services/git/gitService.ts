@@ -3,10 +3,12 @@ export type GitStatus = 'modified' | 'staged' | 'untracked' | 'deleted' | 'none'
 export class GitService {
   private static instance: GitService
   private statusMap: Record<string, GitStatus> = {}
-  private pollInterval: number | null = null
+  private pollInterval: ReturnType<typeof setInterval> | null = null
+  private isRefreshing = false
 
   private constructor() {
     this.startPolling()
+    this.attachListeners()
   }
 
   public static getInstance(): GitService {
@@ -16,7 +18,18 @@ export class GitService {
     return GitService.instance
   }
 
+  /**
+   * Refreshes the Git status from the main process.
+   */
   public async refreshStatus(): Promise<void> {
+    if (this.isRefreshing) return
+
+    // Check if API is available (it might not be in some contexts)
+    if (!window.api || typeof window.api.getGitStatus !== 'function') {
+      return
+    }
+
+    this.isRefreshing = true
     try {
       const rawStatus = await window.api.getGitStatus()
       const newMap: Record<string, GitStatus> = {}
@@ -28,11 +41,11 @@ export class GitService {
         let type: GitStatus = 'none'
 
         if (status === '??' || x === 'A') {
-          type = 'untracked' // Shown as Green
+          type = 'untracked'
         } else if (x === 'M' || y === 'M' || x === 'R') {
-          type = 'modified' // Shown as Yellow
+          type = 'modified'
         } else if (x === 'D' || y === 'D') {
-          type = 'deleted' // Shown as Red
+          type = 'deleted'
         }
 
         if (type !== 'none') {
@@ -40,36 +53,47 @@ export class GitService {
         }
       })
 
+      // Only dispatch if status actually changed
+      const hasChanged = JSON.stringify(this.statusMap) !== JSON.stringify(newMap)
       this.statusMap = newMap
-      window.dispatchEvent(new CustomEvent('git-status-changed', { detail: this.statusMap }))
+
+      if (hasChanged) {
+        window.dispatchEvent(new CustomEvent('git-status-changed', { detail: this.statusMap }))
+      }
     } catch (err) {
       console.error('[GitService] Failed to refresh status:', err)
+    } finally {
+      this.isRefreshing = false
     }
   }
 
-  public getStatus(filePath: string): GitStatus {
-    // Normalize path (Git uses forward slashes, root is vault path)
-    const normalizedPath = filePath.replace(/\\/g, '/')
-    return this.statusMap[normalizedPath] || 'none'
+  /**
+   * Returns the Git status of a specific file/id.
+   */
+  public getStatus(id: string): GitStatus {
+    // Normalize path for lookup
+    const path = id.replace(/\\/g, '/')
+    return this.statusMap[path] || 'none'
   }
 
   private startPolling(): void {
     if (this.pollInterval) return
-
     // Initial refresh
-    void this.refreshStatus()
-
-    // Poll every 10 seconds for git status updates
-    this.pollInterval = window.setInterval(() => {
-      void this.refreshStatus()
-    }, 10000)
-
-    // Also refresh on vault changes or focus
-    window.addEventListener('focus', () => void this.refreshStatus())
-    window.addEventListener('vault-changed', () => void this.refreshStatus())
+    this.refreshStatus()
+    // Poll every 15 seconds (slightly less aggressive)
+    this.pollInterval = setInterval(() => this.refreshStatus(), 15000)
   }
 
-  public stopPolling(): void {
+  private attachListeners(): void {
+    // Refresh on focus
+    window.addEventListener('focus', () => this.refreshStatus())
+    // Refresh on vault changes
+    window.addEventListener('vault-changed', () => this.refreshStatus())
+    // Refresh on manual re-renders from tree
+    window.addEventListener('refresh-git', () => this.refreshStatus())
+  }
+
+  public stop(): void {
     if (this.pollInterval) {
       clearInterval(this.pollInterval)
       this.pollInterval = null
