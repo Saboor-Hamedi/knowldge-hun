@@ -114,7 +114,8 @@
   gap: 8px;
   font-size: 13px;
   font-weight: 500;
-  color: var(--text);
+  color: var(--text-muted);
+  opacity: 0.8;
 }
 
 .hub-console__title-icon {

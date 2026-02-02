@@ -207,7 +207,7 @@ export class ConsoleComponent {
       <div class="hub-console__resizer"></div>
       <div class="hub-console__header">
         <div class="hub-console__title">
-          <span class="hub-console__title-icon">▶</span>
+          <span class="hub-console__title-icon">${codicons.terminal}</span>
           <span>HUB Console</span>
         </div>
         <div class="hub-console__actions">

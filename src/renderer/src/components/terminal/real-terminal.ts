@@ -1113,10 +1113,20 @@ export class RealTerminalComponent {
     const wrapper = this.container.querySelector('.real-terminal-wrapper')
     if (wrapper) {
       const settings = await window.api.invoke('settings:get')
-      const userPreference = settings?.terminalSidebarVisible === true // Default to false or strictly follow user toggle
 
-      // Auto-hide if only 1 session exists, unless user explicitly toggled it ON
-      if (this.sessions.size > 1 || userPreference) {
+      // If the user has explicitly set a preference, honor it absolutely
+      if (typeof settings?.terminalSidebarVisible === 'boolean') {
+        if (settings.terminalSidebarVisible) {
+          wrapper.classList.remove('sidebar-hidden')
+        } else {
+          wrapper.classList.add('sidebar-hidden')
+        }
+        return
+      }
+
+      // Otherwise, default to "auto" mode:
+      // Show sidebar if there's more than one session, otherwise hide it to save space
+      if (this.sessions.size > 1) {
         wrapper.classList.remove('sidebar-hidden')
       } else {
         wrapper.classList.add('sidebar-hidden')
