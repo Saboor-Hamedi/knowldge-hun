@@ -578,25 +578,58 @@ export class RealTerminalComponent {
     terminalElement.id = `terminal-${sessionId}`
     terminalElement.style.display = 'none'
 
+    // Open terminal
     const terminalContent = document.getElementById('terminal-content')
     if (terminalContent) {
       terminalContent.appendChild(terminalElement)
-    }
 
-    // Open terminal
-    terminal.open(terminalElement)
-    fitAddon.fit()
+      // Ensure element is visible so fit() works
+      terminalElement.style.display = 'block'
+      terminal.open(terminalElement)
+
+      // Wait for fonts and next frame to ensure accurate fit
+      await document.fonts.ready
+      await new Promise((r) => requestAnimationFrame(r))
+
+      fitAddon.fit()
+
+      // If this is a secondary terminal being created in background, hide it again
+      if (this.sessions.size > 0 && !this.isVisible) {
+        terminalElement.style.display = 'none'
+      }
+    } else {
+      terminal.open(terminalElement)
+      await document.fonts.ready
+      fitAddon.fit()
+    }
 
     // Create terminal in main process
     try {
       // Prioritize provided cwd (e.g. from restored session) over default vault path
       const vaultPath = await this.getVaultPath()
       const workingDir = cwd || vaultPath
-      await window.api.invoke('terminal:create', sessionId, workingDir, shellType)
+
+      // Get dimensions after fit()
+      const cols = terminal.cols || 80
+      const rows = terminal.rows || 24
+
+      await window.api.invoke('terminal:create', sessionId, workingDir, shellType, cols, rows)
 
       // Setup data listener
+      let initialBurst = true
       window.api.on(`terminal:data:${sessionId}`, (data: string) => {
         terminal.write(data)
+
+        // Anti-scroll hack: After the first data (shell header),
+        // ensure we are at the bottom and the fit is definitely correct.
+        if (initialBurst) {
+          initialBurst = false
+          setTimeout(() => {
+            fitAddon.fit()
+            terminal.scrollToBottom()
+            terminal.clearSelection()
+          }, 50)
+        }
       })
 
       // Setup exit listener

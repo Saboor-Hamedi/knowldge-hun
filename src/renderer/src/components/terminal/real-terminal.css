@@ -281,9 +281,9 @@
 .real-terminal-body {
   display: flex;
   flex: 1;
-  overflow-y: hidden;
-  overflow-x: auto; /* Allow horizontal scroll if content + sidebar > screen width */
-  background: #1e1e1e;
+  min-height: 0; /* Important for flex children to allow shrink/fill */
+  overflow: hidden;
+  background-color: var(--terminal-bg, #1e1e1e);
 }
 
 /* Terminal Sidebar */
@@ -572,7 +572,7 @@
 .terminal-instance .xterm-screen {
   padding: 0 !important;
   margin: 0 !important;
-  background: transparent !important;
+  background: transparent !important; /* Allow frame color to show through */
   height: 100% !important;
   width: 100% !important;
 }
