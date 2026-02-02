@@ -74,10 +74,12 @@ export class RealTerminalComponent {
     this.container.innerHTML = `
       <div class="real-terminal-wrapper" style="position: relative;">
         <div class="real-terminal-header">
-          <div class="real-terminal-title">
-            <span>TERMINAL</span>
+          <div class="real-terminal-tabs">
+            <button class="terminal-tab active" data-tab="terminal">TERMINAL</button>
+            <button class="terminal-tab" data-tab="console">CONSOLE</button>
           </div>
           <div class="real-terminal-actions">
+            <!-- existing actions -->
             <button class="real-terminal-btn" id="toggle-search-btn" title="Find (Ctrl+F)">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <circle cx="11" cy="11" r="8"></circle>
@@ -120,7 +122,7 @@ export class RealTerminalComponent {
             <button class="real-terminal-btn" id="trash-terminal-btn" title="Kill Terminal">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <polyline points="3 6 5 6 21 6"></polyline>
-                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2-2v2"></path>
               </svg>
             </button>
             <button class="real-terminal-btn" id="close-terminal-btn" title="Close Panel">
@@ -147,11 +149,71 @@ export class RealTerminalComponent {
           </div>
           <div class="real-terminal-content" id="terminal-content"></div>
         </div>
+        
+        <div class="real-terminal-console-host" id="real-terminal-console-host" style="display: none;">
+          <!-- Console will be moved here -->
+        </div>
       </div>
     `
 
-    // Get settings to set initial default shell
-    // No longer need to update a selector here since it's replaced by a dropdown
+    // Embed Console
+    this.initConsoleEmbedding()
+  }
+
+  private initConsoleEmbedding(): void {
+    // Attempt to find the global console element
+    const consoleEl = document.querySelector('.hub-console')
+    const host = this.container.querySelector('#real-terminal-console-host')
+
+    if (consoleEl && host) {
+      // Move it
+      host.appendChild(consoleEl)
+      consoleEl.classList.add('hub-console--embedded')
+      // Ensure it's "open" so it renders content, but visibility is controlled by our host
+      consoleEl.classList.add('is-open')
+    }
+  }
+
+  public showConsole(): void {
+    if (!this.isVisible) this.show()
+    this.switchView('console')
+  }
+
+  public showTerminal(): void {
+    if (!this.isVisible) this.show()
+    this.switchView('terminal')
+  }
+
+  private switchView(view: 'terminal' | 'console'): void {
+    const tabs = this.container.querySelectorAll('.terminal-tab')
+    const termBody = this.container.querySelector('.real-terminal-body') as HTMLElement
+    const consoleHost = this.container.querySelector('#real-terminal-console-host') as HTMLElement
+
+    // Update tabs
+    tabs.forEach((t) => {
+      const tab = t as HTMLElement
+      if (tab.dataset.tab === view) tab.classList.add('active')
+      else tab.classList.remove('active')
+    })
+
+    // Toggle content
+    if (view === 'terminal') {
+      if (termBody) termBody.style.display = 'flex'
+      if (consoleHost) consoleHost.style.display = 'none'
+
+      // Focus terminal
+      if (this.activeSessionId) {
+        const session = this.sessions.get(this.activeSessionId)
+        session?.terminal.focus()
+      }
+    } else {
+      if (termBody) termBody.style.display = 'none'
+      if (consoleHost) consoleHost.style.display = 'block'
+
+      // Focus console input
+      const input = consoleHost.querySelector('.hub-console__input') as HTMLElement
+      input?.focus()
+    }
   }
 
   /**
@@ -182,6 +244,14 @@ export class RealTerminalComponent {
   }
 
   private setupEventListeners(): void {
+    const tabs = this.container.querySelectorAll('.terminal-tab')
+    tabs.forEach((t) => {
+      t.addEventListener('click', (e) => {
+        const view = (e.target as HTMLElement).dataset.tab as 'terminal' | 'console'
+        this.switchView(view)
+      })
+    })
+
     const newTerminalBtn = document.getElementById('new-terminal-btn')
     const closeTerminalBtn = document.getElementById('close-terminal-btn')
     const splitTerminalBtn = document.getElementById('split-terminal-btn')
@@ -994,10 +1064,11 @@ export class RealTerminalComponent {
    * Toggle sidebar visibility manually
    */
   private async toggleSidebar(): Promise<void> {
-    const settings = await window.api.invoke('settings:get')
-    if (settings) {
-      const current = settings.terminalSidebarVisible !== false
-      await window.api.invoke('settings:update', { terminalSidebarVisible: !current })
+    const wrapper = this.container.querySelector('.real-terminal-wrapper')
+    if (wrapper) {
+      const isHidden = wrapper.classList.contains('sidebar-hidden')
+      // If currently hidden, we want it visible (true). If visible, we want it hidden (false).
+      await window.api.invoke('settings:update', { terminalSidebarVisible: isHidden })
       await this.updateSidebarVisibility()
     }
   }

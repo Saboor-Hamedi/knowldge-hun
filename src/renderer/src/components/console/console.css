@@ -679,3 +679,87 @@
   border: 1px solid rgba(99, 102, 241, 0.2);
   margin: 0 1px;
 }
+
+/* ============================================
+   EMBEDDED MODE (Inside Terminal Tab)
+   ============================================ */
+.hub-console.hub-console--embedded {
+  position: static !important;
+  height: 100% !important;
+  width: 100% !important;
+  border: none !important;
+  background: transparent !important; /* Should inherit terminal background */
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  pointer-events: auto !important; /* Force interactivity */
+}
+
+/* Hide header and resizer when embedded */
+.hub-console.hub-console--embedded .hub-console__header,
+.hub-console.hub-console--embedded .hub-console__resizer {
+  display: none !important;
+}
+
+/* MATCH TERMINAL FONTS & SPACING */
+.hub-console.hub-console--embedded .hub-console__body {
+  padding: 4px 12px; /* Match typical terminal key-line */
+  font-family: 'Consolas', 'Courier New', monospace; /* Force terminal font */
+  font-size: 14px; /* Default xterm size often 14px */
+  background: transparent !important;
+}
+
+/* FLATTEN THE FOOTER INTERFACE */
+.hub-console.hub-console--embedded .hub-console__footer {
+  margin: 0;
+  border: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  background: transparent !important; /* No distinct card bg */
+  border-radius: 0;
+  box-shadow: none !important;
+}
+
+.hub-console.hub-console--embedded .hub-console__footer:focus-within {
+  box-shadow: none !important;
+  border-color: rgba(255, 255, 255, 0.2);
+  background: transparent !important;
+}
+
+/* Terminal-like Input Line */
+.hub-console.hub-console--embedded .hub-console__footer-bar {
+  background: transparent !important;
+  border-top: none;
+  min-height: 32px;
+  padding: 0 12px 4px 12px;
+  cursor: text; /* Ensure the whole bar feels like an input field */
+}
+
+.hub-console.hub-console--embedded .hub-console__input-container {
+  padding: 8px 12px 0 12px; /* Tighten up */
+}
+
+.hub-console.hub-console--embedded .hub-console__input {
+  cursor: text !important;
+  user-select: text !important;
+  -webkit-user-select: text !important;
+  caret-color: #0dbc79; /* Green caret to match prompt */
+}
+
+/* Make prompt look like shell prompt */
+.hub-console.hub-console--embedded .hub-console__prompt {
+  font-family: inherit;
+  color: #0dbc79; /* Common terminal prompt green */
+  cursor: default;
+  user-select: none;
+}
+
+.hub-console.hub-console--embedded .hub-console__prompt--ai {
+  color: #10b981;
+}
+
+/* Mode switcher should look more integrated or hidden if redundant */
+.hub-console.hub-console--embedded .hub-console__mode-switcher {
+  background: transparent;
+  border: none;
+}
+

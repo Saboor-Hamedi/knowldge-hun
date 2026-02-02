@@ -15,9 +15,47 @@
   align-items: center;
   justify-content: space-between;
   padding: 0 12px;
-  border-bottom: 3px solid rgba(0, 0, 0, 0.2); /* Thicker border for better separation */
+  border-bottom: 3px solid rgba(0, 0, 0, 0.2);
   flex-shrink: 0;
   position: relative;
+}
+
+.real-terminal-tabs {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  height: 100%;
+}
+
+.terminal-tab {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: #858585;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  height: 100%;
+  padding: 0 4px;
+  transition: all 0.2s ease;
+}
+
+.terminal-tab:hover {
+  color: #cccccc;
+}
+
+.terminal-tab.active {
+  color: #ffffff;
+  border-bottom-color: #007acc;
+}
+
+.real-terminal-console-host {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  background: #1e1e1e;
 }
 
 .real-terminal-search-container {
@@ -38,13 +76,13 @@
 }
 
 @keyframes searchDropdown {
-  from { 
-    opacity: 0; 
-    transform: translateY(-10px); 
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
   }
-  to { 
-    opacity: 1; 
-    transform: translateY(0); 
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
@@ -148,8 +186,14 @@
 }
 
 @keyframes menuFadeIn {
-  from { opacity: 0; transform: translateY(-5px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .shell-menu-item {
@@ -218,7 +262,9 @@
   border-right: 1px solid rgba(255, 255, 255, 0.1);
   overflow-y: auto;
   overflow-x: hidden;
-  transition: width 0.2s ease, opacity 0.2s ease;
+  transition:
+    width 0.2s ease,
+    opacity 0.2s ease;
   padding-top: 2px;
   padding-bottom: 2px;
   flex-shrink: 0;
@@ -235,7 +281,7 @@
 }
 
 .terminal-sessions-list {
-  padding: 0 8px;
+  padding: 0 5px;
   display: flex;
   flex-direction: column;
 }
@@ -280,9 +326,15 @@
 }
 
 @keyframes pulse-red {
-  0% { opacity: 1; }
-  50% { opacity: 0.4; }
-  100% { opacity: 1; }
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+  100% {
+    opacity: 1;
+  }
 }
 
 .terminal-session-item.active-secondary::before {
@@ -300,7 +352,9 @@
   font-size: 13px;
   color: var(--session-color, #4ec9b0);
   flex-shrink: 0;
-  transition: color 0.15s ease, transform 0.2s ease;
+  transition:
+    color 0.15s ease,
+    transform 0.2s ease;
 }
 
 .terminal-session-item:hover .session-icon {

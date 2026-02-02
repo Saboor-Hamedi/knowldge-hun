@@ -210,7 +210,7 @@ class App {
       'toggle-right-sidebar',
       () => void this.viewOrchestrator.toggleRightSidebar()
     )
-    window.addEventListener('toggle-hub-console', () => this.hubConsole.toggle())
+    window.addEventListener('toggle-hub-console', () => this.realTerminal.showConsole())
     window.addEventListener('knowledge-hub:rename-item', ((
       e: CustomEvent<{ id: string; type: 'note' | 'folder'; title: string }>
     ) => {
