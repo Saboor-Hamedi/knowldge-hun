@@ -567,23 +567,26 @@
   background: var(--panel-strong);
   border: 1px solid var(--border);
   border-radius: 4px;
-  color: var(--text-soft);
-  padding: 2px 6px; /* Even smaller */
-  font-size: 10px; /* Smaller font */
+  color: var(--text);
+  padding: 4px 10px;
+  font-size: 12px;
   cursor: pointer;
   outline: none;
   transition: all 0.15s ease;
-  opacity: 0.8;
-  height: 22px; /* Fixed small height */
+  height: 28px;
+  min-width: 120px;
+  font-weight: 500;
 }
 
 .hub-console__capability-select:hover {
   border-color: var(--primary);
+  background: rgba(127, 167, 255, 0.05);
 }
 
 .hub-console__capability-select:focus {
   border-color: var(--primary);
   box-shadow: 0 0 0 2px rgba(127, 167, 255, 0.2);
+  background: rgba(127, 167, 255, 0.08);
 }
 
 /* Stop button */
@@ -633,14 +636,15 @@
   bottom: 100%;
   left: 12px;
   right: 12px;
-  max-height: 200px;
+  max-height: 240px;
   overflow-y: auto;
   background: var(--panel-strong);
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: 6px;
   box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.4);
   display: none;
-  z-index: 9999; /* Ensure it stays above console body content */
+  z-index: 9999;
+  margin-bottom: 4px;
 }
 
 .hub-console__autocomplete.is-visible {
@@ -648,12 +652,16 @@
 }
 
 .hub-console__autocomplete-item {
-  padding: 8px 12px;
+  padding: 6px 12px;
   cursor: pointer;
   transition: background 0.1s ease;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 13px;
+  font-size: 12px;
   color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
 }
 
 .hub-console__autocomplete-item:hover,
@@ -667,18 +675,39 @@
   font-weight: 700;
 }
 
+/* File icon in autocomplete */
+.hub-console__autocomplete-item .file-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+}
+
 /* Mention Chips */
 .hub-console__mention {
-  background: rgba(99, 102, 241, 0.15); /* Purple tint */
+  background: rgba(99, 102, 241, 0.15);
   color: #818cf8;
-  padding: 1px 6px;
-  border-radius: 4px;
-  font-weight: 600;
-  display: inline-block;
-  user-select: all; /* Help selection */
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-weight: 500;
+  font-size: 11px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  user-select: all;
   cursor: pointer;
-  border: 1px solid rgba(99, 102, 241, 0.2);
+  border: 1px solid rgba(99, 102, 241, 0.25);
   margin: 0 1px;
+  vertical-align: middle;
+  line-height: 1.4;
+}
+
+.hub-console__mention:hover {
+  background: rgba(99, 102, 241, 0.25);
+  border-color: rgba(99, 102, 241, 0.4);
 }
 
 /* ============================================
@@ -707,7 +736,7 @@
   padding: 4px 12px; /* Match typical terminal key-line */
   font-family: 'Consolas', 'Courier New', monospace; /* Force terminal font */
   font-size: 14px; /* Default xterm size often 14px */
-  background: transparent !important;
+  background: var(--terminal-bg, transparent) !important;
 }
 
 /* FLATTEN THE FOOTER INTERFACE */
@@ -715,7 +744,7 @@
   margin: 0;
   border: none;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
-  background: transparent !important; /* No distinct card bg */
+  background: var(--terminal-bg, transparent) !important; /* Match terminal background */
   border-radius: 0;
   box-shadow: none !important;
 }
@@ -723,12 +752,12 @@
 .hub-console.hub-console--embedded .hub-console__footer:focus-within {
   box-shadow: none !important;
   border-color: rgba(255, 255, 255, 0.2);
-  background: transparent !important;
+  background: var(--terminal-bg, transparent) !important; /* Match terminal background */
 }
 
 /* Terminal-like Input Line */
 .hub-console.hub-console--embedded .hub-console__footer-bar {
-  background: transparent !important;
+  background: var(--terminal-bg, transparent) !important; /* Match terminal background */
   border-top: none;
   min-height: 32px;
   padding: 0 12px 0 12px;
@@ -737,6 +766,7 @@
 
 .hub-console.hub-console--embedded .hub-console__input-container {
   padding: 8px 12px 0 12px; /* Tighten up */
+  background: var(--terminal-bg, transparent) !important; /* Match terminal background */
 }
 
 .hub-console.hub-console--embedded .hub-console__input {

@@ -22,12 +22,12 @@
 .unified-search-container {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
   background: var(--panel, #252526);
-  padding: 6px 8px;
-  border-radius: 4px;
+  padding: 4px 6px;
+  border-radius: 3px;
   border: 1px solid var(--search-border);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
 }
 
 /* Search input wrapper */
@@ -37,9 +37,10 @@
   align-items: center;
   background: var(--search-bg);
   border: 1px solid var(--search-border);
-  border-radius: 3px;
+  border-radius: 2px;
   transition: border-color 0.15s ease;
-  min-width: 200px;
+  min-width: 180px;
+  height: 24px;
 }
 
 .unified-search-wrapper:focus-within {
@@ -54,9 +55,10 @@
   border: none;
   color: var(--search-text);
   font-size: 13px;
-  padding: 4px 8px;
+  padding: 3px 6px;
   outline: none;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  height: 100%;
 }
 
 .unified-search-input::placeholder {
@@ -69,23 +71,23 @@
 .unified-search-options {
   display: flex;
   align-items: center;
-  gap: 2px;
-  padding: 0 4px;
+  gap: 1px;
+  padding: 0 3px;
   border-right: 1px solid var(--search-border);
-  margin-right: 4px;
+  margin-right: 3px;
 }
 
 /* Search option buttons (Match Case, Whole Word, Regex) */
 .unified-search-option {
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   background: transparent;
   border: none;
   color: var(--search-button);
   cursor: pointer;
   font-size: 11px;
   font-weight: 600;
-  border-radius: 3px;
+  border-radius: 2px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -109,14 +111,14 @@
   border: none;
   color: var(--search-button);
   cursor: pointer;
-  padding: 4px;
+  padding: 3px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 3px;
+  border-radius: 2px;
   transition: all 0.15s ease;
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
 }
 
 .unified-search-action svg {
@@ -301,7 +303,8 @@
 /* Sidebar search wrapper */
 .sidebar__search-wrapper {
   background-color: var(--search-bg) !important;
-  border-color: var(--search-border) !important;
+  border: 1px solid var(--search-border) !important;
+  border-radius: 2px !important;
 }
 
 .sidebar__search-wrapper:focus-within {

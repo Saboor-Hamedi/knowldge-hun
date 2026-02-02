@@ -740,8 +740,30 @@ class App {
     })
     reg('Alt+l', 'Lock Application', () => void securityService.promptAndLock())
     reg('Control+f', 'Find in note', () => {
-      this.editor.focus()
-      this.editor.triggerAction('actions.find')
+      // Check if terminal tab is active and visible
+      const terminalWrapper = document.querySelector('.real-terminal-wrapper') as HTMLElement
+      const terminalTab = document.querySelector(
+        '.terminal-tab[data-tab="terminal"]'
+      ) as HTMLElement
+      const isTerminalActive =
+        terminalWrapper &&
+        terminalWrapper.offsetHeight > 0 &&
+        terminalTab?.classList.contains('active')
+
+      if (isTerminalActive) {
+        // Show terminal search
+        const searchContainer = document.getElementById('terminal-search-container')
+        const searchInput = document.getElementById('terminal-search-input') as HTMLInputElement
+        if (searchContainer && searchInput) {
+          searchContainer.style.display = 'flex'
+          searchInput.focus()
+          searchInput.select()
+        }
+      } else {
+        // Show editor find widget
+        this.editor.focus()
+        this.editor.triggerAction('actions.find')
+      }
       return true
     })
     reg('Control+p', 'Quick Open', () => this.fuzzyFinder.toggle('notes'))
