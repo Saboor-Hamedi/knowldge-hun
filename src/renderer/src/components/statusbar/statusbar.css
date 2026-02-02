@@ -1,22 +1,21 @@
 .statusbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0;
-  padding: 0 4px;
-  color: #dfe7f3;
-  font-size: 11px;
-  background: var(--status);
-  border-top: 1px solid #0b4f7c;
-  position: relative;
-  z-index: 10003;
   height: 24px;
+  background: var(--bg-dark);
+  border-top: 1px solid var(--border-soft);
+  display: flex;
+  justify-content: space-between;
+  align-items: stretch; /* Change from center to stretch */
+  padding: 0;
+  color: var(--text-soft);
+  font-family: var(--font-ui);
+  z-index: 1000;
+  box-sizing: border-box;
 }
 
 .statusbar__left,
 .statusbar__right {
   display: flex;
-  align-items: center;
+  align-items: stretch; /* Change from center to stretch */
   height: 100%;
 }
 
@@ -24,17 +23,18 @@
   display: flex;
   align-items: center;
   padding: 0 10px;
-  height: 100%;
+  height: 24px; /* Explicit height */
   color: var(--text-soft);
   white-space: nowrap;
   font-size: 11px;
   cursor: default;
   transition: all 150ms ease;
   user-select: none;
+  box-sizing: border-box;
 }
 
 .statusbar__item:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.12);
   color: var(--text-strong);
 }
 
@@ -44,18 +44,23 @@
 
 .statusbar__sync {
   position: relative;
-  height: 100%;
+  height: 24px; /* Explicit height */
+  display: flex;
+  align-items: stretch;
 }
 
 .statusbar__sync-button {
   background: transparent;
   border: none;
   padding: 0 10px;
+  height: 24px; /* Explicit height */
   color: var(--text-soft);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: all 150ms ease;
+  box-sizing: border-box;
 }
 
 .statusbar__sync-button .lucide-icon {
@@ -64,7 +69,7 @@
 }
 
 .statusbar__sync-button:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.12);
   color: var(--text-strong);
 }
 
@@ -186,6 +191,14 @@
 .statusbar-tooltip.is-visible {
   opacity: 1;
   transform: translateY(0);
+  pointer-events: auto; /* Enable interaction when visible */
+}
+
+.statusbar-tooltip.is-compact {
+  min-width: 160px;
+  max-width: 280px;
+  padding: 8px 12px;
+  gap: 4px;
 }
 
 .statusbar-tooltip__header {
@@ -195,6 +208,12 @@
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   padding-bottom: 6px;
   margin-bottom: 2px;
+}
+
+.statusbar-tooltip__title {
+  font-weight: 700;
+  color: #fff;
+  font-size: 13px;
 }
 
 .statusbar-tooltip__repo {

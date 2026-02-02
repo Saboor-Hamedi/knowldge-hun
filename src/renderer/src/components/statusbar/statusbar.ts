@@ -12,7 +12,7 @@ export class StatusBar {
   private statusText: HTMLElement
   private metaText: HTMLElement
   private gitBranchEl: HTMLElement | null = null
-  private gitTooltip: RichTooltip | null = null
+  private tooltip: RichTooltip | null = null
   private version: string | null = null
   private statusTimeout: NodeJS.Timeout | null = null
   private contextMenu: ContextMenu
@@ -27,7 +27,7 @@ export class StatusBar {
     this.metaText = rightContainer?.querySelector('.statusbar__meta') as HTMLElement
 
     // Create custom tooltip instance
-    this.gitTooltip = new RichTooltip({ delay: 150 })
+    this.tooltip = new RichTooltip({ delay: 200 })
 
     this.updateStatusText()
     this.attachSyncEvents()
@@ -181,7 +181,8 @@ export class StatusBar {
       links: true,
       cursor: true,
       sync: true,
-      version: true
+      version: true,
+      git: true // Added git to default settings
     }
 
     const updated = {
@@ -207,7 +208,8 @@ export class StatusBar {
       links: true,
       cursor: true,
       sync: true,
-      version: true
+      version: true,
+      git: true
     }
 
     const wordsEl = this.container.querySelector('.statusbar__words') as HTMLElement
@@ -423,13 +425,22 @@ export class StatusBar {
       this.updateGitInfo()
     })
 
-    if (this.gitBranchEl) {
-      this.gitBranchEl.addEventListener('mouseenter', () => {
-        const metadata = gitService.getMetadata()
-        const summary = gitService.getSummary()
+    // Attach tooltips to all statusbar items
+    this.container.querySelectorAll('.statusbar__item').forEach((item) => {
+      const el = item as HTMLElement
 
-        if (metadata && metadata.branch && this.gitTooltip && this.gitBranchEl) {
-          const content = `
+      el.addEventListener('mouseenter', () => {
+        if (!this.tooltip) return
+
+        let content = ''
+        const cl = el.classList
+
+        if (cl.contains('statusbar__git')) {
+          const metadata = gitService.getMetadata()
+          const summary = gitService.getSummary()
+          if (!metadata.branch) return
+
+          content = `
             <div class="rich-tooltip__header">
               <span class="rich-tooltip__title">${metadata.repoName || 'Local Repository'}</span>
               <span class="rich-tooltip__badge">${metadata.branch}</span>
@@ -439,7 +450,7 @@ export class StatusBar {
                 metadata.remote
                   ? `
                 <div class="rich-tooltip__row">
-                  <span class="rich-tooltip__remote">${metadata.remote}</span>
+                  <a href="${metadata.remote}" class="rich-tooltip__link" target="_blank" style="color: var(--accent); text-decoration: none; border-bottom: 1px dashed rgba(86, 156, 214, 0.4); padding-bottom: 1px;">${metadata.remote}</a>
                 </div>
               `
                   : ''
@@ -450,16 +461,53 @@ export class StatusBar {
                 <div class="rich-tooltip__stat deleted" title="Deleted">${summary.deleted} D</div>
               </div>
             </div>
-            <div class="rich-tooltip__footer">Click to view source control</div>
+            <div class="rich-tooltip__footer">Click for Source Control actions</div>
           `
-          this.gitTooltip.show(this.gitBranchEl, content)
+        } else if (cl.contains('statusbar__version')) {
+          content = `
+            <div class="rich-tooltip__header">
+              <span class="rich-tooltip__title">Knowledge Hub</span>
+              <span class="rich-tooltip__badge">v${this.version || '0.0.0'}</span>
+            </div>
+            <div class="rich-tooltip__body">
+              <div class="rich-tooltip__row"> Saboor Hamedi &bull; Assistant Agent</div>
+            </div>
+            <div class="rich-tooltip__footer">Professional knowledge base system</div>
+          `
+        } else if (cl.contains('statusbar__words')) {
+          content = `<div class="rich-tooltip__title">Word Count</div><div class="rich-tooltip__body">Total words in active document.</div>`
+        } else if (cl.contains('statusbar__chars')) {
+          content = `<div class="rich-tooltip__title">Char Count</div><div class="rich-tooltip__body">Total characters including spaces.</div>`
+        } else if (cl.contains('statusbar__lines')) {
+          content = `<div class="rich-tooltip__title">Line Count</div><div class="rich-tooltip__body">Total lines in the editor.</div>`
+        } else if (cl.contains('statusbar__tags')) {
+          const count = el.textContent?.split(' ')[0] || '0'
+          content = `<div class="rich-tooltip__title">Hashtags</div><div class="rich-tooltip__body"><b>${count}</b> unique tags detected in this file.</div>`
+        } else if (cl.contains('statusbar__links')) {
+          const count = el.textContent?.split(' ')[0] || '0'
+          content = `<div class="rich-tooltip__title">WikiLinks</div><div class="rich-tooltip__body"><b>${count}</b> internal note connections found.</div>`
+        } else if (cl.contains('statusbar__mentions')) {
+          const count = el.textContent?.split(' ')[0] || '0'
+          content = `<div class="rich-tooltip__title">Mentions</div><div class="rich-tooltip__body"><b>${count}</b> @mentions found in the text.</div>`
+        } else if (cl.contains('statusbar__cursor')) {
+          content = `<div class="rich-tooltip__title">Cursor Position</div><div class="rich-tooltip__body">Current line and column in the editor.</div>`
+        }
+
+        if (content) {
+          // Add a class for smaller tooltips if it's not the Git one
+          if (!cl.contains('statusbar__git')) {
+            this.tooltip.setCompact(true)
+          } else {
+            this.tooltip.setCompact(false)
+          }
+          this.tooltip.show(el, content)
         }
       })
 
-      this.gitBranchEl.addEventListener('mouseleave', () => {
-        this.gitTooltip?.hide()
+      el.addEventListener('mouseleave', () => {
+        this.tooltip?.hide()
       })
-    }
+    })
   }
 
   private updateGitInfo(): void {

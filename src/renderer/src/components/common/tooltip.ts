@@ -28,6 +28,14 @@ export class RichTooltip {
     }
   }
 
+  public setCompact(compact: boolean): void {
+    if (compact) {
+      this.el.classList.add('is-compact')
+    } else {
+      this.el.classList.remove('is-compact')
+    }
+  }
+
   public show(target: HTMLElement, content: string | HTMLElement): void {
     this.cancelHide()
     this.currentTarget = target
