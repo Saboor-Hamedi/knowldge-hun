@@ -4,13 +4,15 @@ import { createElement, CloudUpload, CloudDownload, RefreshCw, GitBranch } from 
 import { state } from '../../core/state'
 import { ContextMenu } from '../contextmenu/contextmenu'
 import { gitService } from '../../services/git/gitService'
+import { RichTooltip } from '../common/tooltip'
+import '../common/tooltip.css'
 
 export class StatusBar {
   private container: HTMLElement
   private statusText: HTMLElement
   private metaText: HTMLElement
   private gitBranchEl: HTMLElement | null = null
-  private tooltipEl: HTMLElement | null = null
+  private gitTooltip: RichTooltip | null = null
   private version: string | null = null
   private statusTimeout: NodeJS.Timeout | null = null
   private contextMenu: ContextMenu
@@ -24,10 +26,8 @@ export class StatusBar {
     const rightContainer = this.container.querySelector('.statusbar__right') as HTMLElement
     this.metaText = rightContainer?.querySelector('.statusbar__meta') as HTMLElement
 
-    // Create custom tooltip element
-    this.tooltipEl = document.createElement('div')
-    this.tooltipEl.className = 'statusbar-tooltip'
-    document.body.appendChild(this.tooltipEl)
+    // Create custom tooltip instance
+    this.gitTooltip = new RichTooltip({ delay: 150 })
 
     this.updateStatusText()
     this.attachSyncEvents()
@@ -426,28 +426,38 @@ export class StatusBar {
     if (this.gitBranchEl) {
       this.gitBranchEl.addEventListener('mouseenter', () => {
         const metadata = gitService.getMetadata()
-        if (metadata && metadata.branch && this.tooltipEl && this.gitBranchEl) {
-          // Build rich tooltip content
-          this.tooltipEl.innerHTML = `
-            <div class="statusbar-tooltip__header">
-              <span class="statusbar-tooltip__repo">${metadata.repoName || 'Local Repository'}</span>
-              <span class="statusbar-tooltip__branch">${metadata.branch}</span>
-            </div>
-            ${metadata.remote ? `<div class="statusbar-tooltip__remote">${metadata.remote}</div>` : ''}
-            <div class="statusbar-tooltip__footer">Click to view source control</div>
-          `
+        const summary = gitService.getSummary()
 
-          const rect = this.gitBranchEl.getBoundingClientRect()
-          this.tooltipEl.style.left = `${rect.left}px`
-          this.tooltipEl.style.bottom = `${window.innerHeight - rect.top + 8}px`
-          this.tooltipEl.classList.add('is-visible')
+        if (metadata && metadata.branch && this.gitTooltip && this.gitBranchEl) {
+          const content = `
+            <div class="rich-tooltip__header">
+              <span class="rich-tooltip__title">${metadata.repoName || 'Local Repository'}</span>
+              <span class="rich-tooltip__badge">${metadata.branch}</span>
+            </div>
+            <div class="rich-tooltip__body">
+              ${
+                metadata.remote
+                  ? `
+                <div class="rich-tooltip__row">
+                  <span class="rich-tooltip__remote">${metadata.remote}</span>
+                </div>
+              `
+                  : ''
+              }
+              <div class="rich-tooltip__stats">
+                <div class="rich-tooltip__stat modified" title="Modified">${summary.modified} M</div>
+                <div class="rich-tooltip__stat added" title="Added/Untracked">${summary.added} A</div>
+                <div class="rich-tooltip__stat deleted" title="Deleted">${summary.deleted} D</div>
+              </div>
+            </div>
+            <div class="rich-tooltip__footer">Click to view source control</div>
+          `
+          this.gitTooltip.show(this.gitBranchEl, content)
         }
       })
 
       this.gitBranchEl.addEventListener('mouseleave', () => {
-        if (this.tooltipEl) {
-          this.tooltipEl.classList.remove('is-visible')
-        }
+        this.gitTooltip?.hide()
       })
     }
   }

@@ -97,6 +97,19 @@ export class GitService {
     return this.metadata
   }
 
+  /**
+   * Returns summary counts of changes
+   */
+  public getSummary(): { modified: number; added: number; deleted: number } {
+    const counts = { modified: 0, added: 0, deleted: 0 }
+    Object.values(this.statusMap).forEach((status) => {
+      if (status === 'modified') counts.modified++
+      if (status === 'untracked' || status === 'staged') counts.added++
+      if (status === 'deleted') counts.deleted++
+    })
+    return counts
+  }
+
   private startPolling(): void {
     if (this.pollInterval) return
     // Initial refresh
