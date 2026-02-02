@@ -43,7 +43,8 @@
 
 .breadcrumb-item.is-active {
   color: var(--text-strong);
-  font-weight: 500;
+  font-weight: 600;
+  background: var(--hover);
 }
 
 .breadcrumb-item__icon {

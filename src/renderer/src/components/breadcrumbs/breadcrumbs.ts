@@ -146,8 +146,11 @@ export class Breadcrumbs {
       this.showContextMenu(e, id, type, label)
     })
 
-    // Add dropdown chevron
-    this.addDropdownChevron(item, id, type)
+    // Add dropdown chevron only if not the last item (the active file)
+    // This avoids redundancy and prevents showing the entire root tree for files at the root
+    if (!isLast) {
+      this.addDropdownChevron(item, id, type)
+    }
 
     this.container.appendChild(item)
   }
@@ -216,23 +219,23 @@ export class Breadcrumbs {
     contextMenu.show(e.clientX, e.clientY, items)
   }
 
-  private showChildrenMenu(x: number, y: number, path: string, type?: 'note' | 'folder'): void {
+  private showChildrenMenu(x: number, y: number, path: string, _type?: 'note' | 'folder'): void {
     let children: TreeItem[] = []
 
+    // For breadcrumbs, we always want to show the siblings of the current segment
+    // (i.e., the children of the parent). This matches high-end IDE behavior.
     if (!path) {
+      // Root segment (Vault)
       children = state.tree
     } else {
-      const folder = this.findInTree(state.tree, path)
-      if (folder && folder.type === 'folder') {
-        children = folder.children || []
-      } else if (type === 'note') {
-        const parentPath = path.split('/').slice(0, -1).join('/')
-        if (!parentPath) {
-          children = state.tree
-        } else {
-          const parentFolder = this.findInTree(state.tree, parentPath)
-          children = parentFolder?.children || []
-        }
+      const parentPath = path.split('/').slice(0, -1).join('/')
+      if (!parentPath) {
+        // First level items - siblings of this folder
+        children = state.tree
+      } else {
+        // Subfolder items - siblings of this folder
+        const parentFolder = this.findInTree(state.tree, parentPath)
+        children = parentFolder?.children || []
       }
     }
 

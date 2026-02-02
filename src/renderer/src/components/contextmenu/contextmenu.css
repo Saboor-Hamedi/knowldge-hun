@@ -4,11 +4,15 @@
   border: 1px solid var(--border, #2d3548);
   border-radius: 8px;
   box-shadow:
-    0 4px 12px rgba(0, 0, 0, 0.3),
-    0 8px 24px rgba(0, 0, 0, 0.2);
+    0 10px 30px rgba(0, 0, 0, 0.4),
+    0 4px 12px rgba(0, 0, 0, 0.2),
+    inset 0 1px 1px rgba(255, 255, 255, 0.05);
   padding: 6px;
   min-width: 180px;
-  max-width: 280px;
+  max-width: 320px;
+  max-height: 400px; /* Robust scrolling for long lists */
+  overflow-y: auto;
+  overflow-x: hidden;
   z-index: 10010;
   font-size: 13px;
   outline: none;
@@ -54,13 +58,32 @@
     color 80ms ease;
   color: var(--text-strong, #e4e8f1);
   position: relative;
+  overflow: hidden;
 }
 
-/* Only use hover for highlighting - keyboard focus is handled via JS adding is-focused class */
-/* When hovering, remove is-focused from other items via mouseenter handler */
+/* Premium Item Indicator */
+.context-menu__item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  background: var(--primary);
+  border-radius: 0 4px 4px 0;
+  transform: scaleX(0);
+  transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  transform-origin: left;
+}
+
+.context-menu__item:hover::before,
+.context-menu:not(:hover) .context-menu__item.is-focused::before {
+  transform: scaleX(1);
+}
+
 .context-menu__item:hover:not(.is-disabled) {
-  background: var(--primary, #7fa7ff);
-  color: #0b1220;
+  background: var(--selection, rgba(255, 255, 255, 0.05));
+  color: var(--text-strong);
 }
 
 .context-menu__item:hover:not(.is-disabled) .context-menu__keybinding {
