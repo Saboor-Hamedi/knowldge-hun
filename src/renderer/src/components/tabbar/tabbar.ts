@@ -282,18 +282,81 @@ export class TabBar {
     }
 
     const target = (event.target as HTMLElement).closest('.tab') as HTMLElement
-    if (target && target.dataset.id && this.draggedTabId !== target.dataset.id) {
-      // Add a visual indicator of where the tab will land
-      const rect = target.getBoundingClientRect()
-      const midpoint = rect.left + rect.width / 2
-      if (event.clientX < midpoint) {
-        target.classList.add('drop-before')
-        target.classList.remove('drop-after')
-      } else {
-        target.classList.add('drop-after')
-        target.classList.remove('drop-before')
-      }
+    if (
+      !target ||
+      !target.dataset.id ||
+      !this.draggedTabId ||
+      target.dataset.id === this.draggedTabId
+    ) {
+      return
     }
+
+    const draggedEl = this.container.querySelector(
+      `.tab[data-id="${this.draggedTabId}"]`
+    ) as HTMLElement
+    if (!draggedEl) return
+
+    // Autoscroll logic
+    const rect = this.container.getBoundingClientRect()
+    const threshold = 50
+    if (event.clientX < rect.left + threshold) {
+      this.container.scrollLeft -= 5
+    } else if (event.clientX > rect.right - threshold) {
+      this.container.scrollLeft += 5
+    }
+
+    const children = Array.from(this.container.children) as HTMLElement[]
+    const draggedIndex = children.indexOf(draggedEl)
+    const targetIndex = children.indexOf(target)
+
+    if (draggedIndex === -1 || targetIndex === -1) return
+
+    // Calculate midpoint check to prevent flickering/ping-ponging
+    const targetRect = target.getBoundingClientRect()
+    const midpoint = targetRect.left + targetRect.width / 2
+    const isAfter = event.clientX > midpoint
+
+    // Only move if the dragged element isn't already in the desired relative position
+    if (draggedIndex < targetIndex && !isAfter) return
+    if (draggedIndex > targetIndex && isAfter) return
+
+    // --- FLIP Animation ---
+    const tabRects = children.map((child) => ({
+      el: child,
+      left: child.getBoundingClientRect().left
+    }))
+
+    if (draggedIndex < targetIndex) {
+      target.after(draggedEl)
+    } else {
+      target.before(draggedEl)
+    }
+
+    requestAnimationFrame(() => {
+      tabRects.forEach((data) => {
+        const first = data.left
+        const last = data.el.getBoundingClientRect().left
+        const invert = first - last
+
+        if (invert !== 0) {
+          data.el.style.transition = 'none'
+          data.el.style.transform = `translateX(${invert}px)`
+          void data.el.offsetWidth // Force reflow
+
+          data.el.classList.add('is-reordering')
+          data.el.style.transform = ''
+
+          // Cleanup after animation
+          const onEnd = (e: TransitionEvent): void => {
+            if (e.propertyName === 'transform') {
+              data.el.classList.remove('is-reordering')
+              data.el.removeEventListener('transitionend', onEnd)
+            }
+          }
+          data.el.addEventListener('transitionend', onEnd)
+        }
+      })
+    })
   }
 
   private handleDragEnter = (event: DragEvent): void => {
@@ -301,51 +364,32 @@ export class TabBar {
   }
 
   private handleDragLeave = (event: DragEvent): void => {
-    const target = (event.target as HTMLElement).closest('.tab') as HTMLElement
-    if (target) {
-      target.classList.remove('drop-before', 'drop-after')
-    }
+    // Logic removed as it conflicted with live reordering
   }
 
   private handleDrop = (event: DragEvent): void => {
     event.preventDefault()
-    const target = (event.target as HTMLElement).closest('.tab') as HTMLElement
-    if (!target || !target.dataset.id || !this.draggedTabId) return
+    if (!this.draggedTabId) return
 
-    const sourceId = this.draggedTabId
-    const targetId = target.dataset.id
+    // Final state sync
+    const tabElements = Array.from(this.container.querySelectorAll('.tab')) as HTMLElement[]
+    const newOrderIds = tabElements.map((el) => el.dataset.id)
+    const reorderedTabs = newOrderIds
+      .map((id) => state.openTabs.find((t) => t.id === id))
+      .filter(Boolean) as typeof state.openTabs
 
-    if (sourceId === targetId) return
-
-    const sourceIndex = state.openTabs.findIndex((t) => t.id === sourceId)
-    const targetIndex = state.openTabs.findIndex((t) => t.id === targetId)
-
-    if (sourceIndex !== -1 && targetIndex !== -1) {
-      // Decide if we insert before or after target based on mouse position
-      const rect = target.getBoundingClientRect()
-      const midpoint = rect.left + rect.width / 2
-      const tabs = [...state.openTabs]
-      const [movedTab] = tabs.splice(sourceIndex, 1)
-      const adjustedTargetIndex = tabs.findIndex((t) => t.id === targetId)
-
-      if (event.clientX > midpoint) {
-        tabs.splice(adjustedTargetIndex + 1, 0, movedTab)
-      } else {
-        tabs.splice(adjustedTargetIndex, 0, movedTab)
-      }
-
-      state.openTabs = tabs
-      this.render()
-      this.onTabReorder?.()
-    }
-
-    target.classList.remove('drop-before', 'drop-after')
+    state.openTabs = reorderedTabs
+    this.onTabReorder?.()
+    this.render()
   }
 
   private handleDragEnd = (): void => {
     this.draggedTabId = null
     this.container.querySelectorAll('.tab').forEach((tab) => {
-      tab.classList.remove('is-dragging', 'drop-before', 'drop-after')
+      const el = tab as HTMLElement
+      el.classList.remove('is-dragging', 'is-reordering')
+      el.style.transform = ''
+      el.style.transition = ''
     })
   }
 }
