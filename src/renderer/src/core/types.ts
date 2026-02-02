@@ -130,4 +130,14 @@ export type AppSettings = {
   terminalCursor?: string
   terminalFrameColor?: string
   terminalDefaultShell?: string
+  searchInput?: {
+    backgroundColor?: string
+    borderColor?: string
+    focusBorderColor?: string
+    textColor?: string
+    placeholderColor?: string
+    buttonColor?: string
+    buttonHoverColor?: string
+    buttonActiveColor?: string
+  }
 }

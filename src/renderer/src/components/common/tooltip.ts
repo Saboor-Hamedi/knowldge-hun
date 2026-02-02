@@ -8,7 +8,7 @@ export class RichTooltip {
   private el: HTMLElement
   private visible = false
   private hideTimer: NodeJS.Timeout | null = null
-  private currentTarget: HTMLElement | null = null
+  // private currentTarget: HTMLElement | null = null
   private options: TooltipOptions
 
   constructor(options: TooltipOptions = {}) {
@@ -38,7 +38,7 @@ export class RichTooltip {
 
   public show(target: HTMLElement, content: string | HTMLElement): void {
     this.cancelHide()
-    this.currentTarget = target
+    // this.currentTarget = target
 
     if (typeof content === 'string') {
       this.el.innerHTML = content

@@ -1,3 +1,4 @@
+/* Base Breadcrumbs Container */
 .breadcrumbs {
   display: flex;
   align-items: center;
@@ -15,25 +16,27 @@
   -webkit-app-region: no-drag;
   scrollbar-width: none;
   position: relative;
-  z-index: auto; /* Avoid stacking context issues */
+  z-index: 100;
 }
 
 .breadcrumbs::-webkit-scrollbar {
   display: none;
 }
 
+/* Breadcrumb Items */
 .breadcrumb-item {
   display: flex;
   align-items: center;
   gap: 4px;
   cursor: pointer;
-  padding: 2px 6px;
+  padding: 3px 6px;
   border-radius: 4px;
   transition:
     background 0.15s ease,
     color 0.15s ease;
   user-select: none;
   position: relative;
+  color: var(--text-muted);
 }
 
 .breadcrumb-item:hover {
@@ -43,17 +46,18 @@
 
 .breadcrumb-item.is-active {
   color: var(--text-strong);
-  font-weight: 600;
-  background: var(--hover);
+  font-weight: 500;
 }
 
+/* Icons within items */
 .breadcrumb-item__icon {
   display: flex;
   align-items: center;
   justify-content: center;
   width: 16px;
   height: 16px;
-  opacity: 0.85;
+  opacity: 0.8;
+  transition: opacity 0.15s ease;
 }
 
 .breadcrumb-item:hover .breadcrumb-item__icon {
@@ -65,17 +69,14 @@
   height: 14px;
 }
 
-.breadcrumb-item__label {
-  line-height: normal;
-}
-
+/* Separator */
 .breadcrumb-separator {
   margin: 0 2px;
   color: var(--muted);
   display: flex;
   align-items: center;
   justify-content: center;
-  opacity: 0.6;
+  opacity: 0.5;
 }
 
 .breadcrumb-separator svg {
@@ -83,7 +84,7 @@
   height: 12px;
 }
 
-/* Dirty indicator */
+/* Dirty Status Dot */
 .breadcrumb-item.is-dirty .breadcrumb-item__label::after {
   content: '';
   display: inline-block;
@@ -96,17 +97,13 @@
   box-shadow: 0 0 4px var(--primary);
 }
 
-/* Root item specific */
+/* Root Item */
 .breadcrumb-item--root {
   font-weight: 600;
-  color: var(--text-muted);
+  color: var(--text-normal);
 }
 
-.breadcrumb-item--root:hover {
-  color: var(--text-strong);
-}
-
-/* Dropdown arrow for segments */
+/* Dropdown Chevron */
 .breadcrumb-item__chevron {
   display: flex;
   align-items: center;
@@ -116,13 +113,184 @@
   font-size: 10px;
   margin-left: -2px;
   opacity: 0;
-  transition: opacity 0.1s;
+  transform: translateY(1px);
+  transition:
+    opacity 0.15s ease,
+    background 0.15s ease;
+  border-radius: 3px;
 }
 
 .breadcrumb-item:hover .breadcrumb-item__chevron {
-  opacity: 0.5;
+  opacity: 0.6;
 }
 
 .breadcrumb-item__chevron:hover {
   opacity: 1 !important;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* ------------------------------------------- */
+/* Custom Breadcrumb Dropdown (Tree View)      */
+/* ------------------------------------------- */
+
+.breadcrumb-dropdown {
+  position: fixed;
+  /* Premium Glassmorphism Background */
+  background: rgba(30, 36, 48, 0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px;
+  min-width: 220px;
+  max-width: 320px;
+  max-height: 400px;
+  overflow-y: auto;
+  overflow-x: hidden;
+
+  /* Deep shadow to lift it above the editor */
+  box-shadow:
+    0 10px 40px rgba(0, 0, 0, 0.5),
+    0 2px 10px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+
+  /* CRITICAL: Ensure it is above Monaco editor (z-index usually ~2000) */
+  z-index: 99999;
+
+  font-size: 13px;
+  color: var(--text-normal);
+  animation: dropdownIn 0.15s cubic-bezier(0.2, 0, 0.2, 1);
+  transform-origin: top left;
+}
+
+@keyframes dropdownIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Custom Scrollbar for Dropdown */
+.breadcrumb-dropdown::-webkit-scrollbar {
+  width: 6px;
+}
+.breadcrumb-dropdown::-webkit-scrollbar-track {
+  background: transparent;
+}
+.breadcrumb-dropdown::-webkit-scrollbar-thumb {
+  background: rgba(128, 128, 128, 0.3);
+  border-radius: 3px;
+}
+.breadcrumb-dropdown::-webkit-scrollbar-thumb:hover {
+  background: rgba(128, 128, 128, 0.5);
+}
+
+.breadcrumb-dropdown-item {
+  display: flex;
+  align-items: center;
+  padding: 6px 8px;
+  cursor: pointer;
+  border-radius: 5px;
+  gap: 8px;
+  user-select: none;
+  transition: background 0.1s ease;
+  position: relative;
+  margin-bottom: 2px;
+}
+
+.breadcrumb-dropdown-item:hover {
+  background: var(--hover);
+  color: var(--text-strong);
+}
+
+.breadcrumb-dropdown-item.is-active {
+  background: var(--selection, rgba(255, 255, 255, 0.08));
+  color: var(--text-strong);
+  font-weight: 500;
+}
+.breadcrumb-dropdown-item.is-active:hover {
+  background: var(--selection, rgba(255, 255, 255, 0.08));
+}
+.breadcrumb-dropdown-item.is-active .breadcrumb-dropdown-icon {
+  color: var(--primary);
+  opacity: 1;
+}
+
+.breadcrumb-dropdown-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  color: var(--text-muted);
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  opacity: 0.7;
+}
+
+.breadcrumb-dropdown-item:hover .breadcrumb-dropdown-arrow {
+  opacity: 1;
+}
+
+.breadcrumb-dropdown-arrow.is-expanded {
+  transform: rotate(90deg);
+}
+
+.breadcrumb-dropdown-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.breadcrumb-dropdown-label {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  /* Slightly tighter font for better list density */
+  letter-spacing: -0.01em; 
+}
+
+/* Container for children of a folder */
+.breadcrumb-dropdown-children {
+  display: none;
+  flex-direction: column;
+  position: relative;
+}
+
+.breadcrumb-dropdown-children.is-expanded {
+  display: flex;
+  animation: expandIn 0.2s ease-out;
+}
+
+/* Subtle line to guide hierarchy in expanded folders */
+.breadcrumb-dropdown-children.is-expanded::before {
+  content: '';
+  position: absolute;
+  left: 14px; /* Adjust based on parent padding */
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--border);
+  opacity: 0.3;
+}
+
+@keyframes expandIn {
+  from {
+    opacity: 0;
+    max-height: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    max-height: 500px; /* Arbitrary large height */
+    transform: translateY(0);
+  }
 }

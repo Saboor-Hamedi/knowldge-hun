@@ -215,7 +215,6 @@ export class GraphControls {
   }
 
   private createIcon(IconComponent: any, size: number): string {
-    // eslint-disable-line @typescript-eslint/no-explicit-any
     const svg = createElement(IconComponent, { size, 'stroke-width': 1.5 })
     return svg?.outerHTML || ''
   }

@@ -667,7 +667,7 @@ export class SidebarTree {
   }
 
   private createLucideIcon(
-    IconComponent: React.ComponentType,
+    IconComponent: any,
     size: number = 16,
     strokeWidth: number = 1.5
   ): string {

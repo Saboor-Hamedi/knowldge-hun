@@ -12,8 +12,12 @@ export class Breadcrumbs {
   private onNoteOpen?: (id: string) => void
   private onDeleteItem?: (item: { id: string; type: 'note' | 'folder'; path?: string }) => void
 
+  private activeDropdown: HTMLElement | null = null
+  private boundCloseDropdown: (e: MouseEvent) => void
+
   constructor(containerId: string) {
     this.container = document.getElementById(containerId) as HTMLElement
+    this.boundCloseDropdown = this.handleOutsideClick.bind(this)
   }
 
   setNoteOpenHandler(handler: (id: string) => void): void {
@@ -77,7 +81,7 @@ export class Breadcrumbs {
 
     const icon = document.createElement('span')
     icon.className = 'breadcrumb-item__icon'
-    icon.innerHTML = codicons.folderRoot // Using correct icon from codicons.ts
+    icon.innerHTML = codicons.folderRoot
 
     const text = document.createElement('span')
     text.className = 'breadcrumb-item__label'
@@ -86,19 +90,20 @@ export class Breadcrumbs {
     item.appendChild(icon)
     item.appendChild(text)
 
+    // Add dropdown chevron for root
+    this.addDropdownChevron(item, '')
+
+    // Make entire item clickable to show dropdown
     item.addEventListener('click', (e) => {
-      if ((e.target as HTMLElement).closest('.breadcrumb-item__chevron')) return
-      // Focus root in sidebar
-      window.dispatchEvent(new CustomEvent('knowledge-hub:focus-folder', { detail: { path: '' } }))
+      e.stopPropagation()
+      const rect = item.getBoundingClientRect()
+      this.showChildrenMenu(rect.left, rect.bottom, '')
     })
 
     item.addEventListener('contextmenu', (e) => {
       e.preventDefault()
       this.showContextMenu(e, '', 'folder', state.projectName)
     })
-
-    // Add dropdown chevron for root
-    this.addDropdownChevron(item, '')
 
     this.container.appendChild(item)
   }
@@ -129,15 +134,14 @@ export class Breadcrumbs {
     item.appendChild(text)
 
     item.addEventListener('click', (e) => {
-      // Don't trigger if clicking the chevron
-      if ((e.target as HTMLElement).closest('.breadcrumb-item__chevron')) return
+      e.stopPropagation()
 
       if (type === 'note') {
         this.onNoteOpen?.(id)
       } else {
-        window.dispatchEvent(
-          new CustomEvent('knowledge-hub:focus-folder', { detail: { path: id } })
-        )
+        // For folders, show the dropdown menu
+        const rect = item.getBoundingClientRect()
+        this.showChildrenMenu(rect.left, rect.bottom, id)
       }
     })
 
@@ -219,54 +223,153 @@ export class Breadcrumbs {
     contextMenu.show(e.clientX, e.clientY, items)
   }
 
-  private showChildrenMenu(x: number, y: number, path: string): void {
-    let children: TreeItem[] = []
+  private showChildrenMenu(x: number, y: number, parentPath: string): void {
+    // Close existing dropdown if any
+    this.closeDropdown()
 
-    // For breadcrumbs, we always want to show the siblings of the current segment
-    // (i.e., the children of the parent). This matches high-end IDE behavior.
-    if (!path) {
-      // Root segment (Vault)
-      children = state.tree
-    } else {
-      const parentPath = path.split('/').slice(0, -1).join('/')
-      if (!parentPath) {
-        // First level items - siblings of this folder
-        children = state.tree
-      } else {
-        // Subfolder items - siblings of this folder
-        const parentFolder = this.findInTree(state.tree, parentPath)
-        children = parentFolder?.children || []
-      }
-    }
+    const children = this.getChildren(parentPath)
+    if (!children.length) return
 
-    if (children.length === 0) return
+    // Create dropdown container
+    const dropdown = document.createElement('div')
+    dropdown.className = 'breadcrumb-dropdown'
+    dropdown.style.left = `${x}px`
+    dropdown.style.top = `${y}px`
 
-    const menuItems: ContextMenuItem[] = children.map((child) => ({
-      label: child.title.replace(/\.md$/i, ''),
-      icon:
-        child.type === 'folder' ? getFolderIcon(child.title) : getFileIcon(child.title, 'markdown'),
-      onClick: () => {
-        if (child.type === 'note') {
-          this.onNoteOpen?.(child.id)
-        } else {
-          window.dispatchEvent(
-            new CustomEvent('knowledge-hub:focus-folder', { detail: { path: child.id } })
-          )
-        }
-      }
-    }))
+    // Render items
+    this.renderTreeItems(dropdown, children, 0)
 
-    contextMenu.show(x, y, menuItems)
+    document.body.appendChild(dropdown)
+    this.activeDropdown = dropdown
+
+    // Add global click listener to close
+    requestAnimationFrame(() => {
+      document.addEventListener('click', this.boundCloseDropdown)
+      document.addEventListener('contextmenu', this.boundCloseDropdown)
+    })
   }
 
-  private findInTree(items: TreeItem[], path: string): TreeItem | null {
-    for (const item of items) {
-      if (item.id === path) return item
-      if (item.children) {
-        const found = this.findInTree(item.children, path)
+  private renderTreeItems(container: HTMLElement, items: TreeItem[], depth: number): void {
+    items.forEach((item) => {
+      const itemEl = document.createElement('div')
+      itemEl.className = 'breadcrumb-dropdown-item'
+      if (item.id === state.activeId) {
+        itemEl.classList.add('is-active')
+      }
+      itemEl.style.paddingLeft = `${depth * 16 + 8}px` // Indentation
+
+      // Arrow for folders
+      const arrow = document.createElement('span')
+      arrow.className = 'breadcrumb-dropdown-arrow'
+      if (item.type === 'folder') {
+        arrow.innerHTML = codicons.chevronRight
+      }
+      itemEl.appendChild(arrow)
+
+      // Icon
+      const icon = document.createElement('span')
+      icon.className = 'breadcrumb-dropdown-icon'
+      icon.innerHTML =
+        item.type === 'folder' ? getFolderIcon(item.title) : getFileIcon(item.title, 'markdown')
+      itemEl.appendChild(icon)
+
+      // Label
+      const label = document.createElement('span')
+      label.className = 'breadcrumb-dropdown-label'
+      label.textContent = item.title.replace(/\.md$/i, '')
+      itemEl.appendChild(label)
+
+      container.appendChild(itemEl)
+
+      // Children container (for folders)
+      let childrenContainer: HTMLElement | null = null
+      if (item.type === 'folder') {
+        childrenContainer = document.createElement('div')
+        childrenContainer.className = 'breadcrumb-dropdown-children'
+        container.appendChild(childrenContainer)
+      }
+
+      // Interaction
+      itemEl.addEventListener('click', (e) => {
+        e.stopPropagation()
+
+        if (item.type === 'folder') {
+          // Toggle expansion
+          const isExpanded = arrow.classList.contains('is-expanded')
+
+          if (isExpanded) {
+            // Collapse
+            arrow.classList.remove('is-expanded')
+            if (childrenContainer) {
+              childrenContainer.innerHTML = ''
+              childrenContainer.classList.remove('is-expanded')
+            }
+          } else {
+            // Expand
+            arrow.classList.add('is-expanded')
+            if (childrenContainer) {
+              const folderChildren = this.getChildren(item.id)
+              this.renderTreeItems(childrenContainer, folderChildren, depth + 1)
+              childrenContainer.classList.add('is-expanded')
+            }
+          }
+        } else {
+          // Open file
+          this.onNoteOpen?.(item.id)
+          this.closeDropdown()
+        }
+      })
+    })
+  }
+
+  private closeDropdown(): void {
+    if (this.activeDropdown) {
+      this.activeDropdown.remove()
+      this.activeDropdown = null
+    }
+    document.removeEventListener('click', this.boundCloseDropdown)
+    document.removeEventListener('contextmenu', this.boundCloseDropdown)
+  }
+
+  private handleOutsideClick(e: MouseEvent): void {
+    if (this.activeDropdown && !this.activeDropdown.contains(e.target as Node)) {
+      this.closeDropdown()
+    }
+  }
+
+  private getChildren(parentPath: string): TreeItem[] {
+    // If no path, return top-level tree items (Root)
+    if (!parentPath) {
+      return state.tree
+        .filter((item): item is TreeItem => item !== undefined)
+        .sort((a, b) => {
+          if (a.type !== b.type) return a.type === 'folder' ? -1 : 1
+          return a.title.localeCompare(b.title)
+        })
+    }
+
+    const parent = this.findNodeRecursive(state.tree, parentPath)
+
+    if (!parent || !parent.children) return []
+
+    return parent.children
+      .filter((item): item is TreeItem => item !== undefined)
+      .sort((a, b) => {
+        if (a.type !== b.type) return a.type === 'folder' ? -1 : 1
+        return a.title.localeCompare(b.title)
+      })
+  }
+
+  private findNodeRecursive(nodes: TreeItem[], id: string): TreeItem | undefined {
+    for (const node of nodes) {
+      if (node.id === id) {
+        return node
+      }
+      if (node.children) {
+        const found = this.findNodeRecursive(node.children, id)
         if (found) return found
       }
     }
-    return null
+    return undefined
   }
 }
