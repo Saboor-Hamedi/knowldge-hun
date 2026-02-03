@@ -127,7 +127,6 @@ export class SessionSidebar {
     const sidebarHTML = `
       <div class="rightbar__session-sidebar" id="rightbar-session-sidebar" style="width: ${this.sidebarWidth}px;">
         <div class="rightbar__session-sidebar-resize" id="rightbar-session-sidebar-resize"></div>
-        <div class="rightbar__session-sidebar-resize" id="rightbar-session-sidebar-resize"></div>
         <div class="rightbar__session-sidebar-actions">
           <div class="rightbar__session-sidebar-search">
             <div class="rightbar__session-sidebar-search-icon">
@@ -167,7 +166,7 @@ export class SessionSidebar {
     this.searchInput = this.container.querySelector(
       '#rightbar-session-sidebar-search'
     ) as HTMLInputElement
-    this.resizeHandle = this.container.querySelector(
+    this.resizeHandle = this.sidebarElement.querySelector(
       '#rightbar-session-sidebar-resize'
     ) as HTMLElement
 

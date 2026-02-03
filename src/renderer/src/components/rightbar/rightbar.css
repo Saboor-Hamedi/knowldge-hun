@@ -15,22 +15,33 @@
 
 .rightbar__resize-handle {
   position: absolute;
-  left: 0;
+  left: -2px;
   top: 0;
-  width: 4px;
+  width: 6px; /* Larger hit area */
   height: 100%;
   cursor: ew-resize;
-  z-index: 10;
+  z-index: 100;
   background: transparent;
-  transition: background-color 150ms ease;
+  display: flex;
+  justify-content: center;
 }
 
-.rightbar__resize-handle:hover {
-  background: var(--border);
+.rightbar__resize-handle::after {
+  content: '';
+  width: 1px;
+  height: 100%;
+  background: transparent;
+  transition: background-color 0.2s ease, width 0.2s ease;
 }
 
-.rightbar__resize-handle:active {
+.rightbar__resize-handle:hover::after {
   background: var(--primary);
+  width: 2px;
+}
+
+.rightbar__resize-handle:active::after {
+  background: var(--primary-strong);
+  width: 3px;
 }
 
 /* ---- Header ---- */
@@ -1084,9 +1095,9 @@
   transform: translateX(-100%);
   transition:
     transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
-    visibility 0s linear 0.2s; /* Wait for slide out to finish before hiding */
-  z-index: 20; /* Higher than rightbar (0) but lower than menus */
-  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
+    visibility 0s linear 0.2s;
+  z-index: 20;
+  border-right: 1px solid var(--border); /* Subtle border instead of heavy shadow */
   visibility: hidden;
 }
 
@@ -1098,25 +1109,36 @@
     visibility 0s linear 0s; /* Show immediately on open */
 }
 
-/* Session sidebar resize handle */
+/* Session sidebar resize handle (more subtle & robust) */
 .rightbar__session-sidebar-resize {
   position: absolute;
-  right: 0;
+  right: -3px; /* Overlap the border */
   top: 0;
-  width: 4px;
+  width: 6px; /* Larger hit area */
   height: 100%;
   cursor: ew-resize;
-  z-index: 10;
+  z-index: 30;
   background: transparent;
-  transition: background-color 150ms ease;
+  display: flex;
+  justify-content: center;
 }
 
-.rightbar__session-sidebar-resize:hover {
-  background: var(--border);
+.rightbar__session-sidebar-resize::after {
+  content: '';
+  width: 1px;
+  height: 100%;
+  background: transparent;
+  transition: background-color 0.2s ease, width 0.2s ease;
 }
 
-.rightbar__session-sidebar-resize:active {
+.rightbar__session-sidebar-resize:hover::after {
   background: var(--primary);
+  width: 2px;
+}
+
+.rightbar__session-sidebar-resize:active::after {
+  background: var(--primary-strong);
+  width: 3px;
 }
 
 /* Push content when sidebar is visible - margin is set dynamically via JS */
