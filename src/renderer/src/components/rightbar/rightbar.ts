@@ -2477,16 +2477,26 @@ export class RightBar {
         if (msg.role === 'system') {
           // Compact rendering for system/command results
           const lines = msg.content.split('\n')
-          const title = lines[0] // Usually "> [RUN: command]"
-          const preview = lines.slice(1).join('\n').substring(0, 100).replace(/\n/g, ' ') + '...'
+          let title = lines[0] // Usually "> [RUN: command]"
+
+          // Make title concise: "> [RUN: read 'file.md']" -> "RUN: read"
+          title = title.replace(/^>\s*\[(.+?)\]$/, '$1') // Remove > and []
+          if (title.includes(':')) {
+            const parts = title.split(':')
+            const cmdPart = parts[1]?.trim().split(' ')[0]
+            title = `${parts[0]}: ${cmdPart}`
+          }
+
+          const preview = lines.slice(1).join('\n').trim().substring(0, 40).replace(/\n/g, ' ')
+          const finalPreview = preview ? `- ${preview}...` : ''
 
           return `
-          <div class="rightbar__system-message" title="Click to view raw data">
+          <div class="rightbar__system-message" title="Click to view details">
             <details class="rightbar__system-details">
               <summary class="rightbar__system-summary">
                 <span class="rightbar__system-icon">⚙️</span>
                 <span class="rightbar__system-title">${this.escapeHtml(title)}</span>
-                <span class="rightbar__system-preview">${this.escapeHtml(preview)}</span>
+                <span class="rightbar__system-preview">${this.escapeHtml(finalPreview)}</span>
               </summary>
               <div class="rightbar__system-content">
                 <pre><code>${this.escapeHtml(msg.content)}</code></pre>
@@ -2580,7 +2590,10 @@ export class RightBar {
     this.chatContainer.innerHTML = html
 
     if (this.wasAtBottom) {
-      this.chatContainer.scrollTo({ top: this.chatContainer.scrollHeight, behavior: 'smooth' })
+      this.chatContainer.scrollTo({
+        top: this.chatContainer.scrollHeight,
+        behavior: this.isLoading ? 'auto' : 'smooth'
+      })
     }
 
     // Enhance code blocks with syntax highlighting after render

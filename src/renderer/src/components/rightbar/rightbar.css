@@ -57,6 +57,7 @@
   min-width: 0;
   flex-shrink: 0;
   position: relative;
+  z-index: 10;
 }
 
 .rightbar__title {
@@ -238,7 +239,7 @@
   background: var(--bg);
   border: 1px dashed var(--primary);
   opacity: 0.9;
-  width: 100%; /* Match width of other responses */
+  width: 100%;
 }
 
 @keyframes rightbar-typing {
@@ -262,7 +263,7 @@
   gap: 8px;
   max-width: 92%;
   min-width: 0;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
 }
 
 .rightbar__message--user {
@@ -715,10 +716,11 @@
 
 /* ---- Input ---- */
 .rightbar__chat-input-wrapper {
-  padding: 10px;
+  padding: 10px 12px;
   border-top: 1px solid var(--border);
   background: var(--panel);
-  min-width: 0;
+  position: relative;
+  z-index: 10;
   flex-shrink: 0;
   transition: margin-left 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -1659,16 +1661,23 @@
   align-self: flex-start;
   max-width: 92%;
   width: auto;
-  margin: 4px 0 4px 28px; /* Offset to match assistant body alignment (avatar is 20px + 8px gap) */
+  margin: 2px 0 6px 28px; /* Offset to match assistant body alignment (avatar is 20px + 8px gap) */
   font-size: 11px;
+  opacity: 0.85;
+  transition: opacity 0.2s ease;
+}
+
+.rightbar__system-message:hover {
+  opacity: 1;
 }
 
 .rightbar__system-details {
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: 8px; /* Matched to assistant message bubbles */
   background: var(--panel-strong);
   overflow: hidden;
   transition: all 0.2s ease;
+  width: 100%; /* Take full available width of system-message */
 }
 
 .rightbar__system-details[open] {
