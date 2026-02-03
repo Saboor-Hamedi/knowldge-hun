@@ -1,6 +1,7 @@
 # Fixing Monaco Autocomplete Clutter
 
 If you see extra text appearing directly under the note titles in the autocomplete dropdown (labels like "WikiLink", "Mention", or folder paths), it is caused by the `detail` and `documentation` fields in Monaco's `CompletionItem`.
+npm install --legacy-peer-deps --ignore-scripts
 
 ## How to Fix
 
