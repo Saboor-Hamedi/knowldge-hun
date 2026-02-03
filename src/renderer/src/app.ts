@@ -86,7 +86,7 @@ class App {
     this.statusBar = new StatusBar('statusBar')
     this.welcomePage = new WelcomePage('welcomeHost')
     this.hubConsole = new ConsoleComponent('consoleHost')
-    this.realTerminal = new RealTerminalComponent('terminalHost')
+    this.realTerminal = new RealTerminalComponent('terminalHost', this.hubConsole)
     this.settingsView = new SettingsView('settingsHost')
     this.themeModal = new ThemeModal('app')
     this.documentationModal = new DocumentationModal('app')
@@ -862,6 +862,9 @@ class App {
     reg('Control+j', 'Toggle Terminal', () => {
       window.dispatchEvent(new CustomEvent('toggle-terminal'))
     })
+    reg('Control+`', 'Toggle Terminal', () => {
+      window.dispatchEvent(new CustomEvent('toggle-terminal'))
+    })
     reg('Control+l', 'Lock Application', () => void securityService.promptAndLock())
     reg('Alt+l', 'Lock Application', () => void securityService.promptAndLock())
     reg('Control+w', 'Close active tab', () => {
@@ -1202,7 +1205,7 @@ class App {
         id: 'help',
         label: 'Help: List Commands',
         description: 'Show available console commands',
-        handler: () => this.hubConsole.toggle()
+        handler: () => this.realTerminal.showConsole()
       },
       {
         id: 'stats',

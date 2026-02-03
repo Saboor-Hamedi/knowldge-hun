@@ -2,10 +2,10 @@ import './tooltip.css'
 
 export class TooltipManager {
   private el: HTMLElement
-  private timeout: any = null
+  private timeout: ReturnType<typeof setTimeout> | null = null
+  private currentTarget: HTMLElement | null = null
 
   constructor() {
-    console.log('[Tooltip] Initializing custom tooltip system...')
     this.el = document.createElement('div')
     this.el.className = 'custom-tooltip'
     if (document.body) {
@@ -22,8 +22,14 @@ export class TooltipManager {
     window.addEventListener('mouseover', (e) => {
       const target = (e.target as HTMLElement).closest('[data-tooltip]') as HTMLElement
       if (target) {
+        // If we move to a NEW target, hide the current tooltip first to prevent stretching
+        if (this.currentTarget && this.currentTarget !== target) {
+          this.hideImmediately()
+        }
+
         const text = target.getAttribute('data-tooltip')
         if (text) {
+          this.currentTarget = target
           this.show(text, target)
         }
       }
@@ -39,16 +45,9 @@ export class TooltipManager {
   }
 
   private show(text: string, target: HTMLElement): void {
-    clearTimeout(this.timeout)
+    if (this.timeout) clearTimeout(this.timeout)
     this.timeout = setTimeout(() => {
-      // Safety: check if target is still in document and visible
       if (!document.body.contains(target)) {
-        this.hide()
-        return
-      }
-
-      const style = window.getComputedStyle(target)
-      if (style.display === 'none' || style.visibility === 'hidden') {
         this.hide()
         return
       }
@@ -60,24 +59,42 @@ export class TooltipManager {
       const tooltipRect = this.el.getBoundingClientRect()
 
       let top = rect.bottom + 6
-      let left = rect.left + 20
+      const left = rect.left + rect.width / 2 - tooltipRect.width / 2
 
-      // Keep within bounds
-      if (left + tooltipRect.width > window.innerWidth - 10) {
-        left = window.innerWidth - tooltipRect.width - 10
-      }
+      // Position logic: prefer bottom, switch to top if no space
+      let positionClass = 'pos-bottom'
       if (top + tooltipRect.height > window.innerHeight - 10) {
         top = rect.top - tooltipRect.height - 6
+        positionClass = 'pos-top'
       }
 
+      // Horizontal bounds
+      const minLeft = 10
+      const maxLeft = window.innerWidth - tooltipRect.width - 10
+      const clampedLeft = Math.max(minLeft, Math.min(maxLeft, left))
+
+      // Calculate arrow offset relative to tooltip
+      const targetCenter = rect.left + rect.width / 2
+      const arrowOffset = targetCenter - clampedLeft
+      this.el.style.setProperty('--tooltip-arrow-offset', `${arrowOffset}px`)
+
+      this.el.className = `custom-tooltip is-visible ${positionClass}`
       this.el.style.top = `${top}px`
-      this.el.style.left = `${left}px`
+      this.el.style.left = `${clampedLeft}px`
     }, 300)
   }
 
   public hide(): void {
-    clearTimeout(this.timeout)
+    if (this.timeout) clearTimeout(this.timeout)
     this.el.classList.remove('is-visible')
+    this.currentTarget = null
+  }
+
+  private hideImmediately(): void {
+    if (this.timeout) clearTimeout(this.timeout)
+    this.el.classList.remove('is-visible')
+    this.el.style.opacity = '0' // Force hide
+    this.currentTarget = null
   }
 }
 

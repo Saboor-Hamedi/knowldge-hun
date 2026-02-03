@@ -1,31 +1,60 @@
 .rich-tooltip {
   position: fixed;
-  background: rgba(30, 31, 34, 0.95);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(22, 22, 24, 0.85); /* Match custom tooltip */
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 8px;
   padding: 12px;
   color: #e3e3e3;
   font-size: 11px;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35); /* More subtle */
   z-index: 100000;
   pointer-events: auto;
   opacity: 0;
   transform: translateY(6px);
   transition:
-    opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1),
-    transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    opacity 0.15s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   min-width: 240px;
   max-width: 450px;
   display: flex;
   flex-direction: column;
   gap: 8px;
+  overflow: visible; /* For knob */
+}
+
+/* Discrete item transitions - class added via JS */
+.rich-tooltip.is-discrete {
+  transition: none !important;
+  opacity: 0 !important;
+  transform: translateY(6px) !important;
 }
 
 .rich-tooltip.is-visible {
   opacity: 1;
   transform: translateY(0);
-  pointer-events: auto; /* Enable interaction when visible */
+  pointer-events: auto;
+}
+
+/* The Knob */
+.rich-tooltip::after {
+  content: '';
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  background: rgba(22, 22, 24, 0.85);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  transform: rotate(45deg);
+  bottom: -4px;
+  left: var(--tooltip-arrow-offset, 50%);
+  margin-left: -4px;
+  z-index: -1;
+}
+
+.rich-tooltip.is-compact {
+  min-width: 140px;
+  padding: 8px 12px;
 }
 
 /* Rich Content Styles */
@@ -33,7 +62,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   padding-bottom: 8px;
   margin-bottom: 4px;
 }
@@ -47,8 +76,8 @@
 .rich-tooltip__badge {
   color: var(--accent, #569cd6);
   font-family: var(--font-mono, monospace);
-  background: rgba(86, 156, 214, 0.15);
-  padding: 3px 8px;
+  background: rgba(86, 156, 214, 0.12);
+  padding: 2px 8px;
   border-radius: 4px;
   font-size: 10px;
 }
@@ -66,14 +95,6 @@
   color: #9da5b4;
 }
 
-.rich-tooltip__remote {
-  font-family: var(--font-mono, monospace);
-  font-size: 10px;
-  opacity: 0.8;
-  word-break: break-all;
-  line-height: 1.4;
-}
-
 .rich-tooltip__stats {
   display: flex;
   gap: 12px;
@@ -88,21 +109,15 @@
   font-weight: 600;
 }
 
-.rich-tooltip__stat.modified {
-  color: #e2c522;
-}
-.rich-tooltip__stat.added {
-  color: #73c991;
-}
-.rich-tooltip__stat.deleted {
-  color: #f14c4c;
-}
+.rich-tooltip__stat.modified { color: #e2c522; }
+.rich-tooltip__stat.added { color: #73c991; }
+.rich-tooltip__stat.deleted { color: #f14c4c; }
 
 .rich-tooltip__footer {
   font-size: 10px;
-  color: rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 0.25);
   margin-top: 6px;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
   padding-top: 8px;
   font-style: italic;
 }

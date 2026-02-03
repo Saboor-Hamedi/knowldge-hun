@@ -6,6 +6,7 @@ import { WebglAddon } from '@xterm/addon-webgl'
 import { CanvasAddon } from '@xterm/addon-canvas'
 import { SerializeAddon } from '@xterm/addon-serialize'
 import { state } from '../../core/state'
+import { ConsoleComponent } from '../console/console'
 import '@xterm/xterm/css/xterm.css'
 import './real-terminal.css'
 
@@ -37,8 +38,10 @@ export class RealTerminalComponent {
   private startY: number = 0
   private startHeight: number = 0
   private onNoteSelect?: (id: string, path?: string) => void
+  private hubConsole?: ConsoleComponent
 
-  constructor(containerId: string) {
+  constructor(containerId: string, hubConsole?: ConsoleComponent) {
+    this.hubConsole = hubConsole
     const container = document.getElementById(containerId)
     if (!container) {
       throw new Error(`Terminal container with id "${containerId}" not found`)
@@ -244,6 +247,11 @@ export class RealTerminalComponent {
       if (termBody) termBody.style.display = 'none'
       if (consoleHost) consoleHost.style.display = 'flex'
 
+      // Update console state if we have it
+      if (this.hubConsole) {
+        this.hubConsole.setVisible(true)
+      }
+
       // Focus console input
       const input = consoleHost.querySelector('.hub-console__input') as HTMLElement
       input?.focus()
@@ -255,8 +263,16 @@ export class RealTerminalComponent {
    */
   private async getAvailableShells(): Promise<Array<{ value: string; label: string }>> {
     try {
-      const available = await window.api.invoke('terminal:get-available-shells')
-      return available
+      const available = (await window.api.invoke('terminal:get-available-shells')) as Array<{
+        value: string
+        label: string
+      }>
+      // Extra safety: Filter out any stray docker distros that might have slipped through
+      return available.filter(
+        (shell) =>
+          !shell.label.toLowerCase().includes('docker') &&
+          !shell.label.toLowerCase().includes('desktop')
+      )
     } catch (error) {
       console.error('[RealTerminal] Failed to get available shells:', error)
       // Fallback to PowerShell on Windows
@@ -344,8 +360,10 @@ export class RealTerminalComponent {
     const tabs = this.container.querySelectorAll('.terminal-tab')
     tabs.forEach((t) => {
       t.addEventListener('click', (e) => {
-        const view = (e.target as HTMLElement).dataset.tab as 'terminal' | 'console'
-        this.switchView(view)
+        const view = (e.currentTarget as HTMLElement).dataset.tab as 'terminal' | 'console'
+        if (view) {
+          this.switchView(view)
+        }
       })
     })
 
@@ -789,8 +807,10 @@ export class RealTerminalComponent {
           })
           return false
         }
-        // Ctrl+` (Toggle Terminal) - Allow to bubble up to global manager
-        if (event.ctrlKey && event.code === 'Backquote') {
+        // Global Shortcuts that must bubble up for the App manager to see them
+        // This fixes the "Terminal focused = Ctrl+J doesn't work" bug.
+        const bubbleKeys = ['KeyJ', 'Backquote', 'KeyB', 'KeyP', 'Comma']
+        if (event.ctrlKey && bubbleKeys.includes(event.code)) {
           return false
         }
         return true
@@ -1393,9 +1413,23 @@ export class RealTerminalComponent {
       if (Array.isArray(sessionData)) {
         console.log(`[RealTerminal] Restoring ${sessionData.length} sessions from ${key}...`)
 
+        // Filter out any stray docker-desktop sessions from the restoration list
+        const filteredData = (
+          sessionData as Array<{ shellType?: string; cwd?: string; id: string }>
+        ).filter((data) => {
+          const shell = (data.shellType || '').toLowerCase()
+          return !shell.includes('docker') && !shell.includes('desktop')
+        })
+
+        if (filteredData.length < sessionData.length) {
+          console.log(
+            `[RealTerminal] Filtered out ${sessionData.length - filteredData.length} invalid sessions.`
+          )
+        }
+
         // Use a for...of loop with individual try/catch to ensure one failure doesn't stop others
         const restoredIds: string[] = []
-        for (const data of sessionData) {
+        for (const data of filteredData) {
           try {
             await this.createNewTerminal(data.shellType, data.cwd, data.id)
             restoredIds.push(data.id)

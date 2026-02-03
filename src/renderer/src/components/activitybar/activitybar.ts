@@ -80,7 +80,7 @@ export class ActivityBar {
       updateIcon = codicons.refresh
     } else if (this.updateState === 'checking') {
       // Use a circular target/spinner icon for checking
-      updateIcon = `<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="#0078d4" stroke-width="2" fill="none" opacity="0.2"/><circle cx="10" cy="10" r="8" stroke="#0078d4" stroke-width="2" fill="none" stroke-dasharray="50.24" stroke-dashoffset="10" style="transform-origin:center;animation:activitybar-spin 1s linear infinite;"/><circle cx="10" cy="10" r="4" stroke="#0078d4" stroke-width="1.5" fill="none"/></svg>`
+      updateIcon = `<svg width="24" height="24" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="8" stroke="#0078d4" stroke-width="2" fill="none" opacity="0.2"/><circle cx="10" cy="10" r="8" stroke="#0078d4" stroke-width="2" fill="none" stroke-dasharray="50.24" stroke-dashoffset="10" style="transform-origin:center;animation:activitybar-spin 1s linear infinite;"/><circle cx="10" cy="10" r="4" stroke="#0078d4" stroke-width="1.5" fill="none"/></svg>`
       // Add spinner animation for activitybar (top-level, once)
       ;(function injectActivitybarSpinnerStyle() {
         const styleId = 'activitybar-spinner-style'
@@ -94,7 +94,7 @@ export class ActivityBar {
     } else if (this.updateState === 'progress') {
       // Progress: circular progress bar
       const percent = Math.round(this.updateProgress)
-      updateIcon = `<svg width="20" height="20" viewBox="0 0 20 20">
+      updateIcon = `<svg width="24" height="24" viewBox="0 0 20 20">
         <circle cx="10" cy="10" r="8" stroke="#888" stroke-width="2" fill="none"/>
         <circle cx="10" cy="10" r="8" stroke="#0078d4" stroke-width="2" fill="none"
           stroke-dasharray="${Math.PI * 2 * 8}"
@@ -104,7 +104,7 @@ export class ActivityBar {
       </svg>`
     } else if (this.updateState === 'restart') {
       // Restart icon
-      updateIcon = `<svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+      updateIcon = `<svg width="24" height="24" viewBox="0 0 20 20" fill="none">
         <path d="M10 2v4M10 14v4M4.93 4.93l-2.83-2.83M17.9 17.9l-2.83-2.83M2 10h4M14 10h4M4.93 15.07l-2.83 2.83M17.9 2.1l-2.83 2.83" stroke="#0078d4" stroke-width="1.5"/>
         <circle cx="10" cy="10" r="8" stroke="#0078d4" stroke-width="1.5" fill="none"/>
       </svg>`
@@ -128,7 +128,7 @@ export class ActivityBar {
         </button>
         <button class="activitybar__item${state.activeView === 'graph' ? ' is-active' : ''}" data-view="graph" data-tooltip="Graph View">
           <span class="activitybar__icon">
-            <svg width="20" height="20" viewBox="0 0 16 16" fill="none">
+            <svg width="24" height="24" viewBox="0 0 16 16" fill="none">
               <circle cx="4" cy="4" r="2" stroke-width="1.5" fill="none"/>
               <circle cx="12" cy="12" r="2" stroke-width="1.5" fill="none"/>
               <circle cx="12" cy="4" r="2" stroke-width="1.5" fill="none"/>
@@ -209,7 +209,7 @@ export class ActivityBar {
   private createLucideIcon(IconComponent: any): string {
     // Use Lucide's createElement to create SVG element
     const svgElement = createElement(IconComponent, {
-      size: 20,
+      size: 24,
       'stroke-width': 1.5,
       stroke: 'currentColor',
       color: 'currentColor'

@@ -7,8 +7,8 @@ export interface TooltipOptions {
 export class RichTooltip {
   private el: HTMLElement
   private visible = false
-  private hideTimer: NodeJS.Timeout | null = null
-  // private currentTarget: HTMLElement | null = null
+  private hideTimer: ReturnType<typeof setTimeout> | null = null
+  private currentTarget: HTMLElement | null = null
   private options: TooltipOptions
 
   constructor(options: TooltipOptions = {}) {
@@ -29,16 +29,18 @@ export class RichTooltip {
   }
 
   public setCompact(compact: boolean): void {
-    if (compact) {
-      this.el.classList.add('is-compact')
-    } else {
-      this.el.classList.remove('is-compact')
-    }
+    if (compact) this.el.classList.add('is-compact')
+    else this.el.classList.remove('is-compact')
   }
 
   public show(target: HTMLElement, content: string | HTMLElement): void {
+    // If we are moving between items, reset immediately to prevent stretching
+    if (this.currentTarget && this.currentTarget !== target) {
+      this.hideImmediately()
+    }
+
     this.cancelHide()
-    // this.currentTarget = target
+    this.currentTarget = target
 
     if (typeof content === 'string') {
       this.el.innerHTML = content
@@ -46,6 +48,9 @@ export class RichTooltip {
       this.el.innerHTML = ''
       this.el.appendChild(content)
     }
+
+    // Force reflow/reset before positioning
+    this.el.classList.remove('is-discrete')
 
     const rect = target.getBoundingClientRect()
     this.position(rect)
@@ -61,7 +66,16 @@ export class RichTooltip {
       this.el.classList.remove('is-visible')
       this.visible = false
       this.hideTimer = null
+      this.currentTarget = null
     }, this.options.delay)
+  }
+
+  private hideImmediately(): void {
+    this.cancelHide()
+    this.el.classList.add('is-discrete')
+    this.el.classList.remove('is-visible')
+    this.visible = false
+    this.currentTarget = null
   }
 
   public update(content: string | HTMLElement): void {
@@ -83,19 +97,32 @@ export class RichTooltip {
   }
 
   private position(rect: DOMRect): void {
-    // Default position: above the target
-    const x = rect.left
+    // Position the tooltip centered above the target
+    const x = rect.left + rect.width / 2
     const y = rect.top
 
+    // Set initial position
     this.el.style.left = `${x}px`
     this.el.style.bottom = `${window.innerHeight - y + 8}px`
+    this.el.style.right = 'auto'
 
-    // Check if it overflows on the right
+    // Calculate real dimensions
     const tooltipRect = this.el.getBoundingClientRect()
-    if (x + tooltipRect.width > window.innerWidth) {
-      this.el.style.left = 'auto'
-      this.el.style.right = `${window.innerWidth - rect.right}px`
-    }
+
+    // Align center
+    const left = x - tooltipRect.width / 2
+
+    // Bound checks
+    const minLeft = 10
+    const maxLeft = window.innerWidth - tooltipRect.width - 10
+    const clampedLeft = Math.max(minLeft, Math.min(maxLeft, left))
+
+    this.el.style.left = `${clampedLeft}px`
+    this.el.style.bottom = `${window.innerHeight - y + 8}px`
+
+    // Update arrow offset
+    const arrowOffset = x - clampedLeft
+    this.el.style.setProperty('--tooltip-arrow-offset', `${arrowOffset}px`)
   }
 
   public destroy(): void {

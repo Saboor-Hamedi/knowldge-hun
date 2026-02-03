@@ -1,22 +1,52 @@
 .custom-tooltip {
   position: fixed;
   z-index: 10000;
-  padding: 4px 8px;
-  background: var(--panel-strong);
+  padding: 5px 10px; /* More compact */
+  background: rgba(22, 22, 24, 0.85); /* Slightly more transparent */
   color: var(--text-strong);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  font-size: 11px;
+  border: 1px solid rgba(255, 255, 255, 0.08); /* More subtle border */
+  border-radius: 6px;
+  font-size: 11px; /* Slighly smaller */
+  font-weight: 500;
   pointer-events: none;
   opacity: 0;
-  transition: opacity 0.1s;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  transition: opacity 0.12s ease, transform 0.12s cubic-bezier(0.4, 0, 0.2, 1);
+  transform: translateY(3px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25); /* Slimmer shadow */
   white-space: nowrap;
   max-width: 400px;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow: visible;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
 }
 
 .custom-tooltip.is-visible {
   opacity: 1;
+  transform: translateY(0);
+}
+
+/* The "Knob" / Arrow */
+.custom-tooltip::after {
+  content: '';
+  position: absolute;
+  width: 6px; /* Smaller knob */
+  height: 6px;
+  background: rgba(22, 22, 24, 0.85);
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  transform: rotate(45deg);
+  left: var(--tooltip-arrow-offset, 50%);
+  margin-left: -3px;
+  z-index: -1;
+}
+
+/* Arrow at the top (when tooltip is below item) */
+.custom-tooltip.pos-bottom::after {
+  top: -4px;
+}
+
+/* Arrow at the bottom (when tooltip is above item) */
+.custom-tooltip.pos-top::after {
+  bottom: -4px;
+  transform: rotate(225deg);
 }

@@ -1,7 +1,7 @@
 @import './base.css';
 
 :root {
-  --activity-width: 48px;
+  --activity-width: 52px;
   --sidebar-width: 300px;
   --right-panel-width: 270px;
   --tab-height: 40px;
@@ -110,13 +110,13 @@ body {
   height: 100%;
   overflow: hidden;
   position: relative;
-  z-index: 1;
+  z-index: 150;
   display: flex;
   flex-direction: column;
 }
 
 .main.console-maximized {
-  z-index: 100; /* Cover status bar (50) and other siblings */
+  z-index: 200; /* Cover everything including activity bar to be safe */
 }
 
 .right-panel {
@@ -140,9 +140,9 @@ body {
   grid-column: 1 / -1;
   grid-row: 2;
   min-height: 0;
-  z-index: 50;
+  z-index: 1000;
   height: var(--statusbar-height);
-  overflow: hidden;
+  overflow: visible; /* Allow sync menu to pop up */
 }
 
 .welcome-host {

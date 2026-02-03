@@ -203,6 +203,14 @@ export class TerminalManager {
   private getWindowsShellPath(shellType: string): ShellPathConfig {
     if (shellType.startsWith('wsl:')) {
       const distro = shellType.split(':')[1]
+      const lowerDistro = distro.toLowerCase()
+
+      // Guard: Never allow docker or desktop helper distros
+      if (lowerDistro.includes('docker') || lowerDistro.includes('desktop')) {
+        console.warn(`[TerminalManager] Blocked attempt to use WSL distro: ${distro}`)
+        return { exe: this.getDefaultShell(), args: [] }
+      }
+
       if (this.isExecutableAvailable('wsl.exe')) {
         return { exe: 'wsl.exe', args: ['-d', distro] }
       }

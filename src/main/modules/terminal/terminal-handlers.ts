@@ -1,5 +1,6 @@
 import { ipcMain } from 'electron'
 import * as os from 'os'
+import { existsSync } from 'fs'
 import { execSync } from 'child_process'
 import { TerminalManager } from './terminal-manager'
 
@@ -139,18 +140,17 @@ export class TerminalHandlers {
 
     // Check for Git Bash
     const gitBashPath = 'C:\\Program Files\\Git\\bin\\bash.exe'
-    try {
-      const fs = require('fs')
-      fs.accessSync(gitBashPath)
+    if (existsSync(gitBashPath)) {
       available.push({ value: 'bash', label: 'Git Bash' })
-    } catch {
-      // Git Bash not installed
     }
 
     // Check for WSL
     try {
-      const stdout = execSync('wsl --list --quiet', { encoding: 'utf8' })
-      const distros = stdout
+      // Use wsl.exe --list --quiet. Note: output is often UTF-16 LE and can contain null chars in node execSync
+      const stdout = execSync('wsl.exe --list --quiet', { encoding: 'utf8' })
+      // Clean up potential null characters/encoding artifacts
+      const cleanStdout = stdout.replace(/\0/g, '')
+      const distros = cleanStdout
         .split('\n')
         .map((d) => d.trim())
         .filter((d) => d.length > 0)
@@ -158,7 +158,8 @@ export class TerminalHandlers {
       available.push({ value: 'wsl', label: 'WSL (Default)' })
       distros.forEach((distro) => {
         const lowerDistro = distro.toLowerCase()
-        if (!lowerDistro.includes('docker')) {
+        // Robustly filter out docker and desktop helper distros
+        if (!lowerDistro.includes('docker') && !lowerDistro.includes('desktop')) {
           available.push({ value: `wsl:${distro}`, label: `WSL: ${distro}` })
         }
       })

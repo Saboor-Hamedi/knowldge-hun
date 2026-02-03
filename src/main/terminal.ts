@@ -423,8 +423,11 @@ export function registerTerminalHandlers(): void {
 
       // Check for WSL
       try {
-        const stdout = execSync('wsl --list --quiet', { encoding: 'utf8' })
-        const distros = stdout
+        // Use powershell to get wsl list because wsl.exe --list --quiet output is UTF-16 LE and often buggy in node execSync
+        const stdout = execSync('wsl.exe --list --quiet', { encoding: 'utf8' })
+        // Clean up potential null characters/encoding artifacts from UTF-16 to UTF-8 conversion
+        const cleanStdout = stdout.replace(/\0/g, '')
+        const distros = cleanStdout
           .split('\n')
           .map((d) => d.trim())
           .filter((d) => d.length > 0)
@@ -432,7 +435,8 @@ export function registerTerminalHandlers(): void {
         available.push({ value: 'wsl', label: 'WSL (Default)' })
         distros.forEach((distro) => {
           const lowerDistro = distro.toLowerCase()
-          if (!lowerDistro.includes('docker')) {
+          // Robustly filter out docker helper distros
+          if (!lowerDistro.includes('docker') && !lowerDistro.includes('desktop')) {
             available.push({ value: `wsl:${distro}`, label: `WSL: ${distro}` })
           }
         })
