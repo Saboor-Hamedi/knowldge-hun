@@ -1,3 +1,5 @@
+import { state } from '../../core/state'
+
 export type GitStatus = 'modified' | 'staged' | 'untracked' | 'deleted' | 'none'
 
 export interface GitMetadata {
@@ -125,10 +127,27 @@ export class GitService {
   private attachListeners(): void {
     // Refresh on focus
     window.addEventListener('focus', () => this.refreshStatus())
-    // Refresh on vault changes
-    window.addEventListener('vault-changed', () => this.refreshStatus())
+    // Refresh on vault changes - reset first for instant UI feedback
+    window.addEventListener('vault-changed', () => {
+      this.reset()
+      this.refreshStatus()
+    })
     // Refresh on manual re-renders from tree
     window.addEventListener('refresh-git', () => this.refreshStatus())
+  }
+
+  /**
+   * Clears the current status and metadata to allow for a fresh state.
+   * Useful when switching vaults to prevent stale data from lingering.
+   */
+  public reset(): void {
+    this.statusMap = {}
+    this.metadata = { branch: '' }
+    window.dispatchEvent(
+      new CustomEvent('git-status-changed', {
+        detail: { status: {}, metadata: { branch: '' } }
+      })
+    )
   }
 
   public stop(): void {

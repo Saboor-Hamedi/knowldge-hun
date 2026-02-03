@@ -557,38 +557,10 @@ export class StatusBar {
       this.gitBranchEl = newEl
       this.attachGitTooltip()
     } else {
-      // Not a git repo or failed to read: Auto-initialize
-      this.gitBranchEl.style.display = 'flex'
-      this.gitBranchEl.classList.add('is-init-needed')
-      if (branchEl) branchEl.textContent = 'Initializing...'
-
-      // Clean listener to avoid duplicates
-      const newEl = this.gitBranchEl.cloneNode(true) as HTMLElement
-      this.gitBranchEl.parentNode?.replaceChild(newEl, this.gitBranchEl)
-      this.gitBranchEl = newEl
-
-      // Trigger auto-init immediately
-      window.api.gitInit().then((success) => {
-        if (success) {
-          // Success notification might be too spammy on every load, maybe optional?
-          // For now, just refresh status to update UI to 'master/main' branch
-          gitService.refreshStatus()
-        }
-      })
-
-      // Simple tooltip while initializing
-      this.gitBranchEl.addEventListener('mouseenter', () => {
-        if (!this.tooltip) return
-        this.tooltip.setCompact(true)
-        this.tooltip.show(
-          this.gitBranchEl!,
-          '<div class="rich-tooltip__title">Initializing Git...</div><div class="rich-tooltip__body">Setting up a new Git repository in this workspace.</div>'
-        )
-      })
-
-      this.gitBranchEl.addEventListener('mouseleave', () => {
-        this.tooltip?.hide()
-      })
+      // Not a git repo, so hide the element as per user request
+      this.gitBranchEl.style.display = 'none'
+      this.gitBranchEl.classList.remove('is-init-needed')
+      if (branchEl) branchEl.textContent = ''
     }
   }
 }

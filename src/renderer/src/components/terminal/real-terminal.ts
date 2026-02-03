@@ -29,6 +29,7 @@ export class RealTerminalComponent {
   private sessions: Map<string, TerminalSession> = new Map()
   private activeSessionId: string | null = null
   private secondaryActiveSessionId: string | null = null // For split view
+  private currentVaultPath: string | null = null
   private isVisible: boolean = false
   private isRestoring: boolean = false
   private isQuitting: boolean = false
@@ -56,8 +57,15 @@ export class RealTerminalComponent {
     this.setupEventListeners()
     await this.restoreSessions()
 
-    // Restore visibility if it was open
-    const savedVisibility = localStorage.getItem('terminal_panel_visible') === 'true'
+    // Initialize currentVaultPath after restore, so we check against this on next switch
+    this.currentVaultPath = state.vaultPath || null
+
+    // Restore visibility if it was open (Scoped to vault)
+    const vaultPath = await this.getVaultPath()
+    const visibilityKey = vaultPath
+      ? `terminal_panel_visible_${vaultPath}`
+      : 'terminal_panel_visible'
+    const savedVisibility = localStorage.getItem(visibilityKey) === 'true'
     if (savedVisibility) {
       this.show()
     }
@@ -445,9 +453,72 @@ export class RealTerminalComponent {
     // Track when the app is quitting to prevent partial session saves
     window.addEventListener('beforeunload', () => {
       this.isQuitting = true
+
+      // Attempt to kill backend sessions
+      this.sessions.forEach((s) => {
+        // Fire and forget kill command to backend
+        try {
+          // specific check for api availability
+          if (window.api && window.api.invoke) {
+            window.api
+              .invoke('terminal:kill', s.id)
+              .catch((err) => console.warn('Kill failed', err))
+          }
+        } catch (e) {
+          // ignore errors during unload
+        }
+      })
+
       // Dispose all terminal instances to free up resources
       this.sessions.forEach((s) => s.terminal.dispose())
     })
+
+    // Listen for vault switch to handle cleanup and restoration
+    window.addEventListener('vault-changed', () => {
+      void this.handleVaultSwitch()
+    })
+  }
+
+  private async handleVaultSwitch(): Promise<void> {
+    // 1. Clear storage for the old vault? NO. We want to persist them for when we return.
+    // However, we MUST stop the current running processes.
+    // (Storage clearing removed to allow persistence)
+
+    // 2. Kill all backend processes and clear UI
+    await this.cleanupAllSessions()
+    // 3. Update local tracker to new path
+    this.currentVaultPath = state.vaultPath || null
+
+    // 4. Start a fresh terminal for the new vault
+    await this.createNewTerminal()
+  }
+
+  private async cleanupAllSessions(): Promise<void> {
+    const ids = Array.from(this.sessions.keys())
+
+    // Kill backend processes
+    for (const id of ids) {
+      // Clean up backend
+      try {
+        await window.api.invoke('terminal:kill', id)
+      } catch (err) {
+        console.warn(`[RealTerminal] Failed to kill session ${id}`, err)
+      }
+
+      // Remove from UI
+      const el = document.getElementById(`terminal-${id}`)
+      if (el) el.remove()
+      const item = document.getElementById(`session-${id}`)
+      if (item) item.remove()
+    }
+
+    // Clear internal state
+    this.sessions.clear()
+    this.activeSessionId = null
+    this.secondaryActiveSessionId = null
+
+    const list = document.getElementById('terminal-sessions-list')
+    if (list) list.innerHTML = ''
   }
 
   /**
@@ -1141,7 +1212,11 @@ export class RealTerminalComponent {
     this.container.style.display = this.isVisible ? 'block' : 'none'
 
     // Persist visibility
-    localStorage.setItem('terminal_panel_visible', String(this.isVisible))
+    // Persist visibility scoped to vault
+    this.getVaultPath().then((vaultPath) => {
+      const key = vaultPath ? `terminal_panel_visible_${vaultPath}` : 'terminal_panel_visible'
+      localStorage.setItem(key, String(this.isVisible))
+    })
 
     console.log(
       '[RealTerminal] New visibility:',
@@ -1251,15 +1326,16 @@ export class RealTerminalComponent {
   /**
    * Save current terminal sessions to local storage
    */
-  private saveSessions(): void {
-    if (this.isQuitting) return
+  public saveSessions(vaultPathOverride?: string): void {
+    if (this.isRestoring || this.isQuitting) return
 
-    const vaultPath = state.vaultPath
-    const key = vaultPath ? `terminal_sessions_${vaultPath}` : 'terminal_sessions'
+    const vaultPath = vaultPathOverride || state.vaultPath
 
-    // Also clear the global one if we are now using a specific one, to prevent confusion?
-    // No, duplicate saving is safer than data loss, but we want to avoid reading it back.
-    // For now, just save to specific.
+    // Strict Scope: Do not save sessions if we don't have a valid vault path.
+    // This prevents writing to a global key that could be picked up by other projects.
+    if (!vaultPath) return
+
+    const key = `terminal_sessions_${vaultPath}`
 
     const sessionData = Array.from(this.sessions.entries()).map(([id, session]) => ({
       id,
@@ -1269,7 +1345,7 @@ export class RealTerminalComponent {
     localStorage.setItem(key, JSON.stringify(sessionData))
     // Also save the active session ID scoped
     if (this.activeSessionId) {
-      localStorage.setItem(`terminal_active_${vaultPath || 'default'}`, this.activeSessionId)
+      localStorage.setItem(`terminal_active_${vaultPath}`, this.activeSessionId)
     }
 
     // Save buffers for each session (last 1000 lines)
@@ -1291,7 +1367,14 @@ export class RealTerminalComponent {
   private async restoreSessions(): Promise<void> {
     // Determine the key based on current vault path to avoid cross-project pollution
     const vaultPath = await this.getVaultPath()
-    const key = vaultPath ? `terminal_sessions_${vaultPath}` : 'terminal_sessions'
+
+    // Strict Scope: If we don't know the vault, we cannot restore sessions safely.
+    // Do NOT fallback to global storage.
+    if (!vaultPath) {
+      return
+    }
+
+    const key = `terminal_sessions_${vaultPath}`
 
     const saved = localStorage.getItem(key)
     /* 
@@ -1299,7 +1382,13 @@ export class RealTerminalComponent {
        because that causes the "ghost session from other project" bug.
        Better to start fresh in a new/untracked vault.
     */
-    if (!saved) return
+    if (!saved) {
+      // Update our tracker even if no sessions found, to ensure next save is correct
+      this.currentVaultPath = vaultPath
+      return
+    }
+
+    this.currentVaultPath = vaultPath
 
     this.isRestoring = true
     try {
@@ -1319,7 +1408,7 @@ export class RealTerminalComponent {
         }
 
         // Restore active session
-        const activeKey = `terminal_active_${vaultPath || 'default'}`
+        const activeKey = `terminal_active_${vaultPath}`
         const activeId = localStorage.getItem(activeKey)
         if (activeId && this.sessions.has(activeId)) {
           this.switchToTerminal(activeId)
