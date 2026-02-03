@@ -1,0 +1,415 @@
+/* Shared Mode Switcher */
+.kb-mode-switcher {
+  position: relative;
+  display: inline-flex;
+}
+
+.kb-mode-switcher__trigger {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--text-soft);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 500;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+}
+
+.kb-mode-switcher__trigger:hover {
+  background: var(--border);
+  color: var(--text-strong);
+}
+
+.kb-mode-switcher.is-open .kb-mode-switcher__trigger {
+  background: var(--panel-strong);
+  border-color: var(--border);
+  color: var(--text-strong);
+}
+
+.kb-mode-switcher__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  color: var(--primary);
+}
+
+.kb-mode-switcher__label {
+  letter-spacing: 0.3px;
+}
+
+.kb-mode-switcher__chevron {
+  opacity: 0.5;
+  font-size: 10px;
+  transition: transform 0.2s ease;
+}
+
+.kb-mode-switcher.is-open .kb-mode-switcher__chevron {
+  transform: rotate(180deg);
+}
+
+.kb-mode-switcher__dropdown {
+  position: absolute;
+  bottom: calc(100% + 12px);
+  left: 0;
+  width: 280px;
+  background: var(--panel-strong);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 
+    0 12px 40px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(255, 255, 255, 0.05);
+  padding: 8px;
+  display: none;
+  flex-direction: column;
+  gap: 4px;
+  z-index: 10005;
+  animation: kb-pop-up 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.kb-mode-switcher.is-open .kb-mode-switcher__dropdown {
+  display: flex;
+}
+
+.kb-mode-switcher__option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: var(--text-soft);
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s ease;
+  width: 100%;
+  font-family: inherit;
+}
+
+.kb-mode-switcher__option:hover {
+  background: var(--hover);
+  color: var(--text-strong);
+}
+
+.kb-mode-switcher__option.is-active {
+  background: var(--primary-alpha);
+  color: var(--primary);
+}
+
+.kb-mode-switcher__option-icon {
+  font-size: 18px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+}
+
+.kb-mode-switcher__option.is-active .kb-mode-switcher__option-icon {
+  background: var(--primary);
+  color: #0b1220;
+}
+
+.kb-mode-switcher__option-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.kb-mode-switcher__option-label {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.kb-mode-switcher__option-desc {
+  font-size: 11px;
+  opacity: 0.6;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@keyframes kb-pop-up {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Smart Input Area */
+.kb-smart-input {
+  position: relative;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.kb-smart-input__area {
+  width: 100%;
+  min-height: 42px;
+  max-height: 240px;
+  padding: 12px 14px;
+  background: transparent;
+  border: none;
+  color: var(--text-strong);
+  font-size: 13.5px;
+  line-height: 1.6;
+  outline: none;
+  overflow-y: auto;
+  transition: all 0.2s ease;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: inherit;
+}
+
+.kb-smart-input__area:focus {
+  background: rgba(255, 255, 255, 0.01);
+}
+
+.kb-smart-input__area:empty::before {
+  content: attr(data-placeholder);
+  color: var(--text-soft);
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+/* Mentions */
+.kb-mention {
+  background: var(--primary-alpha);
+  color: var(--primary);
+  border: 1px solid rgba(127, 167, 255, 0.3);
+  border-radius: 4px;
+  padding: 1px 6px;
+  margin: 0 2px;
+  font-weight: 600;
+  font-size: 0.95em;
+  display: inline-flex;
+  align-items: center;
+  user-select: none;
+  vertical-align: baseline;
+}
+
+/* Autocomplete */
+.kb-smart-input__autocomplete {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  width: 100%;
+  max-width: 400px;
+  background: var(--panel-floating);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+  padding: 6px;
+  display: none;
+  flex-direction: column;
+  gap: 2px;
+  z-index: 2100;
+  backdrop-filter: blur(12px);
+  animation: kb-fade-up 0.15s ease-out;
+}
+
+.kb-smart-input__item {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.1s ease;
+}
+
+.kb-smart-input__item:hover,
+.kb-smart-input__item.is-selected {
+  background: var(--panel-hover);
+}
+
+.kb-smart-input__item.is-selected {
+  background: var(--primary-alpha);
+}
+
+.kb-smart-input__item-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.kb-smart-input__item-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.kb-smart-input__item-path {
+  font-size: 10px;
+  color: var(--text-soft);
+  opacity: 0.7;
+}
+
+.kb-smart-input__item-icon {
+  display: flex;
+  color: var(--primary);
+}
+/* Unified Chat Input Component */
+.kb-chat-input {
+  display: flex;
+  flex-direction: column;
+  background: var(--panel-strong);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 
+    0 4px 20px rgba(0, 0, 0, 0.2),
+    0 0 0 1px rgba(255, 255, 255, 0.05);
+  margin: 12px;
+  overflow: visible;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  z-index: 100;
+}
+
+.kb-chat-input:focus-within {
+  border-color: rgba(255, 255, 255, 0.15);
+  box-shadow: 
+    0 12px 40px rgba(0, 0, 0, 0.4),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+.kb-chat-input__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 12px;
+  background: rgba(255, 255, 255, 0.02);
+  min-height: 36px;
+  border-bottom-left-radius: 12px;
+  border-bottom-right-radius: 12px;
+}
+
+.kb-chat-input__footer-left,
+.kb-chat-input__footer-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.kb-chat-input__counter {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--text-soft);
+  opacity: 0.4;
+  letter-spacing: 0.5px;
+}
+
+.kb-chat-input__prompt {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--primary);
+  font-weight: 600;
+  opacity: 0.8;
+  letter-spacing: -0.2px;
+}
+
+.kb-chat-input__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.kb-chat-input__btn {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--text-soft);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  padding: 0;
+}
+
+.kb-chat-input__btn:hover:not(:disabled) {
+  background: var(--border);
+  color: var(--text-strong);
+}
+
+.kb-chat-input__btn--send {
+  color: var(--primary);
+  background: var(--primary-alpha);
+}
+
+.kb-chat-input__btn--send:hover:not(:disabled) {
+  background: var(--primary);
+  color: #0b1220;
+}
+
+.kb-chat-input__btn--stop {
+  color: var(--danger);
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.kb-chat-input__btn--stop:hover {
+  background: var(--danger);
+  color: white;
+}
+
+.kb-chat-input__btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.kb-chat-input__btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.kb-chat-input__mode-toggle {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 2px;
+}
+
+.kb-chat-input__mode-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-soft);
+  cursor: pointer;
+  padding: 2px 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  font-size: 11px;
+  opacity: 0.6;
+}
+
+.kb-chat-input__mode-btn:hover {
+  opacity: 1;
+  background: var(--border);
+}
+
+.kb-chat-input__mode-btn.is-active {
+  color: var(--primary);
+  background: var(--primary-alpha);
+  opacity: 1;
+}
+
+.kb-chat-input__mode-btn svg {
+  width: 12px;
+  height: 12px;
+}

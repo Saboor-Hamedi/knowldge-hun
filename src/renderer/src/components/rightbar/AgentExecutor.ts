@@ -1,3 +1,5 @@
+import type { TreeItem } from '../../core/types'
+
 /**
  * AgentExecutor - Handles execution of AI agentic commands [RUN: ...]
  */
@@ -107,8 +109,8 @@ export class AgentExecutor {
         if (!query) return 'Error: delete requires a title, path, or ID'
         const item = await this.findInVault(query)
         if (!item) return `Error: Item "${query}" not found.`
-        if (item.type === 'folder') await window.api.deleteFolder(item.path)
-        else await window.api.deleteNote(item.id, item.path)
+        if (item.type === 'folder') await window.api.deleteFolder(item.path || '')
+        else await window.api.deleteNote(item.id, item.path || '')
         return `Success: Deleted "${item.title}".`
       }
 
@@ -118,8 +120,8 @@ export class AgentExecutor {
         if (!oldName || !newName) return 'Error: rename requires old and new names'
         const item = await this.findInVault(oldName)
         if (!item) return `Error: Item "${oldName}" not found.`
-        if (item.type === 'folder') await window.api.renameFolder(item.path, newName)
-        else await window.api.renameNote(item.id, newName, item.path)
+        if (item.type === 'folder') await window.api.renameFolder(item.path || '', newName)
+        else await window.api.renameNote(item.id, newName, item.path || '')
         return `Success: Renamed to "${newName}".`
       }
 
@@ -133,12 +135,12 @@ export class AgentExecutor {
     }
   }
 
-  private static async findInVault(query: string): Promise<any> {
-    const notes = await window.api.listNotes()
-    return this.searchTree(notes as any[], query)
+  private static async findInVault(query: string): Promise<TreeItem | null> {
+    const notes = (await window.api.listNotes()) as TreeItem[]
+    return this.searchTree(notes, query)
   }
 
-  private static searchTree(items: any[], query: string): any {
+  private static searchTree(items: TreeItem[], query: string): TreeItem | null {
     for (const item of items) {
       if (item.title === query || item.path === query || item.id === query) return item
       if (item.children) {

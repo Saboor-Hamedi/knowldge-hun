@@ -10,7 +10,7 @@ export class MessageFormatter {
 
   constructor() {
     this.md = new MarkdownIt({
-      html: false,
+      html: true,
       linkify: true,
       breaks: true,
       typographer: true,
@@ -40,8 +40,19 @@ export class MessageFormatter {
       return this.escapeHtml(text).replace(/\n/g, '<br>')
     }
 
-    // Strip [RUN: ...] tags from assistant messages to keep reasoning clean
-    const cleanText = text.replace(/\[RUN:[\s\S]*?(?:\]|$)/g, '').trim()
+    // Replace [RUN: ...] tags with clean UI pills instead of stripping them
+    // This allows the user to see that an action is happening without the ugly raw code.
+    const cleanText = text.replace(/\[RUN:\s*([\s\S]*?)(?:\]|$)/g, (match, cmdBody) => {
+      const parts = cmdBody.trim().split(/\s+/)
+      const cmdName = parts[0] || 'command'
+      const isClosed = match.endsWith(']')
+      const status = isClosed ? 'Executing' : 'Preparing'
+
+      return `<div class="rightbar__command-pill" data-command="${cmdName}">
+        <span class="rightbar__command-icon">⚡</span>
+        <span class="rightbar__command-text">${status}: ${cmdName}</span>
+      </div>`
+    })
 
     const rawHtml = this.md.render(cleanText)
 
@@ -57,7 +68,7 @@ export class MessageFormatter {
         'aria-label',
         'title'
       ],
-      ADD_TAGS: ['pre', 'code', 'button', 'svg', 'path', 'rect'],
+      ADD_TAGS: ['pre', 'code', 'button', 'svg', 'path', 'rect', 'div', 'span'],
       KEEP_CONTENT: true,
       ALLOW_DATA_ATTR: true
     })

@@ -194,9 +194,9 @@ export class ConversationController {
 
       await this.ui.onAutoSaveRequired()
 
-      // if (fullResponse.includes('[RUN:')) {
-      //   await this.handleAgenticCommands(fullResponse)
-      // }
+      if (fullResponse.includes('[RUN:')) {
+        await this.handleAgenticCommands(fullResponse)
+      }
     } catch (err: any) {
       this.state.isLoading = false
       this.abortController = null

@@ -1781,3 +1781,36 @@
   border-top: 1px solid var(--border);
   padding-top: 6px;
 }
+
+/* ---- Command Pill UI ---- */
+.rightbar__command-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  margin: 10px 0;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--primary);
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-soft);
+  max-width: 100%;
+}
+
+.rightbar__command-icon {
+  color: var(--primary);
+  animation: rightbar-pulse 2s infinite ease-in-out;
+}
+
+.rightbar__command-text {
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+@keyframes rightbar-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(0.9); }
+}
