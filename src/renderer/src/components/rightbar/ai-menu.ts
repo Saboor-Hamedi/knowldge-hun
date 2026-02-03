@@ -213,14 +213,19 @@ export class AIMenu {
     strokeWidth: number = 1.5,
     color?: string
   ): string {
-    const svgElement = createElement(IconComponent, {
-      size: size,
-      'stroke-width': strokeWidth,
-      stroke: color || 'currentColor',
-      color: color || 'currentColor'
-    })
-    if (svgElement && svgElement.outerHTML) {
-      return svgElement.outerHTML
+    if (!IconComponent) return ''
+    try {
+      const svgElement = createElement(IconComponent, {
+        size: size,
+        'stroke-width': strokeWidth,
+        stroke: color || 'currentColor',
+        color: color || 'currentColor'
+      })
+      if (svgElement && svgElement.outerHTML) {
+        return svgElement.outerHTML
+      }
+    } catch (e) {
+      console.error('Failed to create icon', e)
     }
     return ''
   }

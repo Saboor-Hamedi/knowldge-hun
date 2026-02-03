@@ -97,7 +97,7 @@ export const CHAT_MODES: ChatModeConfig[] = [
     description: 'Optimized for coding tasks',
     temperature: 0.4,
     systemPrompt:
-      'You are a coding expert. Provide clean, well-documented code. Explain technical concepts clearly. Follow best practices and modern conventions.'
+      'You are a coding expert. Provide clean, well-documented code. ALWAYS wrap code snippets in standard markdown code blocks (fenced with triple backticks) and specify the language. Explain technical concepts clearly. Follow best practices and modern conventions.'
   }
 ]
 
@@ -562,9 +562,9 @@ export class AIService {
         // Only mention vault access if it seems relevant
         const lowerMessage = userMessage.toLowerCase()
 
-        // Check if this is just an acknowledgment (user saying "okay", "fine", etc.)
+        // Check if this is just an acknowledgment (user saying "okay", "fine", etc.) OR a greeting
         const isAcknowledgment =
-          /^(okay|ok|fine|thanks|got it|alright|cool|nice|good|sure|yep|yeah|yes)\b/i.test(
+          /^(okay|ok|fine|thanks|got it|alright|cool|nice|good|sure|yep|yeah|yes|hello|hi|hey|greetings|hiya)\b/i.test(
             userMessage.trim()
           )
 
@@ -597,6 +597,44 @@ export class AIService {
             context += `\n... and ${vaultSize - notesToShow.length} more notes.\n`
           }
         } else {
+          // Check for explicit @mentions or [[wikilinks]]
+          const mentionRegex = /@([a-zA-Z0-9_\-\.]+)|\[\[(.*?)\]\]/g
+          const mentions: string[] = []
+          let match
+          while ((match = mentionRegex.exec(userMessage)) !== null) {
+            mentions.push(match[1] || match[2]) // catch @group or [[group]]
+          }
+
+          if (mentions.length > 0) {
+            context += `\nUser explicitly mentioned specific notes:\n`
+            for (const mention of mentions) {
+              const cleanMention = mention.replace('.md', '').trim().toLowerCase()
+              const targetNote = metadata.find(
+                (n) =>
+                  n.title.toLowerCase() === cleanMention ||
+                  n.title.toLowerCase() === cleanMention + '.md' ||
+                  (n.path && n.path.toLowerCase().endsWith(cleanMention)) ||
+                  (n.path && n.path.toLowerCase().endsWith(cleanMention + '.md'))
+              )
+
+              if (targetNote) {
+                try {
+                  const content = await this.loadNoteContent(targetNote.id, targetNote.path)
+                  context += `\nNOTE: "${targetNote.title}" (Explicitly referenced):\n${content.substring(0, 5000)}\n`
+                  if (!citations.find((c) => c.id === targetNote.id)) {
+                    citations.push({
+                      id: targetNote.id,
+                      title: targetNote.title,
+                      path: targetNote.path
+                    })
+                  }
+                } catch (err) {
+                  console.warn(`Failed to load mentioned note: ${mention}`, err)
+                }
+              }
+            }
+          }
+
           // Check if the user is asking to create something (don't load vault context for this)
           const isCreationIntent =
             /\b(create|make|new|mkdir|touch|generate|setup)\b/i.test(userMessage) &&
@@ -791,8 +829,9 @@ export class AIService {
       `3. ALWAYS use double quotes for titles or paths if they contain spaces.\n` +
       `4. You can execute multiple [RUN: ...] commands in one response.\n` +
       `5. [RUN: ...] tags can span multiple lines.\n` +
-      `6. CONCISENESS: If you are writing, appending, or proposing significant content to a note, DO NOT repeat that content in your conversational text. Just say "I've proposed some improvements." or similar. The user sees it in the editor.\n` +
+      `6. CONCISENESS & STOP RULE: When you use [RUN: write/propose/mkdir/append], if the operation is successful, you MUST STOP. Just say "Task complete." or similar. DO NOT repeat the content you just wrote or re-explain the topic. The user can see the changes in their vault.\n` +
       `7. SILENCE: When you use [RUN: read ...], do not repeat the entire content you just read unless specifically asked to summarize or find something specific.\n` +
+      `8. NO REDUNDANCY: If the user receives a "Success" or "DONE" message from the system, do not re-affirm it with a long response. Just proceed to the next request or stop if finished.\n` +
       `When the user asks who you are, answer accurately as Knowledge Hub AI using ${provider} ${model === 'default-recommended' ? '' : `(${model})`}.`
 
     const messagesForAPI: AIMessage[] = []
@@ -805,10 +844,16 @@ export class AIService {
     })
 
     // 2. Add History
-    const history = messages.map((m) => ({
+    const history: AIMessage[] = messages.map((m) => ({
       role: m.role as 'user' | 'assistant',
       content: m.content
     }))
+
+    // Remove the last message if it's from user, because we will re-add it (potentially enhanced) as 'context'
+    if (history.length > 0 && history[history.length - 1].role === 'user') {
+      history.pop()
+    }
+
     messagesForAPI.push(...history)
 
     // 3. Add Final Context-Aware Prompt

@@ -81,12 +81,12 @@ export class ViewOrchestrator {
       if (tabBar) tabBar.style.display = 'none'
       if (breadcrumbs) breadcrumbs.style.display = 'none'
     } else {
-      if (editorCont) editorCont.style.display = 'flex'
-      if (settingsHost) settingsHost.style.display = 'none'
-      if (graphHost) graphHost.style.display = 'none'
-      if (welcomeHost) welcomeHost.style.display = 'none'
-      if (tabBar) tabBar.style.display = 'flex'
-      if (breadcrumbs) breadcrumbs.style.display = 'flex'
+      if (editorCont && editorCont.style.display !== 'flex') editorCont.style.display = 'flex'
+      if (settingsHost && settingsHost.style.display !== 'none') settingsHost.style.display = 'none'
+      if (graphHost && graphHost.style.display !== 'none') graphHost.style.display = 'none'
+      if (welcomeHost && welcomeHost.style.display !== 'none') welcomeHost.style.display = 'none'
+      if (tabBar && tabBar.style.display !== 'flex') tabBar.style.display = 'flex'
+      if (breadcrumbs && breadcrumbs.style.display !== 'flex') breadcrumbs.style.display = 'flex'
       this.components.editor.layout()
     }
 

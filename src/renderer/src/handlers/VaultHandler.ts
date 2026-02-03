@@ -290,7 +290,6 @@ export class VaultHandler {
       }
     }
 
-    this.components.breadcrumbs.render()
     this.components.tabBar.render()
     void this.persistWorkspace()
 

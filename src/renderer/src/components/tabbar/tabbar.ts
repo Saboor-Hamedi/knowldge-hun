@@ -93,6 +93,8 @@ export class TabBar {
     }
 
     this.container.style.display = 'flex'
+    const fragment = document.createDocumentFragment()
+
     state.openTabs.forEach((tab) => {
       const isPinned = state.pinnedTabs.has(tab.id)
       const title = tab.title || ''
@@ -187,39 +189,31 @@ export class TabBar {
         button.appendChild(close)
       }
 
-      this.container.appendChild(button)
+      fragment.appendChild(button)
     })
 
-    // Scroll active tab into view
-    this.scrollActiveTabIntoView()
+    this.container.innerHTML = ''
+    this.container.appendChild(fragment)
+
+    // Scroll active tab into view - immediate for initial render to prevent sliding jump
+    this.scrollActiveTabIntoView(true)
   }
 
   /**
    * Scrolls the active tab into view, centering it when possible
    */
-  public scrollActiveTabIntoView(): void {
-    requestAnimationFrame(() => {
-      const activeTab = this.container.querySelector('.tab.is-active') as HTMLElement
-      if (!activeTab) return
+  public scrollActiveTabIntoView(immediate: boolean = false): void {
+    const activeTab = this.container.querySelector('.tab.is-active') as HTMLElement
+    if (!activeTab) return
 
-      const containerRect = this.container.getBoundingClientRect()
-      const tabRect = activeTab.getBoundingClientRect()
+    // Calculate scroll position to center the tab
+    const tabCenter = activeTab.offsetLeft + activeTab.offsetWidth / 2
+    const containerCenter = this.container.offsetWidth / 2
+    const scrollTarget = tabCenter - containerCenter
 
-      // Check if tab is already fully visible
-      const isFullyVisible =
-        tabRect.left >= containerRect.left && tabRect.right <= containerRect.right
-
-      if (!isFullyVisible) {
-        // Calculate scroll position to center the tab
-        const tabCenter = activeTab.offsetLeft + activeTab.offsetWidth / 2
-        const containerCenter = this.container.offsetWidth / 2
-        const scrollTarget = tabCenter - containerCenter
-
-        this.container.scrollTo({
-          left: Math.max(0, scrollTarget),
-          behavior: 'smooth'
-        })
-      }
+    this.container.scrollTo({
+      left: Math.max(0, scrollTarget),
+      behavior: immediate ? 'auto' : 'smooth'
     })
   }
 

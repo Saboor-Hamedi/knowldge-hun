@@ -4,33 +4,33 @@ import { sessionStorageService, type ChatSession } from '../../services/sessionS
 import { SessionSidebar } from './session-sidebar'
 import { AIMenu, type AIMenuItem } from './ai-menu'
 import { AISettingsModal } from '../settings/ai-settings-modal'
-import MarkdownIt from 'markdown-it'
-import DOMPurify from 'dompurify'
-import { Avatar } from './avatar'
 import {
   createElement,
-  Copy,
-  ThumbsUp,
-  ThumbsDown,
-  Check,
-  Download,
-  Edit2,
-  RotateCw,
-  Upload,
   Trash2,
-  Settings,
   Info,
-  Archive,
   Plus,
+  Download,
+  PanelRight,
   PanelLeft,
-  PanelRight
+  Upload,
+  Archive,
+  Settings,
+  Check,
+  Copy // Added Copy icon
 } from 'lucide'
+import { copyConversationToClipboard } from './clipboardUtils'
 import './rightbar.css'
 import './ai-menu.css'
 
+import { messageFormatter } from './MessageFormatter'
+import { SessionManager, SessionManagerUI } from './SessionManager'
+import { ChatRenderer, RendererState } from './ChatRenderer'
+import { ConversationController, ConversationControllerUI } from './ConversationController'
+
 // Lazy load highlight.js - load it once when first code block is encountered
-let hljsPromise: Promise<any> | null = null
-const initHighlightJS = (): Promise<any> => {
+let hljsPromise: Promise<unknown> | null = null
+
+const initHighlightJS = (): Promise<unknown> => {
   if (!hljsPromise) {
     hljsPromise = (async () => {
       try {
@@ -77,46 +77,6 @@ const initHighlightJS = (): Promise<any> => {
   return hljsPromise
 }
 
-const WELCOME_HTML = `
-  <div class="rightbar__welcome">
-    <div class="rightbar__welcome-icon">✨</div>
-    <p class="rightbar__welcome-title">AI Chat</p>
-    <p class="rightbar__welcome-text">Ask about your notes, get summaries, or brainstorm ideas. I have context from your current note.</p>
-    <p class="rightbar__welcome-hint">Ctrl+I to toggle · Drag the left edge to resize</p>
-  </div>
-`
-
-const TYPING_HTML = `
-  <div class="rightbar__message rightbar__message--assistant">
-    ${Avatar.createHTML('assistant', 20)}
-    <div class="rightbar__message-body">
-      <div class="rightbar__typing" aria-live="polite">
-        <div class="rightbar__typing-dots">
-          <span></span>
-          <span></span>
-          <span></span>
-        </div>
-      </div>
-    </div>
-  </div>
-`
-
-const EXECUTING_HTML = `
-  <div class="rightbar__message rightbar__message--assistant">
-    ${Avatar.createHTML('assistant', 20)}
-    <div class="rightbar__message-body">
-      <div class="rightbar__message-content rightbar__executing" aria-live="polite">
-        <div class="rightbar__typing-dots">
-          <span style="background: var(--primary)"></span>
-          <span style="background: var(--primary); animation-delay: 0.15s"></span>
-          <span style="background: var(--primary); animation-delay: 0.3s"></span>
-          <span style="margin-left: 6px; font-size: 10px; font-weight: 600; color: var(--primary); opacity: 0.9;">Running actions...</span>
-        </div>
-      </div>
-    </div>
-  </div>
-`
-
 export class RightBar {
   private container: HTMLElement
   private chatContainer!: HTMLElement
@@ -124,355 +84,116 @@ export class RightBar {
   private sendButton!: HTMLButtonElement
   private inputWrapper!: HTMLElement
   private characterCounter!: HTMLElement
-  private modeButton!: HTMLElement
-  private modeDropdown!: HTMLElement
-  private abortController: AbortController | null = null
   private slashCommands = [
     { command: '/clear', description: 'Clear current conversation', icon: Trash2 },
     { command: '/new', description: 'Start a new chat session', icon: Plus },
     { command: '/help', description: 'Show available commands', icon: Info },
     { command: '/export', description: 'Export conversation', icon: Download }
   ]
-  private resizeHandle!: HTMLElement
-  private messages: ChatMessage[] = []
   private isResizing = false
   private startX = 0
   private startWidth = 0
-  private isLoading = false
-  private lastFailedMessage: string | null = null
-  private md: MarkdownIt
   private autocompleteDropdown!: HTMLElement
   private autocompleteItems: HTMLElement[] = []
   private selectedAutocompleteIndex = -1
 
   private typingTimeout: number | null = null
   private currentSessionId: string | null = null
-  private saveTimeout: number | null = null
-  private isInitialized = false
-  private messageFeedback: Map<number, 'thumbs-up' | 'thumbs-down' | null> = new Map() // Track feedback per message index
-  private streamingMessageIndex: number | null = null // Track which message is currently streaming
   private wasAtBottom = true
-  private isExecutingCommand = false // Track when we are running background agent commands
   private aiMenu!: AIMenu
   private sessionSidebar!: SessionSidebar
   private aiSettingsModal: AISettingsModal
+  private sessionManager!: SessionManager
+  private chatRenderer!: ChatRenderer
+  private conversationController!: ConversationController
 
   constructor(containerId: string, aiSettingsModal: AISettingsModal) {
     this.aiSettingsModal = aiSettingsModal
     this.container = document.getElementById(containerId) as HTMLElement
-    this.md = new MarkdownIt({
-      html: false, // Disable HTML for security - let DOMPurify handle it
-      linkify: true,
-      breaks: true, // Convert \n to <br> for chat
-      typographer: true,
-      highlight: (str: string, lang: string) => {
-        // Normalize language name
-        const normalizedLang = lang ? lang.toLowerCase().trim() : ''
-
-        // Escape HTML for security (always do this)
-        const escaped = this.md.utils.escapeHtml(str)
-
-        // Try to highlight synchronously if hljs is already loaded
-        // Note: We'll enhance code blocks after rendering with highlight.js
-        if (normalizedLang) {
-          return `<pre class="hljs"><code class="language-${this.md.utils.escapeHtml(normalizedLang)}" data-lang="${this.md.utils.escapeHtml(normalizedLang)}" data-code="${this.md.utils.escapeHtml(str.replace(/"/g, '&quot;'))}">${escaped}</code></pre>`
-        }
-        return `<pre class="hljs"><code>${escaped}</code></pre>`
-      }
-    })
 
     // Initialize highlight.js in background
     void initHighlightJS()
     void aiService.loadApiKey()
 
-    this.render()
-    this.attachEvents()
-    void this.initializeSession()
-  }
-
-  /**
-   * Initialize session storage and load/create session
-   */
-  private async initializeSession(): Promise<void> {
-    try {
-      // Initialize IndexedDB
-      await sessionStorageService.getAllSessions()
-      this.isInitialized = true
-
-      // Try to restore last active session
-      const isNewInstance = window.location.search.includes('newInstance=true')
-      const lastSessionId = isNewInstance
-        ? null
-        : localStorage.getItem('knowledgeHub_currentSessionId')
-
-      if (lastSessionId && this.sessionSidebar) {
-        try {
-          const session = await sessionStorageService.getSession(lastSessionId)
-          if (session) {
-            // Restore the session
-            this.messages = [...session.messages]
-            this.currentSessionId = session.id
-            this.sessionSidebar.setCurrentSession(session.id)
-            this.renderMessages()
-            this.updateMenuItems() // Update menu after restoring session
-            return // Don't create a new session
-          }
-        } catch (error) {
-          console.warn('[RightBar] Failed to restore last session:', error)
-          localStorage.removeItem('knowledgeHub_currentSessionId')
-        }
-      }
-
-      // Create a new session if we don't have messages (only after sidebar is initialized)
-      if (this.messages.length === 0 && this.sessionSidebar) {
-        await this.createNewSession()
-      }
-      this.updateMenuItems() // Update menu after initialization
-    } catch (error) {
-      console.error('[RightBar] Failed to initialize session storage:', error)
-      this.isInitialized = false
-    }
-  }
-
-  /**
-   * Create a new session or reuse existing empty session
-   */
-  private async createNewSession(): Promise<void> {
-    if (!this.isInitialized) {
-      await this.initializeSession()
-    }
-
-    try {
-      // Check if there's an existing empty session (no messages)
-      const allSessions = await sessionStorageService.getAllSessions(false)
-      const emptySession = allSessions.find((session) => session.messages.length === 0)
-
-      if (emptySession) {
-        // Reuse existing empty session
-        this.currentSessionId = emptySession.id
-        this.messages = []
-
-        // Save to localStorage for persistence
-        localStorage.setItem('knowledgeHub_currentSessionId', emptySession.id)
-
-        // Update sidebar if it exists
-        if (this.sessionSidebar) {
-          this.sessionSidebar.setCurrentSession(emptySession.id)
-          await this.sessionSidebar.refresh()
-        }
-        return
-      }
-
-      // No empty session found, create a new one
-      // Generate smart title if we have messages
-      const title = this.messages.length > 0 ? this.generateSmartTitle() : undefined
-      const session = await sessionStorageService.createSession(this.messages, title)
-      this.currentSessionId = session.id
-
-      // Save to localStorage for persistence
-      localStorage.setItem('knowledgeHub_currentSessionId', session.id)
-
-      // Update sidebar if it exists
-      if (this.sessionSidebar) {
-        this.sessionSidebar.setCurrentSession(session.id)
-        await this.sessionSidebar.refresh()
-      }
-
-      // Update menu items now that we have a session
-      this.updateMenuItems()
-    } catch (error) {
-      console.error('[RightBar] Failed to create session:', error)
-    }
-  }
-
-  /**
-   * Start a new session (clear current and reuse empty or create new)
-   */
-  async startNewSession(): Promise<void> {
-    // Clear current messages and feedback
-    this.messages = []
-    this.lastFailedMessage = null
-    this.messageFeedback.clear()
-    this.updateMenuItems()
-
-    // Check if there's an existing empty session we can reuse
-    try {
-      const allSessions = await sessionStorageService.getAllSessions(false)
-      const emptySession = allSessions.find((session) => session.messages.length === 0)
-
-      if (emptySession) {
-        // Reuse existing empty session
-        this.currentSessionId = emptySession.id
-        localStorage.setItem('knowledgeHub_currentSessionId', emptySession.id)
-
-        if (this.sessionSidebar) {
-          this.sessionSidebar.setCurrentSession(emptySession.id)
-        }
-
-        this.renderMessages()
-
-        if (this.sessionSidebar) {
-          await this.sessionSidebar.refresh()
-        }
-        return
-      }
-    } catch (error) {
-      console.warn('[RightBar] Failed to check for empty sessions:', error)
-    }
-
-    // No empty session found, create a new one
-    this.currentSessionId = null
-    localStorage.removeItem('knowledgeHub_currentSessionId')
-
-    if (this.sessionSidebar) {
-      this.sessionSidebar.setCurrentSession(null)
-    }
-
-    await this.createNewSession()
-    this.renderMessages()
-
-    if (this.sessionSidebar) {
-      await this.sessionSidebar.refresh()
-    }
-  }
-
-  /**
-   * Auto-save current session (debounced, non-blocking)
-   */
-  private async autoSaveSession(): Promise<void> {
-    if (!this.isInitialized || !this.currentSessionId || this.messages.length === 0) {
-      return
-    }
-
-    // Clear existing timeout
-    if (this.saveTimeout !== null) {
-      clearTimeout(this.saveTimeout)
-    }
-
-    // Debounce saves (wait 1 second after last message change)
-    // Use setTimeout to ensure this doesn't block the main thread
-    this.saveTimeout = window.setTimeout(() => {
-      // Use requestIdleCallback if available, otherwise setTimeout with 0 delay
-      const saveOperation = async (): Promise<void> => {
-        try {
-          await sessionStorageService.updateSessionMessages(this.currentSessionId!, this.messages)
-          // Update session title if it's still the default
-          const session = await sessionStorageService.getSession(this.currentSessionId!)
-          if (session && session.title === 'New Session' && this.messages.length > 0) {
-            const newTitle = this.generateSmartTitle()
-            if (newTitle && newTitle !== 'New Session') {
-              await sessionStorageService.updateSessionTitle(this.currentSessionId!, newTitle)
-              await this.sessionSidebar.refresh()
-            }
-          }
-        } catch (error) {
-          console.error('[RightBar] Failed to auto-save session:', error)
-        }
-        this.saveTimeout = null
-      }
-
-      if ('requestIdleCallback' in window) {
-        requestIdleCallback(saveOperation, { timeout: 2000 })
-      } else {
-        setTimeout(saveOperation, 0)
-      }
-    }, 1000)
-  }
-
-  /**
-   * Generate smart title from current messages
-   */
-  private generateSmartTitle(): string {
-    const firstUserMessage = this.messages.find((msg) => msg.role === 'user')
-    if (!firstUserMessage) {
-      return 'New Session'
-    }
-
-    let text = firstUserMessage.content.trim()
-
-    // Remove markdown formatting
-    text = text
-      .replace(/^#+\s+/, '')
-      .replace(/\*\*(.+?)\*\*/g, '$1')
-      .replace(/\*(.+?)\*/g, '$1')
-      .replace(/`(.+?)`/g, '$1')
-      .replace(/\[(.+?)\]\(.+?\)/g, '$1')
-      .trim()
-
-    // Remove common prefixes
-    const prefixes = [
-      /^(what|how|why|when|where|who|can|could|should|would|is|are|do|does|did)\s+/i,
-      /^(explain|describe|tell|show|help|please)\s+/i,
-      /^(i want|i need|i would like|i'm looking for)\s+/i
-    ]
-
-    for (const prefix of prefixes) {
-      text = text.replace(prefix, '')
-    }
-    text = text.trim()
-
-    const firstLine = text.split('\n')[0]
-    let title = firstLine.substring(0, 40).trim()
-
-    if (title.length > 0) {
-      title = title.charAt(0).toUpperCase() + title.slice(1)
-    }
-
-    if (title.length > 1 && /[.,!?;:]$/.test(title)) {
-      title = title.slice(0, -1)
-    }
-
-    if (firstLine.length > 40) {
-      title += '...'
-    }
-
-    return title || 'New Session'
-  }
-
-  /**
-   * Load a session by ID
-   */
-  async loadSession(sessionId: string): Promise<void> {
-    if (!this.isInitialized) {
-      await this.initializeSession()
-    }
-
-    try {
-      const session = await sessionStorageService.getSession(sessionId)
-      if (session) {
-        this.messages = [...session.messages]
-        this.currentSessionId = session.id
-
-        // Restore feedback from messages
-        this.messageFeedback.clear()
-        this.messages.forEach((msg, index) => {
-          if (msg.feedback) {
-            this.messageFeedback.set(index, msg.feedback)
-          }
-        })
-
-        // Save current session ID to localStorage for persistence
-        localStorage.setItem('knowledgeHub_currentSessionId', sessionId)
-
-        if (this.sessionSidebar) {
-          this.sessionSidebar.setCurrentSession(sessionId)
-          // Don't hide sidebar - let user close it manually
-        }
-
-        this.renderMessages()
+    const conversationUI: ConversationControllerUI = {
+      onStateChange: () => this.renderMessages(),
+      onMessageAdded: () => {
         this.updateMenuItems()
-      }
-    } catch (error) {
-      console.error('[RightBar] Failed to load session:', error)
+      },
+      onNewSessionRequired: async () => {
+        if (!this.currentSessionId) {
+          await this.startNewSession()
+        }
+      },
+      onAutoSaveRequired: async () => {
+        await this.autoSaveSession()
+      },
+      onMenuItemsUpdateRequired: () => this.updateMenuItems()
     }
+
+    this.conversationController = new ConversationController(conversationUI)
+
+    this.render()
+    this.chatRenderer = new ChatRenderer(this.chatContainer)
+
+    const ui: SessionManagerUI = {
+      onSessionLoaded: (session) => {
+        this.currentSessionId = session.id
+        this.conversationController.setMessages(session.messages)
+        const feedback = new Map<number, 'thumbs-up' | 'thumbs-down'>()
+        session.messages.forEach((msg, idx) => {
+          if (msg.feedback) feedback.set(idx, msg.feedback as 'thumbs-up' | 'thumbs-down')
+        })
+        this.conversationController.setFeedback(feedback)
+      },
+      onSessionCreated: (session) => {
+        if (this.currentSessionId !== session.id) {
+          this.currentSessionId = session.id
+          this.conversationController.setMessages(session.messages)
+          this.conversationController.clearFeedback()
+        }
+      },
+      onNewSessionStarted: () => {
+        this.conversationController.setMessages([])
+        this.conversationController.clearFeedback()
+      },
+      onMenuItemsUpdated: () => this.updateMenuItems(),
+      onSessionArchived: () => {
+        void this.startNewSession()
+      }
+    }
+    this.sessionManager = new SessionManager(this.sessionSidebar, ui)
+    this.attachEvents()
+    void this.sessionManager.initialize()
   }
 
   /**
    * Get current session
    */
   async getCurrentSession(): Promise<ChatSession | null> {
-    if (!this.currentSessionId) return null
-    return await sessionStorageService.getSession(this.currentSessionId)
+    return await this.sessionManager.getSessionMetadata()
+  }
+
+  /**
+   * Start a new session
+   */
+  async startNewSession(): Promise<void> {
+    await this.sessionManager.createNewSession([])
+  }
+
+  /**
+   * Auto-save current session
+   */
+  private async autoSaveSession(): Promise<void> {
+    const messages = this.conversationController.getState().messages
+    await this.sessionManager.autoSave(messages)
+  }
+
+  /**
+   * Load a session by ID
+   */
+  async loadSession(sessionId: string): Promise<void> {
+    await this.sessionManager.loadSession(sessionId)
   }
 
   setEditorContext(
@@ -914,10 +635,11 @@ export class RightBar {
       if (!target) return
       const action = (target as HTMLElement).dataset.action
       const btn = target as HTMLButtonElement
+      const state = this.conversationController.getState()
 
       if (action === 'copy') {
         const messageIndex = parseInt(btn.dataset.messageIndex || '0', 10)
-        const message = this.messages[messageIndex]
+        const message = state.messages[messageIndex]
         if (message) {
           // Get plain text from message content (remove markdown formatting)
           const tempDiv = document.createElement('div')
@@ -953,10 +675,10 @@ export class RightBar {
         }
       } else if (action === 'thumbs-up' || action === 'thumbs-down') {
         const messageIndex = parseInt(btn.dataset.messageIndex || '0', 10)
-        const message = this.messages[messageIndex]
+        const message = state.messages[messageIndex]
         if (!message) return
 
-        const currentFeedback = this.messageFeedback.get(messageIndex)
+        const currentFeedback = state.messageFeedback.get(messageIndex)
         const messageElement = btn.closest('.rightbar__message')
 
         // Get both buttons for this message
@@ -972,12 +694,16 @@ export class RightBar {
         if (action === 'thumbs-up') {
           if (currentFeedback === 'thumbs-up') {
             // Toggle off
-            this.messageFeedback.delete(messageIndex)
+            const newFeedbackMap = new Map(state.messageFeedback)
+            newFeedbackMap.delete(messageIndex)
+            this.conversationController.setFeedback(newFeedbackMap)
             thumbsUpBtn?.classList.remove('rightbar__message-action--active')
             newFeedback = null
           } else {
             // Set thumbs up, remove thumbs down
-            this.messageFeedback.set(messageIndex, 'thumbs-up')
+            const newFeedbackMap = new Map(state.messageFeedback)
+            newFeedbackMap.set(messageIndex, 'thumbs-up')
+            this.conversationController.setFeedback(newFeedbackMap)
             thumbsUpBtn?.classList.add('rightbar__message-action--active')
             thumbsDownBtn?.classList.remove('rightbar__message-action--active')
             newFeedback = 'thumbs-up'
@@ -985,12 +711,16 @@ export class RightBar {
         } else if (action === 'thumbs-down') {
           if (currentFeedback === 'thumbs-down') {
             // Toggle off
-            this.messageFeedback.delete(messageIndex)
+            const newFeedbackMap = new Map(state.messageFeedback)
+            newFeedbackMap.delete(messageIndex)
+            this.conversationController.setFeedback(newFeedbackMap)
             thumbsDownBtn?.classList.remove('rightbar__message-action--active')
             newFeedback = null
           } else {
             // Set thumbs down, remove thumbs up
-            this.messageFeedback.set(messageIndex, 'thumbs-down')
+            const newFeedbackMap = new Map(state.messageFeedback)
+            newFeedbackMap.set(messageIndex, 'thumbs-down')
+            this.conversationController.setFeedback(newFeedbackMap)
             thumbsDownBtn?.classList.add('rightbar__message-action--active')
             thumbsUpBtn?.classList.remove('rightbar__message-action--active')
             newFeedback = 'thumbs-down'
@@ -1000,13 +730,12 @@ export class RightBar {
         // Update message feedback and persist
         message.feedback = newFeedback
         void this.autoSaveSession()
-      } else if (action === 'retry' && this.lastFailedMessage) {
-        const toSend = this.lastFailedMessage
-        this.lastFailedMessage = null
-        this.doSend(toSend)
+      } else if (action === 'retry' && state.lastFailedMessage) {
+        const toSend = state.lastFailedMessage
+        void this.conversationController.sendMessage(toSend)
       } else if (action === 'regenerate') {
         const messageIndex = parseInt(btn.dataset.messageIndex || '0', 10)
-        void this.regenerateMessage(messageIndex)
+        void this.conversationController.regenerateMessage(messageIndex)
       } else if (action === 'edit') {
         const messageIndex = parseInt(btn.dataset.messageIndex || '0', 10)
         this.editMessage(messageIndex)
@@ -1021,6 +750,32 @@ export class RightBar {
             ;(chip as HTMLElement).style.display = isHidden ? 'inline-flex' : 'none'
           })
           btn.classList.toggle('is-collapsed', !isHidden)
+        }
+      } else if (action === 'copy-code') {
+        const pre = btn.closest('pre')
+        const codeEl = pre?.querySelector('code')
+        if (codeEl) {
+          const codeToCopy = codeEl.dataset.code || codeEl.textContent || ''
+          navigator.clipboard
+            .writeText(codeToCopy)
+            .then(() => this.showCopyFeedback(btn))
+            .catch(() => {
+              const textarea = document.createElement('textarea')
+              textarea.value = codeToCopy
+              textarea.style.position = 'fixed'
+              textarea.style.left = '-9999px'
+              textarea.style.top = '0'
+              document.body.appendChild(textarea)
+              textarea.focus()
+              textarea.select()
+              try {
+                document.execCommand('copy')
+                this.showCopyFeedback(btn)
+              } catch (err) {
+                console.error('Fallback copy failed', err)
+              }
+              document.body.removeChild(textarea)
+            })
         }
       } else if (btn.classList.contains('rightbar__message-citation')) {
         // Individual citation chip click (this works via delegation now)
@@ -1041,7 +796,8 @@ export class RightBar {
    * Update menu items based on current state
    */
   private updateMenuItems(): void {
-    const hasMessages = this.messages.length > 0
+    const messages = this.conversationController.getState().messages
+    const hasMessages = messages.length > 0
     const hasSession = this.currentSessionId !== null
 
     const items: AIMenuItem[] = [
@@ -1052,6 +808,13 @@ export class RightBar {
         onClick: () => {},
         disabled: !hasMessages,
         shortcut: 'Ctrl+E'
+      },
+      {
+        id: 'copy-conversation',
+        label: 'Copy Conversation',
+        icon: Copy,
+        onClick: () => {},
+        disabled: !hasMessages
       },
       {
         id: 'import',
@@ -1105,6 +868,9 @@ export class RightBar {
       case 'export':
         await this.exportSession()
         break
+      case 'copy-conversation':
+        await copyConversationToClipboard(this.conversationController.getState().messages)
+        break
       case 'import':
         await this.importSession()
         break
@@ -1124,48 +890,9 @@ export class RightBar {
    * Export current session to Markdown or JSON
    */
   private async exportSession(): Promise<void> {
-    if (this.messages.length === 0) {
-      // Show notification or modal
-      return
-    }
-
-    try {
-      const session = this.currentSessionId
-        ? await sessionStorageService.getSession(this.currentSessionId)
-        : null
-
-      const title = session?.title || 'Chat Session'
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
-
-      // Create Markdown export
-      let markdown = `# ${title}\n\n`
-      markdown += `*Exported on ${new Date().toLocaleString()}*\n\n`
-      markdown += '---\n\n'
-
-      this.messages.forEach((msg) => {
-        const role = msg.role === 'user' ? '**You**' : '**AI**'
-        const time = new Date(msg.timestamp).toLocaleTimeString()
-        markdown += `### ${role} (${time})\n\n`
-        markdown += `${msg.content}\n\n`
-        if (msg.feedback) {
-          markdown += `*Feedback: ${msg.feedback === 'thumbs-up' ? '👍' : '👎'}*\n\n`
-        }
-        markdown += '---\n\n'
-      })
-
-      // Create downloadable file
-      const blob = new Blob([markdown], { type: 'text/markdown' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `${title.replace(/[^a-z0-9]/gi, '_')}_${timestamp}.md`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
-    } catch (error) {
-      console.error('[RightBar] Failed to export session:', error)
-    }
+    const session = await this.getCurrentSession()
+    const messages = this.conversationController.getState().messages
+    await this.sessionManager.exportToMarkdown(messages, session?.title)
   }
 
   /**
@@ -1173,7 +900,6 @@ export class RightBar {
    */
   private async importSession(): Promise<void> {
     try {
-      // Create file input
       const input = document.createElement('input')
       input.type = 'file'
       input.accept = '.md,.json'
@@ -1190,8 +916,6 @@ export class RightBar {
         try {
           const text = await file.text()
           const lines = text.split('\n')
-
-          // Try to parse as markdown export
           let title = file.name.replace(/\.(md|json)$/i, '')
           const messages: ChatMessage[] = []
           let currentRole: 'user' | 'assistant' | null = null
@@ -1225,7 +949,6 @@ export class RightBar {
             }
           }
 
-          // Add last message
           if (currentRole && currentContent.length > 0) {
             messages.push({
               role: currentRole,
@@ -1235,18 +958,13 @@ export class RightBar {
           }
 
           if (messages.length > 0) {
-            // Create new session from imported messages
-            const session = await sessionStorageService.createSession(messages, title)
-            await this.loadSession(session.id)
-            this.updateMenuItems()
+            await this.sessionManager.createNewSession(messages, title)
           }
         } catch (error) {
           console.error('[RightBar] Failed to import session:', error)
         }
-
         document.body.removeChild(input)
       })
-
       input.click()
     } catch (error) {
       console.error('[RightBar] Failed to import session:', error)
@@ -1257,9 +975,8 @@ export class RightBar {
    * Clear current conversation
    */
   private async clearConversation(): Promise<void> {
-    if (this.messages.length === 0) return
+    if (this.conversationController.getState().messages.length === 0) return
 
-    // Use modal for confirmation
     const { modalManager } = await import('../modal/modal')
     modalManager.open({
       title: 'Clear Conversation',
@@ -1271,11 +988,7 @@ export class RightBar {
           variant: 'danger',
           onClick: async (m) => {
             m.close()
-            this.messages = []
-            this.messageFeedback.clear()
-            this.renderMessages()
             await this.startNewSession()
-            this.updateMenuItems()
           }
         },
         { label: 'Cancel', variant: 'ghost', onClick: (m) => m.close() }
@@ -1362,12 +1075,7 @@ export class RightBar {
             variant: 'primary',
             onClick: async (m) => {
               m.close()
-              await sessionStorageService.archiveSession(this.currentSessionId!)
-              await this.startNewSession()
-              if (this.sessionSidebar) {
-                await this.sessionSidebar.refresh()
-              }
-              this.updateMenuItems()
+              await this.sessionManager.archiveCurrent()
             }
           },
           { label: 'Cancel', variant: 'ghost', onClick: (m) => m.close() }
@@ -1388,40 +1096,16 @@ export class RightBar {
   /**
    * Regenerate AI response from a specific message
    */
-  private async regenerateMessage(messageIndex: number): Promise<void> {
-    const message = this.messages[messageIndex]
-    if (!message || message.role !== 'assistant') return
-
-    // Find the user message that prompted this response
-    let userMessageIndex = messageIndex - 1
-    while (userMessageIndex >= 0 && this.messages[userMessageIndex].role !== 'user') {
-      userMessageIndex--
-    }
-
-    if (userMessageIndex < 0) return
-
-    const userMessage = this.messages[userMessageIndex].content
-
-    // Remove the assistant message and all subsequent messages (but keep the user message)
-    // We need to remove from messageIndex (the assistant message) onwards
-    this.messages = this.messages.slice(0, messageIndex)
-
-    // Re-render to update UI
-    this.renderMessages()
-    this.updateMenuItems()
-
-    // Regenerate response - pass skipAddingUserMessage=true since user message already exists
-    this.isLoading = true
-    this.sendButton.disabled = true
-    this.lastFailedMessage = null
-    await this.doSend(userMessage, true) // Skip adding user message since it's already in the array
-  }
 
   /**
    * Edit a user message and regenerate response
    */
+  /**
+   * Edit a user message and regenerate response
+   */
   private editMessage(messageIndex: number): void {
-    const message = this.messages[messageIndex]
+    const state = this.conversationController.getState()
+    const message = state.messages[messageIndex]
     if (!message || message.role !== 'user') return
 
     // Set input to message content
@@ -1430,11 +1114,21 @@ export class RightBar {
     this.updateCharacterCount()
     this.autoResizeTextarea()
 
-    // Remove this message and all subsequent messages
-    this.messages.splice(messageIndex)
+    // Regenerate from that point
+    void this.conversationController.regenerateMessage(messageIndex + 1) // +1 because regenerateMessage expects the index of the ASSISTANT message to regenerate, but here we are editing the USER message.
 
-    // Re-render
-    this.renderMessages()
+    // Wait, the new logic for editMessage should probably be:
+    // 1. Get the content
+    // 2. Clear from that message onwards (inclusive)
+    // 3. Put content in input box
+    // 4. Focus input
+
+    // Actually, `regenerateMessage` in ConversationController removes the assistant message and subsequent.
+    // If we are editing a USER message, we want to remove the user message and subsequent, and put text in input.
+
+    // Let's implement that logic here using setMessages
+    const newMessages = state.messages.slice(0, messageIndex)
+    this.conversationController.setMessages(newMessages)
 
     // Focus input
     this.chatInput.focus()
@@ -1492,14 +1186,7 @@ export class RightBar {
   }
 
   private stopGeneration(): void {
-    if (this.abortController) {
-      this.abortController.abort()
-      this.abortController = null
-      this.isLoading = false
-      this.streamingMessageIndex = null
-      this.updateGenerationUI(false)
-      this.renderMessages()
-    }
+    this.conversationController.stopGeneration()
   }
 
   private updateGenerationUI(loading: boolean): void {
@@ -2148,7 +1835,7 @@ export class RightBar {
           void this.startNewSession()
           return
         case '/help':
-          this.addMessage(
+          void this.conversationController.addMessage(
             'assistant',
             `**Available Commands:**\n\n` +
               this.slashCommands.map((c) => `- \`${c.command}\`: ${c.description}`).join('\n')
@@ -2172,259 +1859,15 @@ export class RightBar {
     this.autoResizeTextarea()
     this.updateCharacterCount()
     this.updateNoteReferencesInContent()
-    this.doSend(text)
-  }
-
-  private async doSend(
-    message: string,
-    skipAddingUserMessage: boolean = false,
-    role: 'user' | 'assistant' | 'system' = 'user'
-  ): Promise<void> {
-    // Create or reuse empty session if this is the first message
-    if (!this.currentSessionId && this.isInitialized) {
-      await this.createNewSession()
-    }
-
-    // Only add message if not skipping (regeneration)
-    if (!skipAddingUserMessage) {
-      this.addMessage(role, message)
-    }
-    this.sendButton.disabled = true
-    this.lastFailedMessage = null
-    this.isLoading = true
-    this.updateGenerationUI(true)
-    this.renderMessages()
-
-    // Initialize AbortController for this request
-    this.abortController = new AbortController()
-
-    const apiKey = aiService.getApiKey()
-    const currentProvider = state.settings?.aiProvider || 'deepseek'
-    const isLocal = currentProvider === 'ollama'
-
-    if (!apiKey && !isLocal) {
-      this.isLoading = false
-      this.updateGenerationUI(false)
-      this.sendButton.disabled = false
-      this.abortController = null
-
-      const providerName = currentProvider.charAt(0).toUpperCase() + currentProvider.slice(1)
-      const setupLink =
-        {
-          openai: 'https://platform.openai.com',
-          claude: 'https://console.anthropic.com',
-          deepseek: 'https://platform.deepseek.com',
-          grok: 'https://console.x.ai'
-        }[currentProvider] || '#'
-
-      this.addMessage(
-        'assistant',
-        `🔑 **${providerName} API Key Required**\n\nPlease add your ${providerName} API key in **Settings → AI**. \n\nYou can get your key at [${setupLink}](${setupLink})`
-      )
-      this.chatInput.focus()
-      return
-    }
-
-    // Use queueMicrotask to ensure AI response doesn't block main thread
-    // This allows Monaco editor and other UI to remain responsive during AI processing
-    queueMicrotask(async () => {
-      try {
-        // Yield to allow UI to update before heavy processing
-        await new Promise((resolve) => setTimeout(resolve, 0))
-        const { context: contextMessage, citations } = await aiService.buildContextMessage(message)
-
-        // Create placeholder message for streaming
-        // If regenerating, insert after the last user message (which is already in the array)
-        // If new message, insert at the end (after the user message we just added)
-        let insertIndex = this.messages.length
-        if (skipAddingUserMessage) {
-          // When regenerating, the last message should be the user message we're regenerating from
-          // Insert the assistant response right after it
-          insertIndex = this.messages.length
-        }
-
-        // Insert placeholder assistant message
-        this.messages.splice(insertIndex, 0, {
-          role: 'assistant',
-          content: '',
-          timestamp: Date.now(),
-          messageId: `msg_${Date.now()}_${Math.random()}`,
-          citations: citations.length > 0 ? citations : undefined
-        })
-        this.streamingMessageIndex = insertIndex
-        this.renderMessages()
-
-        // Start streaming - use all messages up to (but not including) the placeholder
-        const messagesForAPI = this.messages.slice(0, insertIndex)
-        let lastRenderTime = 0
-        const RENDER_THROTTLE_MS = 100 // Only render every 100ms max
-
-        const fullResponse = await aiService.callDeepSeekAPIStream(
-          messagesForAPI,
-          { context: contextMessage, citations },
-          (chunk: string) => {
-            // Update message content as chunks arrive
-            if (this.streamingMessageIndex !== null && this.messages[this.streamingMessageIndex]) {
-              this.messages[this.streamingMessageIndex].content += chunk
-
-              // Throttle UI updates for performance - don't render every chunk
-              const now = Date.now()
-              if (now - lastRenderTime >= RENDER_THROTTLE_MS) {
-                lastRenderTime = now
-                // Use requestIdleCallback for non-blocking updates, fallback to setTimeout
-                const scheduleUpdate =
-                  window.requestIdleCallback || ((cb: () => void) => setTimeout(cb, 1))
-                scheduleUpdate(() => {
-                  const scrollNeeded = this.wasAtBottom
-                  this.renderMessages()
-                  if (scrollNeeded) {
-                    this.chatContainer.scrollTo({
-                      top: this.chatContainer.scrollHeight,
-                      behavior: 'auto'
-                    })
-                  }
-                })
-              }
-            }
-          },
-          this.abortController?.signal
-        )
-
-        // Final update with complete message
-        if (this.streamingMessageIndex !== null && this.messages[this.streamingMessageIndex]) {
-          this.messages[this.streamingMessageIndex].content = fullResponse
-        }
-
-        this.streamingMessageIndex = null
-        this.abortController = null
-
-        // Use requestAnimationFrame for smooth UI updates
-        requestAnimationFrame(async () => {
-          this.isLoading = false
-          this.updateGenerationUI(false)
-          this.renderMessages()
-          this.sendButton.disabled = false
-          this.chatInput.focus()
-          // Auto-save after streaming completes
-          void this.autoSaveSession()
-
-          // Check for and execute agentic commands
-          if (fullResponse.includes('[RUN:')) {
-            await this.handleAgenticCommands(fullResponse)
-          }
-        })
-      } catch (err: unknown) {
-        this.abortController = null
-        // Remove placeholder message on error
-        if (this.streamingMessageIndex !== null) {
-          this.messages.splice(this.streamingMessageIndex, 1)
-          this.streamingMessageIndex = null
-        }
-
-        requestAnimationFrame(() => {
-          this.isLoading = false
-          this.updateGenerationUI(false)
-          this.lastFailedMessage = message
-          const isCancelled = err instanceof Error && err.message === 'Request cancelled'
-          const errorMsg = isCancelled
-            ? 'Generation stopped.'
-            : err instanceof Error
-              ? err.message
-              : 'Failed to get response'
-
-          if (!isCancelled) {
-            this.addMessage(
-              'assistant',
-              `❌ **Error**\n\n${errorMsg}\n\nPlease check your API key and internet connection.`
-            )
-          } else {
-            // If cancelled, we don't necessarily need to add an error message,
-            // but we might want to keep what was already streamed.
-            // The placeholder is already removed in the catch block if we want to discard it,
-            // or we can keep the partial response.
-            // Let's keep the partial response if any content was received.
-          }
-
-          this.sendButton.disabled = false
-          this.chatInput.focus()
-        })
-
-        // Silence "expected" errors in the console to avoid cluttering for the user
-        const isExpectedError =
-          err instanceof Error &&
-          (err.message.includes('🔴') ||
-            err.message.includes('📂') ||
-            err.message === 'Request cancelled')
-
-        if (!isExpectedError) {
-          console.error('[RightBar] API Error:', err)
-        }
-      }
-    })
-  }
-
-  private addMessage(
-    role: 'user' | 'assistant' | 'system',
-    content: string,
-    messageId?: string
-  ): void {
-    this.messages.push({
-      role,
-      content,
-      timestamp: Date.now(),
-      messageId: messageId || `msg_${Date.now()}_${Math.random()}`
-    })
-    this.renderMessages()
-    this.updateMenuItems()
-
-    // Auto-save session after adding message (unless streaming)
-    if (this.streamingMessageIndex === null) {
-      void this.autoSaveSession()
-    }
+    void this.conversationController.sendMessage(text)
   }
 
   private formatContent(text: string, isAssistant: boolean): string {
-    if (!isAssistant) {
-      // User messages: simple line breaks
-      return this.escapeHtml(text).replace(/\n/g, '<br>')
-    }
-
-    // Strip [RUN: ...] tags from assistant messages to keep reasoning clean
-    // They are still handled for execution in handleAgenticCommands
-    const cleanText = text.replace(/\[RUN:\s*.+?\]/gs, '').trim()
-
-    // Assistant messages: full markdown rendering
-    if (!this.md) {
-      // Fallback if md not initialized
-      this.md = new MarkdownIt({
-        html: false,
-        linkify: true,
-        breaks: true,
-        typographer: true,
-        highlight: (str: string, lang: string) => {
-          const normalizedLang = lang ? lang.toLowerCase().trim() : ''
-          const escaped = this.md.utils.escapeHtml(str)
-          return normalizedLang
-            ? `<pre class="hljs"><code class="language-${this.md.utils.escapeHtml(normalizedLang)}" data-lang="${this.md.utils.escapeHtml(normalizedLang)}" data-code="${this.md.utils.escapeHtml(str.replace(/"/g, '&quot;'))}">${escaped}</code></pre>`
-            : `<pre class="hljs"><code>${escaped}</code></pre>`
-        }
-      })
-    }
-    const rawHtml = this.md.render(cleanText)
-    // Sanitize HTML
-    const cleanHtml = DOMPurify.sanitize(rawHtml, {
-      ADD_ATTR: ['class', 'target', 'rel', 'data-lang', 'data-code'],
-      ADD_TAGS: ['pre', 'code'],
-      KEEP_CONTENT: true,
-      ALLOW_DATA_ATTR: true
-    })
-    return cleanHtml
+    return messageFormatter.format(text, isAssistant)
   }
 
   private escapeHtml(raw: string): string {
-    const div = document.createElement('div')
-    div.textContent = raw
-    return div.innerHTML
+    return messageFormatter.escapeHtml(raw)
   }
 
   private showCopyFeedback(button: HTMLElement): void {
@@ -2471,438 +1914,34 @@ export class RightBar {
   }
 
   private renderMessages(): void {
-    if (this.messages.length === 0 && !this.isLoading) {
-      this.chatContainer.innerHTML = WELCOME_HTML
-      this.chatContainer.scrollTop = 0
-      return
+    const convState = this.conversationController.getState()
+    const state: RendererState = {
+      messages: convState.messages,
+      isLoading: convState.isLoading,
+      isExecutingCommand: convState.isExecutingCommand,
+      streamingMessageIndex: convState.streamingMessageIndex,
+      messageFeedback: convState.messageFeedback,
+      lastFailedMessage: convState.lastFailedMessage
     }
-
-    let html = this.messages
-      .map((msg, idx) => {
-        if (msg.role === 'system') {
-          // Compact rendering for system/command results
-          const lines = msg.content.split('\n')
-          let title = lines[0] // Usually "> [RUN: command]"
-
-          // Make title concise: "> [RUN: read 'file.md']" -> "RUN: read"
-          title = title.replace(/^>\s*\[(.+?)\]$/, '$1') // Remove > and []
-          if (title.includes(':')) {
-            const parts = title.split(':')
-            const cmdName = parts[1]?.trim().split(' ')[0]
-            const cmdTarget = parts[1]?.trim().split(' ').slice(1).join(' ').substring(0, 15)
-            const targetSuffix = cmdTarget ? ` ${cmdTarget}...` : ''
-            title = `${parts[0]}: ${cmdName}${targetSuffix}`
-          }
-
-          const preview = lines.slice(1).join('\n').trim().substring(0, 40).replace(/\n/g, ' ')
-          const finalPreview = preview ? `- ${preview}...` : ''
-
-          return `
-          <div class="rightbar__system-message" title="Click to view details">
-            <details class="rightbar__system-details">
-              <summary class="rightbar__system-summary">
-                <span class="rightbar__system-icon">⚙️</span>
-                <span class="rightbar__system-title">${this.escapeHtml(title)}</span>
-                <span class="rightbar__system-preview">${this.escapeHtml(finalPreview)}</span>
-              </summary>
-              <div class="rightbar__system-content">
-                <pre><code>${this.escapeHtml(msg.content)}</code></pre>
-              </div>
-            </details>
-          </div>
-        `
-        }
-
-        const isError = msg.role === 'assistant' && msg.content.startsWith('❌')
-
-        // Skip empty placeholder messages from AI to avoid showing an empty bubble
-        // while it's still "thinking" or preparing the stream.
-        if (msg.role === 'assistant' && !msg.content && idx === this.streamingMessageIndex) {
-          return ''
-        }
-
-        const content = this.formatContent(msg.content, msg.role === 'assistant')
-
-        // If assistant message becomes empty after stripping [RUN: ...] tags,
-        // and we are either still streaming or it's an agentic step, skip rendering this bubble.
-        const nextMsg = this.messages[idx + 1]
-        const hasCommand = /\[RUN:\s*.+?\]/gs.test(msg.content)
-        const isAgenticStep =
-          msg.role === 'assistant' && (hasCommand || (nextMsg && nextMsg.role === 'system'))
-
-        if (
-          msg.role === 'assistant' &&
-          !content.trim() &&
-          (idx === this.streamingMessageIndex || isAgenticStep)
-        ) {
-          return ''
-        }
-
-        const avatar = Avatar.createHTML(msg.role as 'user' | 'assistant', 20)
-        const msgIndex = idx
-        const feedback = msg.feedback || this.messageFeedback.get(msgIndex) || null
-        const citations =
-          msg.citations && msg.citations.length > 0
-            ? `<div class="rightbar__message-citations">
-               <button class="rightbar__message-citations-label" data-action="citations-toggle" title="Show or hide referenced notes">Referenced notes:</button>
-               ${msg.citations
-                 .map(
-                   (citation) =>
-                     `<button class="rightbar__message-citation" data-note-id="${citation.id}" data-note-path="${citation.path || ''}" title="Open: ${citation.title}">
-                   ${this.escapeHtml(citation.title)}
-                 </button>`
-                 )
-                 .join('')}
-             </div>`
-            : ''
-
-        const actions =
-          msg.role === 'assistant'
-            ? `<div class="rightbar__message-actions" ${isAgenticStep ? 'style="display: none;"' : ''}>
-             <button type="button" class="rightbar__message-action rightbar__message-action--copy" data-action="copy" data-message-index="${msgIndex}" title="Copy">
-               ${this.createLucideIcon(Copy, 12, 1.5)}
-             </button>
-             <button type="button" class="rightbar__message-action rightbar__message-action--regenerate" data-action="regenerate" data-message-index="${msgIndex}" title="Regenerate">
-               ${this.createLucideIcon(RotateCw, 12, 1.5)}
-             </button>
-             <button type="button" class="rightbar__message-action rightbar__message-action--thumbs-up ${feedback === 'thumbs-up' ? 'rightbar__message-action--active' : ''}" data-action="thumbs-up" data-message-index="${msgIndex}" title="Helpful">
-               ${this.createLucideIcon(ThumbsUp, 12, 1.5)}
-             </button>
-             <button type="button" class="rightbar__message-action rightbar__message-action--thumbs-down ${feedback === 'thumbs-down' ? 'rightbar__message-action--active' : ''}" data-action="thumbs-down" data-message-index="${msgIndex}" title="Not helpful">
-               ${this.createLucideIcon(ThumbsDown, 12, 1.5)}
-             </button>
-             ${isError && this.lastFailedMessage ? '<button type="button" class="rightbar__message-action rightbar__message-action--retry" data-action="retry" title="Retry">Retry</button>' : ''}
-           </div>`
-            : `<div class="rightbar__message-actions">
-             <button type="button" class="rightbar__message-action rightbar__message-action--edit" data-action="edit" data-message-index="${msgIndex}" title="Edit message">
-               ${this.createLucideIcon(Edit2, 12, 1.5)}
-             </button>
-           </div>`
-        const isErrorMsg =
-          msg.content.includes('🔴') || msg.content.includes('❌') || msg.content.includes('failed')
-        const errorClass = isErrorMsg ? 'rightbar__message--error' : ''
-
-        return `
-        <div class="rightbar__message rightbar__message--${msg.role} ${errorClass}">
-          ${avatar}
-          <div class="rightbar__message-body">
-            <div class="rightbar__message-content">${content}</div>
-            ${citations}
-            ${actions}
-          </div>
-        </div>
-      `
-      })
-      .join('')
-
-    if (this.isLoading) {
-      // Only show dots if we haven't started showing characters in a bubble yet
-      const isActuallyStreamingContent =
-        this.streamingMessageIndex !== null &&
-        this.messages[this.streamingMessageIndex]?.content.trim().length > 0
-
-      if (!isActuallyStreamingContent || this.isExecutingCommand) {
-        html += this.isExecutingCommand ? EXECUTING_HTML : TYPING_HTML
-      }
-    }
-
-    this.chatContainer.innerHTML = html
-
-    if (this.wasAtBottom) {
-      this.chatContainer.scrollTo({
-        top: this.chatContainer.scrollHeight,
-        behavior: this.isLoading ? 'auto' : 'smooth'
-      })
-    }
-
-    // Enhance code blocks with syntax highlighting after render
-    void this.highlightCodeBlocks()
+    this.chatRenderer.render(state, this.wasAtBottom)
+    this.updateGenerationUI(convState.isLoading || convState.isExecutingCommand)
   }
 
   /**
    * Enhance code blocks with syntax highlighting and copy buttons
    */
-  private async highlightCodeBlocks(): Promise<void> {
-    const codeBlocks = this.chatContainer.querySelectorAll(
-      'pre code[data-lang], pre code:not([data-lang])'
-    )
-    if (codeBlocks.length === 0) return
-
-    try {
-      const hljs = await initHighlightJS()
-
-      codeBlocks.forEach((codeEl) => {
-        const codeElement = codeEl as HTMLElement
-        const preElement = codeElement.closest('pre') as HTMLElement
-        if (!preElement) return
-
-        // Skip if copy button already exists
-        if (preElement.querySelector('.rightbar__code-copy')) return
-
-        const lang = codeElement.getAttribute('data-lang')
-        const code = codeElement.getAttribute('data-code') || codeElement.textContent || ''
-
-        // Apply syntax highlighting if language is supported
-        if (lang && hljs && hljs.getLanguage(lang)) {
-          try {
-            const highlighted = hljs.highlight(code, { language: lang, ignoreIllegals: true })
-            codeElement.innerHTML = highlighted.value
-            codeElement.classList.add('hljs')
-          } catch (err) {
-            console.warn(`[RightBar] Highlighting failed for ${lang}:`, err)
-          }
-        }
-
-        // Add copy button to the pre element
-        const copyButton = document.createElement('button')
-        copyButton.className = 'rightbar__code-copy'
-        copyButton.title = 'Copy code'
-        copyButton.setAttribute('aria-label', 'Copy code')
-        copyButton.innerHTML = this.createLucideIcon(Copy, 14, 1.5)
-
-        // Store original code for copying
-        copyButton.dataset.code = code
-
-        copyButton.addEventListener('click', async (e) => {
-          e.stopPropagation()
-          const codeToCopy = copyButton.dataset.code || codeElement.textContent || ''
-
-          try {
-            await navigator.clipboard.writeText(codeToCopy)
-            this.showCopyFeedback(copyButton)
-          } catch (err) {
-            console.error('[RightBar] Failed to copy code:', err)
-            // Fallback
-            const textarea = document.createElement('textarea')
-            textarea.value = codeToCopy
-            textarea.style.position = 'fixed'
-            textarea.style.left = '-9999px'
-            textarea.style.top = '0'
-            document.body.appendChild(textarea)
-            textarea.focus()
-            textarea.select()
-            try {
-              document.execCommand('copy')
-              this.showCopyFeedback(copyButton)
-            } catch (fallbackErr) {
-              console.error('Fallback copy failed', fallbackErr)
-              // Last resort: Select the text as visual hint
-              const range = document.createRange()
-              range.selectNodeContents(codeElement)
-              const selection = window.getSelection()
-              selection?.removeAllRanges()
-              selection?.addRange(range)
-            }
-            document.body.removeChild(textarea)
-          }
-        })
-
-        // Make pre element relative for absolute positioning of copy button
-        preElement.style.position = 'relative'
-        preElement.appendChild(copyButton)
-      })
-    } catch (err) {
-      console.warn('[RightBar] Failed to highlight code blocks:', err)
-    }
-  }
 
   async refreshApiKey(): Promise<void> {
     await aiService.loadApiKey()
 
-    const wasEmpty = this.messages.length === 0
+    const wasEmpty = this.conversationController.getState().messages.length === 0
     this.render()
     this.attachEvents()
     if (wasEmpty && !aiService.getApiKey()) {
-      this.addMessage(
+      void this.conversationController.addMessage(
         'assistant',
         '👋 **Welcome!** Add your DeepSeek API key in **Settings → Behavior → DeepSeek API Key**. Get it at [platform.deepseek.com](https://platform.deepseek.com)'
       )
     }
-  }
-
-  /**
-   * Parse AI response for [RUN: command] tags and execute them
-   */
-  private async handleAgenticCommands(content: string): Promise<void> {
-    const commandRegex = /\[RUN:\s*(.+?)\]/gs
-    let match
-    const results: string[] = []
-
-    this.isExecutingCommand = true
-    this.renderMessages() // Show thinking indicator
-
-    while ((match = commandRegex.exec(content)) !== null) {
-      const commandText = match[1].trim()
-      try {
-        const result = await this.executeAgenticCommand(commandText)
-        results.push(`> [RUN: ${commandText}]\n${result}`)
-      } catch (err) {
-        results.push(
-          `> [RUN: ${commandText}]\nError: ${err instanceof Error ? err.message : String(err)}`
-        )
-      }
-    }
-
-    this.isExecutingCommand = false
-
-    if (results.length > 0) {
-      const resultsMessage = results.join('\n\n')
-      // Auto-respond as 'system' so it doesn't clutter chat but AI gets context
-      setTimeout(() => {
-        void this.doSend(resultsMessage, false, 'system')
-      }, 600)
-    }
-  }
-
-  /**
-   * Execute a single agentic command
-   */
-  private async executeAgenticCommand(commandText: string): Promise<string> {
-    const parts = this.parseCommandArgs(commandText)
-    if (parts.length === 0) return 'Invalid command format'
-
-    const cmd = parts[0].toLowerCase()
-    const args = parts.slice(1)
-
-    switch (cmd) {
-      case 'read': {
-        const titleOrPath = args[0]
-        if (!titleOrPath) return 'Error: read requires a title or path'
-
-        const notes = await window.api.listNotes()
-        const findNote = (items: any[]): any => {
-          for (const item of items) {
-            if (item.title === titleOrPath || item.path === titleOrPath || item.id === titleOrPath)
-              return item
-            if (item.children) {
-              const found = findNote(item.children)
-              if (found) return found
-            }
-          }
-          return null
-        }
-
-        const note = findNote(notes)
-        if (!note) return `Error: Note "${titleOrPath}" not found`
-
-        const data = await window.api.loadNote(note.id, note.path)
-        if (!data) return `Error: Could not load content for "${titleOrPath}"`
-        return `Content of "${titleOrPath}":\n\n${data.content}`
-      }
-
-      case 'touch': {
-        const title = args[0]
-        if (!title) return 'Error: touch requires a title'
-        await window.api.createNote(title)
-        return `Success: Created empty note "${title}"`
-      }
-
-      case 'write': {
-        const title = args[0]
-        const content = args[1] || ''
-        if (!title) return 'Error: write requires a title'
-
-        const notes = await window.api.listNotes()
-        const findNote = (items: any[]): any => {
-          for (const item of items) {
-            if (item.title === title || item.path === title) return item
-            if (item.children) {
-              const found = findNote(item.children)
-              if (found) return found
-            }
-          }
-          return null
-        }
-
-        const note = findNote(notes)
-        if (note) {
-          await window.api.saveNote({ ...note, content })
-          return `Success: Updated note "${title}"`
-        } else {
-          const newNote = await window.api.createNote(title)
-          await window.api.saveNote({ ...newNote, content })
-          return `Success: Created and wrote to note "${title}"`
-        }
-      }
-
-      case 'mkdir': {
-        const name = args[0]
-        if (!name) return 'Error: mkdir requires a name'
-        await window.api.createFolder(name)
-        return `Success: Created folder "${name}"`
-      }
-
-      case 'delete': {
-        const titleOrPath = args[0]
-        if (!titleOrPath) return 'Error: delete requires a title or path'
-
-        const notes = await window.api.listNotes()
-        const findNote = (items: any[]): any => {
-          for (const item of items) {
-            if (item.title === titleOrPath || item.path === titleOrPath || item.id === titleOrPath)
-              return item
-            if (item.children) {
-              const found = findNote(item.children)
-              if (found) return found
-            }
-          }
-          return null
-        }
-
-        const note = findNote(notes)
-        if (!note) return `Error: Item "${titleOrPath}" not found`
-
-        if (note.type === 'folder') {
-          await window.api.deleteFolder(note.path)
-        } else {
-          await window.api.deleteNote(note.id, note.path)
-        }
-        return `Success: Deleted "${titleOrPath}"`
-      }
-
-      case 'rename': {
-        const oldName = args[0]
-        const newName = args[1]
-        if (!oldName || !newName) return 'Error: rename requires old and new names'
-
-        const notes = await window.api.listNotes()
-        const findNote = (items: any[]): any => {
-          for (const item of items) {
-            if (item.title === oldName || item.path === oldName || item.id === oldName) return item
-            if (item.children) {
-              const found = findNote(item.children)
-              if (found) return found
-            }
-          }
-          return null
-        }
-
-        const note = findNote(notes)
-        if (!note) return `Error: Item "${oldName}" not found`
-
-        if (note.type === 'folder') {
-          await window.api.renameFolder(note.path, newName)
-        } else {
-          await window.api.renameNote(note.id, newName, note.path)
-        }
-        return `Success: Renamed "${oldName}" to "${newName}"`
-      }
-
-      default:
-        return `Error: Command "${cmd}" is not yet recognized or implemented in the agent interface.`
-    }
-  }
-
-  /**
-   * Helper to parse command arguments accounting for quotes
-   */
-  private parseCommandArgs(text: string): string[] {
-    const regex = /[^\s"']+|"([^"]*)"|'([^']*)'/g
-    const results: string[] = []
-    let match
-    while ((match = regex.exec(text)) !== null) {
-      results.push(match[1] !== undefined ? match[1] : match[2] !== undefined ? match[2] : match[0])
-    }
-    return results
   }
 }

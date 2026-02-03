@@ -11,6 +11,8 @@ export class Breadcrumbs {
   private container: HTMLElement
   private onNoteOpen?: (id: string) => void
   private onDeleteItem?: (item: { id: string; type: 'note' | 'folder'; path?: string }) => void
+  private lastRenderedId: string | null = null
+  private lastRenderedIsDirty: boolean = false
 
   private activeDropdown: HTMLElement | null = null
   private boundCloseDropdown: (e: MouseEvent) => void
@@ -39,43 +41,68 @@ export class Breadcrumbs {
 
   render(): void {
     if (!this.container) return
-    this.container.innerHTML = ''
 
     const activeId = state.activeId
-    if (!activeId || activeId === 'settings' || activeId === 'graph') {
-      this.container.style.display = 'none'
+    const isDirty = state.isDirty
+
+    // Optimization: Skip re-render if nothing meaningful changed
+    if (this.lastRenderedId === activeId && this.lastRenderedIsDirty === isDirty) {
       return
     }
 
+    if (!activeId || activeId === 'settings' || activeId === 'graph') {
+      this.container.style.display = 'none'
+      this.container.innerHTML = ''
+      this.lastRenderedId = null
+      return
+    }
+
+    this.lastRenderedId = activeId
+    this.lastRenderedIsDirty = isDirty
     this.container.style.display = 'flex'
 
+    const fragment = document.createDocumentFragment()
+
     // 1. Root Item
-    this.addRootItem()
+    this.addRootItem(fragment)
 
     // 2. Path Segments
     const parts = activeId.split('/')
     let currentPath = ''
 
     parts.forEach((part, index) => {
-      this.addSeparator()
+      this.addSeparator(fragment)
 
       const isLast = index === parts.length - 1
       currentPath = currentPath ? `${currentPath}/${part}` : part
 
       if (isLast) {
-        this.addItem(part, activeId, 'note', true)
+        this.addItem(fragment, part, activeId, 'note', true)
       } else {
-        this.addItem(part, currentPath, 'folder', false)
+        this.addItem(fragment, part, currentPath, 'folder', false)
       }
     })
 
-    // Scroll to the end of breadcrumbs
-    requestAnimationFrame(() => {
+    // Capture current scroll to see if we were at the end
+    const wasAtEnd =
+      this.container.scrollLeft + this.container.clientWidth >= this.container.scrollWidth - 10
+
+    // Final swap - clear and append fragment to minimize flicker
+    this.container.innerHTML = ''
+    this.container.appendChild(fragment)
+
+    // Immediate scroll anchoring to prevent 0-position jump
+    // We scroll to end if we were already at the end or if the ID changed
+    const shouldScrollToEnd = this.lastRenderedId !== activeId || wasAtEnd
+    this.lastRenderedId = activeId
+    this.lastRenderedIsDirty = isDirty
+
+    if (shouldScrollToEnd) {
       this.container.scrollLeft = this.container.scrollWidth
-    })
+    }
   }
 
-  private addRootItem(): void {
+  private addRootItem(parent: DocumentFragment): void {
     const item = document.createElement('div')
     item.className = 'breadcrumb-item breadcrumb-item--root'
 
@@ -105,10 +132,16 @@ export class Breadcrumbs {
       this.showContextMenu(e, '', 'folder', state.projectName)
     })
 
-    this.container.appendChild(item)
+    parent.appendChild(item)
   }
 
-  private addItem(label: string, id: string, type: 'note' | 'folder', isLast: boolean): void {
+  private addItem(
+    parent: DocumentFragment,
+    label: string,
+    id: string,
+    type: 'note' | 'folder',
+    isLast: boolean
+  ): void {
     const item = document.createElement('div')
     item.className = 'breadcrumb-item'
     if (isLast) {
@@ -156,7 +189,7 @@ export class Breadcrumbs {
       this.addDropdownChevron(item, id)
     }
 
-    this.container.appendChild(item)
+    parent.appendChild(item)
   }
 
   private addDropdownChevron(parent: HTMLElement, path: string): void {
@@ -173,11 +206,11 @@ export class Breadcrumbs {
     parent.appendChild(chevron)
   }
 
-  private addSeparator(): void {
+  private addSeparator(parent: DocumentFragment): void {
     const sep = document.createElement('span')
     sep.className = 'breadcrumb-separator'
     sep.innerHTML = codicons.chevronRight
-    this.container.appendChild(sep)
+    parent.appendChild(sep)
   }
 
   private showContextMenu(e: MouseEvent, id: string, type: 'note' | 'folder', title: string): void {
