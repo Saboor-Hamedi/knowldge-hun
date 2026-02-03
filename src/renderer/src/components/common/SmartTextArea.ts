@@ -10,7 +10,7 @@ export interface SmartTextAreaOptions {
   slashCommands?: Array<{
     command: string
     description: string
-    icon: any // LucideIcon component
+    icon: any
     action?: () => void
   }>
 }
@@ -220,7 +220,12 @@ export class SmartTextArea {
 
     this.selectedAutocompleteIndex = -1
     this.autocompleteItems = []
-    ;(this.autocompleteEl as any).__context = { atIndex, range, query, triggerChar }
+    ;(this.autocompleteEl as any).__context = { atIndex, range, query, triggerChar } as {
+      atIndex: number
+      range: Range
+      query: string
+      triggerChar: string
+    }
 
     this.autocompleteEl.innerHTML = items
       .map((item, idx) => {
@@ -252,7 +257,8 @@ export class SmartTextArea {
     ) as HTMLElement[]
 
     this.autocompleteItems.forEach((item, idx) => {
-      item.onclick = () => {
+      item.onmousedown = (e) => {
+        e.preventDefault()
         this.selectedAutocompleteIndex = idx
         this.selectAutocompleteItem()
       }
@@ -271,51 +277,115 @@ export class SmartTextArea {
     }
     if (!context) return
 
-    const { atIndex } = context
+    const value = item.dataset.type === 'note' ? item.dataset.title : item.dataset.command
     const type = item.dataset.type
-    const value = type === 'note' ? item.dataset.title : item.dataset.command
 
-    // Create mention or text
+    // Ensure input is focused but don't force it if we already have it
+    // to avoid cursor jumping to start.
+    if (document.activeElement !== this.inputEl) {
+      this.inputEl.focus()
+    }
+
+    // Use the captured range from trigger time as it's the most reliable
+    // anchor for the replacement.
     const selection = window.getSelection()
     if (!selection) return
 
+    // We'll use the current cursor as the end point, but fallback to
+    // the captured range end if the selection has been lost.
+    let endContainer: Node = context.range.endContainer
+    let endOffset: number = context.range.endOffset
+
+    if (selection.rangeCount > 0) {
+      const currentRange = selection.getRangeAt(0)
+      if (this.inputEl.contains(currentRange.endContainer)) {
+        endContainer = currentRange.endContainer
+        endOffset = currentRange.endOffset
+      }
+    }
+
+    // Create a range for replacement
     const range = document.createRange()
-    const walker = document.createTreeWalker(this.inputEl, NodeFilter.SHOW_TEXT)
-    let currentPos = 0
     let startNode: Node | null = null
     let startOffset = 0
 
-    while (walker.nextNode()) {
-      const node = walker.currentNode as Text
-      const len = node.textContent?.length || 0
-      if (currentPos <= atIndex && atIndex < currentPos + len) {
-        startNode = node
-        startOffset = atIndex - currentPos
-        break
+    // NEW ROBUST TRIAGE:
+    // 1. Try fast-path: Trigger is in the current text node (most common)
+    if (endContainer.nodeType === Node.TEXT_NODE) {
+      const text = endContainer.textContent || ''
+      const textBefore = text.substring(0, endOffset)
+      const lastTrigger = textBefore.lastIndexOf(context.triggerChar)
+
+      // Double check this is the right trigger (not a previous one)
+      // The query should match what's between lastTrigger and endOffset
+      if (lastTrigger !== -1) {
+        const actualQuery = textBefore.substring(lastTrigger + 1).toLowerCase()
+        if (actualQuery === context.query.toLowerCase()) {
+          startNode = endContainer
+          startOffset = lastTrigger
+        }
       }
-      currentPos += len
+    }
+
+    // 2. Fallback: Slow-path TreeWalker with structural awareness
+    if (!startNode) {
+      const walker = document.createTreeWalker(this.inputEl, NodeFilter.SHOW_TEXT)
+      let currentPos = 0
+      const targetIndex = context.atIndex
+
+      while (walker.nextNode()) {
+        const node = walker.currentNode as Text
+        const len = node.textContent?.length || 0
+
+        // If this node contains the targetIndex, we found it
+        if (currentPos <= targetIndex && targetIndex <= currentPos + len) {
+          startNode = node
+          startOffset = targetIndex - currentPos
+          break
+        }
+
+        currentPos += len
+
+        // ACCOUNT FOR INVISIBLE NEWLINES:
+        // range.toString() adds \n after block elements. If the next sibling
+        // is a block or we just finished a block, toString() would have added 1.
+        const parent = node.parentElement
+        if (parent && parent !== this.inputEl && !node.nextSibling) {
+          currentPos += 1 // The implied \n
+        }
+      }
     }
 
     if (startNode) {
-      range.setStart(startNode, startOffset)
-      range.setEnd(selection.getRangeAt(0).endContainer, selection.getRangeAt(0).endOffset)
-      range.deleteContents()
+      try {
+        range.setStart(startNode, startOffset)
+        range.setEnd(endContainer, endOffset)
+        range.deleteContents()
 
-      if (type === 'note') {
-        const mention = document.createElement('span')
-        mention.className = 'kb-mention'
-        mention.dataset.noteId = item.dataset.id
-        mention.contentEditable = 'false'
-        mention.textContent = `@${value}`
-        range.insertNode(mention)
-        const space = document.createTextNode(' ')
-        mention.after(space)
-        this.setCursorAfter(space)
-      } else {
-        const text = document.createTextNode(value || '')
-        range.insertNode(text)
-        this.setCursorAfter(text)
+        if (type === 'note') {
+          const mention = document.createElement('span')
+          mention.className = 'kb-mention'
+          mention.dataset.noteId = item.dataset.id
+          mention.contentEditable = 'false'
+          mention.textContent = `@${value}`
+          range.insertNode(mention)
+          const space = document.createTextNode('\u00A0') // Use non-breaking space for stability
+          mention.after(space)
+          this.setCursorAfter(space)
+        } else {
+          const text = document.createTextNode(value || '')
+          range.insertNode(text)
+          this.setCursorAfter(text)
+        }
+      } catch (err) {
+        console.error('[SmartTextArea] Replacement failed:', err)
+        // Fallback: If complex range fails, just insert at current cursor
+        this.inputEl.focus()
       }
+    } else {
+      // LAST RESORT: If we can't find the trigger, just insert it at the cursor
+      // This is better than doing nothing or jumping to the start.
+      document.execCommand('insertText', false, (type === 'note' ? '@' : '') + value + ' ')
     }
 
     this.hideAutocomplete()
@@ -395,6 +465,7 @@ export class SmartTextArea {
   }
 
   private renderIcon(icon: any): string {
-    return createElement(icon, { size: 14 }).outerHTML
+    const el = createElement(icon, { size: 14 })
+    return el?.outerHTML || ''
   }
 }

@@ -7,12 +7,11 @@ export class Avatar {
    */
   static create(role: 'user' | 'assistant', size: number = 20): HTMLElement {
     const avatar = document.createElement('div')
-    avatar.className = `rightbar__avatar rightbar__avatar--${role}`
+    avatar.className = `kb-avatar kb-avatar--${role}`
     avatar.setAttribute('role', 'img')
     avatar.setAttribute('aria-label', role === 'user' ? 'User' : 'AI Assistant')
 
     if (role === 'user') {
-      // User avatar - simple circle with user icon or initials
       avatar.innerHTML = `
         <svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
@@ -20,7 +19,6 @@ export class Avatar {
         </svg>
       `
     } else {
-      // AI avatar - sparkle/bot icon
       avatar.innerHTML = `
         <svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
@@ -37,7 +35,7 @@ export class Avatar {
    * Creates avatar HTML string (for use in innerHTML)
    */
   static createHTML(role: 'user' | 'assistant', size: number = 20): string {
-    const className = `rightbar__avatar rightbar__avatar--${role}`
+    const className = `kb-avatar kb-avatar--${role}`
 
     if (role === 'user') {
       return `

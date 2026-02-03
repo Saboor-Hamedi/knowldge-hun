@@ -7,6 +7,8 @@ import { state } from '../../core/state'
 import { ragService } from '../../services/rag/ragService'
 import type { FileOperationHandler } from '../../handlers/FileOperationHandler'
 import { ChatInput } from '../common/ChatInput'
+import { Avatar } from '../rightbar/avatar'
+import { createElement, Copy, ThumbsUp, ThumbsDown, RefreshCw } from 'lucide'
 
 export interface Command {
   name: string
@@ -182,9 +184,10 @@ export class ConsoleComponent {
       const sanitizedUsername = (username || 'user').trim() || 'user'
       const vaultName = (vault?.name || 'hub').trim() || 'hub'
 
+      // ai agent name: don't delete this
       if (this.chatInput) {
         if (this.currentMode === 'ai') {
-          this.chatInput.updatePrompt('AGENT >')
+          this.chatInput.updatePrompt('λ')
         } else {
           this.chatInput.updatePrompt(`${sanitizedUsername}@${vaultName} λ`)
         }
@@ -195,7 +198,7 @@ export class ConsoleComponent {
         try {
           const newVault = await window.api.getVault()
           const newVaultName = (newVault?.name || 'hub').trim() || 'hub'
-          if (this.chatInput) {
+          if (this.chatInput && this.currentMode === 'terminal') {
             this.chatInput.updatePrompt(`${sanitizedUsername}@${newVaultName} λ`)
           }
         } catch (err) {
@@ -210,24 +213,6 @@ export class ConsoleComponent {
 
   private render(): void {
     this.consoleEl.innerHTML = `
-      <div class="hub-console__resizer"></div>
-      <div class="hub-console__header">
-        <div class="hub-console__title">
-          <span class="hub-console__title-icon">${codicons.terminal}</span>
-          <span>HUB Console</span>
-        </div>
-        <div class="hub-console__actions">
-          <button class="hub-console__action-btn hub-console__chevron-btn" title="Toggle Console (Ctrl+J)">
-            ${codicons.chevronDownLucide}
-          </button>
-          <button class="hub-console__action-btn hub-console__maximize-btn" title="Maximize Panel">
-            <span class="hub-console__maximize-icon">${codicons.maximize}</span>
-          </button>
-          <button class="hub-console__close-btn" title="Close (Esc)">
-            <span class="hub-console__close-icon">${codicons.closeX}</span>
-          </button>
-        </div>
-      </div>
       <div class="hub-console__body"></div>
       <div class="hub-console__footer"></div>
     `
@@ -336,11 +321,12 @@ export class ConsoleComponent {
 
     if (type === 'command') {
       line.innerHTML = `
-        <div class="hub-console__user-header">
-          <div class="hub-console__user-avatar">${codicons.keyboard}</div>
-          <div class="hub-console__user-name">USER</div>
+        <div class="hub-console__turn">
+          ${Avatar.createHTML('user', 18)}
+          <div class="hub-console__user-body">
+            <div class="hub-console__user-content">${this.escapeHtml(message)}</div>
+          </div>
         </div>
-        <div class="hub-console__user-content">${this.escapeHtml(message)}</div>
       `
     } else {
       line.textContent = message
@@ -508,21 +494,27 @@ export class ConsoleComponent {
     const outputLine = document.createElement('div')
     outputLine.className = 'hub-console__line hub-console__line--ai is-typing'
     outputLine.innerHTML = `
-      <div class="hub-console__ai-header">
-        <div class="hub-console__ai-avatar">${codicons.agent}</div>
-        <div class="hub-console__ai-name">HUB Agent</div>
+      <div class="hub-console__turn">
+        ${Avatar.createHTML('assistant', 18)}
+        <div class="hub-console__ai-body">
+          <div class="hub-console__ai-content"></div>
+        </div>
       </div>
-      <div class="hub-console__ai-content"></div>
     `
     this.bodyEl.appendChild(outputLine)
 
+    const aiBody = outputLine.querySelector('.hub-console__ai-body') as HTMLElement
     const contentEl = outputLine.querySelector('.hub-console__ai-content') as HTMLElement
 
     // Thinking indicator
-    const thinkingEl = document.createElement('span')
-    thinkingEl.className = 'hub-console__line--thinking'
-    thinkingEl.style.marginLeft = '28px'
-    thinkingEl.innerHTML = `<span></span><span></span><span></span>`
+    const thinkingEl = document.createElement('div')
+    thinkingEl.className = 'kb-chat-pill'
+    thinkingEl.style.marginTop = '4px'
+    thinkingEl.innerHTML = `
+      <div class="kb-typing-dots">
+        <span></span><span></span><span></span>
+      </div>
+    `
     contentEl.appendChild(thinkingEl)
 
     this.bodyEl.scrollTop = this.bodyEl.scrollHeight
@@ -573,7 +565,8 @@ export class ConsoleComponent {
                       await window.api.saveNote({
                         id: streamingTargetId,
                         content: '',
-                        title: resolved.title
+                        title: resolved.title,
+                        updatedAt: Date.now()
                       } as any)
                     }
                   } else if (type === 'write') {
@@ -729,9 +722,49 @@ export class ConsoleComponent {
         })
         actionArea.appendChild(archiveBtn)
 
+        // Light Buttons (Feedback & Copy) - Match Right Sidebar
+        const lightActions = document.createElement('div')
+        lightActions.className = 'kb-message-actions'
+        lightActions.style.marginTop = '8px'
+        lightActions.innerHTML = `
+          <button class="kb-message-action" data-action="copy" title="Copy response">
+            ${this.createLucideIcon(Copy, 14)}
+          </button>
+          <button class="kb-message-action" data-action="regenerate" title="Regenerate">
+            ${this.createLucideIcon(RefreshCw, 12)}
+          </button>
+          <button class="kb-message-action" data-action="thumbs-up" title="Helpful">
+            ${this.createLucideIcon(ThumbsUp, 12)}
+          </button>
+          <button class="kb-message-action" data-action="thumbs-down" title="Not helpful">
+            ${this.createLucideIcon(ThumbsDown, 12)}
+          </button>
+        `
+
+        // Add action listeners
+        lightActions.querySelectorAll('.kb-message-action').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const action = (btn as HTMLElement).dataset.action
+            if (action === 'copy') {
+              navigator.clipboard.writeText(finalText)
+              btn.classList.add('kb-message-action--success')
+              setTimeout(() => btn.classList.remove('kb-message-action--success'), 2000)
+            } else if (action === 'regenerate') {
+              void this.handleAIRequest(input)
+              outputLine.remove()
+            } else if (action === 'thumbs-up' || action === 'thumbs-down') {
+              lightActions
+                .querySelectorAll('.kb-message-action--active')
+                .forEach((b) => b.classList.remove('kb-message-action--active'))
+              btn.classList.add('kb-message-action--active')
+            }
+          })
+        })
+
         if (actionArea.children.length > 0) {
-          this.bodyEl.appendChild(actionArea)
+          aiBody.appendChild(actionArea)
         }
+        aiBody.appendChild(lightActions)
 
         const finalText = fullText.replace(/\[RUN:[\s\S]*?\]/g, '').trim()
         try {
@@ -765,5 +798,14 @@ export class ConsoleComponent {
     const div = document.createElement('div')
     div.textContent = str
     return div.innerHTML
+  }
+
+  private createLucideIcon(
+    IconComponent: any,
+    size: number = 12,
+    strokeWidth: number = 1.5
+  ): string {
+    const svgElement = createElement(IconComponent, { size, 'stroke-width': strokeWidth })
+    return svgElement?.outerHTML || ''
   }
 }

@@ -16,8 +16,7 @@ import {
   Archive,
   Settings,
   Check,
-  Copy,
-  type LucideIcon
+  Copy
 } from 'lucide'
 import { copyConversationToClipboard } from './clipboardUtils'
 import './rightbar.css'
@@ -233,6 +232,8 @@ export class RightBar {
     const inputWrapper = this.container.querySelector('#rightbar-chat-input-wrapper') as HTMLElement
     this.chatInputArea = new ChatInput(inputWrapper, {
       placeholder: 'Ask anything... @note to mention',
+      showModeSwitcher: false,
+      showPrompt: false,
       onSend: (text) => this.sendMessage(text),
       onStop: () => this.stopGeneration(),
       onCapabilityChange: () => {
@@ -370,7 +371,7 @@ export class RightBar {
         if (message) {
           // Get plain text from message content (remove markdown formatting)
           const tempDiv = document.createElement('div')
-          tempDiv.innerHTML = messageFormatter.formatContent(message.content, true)
+          tempDiv.innerHTML = messageFormatter.format(message.content, true)
           const plainText = tempDiv.textContent || tempDiv.innerText || ''
 
           navigator.clipboard
@@ -819,7 +820,6 @@ export class RightBar {
     if (message && message.role === 'user') {
       this.chatInputArea.setValue(message.content)
       this.chatInputArea.focus()
-      this.updateCharacterCount()
     }
   }
 
@@ -893,12 +893,10 @@ export class RightBar {
       switch (command) {
         case '/clear':
           this.chatInputArea.clear()
-          this.updateCharacterCount()
           await this.clearConversation()
           return
         case '/new':
           this.chatInputArea.clear()
-          this.updateCharacterCount()
           await this.startNewSession()
           return
         case '/help':
@@ -908,11 +906,9 @@ export class RightBar {
               this.slashCommands.map((c) => `- \`${c.command}\`: ${c.description}`).join('\n')
           )
           this.chatInputArea.clear()
-          this.updateCharacterCount()
           return
         case '/export':
           this.chatInputArea.clear()
-          this.updateCharacterCount()
           await this.exportSession()
           return
       }
@@ -920,33 +916,24 @@ export class RightBar {
 
     // Clear and send
     this.chatInputArea.clear()
-    this.updateCharacterCount()
     await this.conversationController.sendMessage(finalSelection)
-  }
-
-  private updateCharacterCount(text?: string): void {
-    const content = text !== undefined ? text : this.chatInputArea.getPlainText()
-    if (this.characterCounter) {
-      this.characterCounter.textContent = String(content.length)
-    }
-  }
-
-  private formatContent(text: string, isAssistant: boolean): string {
-    return messageFormatter.format(text, isAssistant)
-  }
-
-  private escapeHtml(raw: string): string {
-    return messageFormatter.escapeHtml(raw)
   }
 
   private showCopyFeedback(button: HTMLElement): void {
     const originalHTML = button.innerHTML
     const isSmall = button.classList.contains('rightbar__message-action')
+    // Use 'any' for Lucide icon components to avoid type errors since we don't have the type exported
+    const CheckIcon: any = Check
     const size = isSmall ? 12 : 14
     const stroke = isSmall ? 2 : 1.5
     const color = isSmall ? '#22c55e' : undefined
 
-    button.innerHTML = this.createLucideIcon(Check, size, stroke, color)
+    const colorValue: string | number | undefined = color
+    button.innerHTML = createElement(CheckIcon, {
+      size,
+      'stroke-width': stroke,
+      color: colorValue
+    }).outerHTML
     button.classList.add(
       isSmall ? 'rightbar__message-action--copied' : 'rightbar__code-copy--copied'
     )

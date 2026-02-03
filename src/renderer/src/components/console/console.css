@@ -48,126 +48,6 @@
 }
 
 /* ============================================
-   RESIZE HANDLE (The Knob)
-   ============================================ */
-.hub-console__resizer {
-  position: absolute;
-  top: -8px; /* High hit area */
-  left: 0;
-  right: 0;
-  height: 16px;
-  cursor: ns-resize;
-  z-index: 2147483647;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  pointer-events: auto;
-}
-
-.hub-console__resizer::after {
-  content: '';
-  width: 48px;
-  height: 4px;
-  background: var(--border);
-  border-radius: 4px;
-  opacity: 0.6;
-  transition: all 0.2s ease;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
-}
-
-.hub-console:hover .hub-console__resizer::after,
-.hub-console__resizer:hover::after {
-  opacity: 1;
-  width: 80px;
-  background: var(--primary);
-}
-
-/* Hide resizer when maximized */
-.hub-console.is-maximized .hub-console__resizer {
-  display: none !important;
-}
-
-/* ============================================
-   HEADER (Title + Actions)
-   ============================================ */
-.hub-console__header {
-  /* Layout */
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  height: 35px;
-  padding: 0 12px;
-
-  /* Appearance */
-  background: var(--panel-strong);
-  border-bottom: 1px solid var(--border);
-
-  /* Behavior */
-  flex-shrink: 0;
-  user-select: none;
-  z-index: 10;
-}
-
-.hub-console__title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-muted);
-  opacity: 0.8;
-}
-
-.hub-console__title-icon {
-  font-size: 16px;
-  display: flex;
-  align-items: center;
-}
-
-.hub-console__actions {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.hub-console__action-btn,
-.hub-console__close-btn {
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  cursor: pointer;
-  padding: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 4px;
-  transition: all 0.15s ease;
-  width: 28px;
-  height: 28px;
-}
-
-.hub-console__action-btn:hover,
-.hub-console__close-btn:hover {
-  color: var(--text);
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.hub-console__action-btn:active,
-.hub-console__close-btn:active {
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.hub-console__action-btn svg,
-.hub-console__close-btn svg {
-  width: 16px;
-  height: 16px;
-}
-
-.hub-console__close-btn:hover {
-  color: var(--danger);
-}
-
-/* ============================================
    BODY (Output Area)
    ============================================ */
 .hub-console__body {
@@ -190,70 +70,42 @@
 
 /* Output lines */
 .hub-console__line {
-  margin-bottom: 4px;
+  margin-bottom: 2px;
   white-space: pre-wrap;
   word-break: break-word;
 }
 
 .hub-console__line--command {
-  margin: 12px 0 0 0; /* Tightened turn start */
+  margin: 0; /* Tightened turn start - removed large top margin */
   padding: 0;
 }
 
-/* Profiles */
-.hub-console__user-header,
-.hub-console__ai-header {
+/* Profiles & Turns */
+.hub-console__turn {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 1px; /* Absolute minimal gap */
+  gap: 8px;
+  align-items: flex-start;
+  margin-top: 0; /* Unified spacing controlled by line margins */
 }
 
-.hub-console__user-avatar,
-.hub-console__ai-avatar {
-  width: 20px;
-  height: 20px;
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 11px;
-  flex-shrink: 0;
-}
-
-.hub-console__user-avatar {
-  background: #6366f1; /* Solid purple */
-  color: white;
-}
-
-.hub-console__ai-avatar {
-  background: #10b981; /* Solid emerald */
-  color: white;
-}
-
-.hub-console__user-name,
-.hub-console__ai-name {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--text-strong);
-  opacity: 0.9;
+.hub-console__user-body,
+.hub-console__ai-body {
+  flex: 1;
+  min-width: 0;
 }
 
 .hub-console__user-content,
 .hub-console__ai-content {
-  padding-left: 30px;
-  font-size: 13px;
-  line-height: 1.5;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--text-strong);
 }
 
 /* Remove default paragraph margins to prevent vertical gaps */
 .hub-console__user-content p:first-child,
 .hub-console__ai-content p:first-child {
   margin-top: 0 !important;
-}
-
-.hub-console__user-content {
-  color: var(--text-strong);
+  margin-bottom: 0 !important;
 }
 
 .hub-console__line--error {
@@ -274,8 +126,8 @@
 }
 
 .hub-console__line--ai {
-  margin: 4px 0 0 0; /* Tight with the parent prompt */
-  padding-bottom: 16px; /* Space after the turn pair */
+  margin: 0; 
+  padding-bottom: 4px; /* Tightened from 12px to bring prompt closer */
 }
 
 /* AI response header */
@@ -289,41 +141,20 @@
 }
 
 /* Content within AI line */
+.hub-console__ai-content {
+  padding-left: 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+/* Premium AI Typing Indicator (Replacing vertical bar) */
 .is-typing .hub-console__ai-content *:last-child::after,
-.is-typing .hub-console__ai-content::after {
-  content: '';
-  display: inline-block;
-  width: 2px;
-  height: 14px;
-  background: #10b981;
-  margin-left: 4px;
-  vertical-align: middle;
-  animation: blink 0.8s infinite;
-}
-
-@keyframes blink {
-  50% {
-    opacity: 0;
-  }
-}
-
-/* Entry animation for AI responses */
-@keyframes fadeInOut {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
 /* AI Action Area Styling */
 .hub-console__ai-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-top: 8px; /* Reduced gap between text and buttons */
-  padding-left: 34px; /* Align buttons with content */
+  margin-top: 6px; /* Reduced gap between text and buttons */
+  padding-left: 26px; /* Align buttons with content (18px avatar + 8px gap) */
 }
 
 .hub-console__ai-action-btn {
@@ -365,43 +196,6 @@
   border-color: #34d399;
 }
 
-/* AI Thinking Indicator */
-.hub-console__line--thinking {
-  display: flex;
-  gap: 4px;
-  padding: 8px 0;
-}
-
-.hub-console__line--thinking span {
-  width: 6px;
-  height: 6px;
-  background: var(--primary);
-  border-radius: 50%;
-  display: inline-block;
-  opacity: 0.4;
-  animation: pulse 1.4s infinite ease-in-out both;
-}
-
-.hub-console__line--thinking span:nth-child(1) {
-  animation-delay: -0.32s;
-}
-.hub-console__line--thinking span:nth-child(2) {
-  animation-delay: -0.16s;
-}
-
-@keyframes pulse {
-  0%,
-  80%,
-  100% {
-    transform: scale(0);
-    opacity: 0.3;
-  }
-  40% {
-    transform: scale(1);
-    opacity: 1;
-  }
-}
-
 /* Scrollbar styling */
 .hub-console__body::-webkit-scrollbar {
   width: 8px;
@@ -428,7 +222,9 @@
   flex-direction: column;
   flex-shrink: 0;
   overflow: visible;
-  padding: 0 4px 4px 4px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--border);
+  background: var(--panel);
   z-index: 100;
 }
 
@@ -440,87 +236,17 @@
   height: 100% !important;
   width: 100% !important;
   border: none !important;
-  background: transparent !important; /* Should inherit terminal background */
+  background: transparent !important;
   flex: 1;
   display: flex;
   flex-direction: column;
-  pointer-events: auto !important; /* Force interactivity */
-}
-
-/* Hide header and resizer when embedded */
-.hub-console.hub-console--embedded .hub-console__header,
-.hub-console.hub-console--embedded .hub-console__resizer {
-  display: none !important;
+  pointer-events: auto !important;
 }
 
 /* MATCH TERMINAL FONTS & SPACING */
 .hub-console.hub-console--embedded .hub-console__body {
-  padding: 4px 12px; /* Match typical terminal key-line */
-  font-family: 'Consolas', 'Courier New', monospace; /* Force terminal font */
-  font-size: 14px; /* Default xterm size often 14px */
+  padding: 8px 12px;
+  font-family: var(--font-mono);
   background: var(--terminal-bg, transparent) !important;
 }
 
-/* FLATTEN THE FOOTER INTERFACE */
-.hub-console.hub-console--embedded .hub-console__footer {
-  margin: 0;
-  border: none;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-  background: var(--terminal-bg, transparent) !important; /* Match terminal background */
-  border-radius: 0;
-  box-shadow: none !important;
-}
-
-.hub-console.hub-console--embedded .hub-console__footer:focus-within {
-  box-shadow: none !important;
-  border-color: rgba(255, 255, 255, 0.2);
-  background: var(--terminal-bg, transparent) !important; /* Match terminal background */
-}
-
-/* Terminal-like Input Line */
-.hub-console.hub-console--embedded .hub-console__footer-bar {
-  background: var(--terminal-bg, transparent) !important; /* Match terminal background */
-  border-top: none;
-  min-height: 32px;
-  padding: 0 12px 0 12px;
-  cursor: text; /* Ensure the whole bar feels like an input field */
-}
-
-.hub-console.hub-console--embedded .hub-console__input-container {
-  padding: 8px 12px 0 12px; /* Tighten up */
-  background: var(--terminal-bg, transparent) !important; /* Match terminal background */
-}
-
-.hub-console.hub-console--embedded .hub-console__input {
-  cursor: text !important;
-  user-select: text !important;
-  -webkit-user-select: text !important;
-  caret-color: #0dbc79; /* Green caret to match prompt */
-}
-
-/* Fix select font inheritance and capability select 'white' issue. */
-.hub-console.hub-console--embedded input,
-.hub-console.hub-console--embedded button,
-.hub-console.hub-console--embedded select,
-.hub-console.hub-console--embedded textarea {
-  font-family: inherit;
-  color: inherit; /* Ensure text color is inherited, fixing 'white' issue */
-}
-
-/* Make prompt look like shell prompt */
-.hub-console.hub-console--embedded .hub-console__prompt {
-  font-family: inherit;
-  color: #0dbc79; /* Common terminal prompt green */
-  cursor: default;
-  user-select: none;
-}
-
-.hub-console.hub-console--embedded .hub-console__prompt--ai {
-  color: #10b981;
-}
-
-/* Mode switcher should look more integrated or hidden if redundant */
-.hub-console.hub-console--embedded .hub-console__mode-switcher {
-  background: transparent;
-  border: none;
-}
