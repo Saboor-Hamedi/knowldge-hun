@@ -16,6 +16,7 @@ export class SessionSidebar {
   private isResizing = false
   private onSessionSelect?: (sessionId: string) => void
   private onNewSession?: () => void
+  private onSessionDelete?: (sessionId: string) => void
   private currentSessionId: string | null = null
   private allSessions: ChatSession[] = []
   private archivedSessions: ChatSession[] = []
@@ -47,6 +48,10 @@ export class SessionSidebar {
 
   setOnNewSession(callback: () => void): void {
     this.onNewSession = callback
+  }
+
+  setOnSessionDelete(callback: (sessionId: string) => void): void {
+    this.onSessionDelete = callback
   }
 
   setCurrentSession(sessionId: string | null): void {
@@ -404,6 +409,9 @@ export class SessionSidebar {
                   m.close()
                   try {
                     await sessionStorageService.deleteSession(sessionId)
+                    if (this.onSessionDelete) {
+                      this.onSessionDelete(sessionId)
+                    }
                     await this.loadSessions()
                   } catch (error) {
                     console.error('[SessionSidebar] Failed to delete session:', error)
@@ -470,7 +478,7 @@ export class SessionSidebar {
       input.focus()
       input.select()
 
-      const finishRename = async () => {
+      const finishRename = async (): Promise<void> => {
         const newTitle = input.value.trim()
 
         if (newTitle && newTitle !== currentTitle) {

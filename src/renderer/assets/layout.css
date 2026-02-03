@@ -281,7 +281,7 @@ body.no-transitions *:after {
   z-index: 500;
   box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.3);
   overflow: visible !important;
-  
+
   /* 
    * STRATEGY CHANGE: 
    * Since absolute positioning crashes xterm.js in this env,
@@ -291,5 +291,5 @@ body.no-transitions *:after {
    * or rely on high z-index if they share a stacking context 
    * that allows overlap (e.g. grid areas).
    */
-  margin-top: 0; 
+  margin-top: 0;
 }

@@ -80,15 +80,21 @@
   border-radius: 8px;
   z-index: -1;
   opacity: 1;
-  box-shadow: 
+  box-shadow:
     inset 0 1px 1px rgba(255, 255, 255, 0.1),
     0 1px 3px rgba(0, 0, 0, 0.1);
   animation: activity-pill-in 0.2s cubic-bezier(0, 0, 0.2, 1);
 }
 
 @keyframes activity-pill-in {
-  from { opacity: 0; transform: scale(0.8); }
-  to { opacity: 1; transform: scale(1); }
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 /* Side indicator bar - more subtle */
@@ -126,7 +132,7 @@
   stroke: var(--activity-inactive-icon, currentColor);
   fill: none;
   transition: stroke 0.2s ease;
-  filter: drop-shadow(0 1px 1px rgba(0,0,0,0.05));
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.05));
 }
 
 .activitybar__item.is-active .activitybar__icon svg {
@@ -134,12 +140,12 @@
 }
 
 /* Notification dot for Update */
-.activitybar__item[data-view="update"] .activitybar__icon {
+.activitybar__item[data-view='update'] .activitybar__icon {
   position: relative;
 }
 
 /* Pulsing dot for updates if state is 'restart' or 'progress' */
-.activitybar__item[data-view="update"].has-notification .activitybar__icon::after {
+.activitybar__item[data-view='update'].has-notification .activitybar__icon::after {
   content: '';
   position: absolute;
   top: -2px;
@@ -164,4 +170,3 @@
   -webkit-backdrop-filter: blur(8px);
   border: 1px solid var(--border-subtle);
 }
-

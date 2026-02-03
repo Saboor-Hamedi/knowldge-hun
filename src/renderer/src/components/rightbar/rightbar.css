@@ -1611,4 +1611,83 @@
 .ai-host .rightbar__title-open-tab {
   display: none;
 }
+/* ---- System / Agentic Messages ---- */
+.rightbar__system-message {
+  align-self: center;
+  width: 95%;
+  margin: 4px 0;
+  font-size: 11px;
+}
 
+.rightbar__system-details {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel-strong);
+  overflow: hidden;
+  transition: all 0.2s ease;
+}
+
+.rightbar__system-details[open] {
+  border-color: var(--primary);
+  background: var(--panel);
+}
+
+.rightbar__system-summary {
+  padding: 6px 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  user-select: none;
+  list-style: none;
+}
+
+.rightbar__system-summary::-webkit-details-marker {
+  display: none;
+}
+
+.rightbar__system-icon {
+  font-size: 12px;
+  opacity: 0.8;
+  flex-shrink: 0;
+}
+
+.rightbar__system-title {
+  font-weight: 600;
+  color: var(--text-soft);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex-shrink: 0;
+}
+
+.rightbar__system-preview {
+  color: var(--text-soft);
+  opacity: 0.6;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+.rightbar__system-content {
+  padding: 10px;
+  border-top: 1px solid var(--border);
+  max-height: 300px;
+  overflow-y: auto;
+  background: var(--bg);
+}
+
+.rightbar__system-content pre {
+  margin: 0;
+  font-size: 11px;
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+
+.rightbar__system-content code {
+  white-space: pre-wrap;
+  word-break: break-all;
+}

@@ -34,7 +34,7 @@
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 4px; /* Sharper corners */
-  box-shadow: 
+  box-shadow:
     0 30px 60px rgba(0, 0, 0, 0.5),
     0 0 0 1px rgba(255, 255, 255, 0.05);
   display: flex;
@@ -218,7 +218,8 @@
   font-size: 15px;
 }
 
-.documentation-modal__body ul, .documentation-modal__body ol {
+.documentation-modal__body ul,
+.documentation-modal__body ol {
   margin-bottom: 24px;
   padding-left: 24px;
 }
@@ -299,8 +300,14 @@
 
 /* Animations */
 @keyframes docFadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .documentation-modal__body > * {
@@ -310,7 +317,8 @@
 /* Features/Shortcuts Grid Hint (Manual structure in MD) */
 /* We can use specific classes if we want but pure MD makes it tricky */
 
-.documentation-modal__loading, .documentation-modal__loading-nav {
+.documentation-modal__loading,
+.documentation-modal__loading-nav {
   color: var(--muted);
   font-style: italic;
   font-size: 13px;

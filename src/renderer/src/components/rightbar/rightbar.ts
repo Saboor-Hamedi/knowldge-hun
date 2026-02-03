@@ -129,6 +129,7 @@ export class RightBar {
   private isInitialized = false
   private messageFeedback: Map<number, 'thumbs-up' | 'thumbs-down' | null> = new Map() // Track feedback per message index
   private streamingMessageIndex: number | null = null // Track which message is currently streaming
+  private wasAtBottom = true
   private aiMenu!: AIMenu
   private sessionSidebar!: SessionSidebar
   private aiSettingsModal: AISettingsModal
@@ -572,6 +573,13 @@ export class RightBar {
       this.sessionSidebar.setOnNewSession(() => {
         void this.startNewSession()
       })
+      this.sessionSidebar.setOnSessionDelete((sessionId) => {
+        console.log(`[RightBar] Session deleted: ${sessionId}, current: ${this.currentSessionId}`)
+        if (this.currentSessionId === sessionId) {
+          // If we deleted the active session, clear everything and start fresh
+          void this.startNewSession()
+        }
+      })
 
       const sessionsBtn = this.container.querySelector(
         '#rightbar-header-sessions'
@@ -818,6 +826,13 @@ export class RightBar {
     if (this.resizeHandle) {
       this.resizeHandle.addEventListener('mousedown', (e) => this.handleResizeStart(e))
     }
+
+    // Scroll listener to track if user is at bottom
+    this.chatContainer.addEventListener('scroll', () => {
+      const { scrollTop, scrollHeight, clientHeight } = this.chatContainer
+      // We are at bottom if we're within 50px of the actual bottom
+      this.wasAtBottom = scrollHeight - scrollTop - clientHeight < 50
+    })
 
     // Refresh notes when vault changes
 
@@ -2078,15 +2093,19 @@ export class RightBar {
     this.doSend(text)
   }
 
-  private async doSend(message: string, skipAddingUserMessage: boolean = false): Promise<void> {
+  private async doSend(
+    message: string,
+    skipAddingUserMessage: boolean = false,
+    role: 'user' | 'assistant' | 'system' = 'user'
+  ): Promise<void> {
     // Create or reuse empty session if this is the first message
     if (!this.currentSessionId && this.isInitialized) {
       await this.createNewSession()
     }
 
-    // Only add user message if not regenerating (where message already exists)
+    // Only add message if not skipping (regeneration)
     if (!skipAddingUserMessage) {
-      this.addMessage('user', message)
+      this.addMessage(role, message)
     }
     this.sendButton.disabled = true
     this.lastFailedMessage = null
@@ -2174,11 +2193,14 @@ export class RightBar {
                 const scheduleUpdate =
                   window.requestIdleCallback || ((cb: () => void) => setTimeout(cb, 1))
                 scheduleUpdate(() => {
+                  const scrollNeeded = this.wasAtBottom
                   this.renderMessages()
-                  this.chatContainer.scrollTo({
-                    top: this.chatContainer.scrollHeight,
-                    behavior: 'auto'
-                  })
+                  if (scrollNeeded) {
+                    this.chatContainer.scrollTo({
+                      top: this.chatContainer.scrollHeight,
+                      behavior: 'auto'
+                    })
+                  }
                 })
               }
             }
@@ -2195,7 +2217,7 @@ export class RightBar {
         this.abortController = null
 
         // Use requestAnimationFrame for smooth UI updates
-        requestAnimationFrame(() => {
+        requestAnimationFrame(async () => {
           this.isLoading = false
           this.updateGenerationUI(false)
           this.renderMessages()
@@ -2203,6 +2225,11 @@ export class RightBar {
           this.chatInput.focus()
           // Auto-save after streaming completes
           void this.autoSaveSession()
+
+          // Check for and execute agentic commands
+          if (fullResponse.includes('[RUN:')) {
+            await this.handleAgenticCommands(fullResponse)
+          }
         })
       } catch (err: unknown) {
         this.abortController = null
@@ -2254,7 +2281,11 @@ export class RightBar {
     })
   }
 
-  private addMessage(role: 'user' | 'assistant', content: string, messageId?: string): void {
+  private addMessage(
+    role: 'user' | 'assistant' | 'system',
+    content: string,
+    messageId?: string
+  ): void {
     this.messages.push({
       role,
       content,
@@ -2361,6 +2392,28 @@ export class RightBar {
 
     let html = this.messages
       .map((msg, idx) => {
+        if (msg.role === 'system') {
+          // Compact rendering for system/command results
+          const lines = msg.content.split('\n')
+          const title = lines[0] // Usually "> [RUN: command]"
+          const preview = lines.slice(1).join('\n').substring(0, 100).replace(/\n/g, ' ') + '...'
+
+          return `
+          <div class="rightbar__system-message" title="Click to view raw data">
+            <details class="rightbar__system-details">
+              <summary class="rightbar__system-summary">
+                <span class="rightbar__system-icon">⚙️</span>
+                <span class="rightbar__system-title">${this.escapeHtml(title)}</span>
+                <span class="rightbar__system-preview">${this.escapeHtml(preview)}</span>
+              </summary>
+              <div class="rightbar__system-content">
+                <pre><code>${this.escapeHtml(msg.content)}</code></pre>
+              </div>
+            </details>
+          </div>
+        `
+        }
+
         const isError = msg.role === 'assistant' && msg.content.startsWith('❌')
 
         // Skip empty placeholder messages from AI to avoid showing an empty bubble
@@ -2438,7 +2491,10 @@ export class RightBar {
     }
 
     this.chatContainer.innerHTML = html
-    this.chatContainer.scrollTo({ top: this.chatContainer.scrollHeight, behavior: 'smooth' })
+
+    if (this.wasAtBottom) {
+      this.chatContainer.scrollTo({ top: this.chatContainer.scrollHeight, behavior: 'smooth' })
+    }
 
     // Enhance code blocks with syntax highlighting after render
     void this.highlightCodeBlocks()
@@ -2543,5 +2599,186 @@ export class RightBar {
         '👋 **Welcome!** Add your DeepSeek API key in **Settings → Behavior → DeepSeek API Key**. Get it at [platform.deepseek.com](https://platform.deepseek.com)'
       )
     }
+  }
+
+  /**
+   * Parse AI response for [RUN: command] tags and execute them
+   */
+  private async handleAgenticCommands(content: string): Promise<void> {
+    const commandRegex = /\[RUN:\s*(.+?)\]/gs
+    let match
+    const results: string[] = []
+
+    while ((match = commandRegex.exec(content)) !== null) {
+      const commandText = match[1].trim()
+      try {
+        const result = await this.executeAgenticCommand(commandText)
+        results.push(`> [RUN: ${commandText}]\n${result}`)
+      } catch (err) {
+        results.push(
+          `> [RUN: ${commandText}]\nError: ${err instanceof Error ? err.message : String(err)}`
+        )
+      }
+    }
+
+    if (results.length > 0) {
+      const resultsMessage = results.join('\n\n')
+      // Auto-respond as 'system' so it doesn't clutter chat but AI gets context
+      setTimeout(() => {
+        void this.doSend(resultsMessage, false, 'system')
+      }, 600)
+    }
+  }
+
+  /**
+   * Execute a single agentic command
+   */
+  private async executeAgenticCommand(commandText: string): Promise<string> {
+    const parts = this.parseCommandArgs(commandText)
+    if (parts.length === 0) return 'Invalid command format'
+
+    const cmd = parts[0].toLowerCase()
+    const args = parts.slice(1)
+
+    switch (cmd) {
+      case 'read': {
+        const titleOrPath = args[0]
+        if (!titleOrPath) return 'Error: read requires a title or path'
+
+        const notes = await window.api.listNotes()
+        const findNote = (items: any[]): any => {
+          for (const item of items) {
+            if (item.title === titleOrPath || item.path === titleOrPath || item.id === titleOrPath)
+              return item
+            if (item.children) {
+              const found = findNote(item.children)
+              if (found) return found
+            }
+          }
+          return null
+        }
+
+        const note = findNote(notes)
+        if (!note) return `Error: Note "${titleOrPath}" not found`
+
+        const data = await window.api.loadNote(note.id, note.path)
+        if (!data) return `Error: Could not load content for "${titleOrPath}"`
+        return `Content of "${titleOrPath}":\n\n${data.content}`
+      }
+
+      case 'touch': {
+        const title = args[0]
+        if (!title) return 'Error: touch requires a title'
+        await window.api.createNote(title)
+        return `Success: Created empty note "${title}"`
+      }
+
+      case 'write': {
+        const title = args[0]
+        const content = args[1] || ''
+        if (!title) return 'Error: write requires a title'
+
+        const notes = await window.api.listNotes()
+        const findNote = (items: any[]): any => {
+          for (const item of items) {
+            if (item.title === title || item.path === title) return item
+            if (item.children) {
+              const found = findNote(item.children)
+              if (found) return found
+            }
+          }
+          return null
+        }
+
+        const note = findNote(notes)
+        if (note) {
+          await window.api.saveNote({ ...note, content })
+          return `Success: Updated note "${title}"`
+        } else {
+          const newNote = await window.api.createNote(title)
+          await window.api.saveNote({ ...newNote, content })
+          return `Success: Created and wrote to note "${title}"`
+        }
+      }
+
+      case 'mkdir': {
+        const name = args[0]
+        if (!name) return 'Error: mkdir requires a name'
+        await window.api.createFolder(name)
+        return `Success: Created folder "${name}"`
+      }
+
+      case 'delete': {
+        const titleOrPath = args[0]
+        if (!titleOrPath) return 'Error: delete requires a title or path'
+
+        const notes = await window.api.listNotes()
+        const findNote = (items: any[]): any => {
+          for (const item of items) {
+            if (item.title === titleOrPath || item.path === titleOrPath || item.id === titleOrPath)
+              return item
+            if (item.children) {
+              const found = findNote(item.children)
+              if (found) return found
+            }
+          }
+          return null
+        }
+
+        const note = findNote(notes)
+        if (!note) return `Error: Item "${titleOrPath}" not found`
+
+        if (note.type === 'folder') {
+          await window.api.deleteFolder(note.path)
+        } else {
+          await window.api.deleteNote(note.id, note.path)
+        }
+        return `Success: Deleted "${titleOrPath}"`
+      }
+
+      case 'rename': {
+        const oldName = args[0]
+        const newName = args[1]
+        if (!oldName || !newName) return 'Error: rename requires old and new names'
+
+        const notes = await window.api.listNotes()
+        const findNote = (items: any[]): any => {
+          for (const item of items) {
+            if (item.title === oldName || item.path === oldName || item.id === oldName) return item
+            if (item.children) {
+              const found = findNote(item.children)
+              if (found) return found
+            }
+          }
+          return null
+        }
+
+        const note = findNote(notes)
+        if (!note) return `Error: Item "${oldName}" not found`
+
+        if (note.type === 'folder') {
+          await window.api.renameFolder(note.path, newName)
+        } else {
+          await window.api.renameNote(note.id, newName, note.path)
+        }
+        return `Success: Renamed "${oldName}" to "${newName}"`
+      }
+
+      default:
+        return `Error: Command "${cmd}" is not yet recognized or implemented in the agent interface.`
+    }
+  }
+
+  /**
+   * Helper to parse command arguments accounting for quotes
+   */
+  private parseCommandArgs(text: string): string[] {
+    const regex = /[^\s"']+|"([^"]*)"|'([^']*)'/g
+    const results: string[] = []
+    let match
+    while ((match = regex.exec(text)) !== null) {
+      results.push(match[1] !== undefined ? match[1] : match[2] !== undefined ? match[2] : match[0])
+    }
+    return results
   }
 }

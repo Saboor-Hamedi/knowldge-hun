@@ -255,7 +255,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   /* Slightly tighter font for better list density */
-  letter-spacing: -0.01em; 
+  letter-spacing: -0.01em;
 }
 
 /* Container for children of a folder */

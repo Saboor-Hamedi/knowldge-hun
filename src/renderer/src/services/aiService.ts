@@ -5,7 +5,7 @@ import { aiProviderManager } from './ai/provider-manager'
 import { AIMessage } from './ai/providers/base'
 
 export interface ChatMessage {
-  role: 'user' | 'assistant'
+  role: 'user' | 'assistant' | 'system'
   content: string
   timestamp: number
   feedback?: 'thumbs-up' | 'thumbs-down' | null
