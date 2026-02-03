@@ -526,8 +526,7 @@ export class AIService {
       return { context: userMessage, citations: [] }
     }
 
-    let context =
-      "You are an AI assistant helping with a note-taking application. You have FULL ACCESS to the user's entire vault of notes. You can read, analyze, and reference any note in the vault.\n\n"
+    let context = ''
     const citations: NoteCitation[] = []
 
     // Get current note context (but keep it minimal)
@@ -598,46 +597,55 @@ export class AIService {
             context += `\n... and ${vaultSize - notesToShow.length} more notes.\n`
           }
         } else {
-          // Find and load only relevant notes (smart RAG) - reduced limit to minimize noise
-          const relevantNotes = await this.findRelevantNotesHybrid(userMessage, 3)
+          // Check if the user is asking to create something (don't load vault context for this)
+          const isCreationIntent =
+            /\b(create|make|new|mkdir|touch|generate|setup)\b/i.test(userMessage) &&
+            /\b(folder|file|note|directory)\b/i.test(userMessage)
 
-          if (relevantNotes.length > 0) {
-            context += `\nRelevant notes from vault (${relevantNotes.length} most relevant):\n`
-
-            let totalLength = 0
-            for (const note of relevantNotes) {
-              // Use snippets if available, otherwise truncate
-              const contentToShow =
-                note.relevanceSnippets && note.relevanceSnippets.length > 0
-                  ? note.relevanceSnippets.join(' ')
-                  : note.content.length > this.MAX_CONTENT_LENGTH
-                    ? note.content.substring(0, this.MAX_CONTENT_LENGTH) + '...'
-                    : note.content
-
-              const path = note.path ? ` [${note.path}]` : ''
-              const noteContext = `\n"${note.title}"${path}:\n${contentToShow}\n`
-
-              // Estimate tokens (rough: 1 token ≈ 4 chars)
-              const estimatedTokens = noteContext.length / 4
-
-              // Don't exceed context window
-              if (totalLength + estimatedTokens > this.MAX_CONTEXT_TOKENS * 0.6) {
-                context += `\n... and ${relevantNotes.length - relevantNotes.indexOf(note)} more relevant notes.\n`
-                break
-              }
-
-              context += noteContext
-              totalLength += estimatedTokens
-
-              // Add to citations
-              if (!citations.find((c) => c.id === note.id)) {
-                citations.push({ id: note.id, title: note.title, path: note.path })
-              }
-            }
+          if (isCreationIntent) {
+            context += `\nIntent detected: Creation. Focus on asking for name and location.\n`
           } else {
-            // No relevant matches found - don't add fallback notes to citations
-            // Only provide context hint to AI without showing irrelevant citations to user
-            context += `\nNo notes found matching your query. The vault contains ${vaultSize} notes that you can ask about.\n`
+            // Find and load only relevant notes (smart RAG) - reduced limit to minimize noise
+            const relevantNotes = await this.findRelevantNotesHybrid(userMessage, 3)
+
+            if (relevantNotes.length > 0) {
+              context += `\nRelevant notes from vault (${relevantNotes.length} most relevant):\n`
+
+              let totalLength = 0
+              for (const note of relevantNotes) {
+                // Use snippets if available, otherwise truncate
+                const contentToShow =
+                  note.relevanceSnippets && note.relevanceSnippets.length > 0
+                    ? note.relevanceSnippets.join(' ')
+                    : note.content.length > this.MAX_CONTENT_LENGTH
+                      ? note.content.substring(0, this.MAX_CONTENT_LENGTH) + '...'
+                      : note.content
+
+                const path = note.path ? ` [${note.path}]` : ''
+                const noteContext = `\n"${note.title}"${path}:\n${contentToShow}\n`
+
+                // Estimate tokens (rough: 1 token ≈ 4 chars)
+                const estimatedTokens = noteContext.length / 4
+
+                // Don't exceed context window
+                if (totalLength + estimatedTokens > this.MAX_CONTEXT_TOKENS * 0.6) {
+                  context += `\n... and ${relevantNotes.length - relevantNotes.indexOf(note)} more relevant notes.\n`
+                  break
+                }
+
+                context += noteContext
+                totalLength += estimatedTokens
+
+                // Add to citations
+                if (!citations.find((c) => c.id === note.id)) {
+                  citations.push({ id: note.id, title: note.title, path: note.path })
+                }
+              }
+            } else {
+              // No relevant matches found - don't add fallback notes to citations
+              // Only provide context hint to AI without showing irrelevant citations to user
+              context += `\nNo notes found matching your query. The vault contains ${vaultSize} notes that you can ask about.\n`
+            }
           }
         }
 
@@ -755,9 +763,16 @@ export class AIService {
 
     // Identity injection: We tell the AI who it is and what it's running on
     const identityPrompt =
-      `You are Knowledge Hub AI, an ultra-intelligent agentic personal assistant fully integrated into the user's note-taking application.\n` +
+      `You are Knowledge Hub AI, an ultra-intelligent agentic assistant fully integrated into the Knowledge Hub IDE.\n` +
       `Your current engine: ${provider.toUpperCase()} (Model: ${model === 'default-recommended' ? 'System Default' : model}).\n` +
-      `You have access to the user's currently open note (context) and can read their entire vault if needed.\n` +
+      `ROLE & CONTEXT:\n` +
+      `- You are operating within an IDE. You can read code, analyze project structures, and provide deep technical details about the project.\n` +
+      `- Use your ability to read the project code to give high-quality, specific advice.\n` +
+      `- CLARIFICATION RULE: If the user asks to "create a folder" or "create a file" without specifying a NAME or LOCATION, you MUST ask them: "Where should I create it? Root directory or inside a specific folder?" and "What should the name be?".\n` +
+      `- FOLDER CREATION: Only after the user confirms both name and location (root or subfolder), then you generate the [RUN: mkdir path/name] or [RUN: touch path/name.md] command.\n` +
+      `- NO GUESSING: Never guess names or locations.\n` +
+      `- CREATION FOCUS: When the user intents to create, DO NOT summarize or list the vault. Just ask the necessary questions or perform the action.\n` +
+      `- IDE MODE: You are an IDE. You can read project code to help the user with technical details about their project files.\n` +
       `YOU ARE AN AGENT: You can propose and EXECUTE action commands. Wrap them in [RUN: command].\n` +
       `Available commands:\n` +
       `- mkdir <name> (create folder)\n` +

@@ -61,9 +61,38 @@ export async function getGitInfo(rootPath: string): Promise<GitInfo> {
     // 2. Get Metadata (Branch, Remote) - Parallelize for performance
     const metadataPromise = (async (): Promise<GitMetadata> => {
       try {
+        // Helper to get remote URL with fallbacks
+        const getRemoteUrl = async (): Promise<string> => {
+          try {
+            // Priority 1: standard 'origin'
+            return await runGit(['remote', 'get-url', 'origin'], rootPath)
+          } catch (e1) {
+            console.warn('[Main:Git] Failed to get origin url:', e1)
+            try {
+              // Priority 2: config (older git versions)
+              return await runGit(['config', '--get', 'remote.origin.url'], rootPath)
+            } catch (e2) {
+              // Priority 3: any remote
+              try {
+                const remotes = await runGit(['remote'], rootPath)
+                const firstRemote = remotes.split('\n')[0]?.trim()
+                if (firstRemote) {
+                  return await runGit(['remote', 'get-url', firstRemote], rootPath)
+                }
+              } catch (e3) {
+                console.warn('[Main:Git] Failed to get any remote:', e3)
+              }
+            }
+          }
+          return ''
+        }
+
         const [branch, remoteUrl] = await Promise.all([
-          runGit(['branch', '--show-current'], rootPath).catch(() => ''),
-          runGit(['remote', 'get-url', 'origin'], rootPath).catch(() => '')
+          runGit(['branch', '--show-current'], rootPath).catch((e) => {
+            console.warn('[Main:Git] Failed to get branch:', e)
+            return ''
+          }),
+          getRemoteUrl()
         ])
 
         let repoName = ''
@@ -77,7 +106,8 @@ export async function getGitInfo(rootPath: string): Promise<GitInfo> {
         }
 
         return { branch, remote: remoteUrl, repoName }
-      } catch {
+      } catch (err) {
+        console.error('[Main:Git] Metadata parsing error:', err)
         return { branch: '' }
       }
     })()

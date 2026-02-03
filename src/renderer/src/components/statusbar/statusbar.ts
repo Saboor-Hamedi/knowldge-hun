@@ -447,7 +447,7 @@ export class StatusBar {
             metadata.remote
               ? `
             <div class="rich-tooltip__row">
-              <a href="${metadata.remote}" class="rich-tooltip__link" target="_blank" style="color: var(--accent); text-decoration: none; border-bottom: 1px dashed rgba(86, 156, 214, 0.4); padding-bottom: 1px;">${metadata.remote}</a>
+              <a href="${metadata.remote}" class="rich-tooltip__link" target="_blank" style="color: var(--accent, #569cd6); text-decoration: none; border-bottom: 1px dashed rgba(86, 156, 214, 0.4); padding-bottom: 1px;">${metadata.remote}</a>
             </div>
           `
               : ''
@@ -539,36 +539,56 @@ export class StatusBar {
     const metadata = gitService.getMetadata()
     const branchEl = this.gitBranchEl.querySelector('.statusbar__git-branch')
 
-    if (metadata && metadata.branch) {
+    // If metadata suggests a repo (branch, remote, or keys), show it.
+    if (metadata && (metadata.branch || metadata.remote || metadata.repoName)) {
       this.gitBranchEl.style.display = 'flex'
       this.gitBranchEl.classList.remove('is-init-needed')
-      if (branchEl) branchEl.textContent = metadata.branch
-      // Remove standard title to avoid double tooltips
+      if (branchEl) branchEl.textContent = metadata.branch || 'HEAD'
       this.gitBranchEl.removeAttribute('title')
+
+      // Re-attach tooltip listeners to ensure they are active (tooltip content depends on metadata state)
+      // We clone to clear old listeners to be safe, or just ensure attachGitTooltip is robust
+      // For consistency with the else block, we can leave the element as is but just re-attach tooltip logic via a fresh call if needed?
+      // Actually, attachGitTooltip adds listeners. If we don't clone/replace, we might add duplicate listeners or listeners on old state.
+      // However, attachGitTooltip checks state dynamically on mouseenter. So we just need one set of listeners.
+      // For safety against duplicates or stale state, we'll clone.
+      const newEl = this.gitBranchEl.cloneNode(true) as HTMLElement
+      this.gitBranchEl.parentNode?.replaceChild(newEl, this.gitBranchEl)
+      this.gitBranchEl = newEl
+      this.attachGitTooltip()
     } else {
-      // Not a git repo
+      // Not a git repo or failed to read: Auto-initialize
       this.gitBranchEl.style.display = 'flex'
       this.gitBranchEl.classList.add('is-init-needed')
-      if (branchEl) branchEl.textContent = 'Initialize'
-      this.gitBranchEl.title = 'Click to initialize Git repository'
+      if (branchEl) branchEl.textContent = 'Initializing...'
 
       // Clean listener to avoid duplicates
       const newEl = this.gitBranchEl.cloneNode(true) as HTMLElement
       this.gitBranchEl.parentNode?.replaceChild(newEl, this.gitBranchEl)
       this.gitBranchEl = newEl
 
-      this.gitBranchEl.addEventListener('click', async () => {
-        const success = await window.api.gitInit()
+      // Trigger auto-init immediately
+      window.api.gitInit().then((success) => {
         if (success) {
-          notificationManager.show('Git repository initialized', 'success')
+          // Success notification might be too spammy on every load, maybe optional?
+          // For now, just refresh status to update UI to 'master/main' branch
           gitService.refreshStatus()
-        } else {
-          notificationManager.show('Failed to initialize Git', 'error')
         }
       })
 
-      // Re-attach tooltip event listeners after cloning
-      this.attachGitTooltip()
+      // Simple tooltip while initializing
+      this.gitBranchEl.addEventListener('mouseenter', () => {
+        if (!this.tooltip) return
+        this.tooltip.setCompact(true)
+        this.tooltip.show(
+          this.gitBranchEl!,
+          '<div class="rich-tooltip__title">Initializing Git...</div><div class="rich-tooltip__body">Setting up a new Git repository in this workspace.</div>'
+        )
+      })
+
+      this.gitBranchEl.addEventListener('mouseleave', () => {
+        this.tooltip?.hide()
+      })
     }
   }
 }

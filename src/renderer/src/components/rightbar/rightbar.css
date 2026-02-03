@@ -324,6 +324,28 @@
   max-width: 100%; /* Ensure it doesn't push parent */
 }
 
+.rightbar__message-action-tip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: var(--primary);
+  opacity: 0.8;
+  margin: 4px 10px;
+  font-family: var(--font-mono);
+  font-weight: 500;
+}
+
+.rightbar__message-action-tip-icon {
+  animation: rightbar-spin 2s linear infinite;
+  display: inline-block;
+}
+
+@keyframes rightbar-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 .rightbar__message-content strong {
   font-weight: 600;
   color: inherit;

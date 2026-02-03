@@ -110,7 +110,7 @@ const EXECUTING_HTML = `
           <span style="background: var(--primary)"></span>
           <span style="background: var(--primary); animation-delay: 0.15s"></span>
           <span style="background: var(--primary); animation-delay: 0.3s"></span>
-          <span style="margin-left: 6px; font-size: 10px; font-weight: 600; color: var(--primary); opacity: 0.9;">Running commands...</span>
+          <span style="margin-left: 6px; font-size: 10px; font-weight: 600; color: var(--primary); opacity: 0.9;">Running actions...</span>
         </div>
       </div>
     </div>
@@ -2388,9 +2388,14 @@ export class RightBar {
       // User messages: simple line breaks
       return this.escapeHtml(text).replace(/\n/g, '<br>')
     }
+
+    // Strip [RUN: ...] tags from assistant messages to keep reasoning clean
+    // They are still handled for execution in handleAgenticCommands
+    const cleanText = text.replace(/\[RUN:\s*.+?\]/gs, '').trim()
+
     // Assistant messages: full markdown rendering
     if (!this.md) {
-      // Fallback if md not initialized (shouldn't happen, but safety check)
+      // Fallback if md not initialized
       this.md = new MarkdownIt({
         html: false,
         linkify: true,
@@ -2405,8 +2410,8 @@ export class RightBar {
         }
       })
     }
-    const rawHtml = this.md.render(text)
-    // Sanitize HTML to prevent XSS attacks (allow data attributes for code highlighting)
+    const rawHtml = this.md.render(cleanText)
+    // Sanitize HTML
     const cleanHtml = DOMPurify.sanitize(rawHtml, {
       ADD_ATTR: ['class', 'target', 'rel', 'data-lang', 'data-code'],
       ADD_TAGS: ['pre', 'code'],
@@ -2483,8 +2488,10 @@ export class RightBar {
           title = title.replace(/^>\s*\[(.+?)\]$/, '$1') // Remove > and []
           if (title.includes(':')) {
             const parts = title.split(':')
-            const cmdPart = parts[1]?.trim().split(' ')[0]
-            title = `${parts[0]}: ${cmdPart}`
+            const cmdName = parts[1]?.trim().split(' ')[0]
+            const cmdTarget = parts[1]?.trim().split(' ').slice(1).join(' ').substring(0, 15)
+            const targetSuffix = cmdTarget ? ` ${cmdTarget}...` : ''
+            title = `${parts[0]}: ${cmdName}${targetSuffix}`
           }
 
           const preview = lines.slice(1).join('\n').trim().substring(0, 40).replace(/\n/g, ' ')
@@ -2515,6 +2522,22 @@ export class RightBar {
         }
 
         const content = this.formatContent(msg.content, msg.role === 'assistant')
+
+        // If assistant message becomes empty after stripping [RUN: ...] tags,
+        // and we are either still streaming or it's an agentic step, skip rendering this bubble.
+        const nextMsg = this.messages[idx + 1]
+        const hasCommand = /\[RUN:\s*.+?\]/gs.test(msg.content)
+        const isAgenticStep =
+          msg.role === 'assistant' && (hasCommand || (nextMsg && nextMsg.role === 'system'))
+
+        if (
+          msg.role === 'assistant' &&
+          !content.trim() &&
+          (idx === this.streamingMessageIndex || isAgenticStep)
+        ) {
+          return ''
+        }
+
         const avatar = Avatar.createHTML(msg.role as 'user' | 'assistant', 20)
         const msgIndex = idx
         const feedback = msg.feedback || this.messageFeedback.get(msgIndex) || null
@@ -2532,10 +2555,6 @@ export class RightBar {
                  .join('')}
              </div>`
             : ''
-        const nextMsg = this.messages[idx + 1]
-        const hasCommand = /\[RUN:\s*.+?\]/gs.test(msg.content)
-        const isAgenticStep =
-          msg.role === 'assistant' && (hasCommand || (nextMsg && nextMsg.role === 'system'))
 
         const actions =
           msg.role === 'assistant'
@@ -2567,9 +2586,9 @@ export class RightBar {
         <div class="rightbar__message rightbar__message--${msg.role} ${errorClass}">
           ${avatar}
           <div class="rightbar__message-body">
-          <div class="rightbar__message-content">${content}</div>
+            <div class="rightbar__message-content">${content}</div>
             ${citations}
-          ${actions}
+            ${actions}
           </div>
         </div>
       `
