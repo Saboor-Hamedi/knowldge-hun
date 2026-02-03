@@ -31,7 +31,9 @@
   width: 1px;
   height: 100%;
   background: transparent;
-  transition: background-color 0.2s ease, width 0.2s ease;
+  transition:
+    background-color 0.2s ease,
+    width 0.2s ease;
 }
 
 .rightbar__resize-handle:hover::after {
@@ -342,8 +344,12 @@
 }
 
 @keyframes rightbar-spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .rightbar__message-content strong {
@@ -1172,7 +1178,9 @@
   width: 1px;
   height: 100%;
   background: transparent;
-  transition: background-color 0.2s ease, width 0.2s ease;
+  transition:
+    background-color 0.2s ease,
+    width 0.2s ease;
 }
 
 .rightbar__session-sidebar-resize:hover::after {

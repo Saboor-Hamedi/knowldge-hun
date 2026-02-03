@@ -29,7 +29,6 @@ export class RealTerminalComponent {
   private sessions: Map<string, TerminalSession> = new Map()
   private activeSessionId: string | null = null
   private secondaryActiveSessionId: string | null = null // For split view
-  private currentVaultPath: string | null = null
   private isVisible: boolean = false
   private isRestoring: boolean = false
   private isQuitting: boolean = false
@@ -58,7 +57,7 @@ export class RealTerminalComponent {
     await this.restoreSessions()
 
     // Initialize currentVaultPath after restore, so we check against this on next switch
-    this.currentVaultPath = state.vaultPath || null
+    // (Removed unused tracker)
 
     // Restore visibility if it was open (Scoped to vault)
     const vaultPath = await this.getVaultPath()
@@ -487,7 +486,7 @@ export class RealTerminalComponent {
     // 2. Kill all backend processes and clear UI
     await this.cleanupAllSessions()
     // 3. Update local tracker to new path
-    this.currentVaultPath = state.vaultPath || null
+    // (Removed unused tracker)
 
     // 4. Start a fresh terminal for the new vault
     await this.createNewTerminal()
@@ -1384,11 +1383,9 @@ export class RealTerminalComponent {
     */
     if (!saved) {
       // Update our tracker even if no sessions found, to ensure next save is correct
-      this.currentVaultPath = vaultPath
+      // (Removed unused tracker)
       return
     }
-
-    this.currentVaultPath = vaultPath
 
     this.isRestoring = true
     try {

@@ -4,7 +4,7 @@ import { createElement, CloudUpload, CloudDownload, RefreshCw, GitBranch } from 
 import { state } from '../../core/state'
 import { ContextMenu } from '../contextmenu/contextmenu'
 import { gitService } from '../../services/git/gitService'
-import { notificationManager } from '../notification/notification'
+
 import { RichTooltip } from '../common/tooltip'
 import '../common/tooltip.css'
 

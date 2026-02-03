@@ -1,7 +1,12 @@
 {
   "extends": "@electron-toolkit/tsconfig/tsconfig.web.json",
   "include": ["src/renderer/**/*.ts", "src/renderer/types/**/*.d.ts", "src/preload/*.d.ts"],
-  "exclude": ["src/renderer/src/components/window-header/**/*.ts"],
+  "exclude": [
+    "src/renderer/src/components/window-header/**/*.ts",
+    "src/renderer/**/__tests__/**/*",
+    "src/renderer/**/*.spec.ts",
+    "src/renderer/**/*.test.ts"
+  ],
   "compilerOptions": {
     "composite": true
   }
