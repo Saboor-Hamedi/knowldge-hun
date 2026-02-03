@@ -243,11 +243,6 @@ export class RightBar {
     })
     this.chatInputArea.setMode('ai')
 
-    const closeBtn = this.container.querySelector('#rightbar-header-close') as HTMLButtonElement
-    closeBtn?.addEventListener('click', () => {
-      window.dispatchEvent(new CustomEvent('toggle-right-sidebar'))
-    })
-
     // Initialize session sidebar - append to the rightbar element
     if (rightbarElement) {
       this.sessionSidebar = new SessionSidebar(rightbarElement)
@@ -265,25 +260,7 @@ export class RightBar {
         }
       })
 
-      const sessionsBtn = this.container.querySelector(
-        '#rightbar-header-sessions'
-      ) as HTMLButtonElement
-
-      let isSidebarOpen = false
-      sessionsBtn?.addEventListener('click', () => {
-        if (this.sessionSidebar) {
-          this.sessionSidebar.toggle()
-          isSidebarOpen = !isSidebarOpen
-
-          const newIcon = createElement(isSidebarOpen ? PanelLeft : PanelRight, {
-            size: 16,
-            'stroke-width': 2
-          })
-
-          sessionsBtn.innerHTML = ''
-          sessionsBtn.appendChild(newIcon)
-        }
-      })
+      // Event listeners are handled in attachEvents()
 
       // Initialize AI Menu
       this.aiMenu = new AIMenu(this.container)
@@ -346,9 +323,17 @@ export class RightBar {
     }
 
     // Header sessions toggle
-    const sessionToggle = this.container.querySelector('#rightbar-header-sessions')
-    sessionToggle?.addEventListener('click', () => {
-      this.sessionSidebar.toggle()
+    const sessionToggle = this.container.querySelector(
+      '#rightbar-header-sessions'
+    ) as HTMLButtonElement
+    sessionToggle?.addEventListener('click', (e) => {
+      console.log('[RightBar] Sessions toggle clicked')
+      e.preventDefault()
+      e.stopPropagation()
+      if (this.sessionSidebar) {
+        this.sessionSidebar.toggle()
+        this.updateSessionToggleButtonIcon(sessionToggle)
+      }
     })
 
     // Scroll listener to track if user is at bottom
@@ -917,6 +902,17 @@ export class RightBar {
     // Clear and send
     this.chatInputArea.clear()
     await this.conversationController.sendMessage(finalSelection)
+  }
+
+  private updateSessionToggleButtonIcon(btn: HTMLButtonElement): void {
+    if (!this.sessionSidebar) return
+    const isOpen = this.sessionSidebar.isVisible()
+    const icon = createElement(isOpen ? PanelLeft : PanelRight, {
+      size: 16,
+      'stroke-width': 2
+    })
+    btn.innerHTML = ''
+    btn.appendChild(icon)
   }
 
   private showCopyFeedback(button: HTMLElement): void {

@@ -12,7 +12,7 @@ export class SessionSidebar {
   private sessionsList!: HTMLElement
   private searchInput!: HTMLInputElement
   private resizeHandle!: HTMLElement
-  private isVisible = false
+  private _isVisible = false
   private isResizing = false
   private onSessionSelect?: (sessionId: string) => void
   private onNewSession?: () => void
@@ -54,24 +54,30 @@ export class SessionSidebar {
     this.onSessionDelete = callback
   }
 
+  isVisible(): boolean {
+    return this._isVisible
+  }
+
   setCurrentSession(sessionId: string | null): void {
     this.currentSessionId = sessionId
     this.updateActiveSession()
   }
 
   toggle(): void {
+    console.log('[SessionSidebar] toggle() called, currently:', this._isVisible)
     if (!this.sidebarElement) {
       console.error('[SessionSidebar] Sidebar element not found')
       return
     }
 
-    this.isVisible = !this.isVisible
+    this._isVisible = !this._isVisible
+    const rightbar = this.container.classList.contains('rightbar')
+      ? this.container
+      : (this.container.closest('.rightbar') as HTMLElement)
 
-    if (this.isVisible) {
+    if (this._isVisible) {
       this.sidebarElement.classList.add('rightbar__session-sidebar--visible')
       this.sidebarElement.style.width = `${this.sidebarWidth}px`
-      // Add class to parent rightbar for content shifting (fallback for browsers without :has() support)
-      const rightbar = this.container.closest('.rightbar')
       if (rightbar) {
         rightbar.classList.add('rightbar--session-sidebar-visible')
       }
@@ -79,8 +85,6 @@ export class SessionSidebar {
       void this.loadSessions()
     } else {
       this.sidebarElement.classList.remove('rightbar__session-sidebar--visible')
-      // Remove class from parent rightbar
-      const rightbar = this.container.closest('.rightbar')
       if (rightbar) {
         rightbar.classList.remove('rightbar--session-sidebar-visible')
       }
@@ -89,7 +93,7 @@ export class SessionSidebar {
   }
 
   show(): void {
-    this.isVisible = true
+    this._isVisible = true
     this.sidebarElement.classList.add('rightbar__session-sidebar--visible')
     this.sidebarElement.style.width = `${this.sidebarWidth}px`
     // Add class to parent rightbar for content shifting
@@ -102,7 +106,7 @@ export class SessionSidebar {
   }
 
   hide(): void {
-    this.isVisible = false
+    this._isVisible = false
     this.sidebarElement.classList.remove('rightbar__session-sidebar--visible')
     // Remove class from parent rightbar
     const rightbar = this.container.closest('.rightbar')
@@ -158,17 +162,18 @@ export class SessionSidebar {
         </div>
       </div>
     `
-    this.container.insertAdjacentHTML('beforeend', sidebarHTML)
-    this.sidebarElement = this.container.querySelector('#rightbar-session-sidebar') as HTMLElement
-    this.sessionsList = this.container.querySelector(
-      '#rightbar-session-sidebar-list'
-    ) as HTMLElement
-    this.searchInput = this.container.querySelector(
+    const sidebarContainer = document.createElement('div')
+    sidebarContainer.innerHTML = sidebarHTML.trim()
+    const sidebarEl = sidebarContainer.firstElementChild as HTMLElement
+
+    this.container.appendChild(sidebarEl)
+
+    this.sidebarElement = sidebarEl
+    this.sessionsList = sidebarEl.querySelector('#rightbar-session-sidebar-list') as HTMLElement
+    this.searchInput = sidebarEl.querySelector(
       '#rightbar-session-sidebar-search'
     ) as HTMLInputElement
-    this.resizeHandle = this.sidebarElement.querySelector(
-      '#rightbar-session-sidebar-resize'
-    ) as HTMLElement
+    this.resizeHandle = sidebarEl.querySelector('#rightbar-session-sidebar-resize') as HTMLElement
 
     if (!this.sidebarElement) {
       console.error('[SessionSidebar] Failed to find sidebar element after render')
@@ -593,7 +598,7 @@ export class SessionSidebar {
 
   private updateContentMargin(): void {
     // Update the margin-left of content areas when sidebar is visible
-    if (!this.isVisible) return
+    if (!this._isVisible) return
 
     const rightbar = this.container.closest('.rightbar')
     if (!rightbar) return
