@@ -1254,12 +1254,23 @@ export class RealTerminalComponent {
   private saveSessions(): void {
     if (this.isQuitting) return
 
+    const vaultPath = state.vaultPath
+    const key = vaultPath ? `terminal_sessions_${vaultPath}` : 'terminal_sessions'
+
+    // Also clear the global one if we are now using a specific one, to prevent confusion?
+    // No, duplicate saving is safer than data loss, but we want to avoid reading it back.
+    // For now, just save to specific.
+
     const sessionData = Array.from(this.sessions.entries()).map(([id, session]) => ({
       id,
       shellType: session.shellType || 'powershell',
       cwd: session.cwd || ''
     }))
-    localStorage.setItem('terminal_sessions', JSON.stringify(sessionData))
+    localStorage.setItem(key, JSON.stringify(sessionData))
+    // Also save the active session ID scoped
+    if (this.activeSessionId) {
+      localStorage.setItem(`terminal_active_${vaultPath || 'default'}`, this.activeSessionId)
+    }
 
     // Save buffers for each session (last 1000 lines)
     this.sessions.forEach((session, id) => {
@@ -1271,21 +1282,30 @@ export class RealTerminalComponent {
       }
     })
 
-    console.log(`[RealTerminal] Saved ${sessionData.length} sessions to persistence`)
+    console.log(`[RealTerminal] Saved ${sessionData.length} sessions to persistence (${key})`)
   }
 
   /**
    * Restore terminal sessions from local storage
    */
   private async restoreSessions(): Promise<void> {
-    const saved = localStorage.getItem('terminal_sessions')
+    // Determine the key based on current vault path to avoid cross-project pollution
+    const vaultPath = await this.getVaultPath()
+    const key = vaultPath ? `terminal_sessions_${vaultPath}` : 'terminal_sessions'
+
+    const saved = localStorage.getItem(key)
+    /* 
+       If no specific session is found, do NOT fallback to global 'terminal_sessions' 
+       because that causes the "ghost session from other project" bug.
+       Better to start fresh in a new/untracked vault.
+    */
     if (!saved) return
 
     this.isRestoring = true
     try {
       const sessionData = JSON.parse(saved)
       if (Array.isArray(sessionData)) {
-        console.log(`[RealTerminal] Restoring ${sessionData.length} sessions...`)
+        console.log(`[RealTerminal] Restoring ${sessionData.length} sessions from ${key}...`)
 
         // Use a for...of loop with individual try/catch to ensure one failure doesn't stop others
         const restoredIds: string[] = []
@@ -1299,7 +1319,8 @@ export class RealTerminalComponent {
         }
 
         // Restore active session
-        const activeId = localStorage.getItem('terminal_active_session')
+        const activeKey = `terminal_active_${vaultPath || 'default'}`
+        const activeId = localStorage.getItem(activeKey)
         if (activeId && this.sessions.has(activeId)) {
           this.switchToTerminal(activeId)
         } else if (this.sessions.size > 0) {

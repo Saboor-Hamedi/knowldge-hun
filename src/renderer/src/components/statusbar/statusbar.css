@@ -38,16 +38,8 @@
   overflow: hidden;
 }
 
-/* Subtle separator line */
-.statusbar__item::after {
-  content: '';
-  position: absolute;
-  right: 0;
-  top: 6px;
-  bottom: 6px;
-  width: 1px;
-  background: rgba(255, 255, 255, 0.06);
-}
+/* Separator removed as per user request */
+/* .statusbar__item::after { ... } */
 
 .statusbar__item:last-child::after {
   display: none;
@@ -181,14 +173,14 @@
   font-family: var(--font-mono, 'JetBrains Mono', monospace);
   min-width: 100px;
   font-variant-numeric: tabular-nums;
-  border-left: 1px solid rgba(255, 255, 255, 0.05);
+  border-left: none;
 }
 
 .statusbar__git {
   gap: 8px;
   cursor: pointer;
   padding-left: 14px;
-  border-right: 1px solid rgba(255, 255, 255, 0.05);
+  border-right: none;
 }
 
 .statusbar__git.is-init-needed {

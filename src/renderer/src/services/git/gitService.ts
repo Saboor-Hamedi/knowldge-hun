@@ -38,7 +38,10 @@ export class GitService {
 
     this.isRefreshing = true
     try {
-      const { status: rawStatus, metadata: rawMetadata } = await window.api.getGitInfo()
+      // Pass the current vault path from state to avoid backend inference issues
+      const { status: rawStatus, metadata: rawMetadata } = await window.api.getGitInfo(
+        state.vaultPath
+      )
       const newMap: Record<string, GitStatus> = {}
 
       Object.entries(rawStatus).forEach(([filePath, status]) => {

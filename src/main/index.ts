@@ -921,9 +921,13 @@ app.whenReady().then(async () => {
     return getGitStatus(root)
   })
 
-  ipcMain.handle('git:info', async (event) => {
-    const v = getVaultManager(event.sender)
-    const root = v?.getRootPath() || resolveVaultPath()
+  ipcMain.handle('git:info', async (event, forcedPath?: string) => {
+    let root = forcedPath
+    if (!root) {
+      const v = getVaultManager(event.sender)
+      root = v?.getRootPath() || resolveVaultPath()
+    }
+    // console.log('[Main] Getting Git info for:', root)
     return getGitInfo(root)
   })
 

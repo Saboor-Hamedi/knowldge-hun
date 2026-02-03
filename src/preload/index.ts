@@ -99,10 +99,12 @@ const api = {
   getGraph: (): Promise<{ links: { source: string; target: string }[] }> =>
     ipcRenderer.invoke('graph:get'),
   getGitStatus: (): Promise<Record<string, string>> => ipcRenderer.invoke('git:status'),
-  getGitInfo: (): Promise<{
+  getGitInfo: (
+    forcedPath?: string
+  ): Promise<{
     status: Record<string, string>
     metadata: { branch: string; remote?: string; repoName?: string }
-  }> => ipcRenderer.invoke('git:info'),
+  }> => ipcRenderer.invoke('git:info', forcedPath),
   gitInit: (): Promise<boolean> => ipcRenderer.invoke('git:init'),
 
   getSettings: (): Promise<AppSettings> => ipcRenderer.invoke('settings:get'),

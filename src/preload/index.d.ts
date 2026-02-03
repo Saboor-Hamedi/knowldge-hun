@@ -108,7 +108,9 @@ type NoteApi = {
   getBacklinks: (id: string) => Promise<string[]>
   getGraph: () => Promise<{ links: { source: string; target: string }[] }>
   getGitStatus: () => Promise<Record<string, string>>
-  getGitInfo: () => Promise<{ status: Record<string, string>; metadata: GitMetadata }>
+  getGitInfo: (
+    forcedPath?: string
+  ) => Promise<{ status: Record<string, string>; metadata: GitMetadata }>
   gitInit: () => Promise<boolean>
   getGitHistory: (filePath: string) => Promise<GitCommit[]>
   getGitContentAtCommit: (filePath: string, hash: string) => Promise<string>

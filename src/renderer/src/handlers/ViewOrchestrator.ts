@@ -261,6 +261,7 @@ export class ViewOrchestrator {
     this.updateViewVisibility()
     this.components.settingsView.update()
     this.components.statusBar.setStatus('Settings Editor')
+    this.updateEditorMetrics()
   }
 
   public async closeSettings(): Promise<void> {
@@ -294,6 +295,7 @@ export class ViewOrchestrator {
     this.updateViewVisibility()
     await this.components.graphTabView.open()
     this.components.statusBar.setStatus('Knowledge Graph')
+    this.updateEditorMetrics()
   }
 
   public async closeGraph(): Promise<void> {
@@ -317,6 +319,7 @@ export class ViewOrchestrator {
     this.components.welcomePage.show()
     this.components.editor.showEmpty()
     this.updateViewVisibility()
+    this.updateEditorMetrics()
   }
 
   public hideWelcomePage(): void {
