@@ -348,6 +348,12 @@ export class AIService {
     ).length
     score += matchedTerms * 5
 
+    // Huge boost for exact title match (ignoring case)
+    const fullQuery = queryTerms.join(' ')
+    if (lowerTitle === fullQuery || lowerTitle === fullQuery.replace(/^@/, '')) {
+      score += 500
+    }
+
     return score
   }
 
@@ -438,7 +444,11 @@ export class AIService {
         }
       }
 
-      return scoredNotes.sort((a, b) => b.score - a.score).slice(0, limit)
+      // Higher threshold for relevance - filter out weak matches
+      return scoredNotes
+        .filter((n) => n.score > 15)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, limit)
     } catch (error) {
       console.error('[AIService] Failed to find relevant notes:', error)
       return []
@@ -588,8 +598,8 @@ export class AIService {
             context += `\n... and ${vaultSize - notesToShow.length} more notes.\n`
           }
         } else {
-          // Find and load only relevant notes (smart RAG)
-          const relevantNotes = await this.findRelevantNotesHybrid(userMessage, 5)
+          // Find and load only relevant notes (smart RAG) - reduced limit to minimize noise
+          const relevantNotes = await this.findRelevantNotesHybrid(userMessage, 3)
 
           if (relevantNotes.length > 0) {
             context += `\nRelevant notes from vault (${relevantNotes.length} most relevant):\n`

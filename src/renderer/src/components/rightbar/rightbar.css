@@ -206,17 +206,17 @@
   gap: 8px;
   padding: 0;
   align-self: flex-start;
-  margin-bottom: 4px;
 }
 
 .rightbar__typing-dots {
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 10px 12px;
+  padding: 8px 12px;
   background: var(--panel-strong);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 8px;
+  min-height: 32px;
 }
 
 .rightbar__typing-dots span {
@@ -232,6 +232,13 @@
 }
 .rightbar__typing-dots span:nth-child(3) {
   animation-delay: 0.3s;
+}
+
+.rightbar__executing .rightbar__typing-dots {
+  background: var(--bg);
+  border: 1px dashed var(--primary);
+  opacity: 0.9;
+  width: 100%; /* Match width of other responses */
 }
 
 @keyframes rightbar-typing {
@@ -312,6 +319,8 @@
   line-height: 1.5;
   word-wrap: break-word;
   overflow-wrap: break-word;
+  overflow-x: auto;
+  max-width: 100%; /* Ensure it doesn't push parent */
 }
 
 .rightbar__message-content strong {
@@ -441,10 +450,14 @@
 }
 
 .rightbar__message-content table {
-  margin: 8px 0;
+  margin: 12px 0;
   border-collapse: collapse;
   width: 100%;
+  max-width: 100%;
   font-size: 12px;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid var(--border);
 }
 
 .rightbar__message-content th,
@@ -734,18 +747,25 @@
 
 /* Mention styling inside contenteditable */
 .rightbar__mention {
-  display: inline-block;
-  padding: 2px 6px;
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
   margin: 0 2px;
-  background: var(--primary);
-  color: #0b1220;
+  background: rgba(127, 167, 255, 0.15);
+  color: var(--primary);
+  border: 1px solid rgba(127, 167, 255, 0.3);
   border-radius: 4px;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
   line-height: 1.4;
   cursor: default;
-  user-select: none;
-  vertical-align: baseline;
+  vertical-align: middle;
+  transition: all 0.2s ease;
+}
+
+.rightbar__mention:hover {
+  background: rgba(127, 167, 255, 0.25);
+  border-color: var(--primary);
 }
 
 /* Typing mention highlight (while user is typing @notename) */
@@ -1342,12 +1362,13 @@
 }
 
 .rightbar__session-item-title {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
   color: var(--text-strong);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  max-width: 100%;
   flex: 1;
   min-width: 0;
 }
@@ -1635,9 +1656,10 @@
 }
 /* ---- System / Agentic Messages ---- */
 .rightbar__system-message {
-  align-self: center;
-  width: 95%;
-  margin: 4px 0;
+  align-self: flex-start;
+  max-width: 92%;
+  width: auto;
+  margin: 4px 0 4px 28px; /* Offset to match assistant body alignment (avatar is 20px + 8px gap) */
   font-size: 11px;
 }
 

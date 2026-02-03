@@ -87,10 +87,32 @@ const WELCOME_HTML = `
 `
 
 const TYPING_HTML = `
-  <div class="rightbar__typing" aria-live="polite">
+  <div class="rightbar__message rightbar__message--assistant">
     ${Avatar.createHTML('assistant', 20)}
-    <div class="rightbar__typing-dots">
-    <span></span><span></span><span></span>
+    <div class="rightbar__message-body">
+      <div class="rightbar__typing" aria-live="polite">
+        <div class="rightbar__typing-dots">
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+      </div>
+    </div>
+  </div>
+`
+
+const EXECUTING_HTML = `
+  <div class="rightbar__message rightbar__message--assistant">
+    ${Avatar.createHTML('assistant', 20)}
+    <div class="rightbar__message-body">
+      <div class="rightbar__message-content rightbar__executing" aria-live="polite">
+        <div class="rightbar__typing-dots">
+          <span style="background: var(--primary)"></span>
+          <span style="background: var(--primary); animation-delay: 0.15s"></span>
+          <span style="background: var(--primary); animation-delay: 0.3s"></span>
+          <span style="margin-left: 6px; font-size: 10px; font-weight: 600; color: var(--primary); opacity: 0.9;">Running commands...</span>
+        </div>
+      </div>
     </div>
   </div>
 `
@@ -130,6 +152,7 @@ export class RightBar {
   private messageFeedback: Map<number, 'thumbs-up' | 'thumbs-down' | null> = new Map() // Track feedback per message index
   private streamingMessageIndex: number | null = null // Track which message is currently streaming
   private wasAtBottom = true
+  private isExecutingCommand = false // Track when we are running background agent commands
   private aiMenu!: AIMenu
   private sessionSidebar!: SessionSidebar
   private aiSettingsModal: AISettingsModal
@@ -330,7 +353,7 @@ export class RightBar {
     // Use setTimeout to ensure this doesn't block the main thread
     this.saveTimeout = window.setTimeout(() => {
       // Use requestIdleCallback if available, otherwise setTimeout with 0 delay
-      const saveOperation = async () => {
+      const saveOperation = async (): Promise<void> => {
         try {
           await sessionStorageService.updateSessionMessages(this.currentSessionId!, this.messages)
           // Update session title if it's still the default
@@ -380,7 +403,7 @@ export class RightBar {
     const prefixes = [
       /^(what|how|why|when|where|who|can|could|should|would|is|are|do|does|did)\s+/i,
       /^(explain|describe|tell|show|help|please)\s+/i,
-      /^(i want|i need|i would like|i\'m looking for)\s+/i
+      /^(i want|i need|i would like|i'm looking for)\s+/i
     ]
 
     for (const prefix of prefixes) {
@@ -732,34 +755,84 @@ export class RightBar {
       // Handle mention deletion with Backspace
       if (e.key === 'Backspace') {
         const selection = window.getSelection()
-        if (selection && selection.isCollapsed && selection.rangeCount > 0) {
+        if (selection && selection.rangeCount > 0) {
           const range = selection.getRangeAt(0)
 
           // Try to find if we're deleting a mention
           let itemToDelete: HTMLElement | null = null
 
-          // Case 1: Cursor is in a text node at offset 0, check previous sibling
-          if (range.startContainer.nodeType === Node.TEXT_NODE && range.startOffset === 0) {
-            let prev = (range.startContainer as Text).previousSibling
-            // Skip empty text nodes
-            while (prev && prev.nodeType === Node.TEXT_NODE && !prev.textContent?.trim()) {
-              prev = prev.previousSibling
+          if (selection.isCollapsed) {
+            // Check if we are right at the edge of or inside a mention
+            const container = range.startContainer
+            const offset = range.startOffset
+
+            // Helper to get element before caret
+            let nodeBefore: Node | null = null
+            if (container.nodeType === Node.TEXT_NODE) {
+              if (offset === 0) {
+                nodeBefore = container.previousSibling
+              } else {
+                // If it's just whitespace, check what's before it
+                const textBefore = container.textContent?.substring(0, offset) || ''
+                if (textBefore.trim().length === 0) {
+                  nodeBefore = container.previousSibling
+                }
+              }
+            } else if (container === this.chatInput) {
+              nodeBefore = this.chatInput.childNodes[offset - 1]
             }
-            if (prev instanceof HTMLElement && prev.classList.contains('rightbar__mention')) {
-              itemToDelete = prev
+
+            // Skip any empty/whitespace text nodes before
+            while (
+              nodeBefore &&
+              nodeBefore.nodeType === Node.TEXT_NODE &&
+              !nodeBefore.textContent?.trim()
+            ) {
+              nodeBefore = nodeBefore.previousSibling
             }
-          }
-          // Case 2: Cursor is directly in the chat input (parent)
-          else if (range.startContainer === this.chatInput && range.startOffset > 0) {
-            const node = this.chatInput.childNodes[range.startOffset - 1]
-            if (node instanceof HTMLElement && node.classList.contains('rightbar__mention')) {
-              itemToDelete = node
+
+            if (
+              nodeBefore instanceof HTMLElement &&
+              nodeBefore.classList.contains('rightbar__mention')
+            ) {
+              itemToDelete = nodeBefore
+            }
+
+            // Check if caret is actually INSIDE a mention text
+            const mentionParent = container.parentElement?.closest('.rightbar__mention')
+            if (mentionParent) {
+              itemToDelete = mentionParent as HTMLElement
+            }
+          } else {
+            // Case 3: Selection is a range that includes or is a mention
+            const common = range.commonAncestorContainer
+            const ancestor = common instanceof HTMLElement ? common : common.parentElement
+            const mention = ancestor?.closest('.rightbar__mention') as HTMLElement
+            if (mention) {
+              itemToDelete = mention
             }
           }
 
           if (itemToDelete) {
             e.preventDefault()
-            itemToDelete.remove()
+            const parent = itemToDelete.parentNode
+            if (parent) {
+              // Get absolute text position before deletion
+              const rangeClone = range.cloneRange()
+              rangeClone.selectNodeContents(this.chatInput)
+              rangeClone.setEnd(range.startContainer, range.startOffset)
+              const cursorPos = rangeClone.toString().length
+
+              // Calculate how much text is being removed
+              const mentionLength = itemToDelete.textContent?.length || 0
+              const newPos = Math.max(0, cursorPos - mentionLength)
+
+              const textNode = document.createTextNode('')
+              parent.replaceChild(textNode, itemToDelete)
+              this.restoreCursorToOffset(newPos)
+            } else {
+              itemToDelete.remove()
+            }
             this.updateCharacterCount()
             this.updateNoteReferencesInContent()
             this.autoResizeTextarea()
@@ -1620,28 +1693,24 @@ export class RightBar {
 
     // Highlight the typing mention with proper cursor preservation
     if (query.length > 0) {
+      // Calculate cursor offset from the start of the mention
+      const cursorOffset = textBeforeCursor.length - triggerIndex
+
       // Use requestAnimationFrame to ensure highlighting happens after browser processes input
       requestAnimationFrame(() => {
-        this.highlightTypingMention(triggerIndex, query.length, range)
+        this.highlightTypingMention(triggerIndex, query.length, cursorOffset)
       })
     } else {
       this.removeTypingHighlight()
     }
   }
 
-  private highlightTypingMention(atIndex: number, queryLength: number, range: Range): void {
+  private highlightTypingMention(atIndex: number, queryLength: number, cursorOffset: number): void {
     // Check if we already have a highlight for this same position
     const existingHighlight = (this.chatInput as any).__typingHighlight as HTMLElement | null
     if (existingHighlight && existingHighlight.parentNode) {
-      const existingText = existingHighlight.textContent || ''
-      // If the highlight text matches what we want to highlight, don't re-highlight
-      if (
-        existingText === `@${range.toString().substring(atIndex + 1, atIndex + 1 + queryLength)}`
-      ) {
-        // Just update cursor position
-        this.restoreCursorAfterHighlight(existingHighlight)
-        return
-      }
+      // If the highlight span already exists at the right place, we'll just ensure
+      // the cursor is restored correctly below.
     }
 
     // Remove existing typing highlight first
@@ -1708,8 +1777,8 @@ export class RightBar {
           parent.removeChild(targetNode)
           ;(this.chatInput as any).__typingHighlight = highlightSpan
 
-          // Restore cursor - always at the end of the query (where user is typing)
-          this.restoreCursorAfterHighlight(highlightSpan)
+          // Restore cursor at the exact relative position the user was at
+          this.restoreCursorToOffset(atIndex + cursorOffset)
         }
       } catch {
         // Highlight error
@@ -1717,22 +1786,35 @@ export class RightBar {
     }
   }
 
-  private restoreCursorAfterHighlight(highlightSpan: HTMLElement): void {
+  private restoreCursorToOffset(offset: number): void {
     const selection = window.getSelection()
     if (!selection) return
 
-    // Always place cursor right after the highlight (at the end of the query being typed)
-    const newRange = document.createRange()
-    newRange.setStartAfter(highlightSpan)
-    newRange.setEndAfter(highlightSpan)
+    const walker = document.createTreeWalker(this.chatInput, NodeFilter.SHOW_TEXT)
+    let currentPos = 0
+    let targetNode: Text | null = null
+    let targetOffset = 0
 
-    // Use setTimeout to ensure this happens after DOM updates
-    setTimeout(() => {
-      if (selection) {
-        selection.removeAllRanges()
-        selection.addRange(newRange)
+    while (walker.nextNode()) {
+      const node = walker.currentNode as Text
+      const nodeLength = (node.textContent || '').length
+
+      if (currentPos <= offset && offset <= currentPos + nodeLength) {
+        targetNode = node
+        targetOffset = offset - currentPos
+        break
       }
-    }, 0)
+
+      currentPos += nodeLength
+    }
+
+    if (targetNode) {
+      const newRange = document.createRange()
+      newRange.setStart(targetNode, targetOffset)
+      newRange.setEnd(targetNode, targetOffset)
+      selection.removeAllRanges()
+      selection.addRange(newRange)
+    }
   }
 
   private removeTypingHighlight(): void {
@@ -2440,9 +2522,14 @@ export class RightBar {
                  .join('')}
              </div>`
             : ''
+        const nextMsg = this.messages[idx + 1]
+        const hasCommand = /\[RUN:\s*.+?\]/gs.test(msg.content)
+        const isAgenticStep =
+          msg.role === 'assistant' && (hasCommand || (nextMsg && nextMsg.role === 'system'))
+
         const actions =
           msg.role === 'assistant'
-            ? `<div class="rightbar__message-actions">
+            ? `<div class="rightbar__message-actions" ${isAgenticStep ? 'style="display: none;"' : ''}>
              <button type="button" class="rightbar__message-action rightbar__message-action--copy" data-action="copy" data-message-index="${msgIndex}" title="Copy">
                ${this.createLucideIcon(Copy, 12, 1.5)}
              </button>
@@ -2485,8 +2572,8 @@ export class RightBar {
         this.streamingMessageIndex !== null &&
         this.messages[this.streamingMessageIndex]?.content.trim().length > 0
 
-      if (!isActuallyStreamingContent) {
-        html += TYPING_HTML
+      if (!isActuallyStreamingContent || this.isExecutingCommand) {
+        html += this.isExecutingCommand ? EXECUTING_HTML : TYPING_HTML
       }
     }
 
@@ -2609,6 +2696,9 @@ export class RightBar {
     let match
     const results: string[] = []
 
+    this.isExecutingCommand = true
+    this.renderMessages() // Show thinking indicator
+
     while ((match = commandRegex.exec(content)) !== null) {
       const commandText = match[1].trim()
       try {
@@ -2620,6 +2710,8 @@ export class RightBar {
         )
       }
     }
+
+    this.isExecutingCommand = false
 
     if (results.length > 0) {
       const resultsMessage = results.join('\n\n')
