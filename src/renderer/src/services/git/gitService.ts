@@ -85,6 +85,7 @@ export class GitService {
    * Returns the Git status of a specific file/id.
    */
   public getStatus(id: string): GitStatus {
+    if (!id || typeof id !== 'string') return 'none'
     // Normalize path for lookup
     const path = id.replace(/\\/g, '/')
     return this.statusMap[path] || 'none'

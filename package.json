@@ -22,7 +22,8 @@
     "build:linux": "npm run build && electron-builder --linux",
     "dist:publish": "npm run build && npx electron-builder --win --publish=never && npx dotenv-cli node scripts/publish.js",
     "icon:win": "npx electron-icon-maker --input=resources/icon.png --output=build && cp build/icons/win/icon.ico build/icon.ico && cp build/icons/mac/icon.icns build/icon.icns",
-    "test": "npx playwright test"
+    "test": "npx playwright test",
+    "test:unit": "vitest run"
   },
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",
@@ -78,7 +79,9 @@
     "@electron-toolkit/eslint-config-ts": "^3.1.0",
     "@electron-toolkit/tsconfig": "^2.0.0",
     "@playwright/test": "^1.58.0",
+    "@testing-library/dom": "^10.4.1",
     "@types/node": "^22.19.1",
+    "@vitest/ui": "^4.0.18",
     "archiver": "^7.0.1",
     "cross-env": "^10.1.0",
     "dotenv-cli": "^11.0.0",
@@ -87,8 +90,10 @@
     "electron-icon-maker": "^0.0.5",
     "electron-vite": "^5.0.0",
     "eslint": "^9.39.1",
+    "jsdom": "^28.0.0",
     "prettier": "^3.7.4",
     "typescript": "^5.9.3",
-    "vite": "^7.2.6"
+    "vite": "^7.2.6",
+    "vitest": "^4.0.18"
   }
 }

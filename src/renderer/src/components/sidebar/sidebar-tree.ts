@@ -863,7 +863,9 @@ export class SidebarTree {
     if (folder.path) el.dataset.path = folder.path
     el.dataset.depth = String(depth)
     const fullFolderPath = state.vaultPath ? `${state.vaultPath}/${folder.id}` : folder.id
-    setTooltip(el, fullFolderPath.replace(/\\/g, '/'))
+    if (fullFolderPath) {
+      setTooltip(el, fullFolderPath.replace(/\\/g, '/'))
+    }
     el.draggable = true
     el.tabIndex = 0
 
@@ -923,7 +925,9 @@ export class SidebarTree {
     el.dataset.depth = String(depth)
     const relativePath = note.path || note.id
     const fullNotePath = state.vaultPath ? `${state.vaultPath}/${relativePath}` : relativePath
-    setTooltip(el, fullNotePath.replace(/\\/g, '/'))
+    if (fullNotePath) {
+      setTooltip(el, fullNotePath.replace(/\\/g, '/'))
+    }
     el.draggable = true
     el.tabIndex = 0
 
@@ -952,7 +956,7 @@ export class SidebarTree {
 
     const label = document.createElement('span')
     label.className = 'tree-item__label'
-    label.textContent = note.title.replace(/\.md$/i, '')
+    label.textContent = (note.title || '').replace(/\.md$/i, '')
     label.dataset.noteId = note.id
 
     el.appendChild(spacer)
