@@ -280,16 +280,12 @@ body.no-transitions *:after {
   flex-shrink: 0;
   z-index: 500;
   box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.3);
-  overflow: visible !important;
+  overflow: hidden !important;
 
   /* 
-   * STRATEGY CHANGE: 
-   * Since absolute positioning crashes xterm.js in this env,
-   * we use relative positioning. 
-   * To achieve "overlap" (go over breadcrumbs), we will use 
-   * negative top margins dynamically in JS if needed, 
-   * or rely on high z-index if they share a stacking context 
-   * that allows overlap (e.g. grid areas).
+   * STRATEGY: 
+   * We use nested containers in JS to handle padding without 
+   * breaking xterm's fit calculation.
    */
   margin-top: 0;
 }

@@ -267,12 +267,12 @@
 .terminal-session-item {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 2px 4px;
+  gap: 8px;
+  padding: 5px 8px;
   cursor: pointer;
-  border-radius: 3px;
+  border-radius: 4px;
   margin-bottom: 2px;
-  transition: background 0.15s ease;
+  transition: all 0.15s ease;
   position: relative;
 }
 
@@ -491,9 +491,18 @@
   height: 100%;
   position: relative;
   overflow: hidden;
-  padding: 0; /* Removed padding to ensure full height/width */
+  padding: 12px 14px;
   box-sizing: border-box;
   background-color: var(--terminal-bg, #1e1e1e);
+  transition: padding 0.2s ease;
+}
+
+/* Inner container for xterm to ensure fit calculation excludes padding */
+.xterm-container {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
 }
 
 .terminal-instance.split-active {
@@ -501,9 +510,9 @@
   height: 100% !important;
 }
 
-/* 
+/*
  * CRITICAL LAYOUT OVERRIDES - DO NOT CHANGE WITHOUT CAUTION
- * This configuration ensures the terminal fills the entire panel with zero gaps 
+ * This configuration ensures the terminal fills the entire panel with zero gaps
  * on the bottom or right. It has been perfected through several iterations.
  * DO NOT REMOVE the width/height !important overrides.
  */

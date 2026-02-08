@@ -298,7 +298,8 @@ export class TerminalManager {
 
     switch (shellType) {
       case 'powershell':
-        targetExe = 'powershell.exe'
+        // Modern standard is pwsh.exe (PowerShell 7+), falling back to legacy if needed
+        targetExe = this.isExecutableAvailable('pwsh.exe') ? 'pwsh.exe' : 'powershell.exe'
         break
       case 'pwsh':
         targetExe = 'pwsh.exe'
@@ -365,14 +366,23 @@ export class TerminalManager {
    * Check if executable is available
    */
   private isExecutableAvailable(exe: string): boolean {
+    if (!exe) return false
     if (isAbsolute(exe)) {
       return existsSync(exe)
     }
 
     try {
+      // 1. Primary check: where.exe/which
       const cmd = os.platform() === 'win32' ? 'where.exe' : 'which'
       const result = spawnSync(cmd, [exe], { stdio: 'ignore' })
-      return result.status === 0
+      if (result.status === 0) return true
+
+      // 2. Fallback check: try to run it (Windows specific fallback for pwsh)
+      if (os.platform() === 'win32') {
+        const probe = spawnSync(exe, ['--version'], { stdio: 'ignore' })
+        return probe.status === 0
+      }
+      return false
     } catch {
       return false
     }
@@ -399,22 +409,35 @@ export class TerminalManager {
     }
   }
 
-  /**
-   * Prepare environment variables for shell
-   */
   private prepareEnvironment(): Record<string, string> {
     const env = { ...process.env } as Record<string, string>
 
     if (os.platform() === 'win32') {
-      // These variables cause tools like oh-my-posh to use the wrong path style
-      delete env.SHELL
-      delete env.TERM
-      delete env.TERM_PROGRAM
+      // WIPE all variables that trick tools (Oh-My-Posh, etc.) into using POSIX style.
+      // These are often leaked from an active Git Bash or VS Code terminal session.
+      const unixVars = [
+        'SHELL',
+        'TERM',
+        'TERM_PROGRAM',
+        'TERM_PROGRAM_VERSION',
+        'MSYSTEM',
+        'OSTYPE',
+        'INFOPATH',
+        'MANPATH',
+        'PLOW_PLATFORM',
+        'ACLOCAL_PATH',
+        'PKG_CONFIG_PATH'
+      ]
+      unixVars.forEach((v) => delete env[v])
 
-      // Ensure we have a sensible TERM for xterm.js
-      env.TERM = 'xterm-256color'
-      // Identify our app as the terminal program
-      env.TERM_PROGRAM = 'knowledge-hub'
+      // If HOME is set to a POSIX path (e.g. by Git Bash), it breaks PowerShell tools.
+      // On Windows, USERPROFILE is the source of truth for PowerShell.
+      if (env.HOME && env.HOME.startsWith('/')) {
+        delete env.HOME
+      }
+
+      // Explicitly announce ConPTY capability if needed, but avoid 'xterm-256color'
+      // which is the primary trigger for POSIX path generation in Go tools.
     }
 
     return env
@@ -423,25 +446,12 @@ export class TerminalManager {
   /**
    * Normalize working directory for specific shells (Windows only)
    */
-  private normalizeWorkingDir(dir: string, shell: string): string {
-    if (os.platform() !== 'win32') return dir
-
-    const lowerShell = shell.toLowerCase()
-
-    // 1. WSL: Translate C:\ to /mnt/c
-    if (lowerShell.includes('wsl.exe')) {
-      return dir
-        .replace(/^([a-zA-Z]):\\/, (_, drive) => `/mnt/${drive.toLowerCase()}/`)
-        .replace(/\\/g, '/')
-    }
-
-    // 2. Git Bash: Translate C:\ to /c/
-    if (lowerShell.includes('bash.exe') && !lowerShell.includes('windows\\system32')) {
-      return dir
-        .replace(/^([a-zA-Z]):\\/, (_, drive) => `/${drive.toLowerCase()}/`)
-        .replace(/\\/g, '/')
-    }
-
+  private normalizeWorkingDir(dir: string, _shell: string): string {
+    // CRITICAL: We previously tried to translate paths to POSIX for WSL/Bash here.
+    // This was WRONG. node-pty/CreateProcess requires a valid Windows native directory
+    // to start the process. The shell executable (wsl.exe, bash.exe) handles
+    // internal translation itself. Returning a POSIX path here causes Error 267.
+    void _shell // Mark as intentionally unused
     return dir
   }
 

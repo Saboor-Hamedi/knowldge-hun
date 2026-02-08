@@ -224,10 +224,12 @@ export class RealTerminalComponent {
   }
 
   private fitAll(): void {
-    for (const session of this.sessions.values()) {
+    for (const [id, session] of this.sessions.entries()) {
       if (this.isVisible) {
         try {
           session.fitAddon.fit()
+          // CRITICAL: Always notify backend of the new size
+          this.resizeTerminal(id)
         } catch (err) {
           console.warn('[RealTerminal] Fit failed:', err)
         }
@@ -499,14 +501,15 @@ export class RealTerminalComponent {
       }
     })
 
-    // Handle window resize
+    // Handle window focus/resize for robustness
     window.addEventListener('resize', () => {
-      this.sessions.forEach((session) => {
-        if (session.isActive) {
-          session.fitAddon.fit()
-          this.resizeTerminal(session.id)
-        }
-      })
+      this.debounceFitAll()
+    })
+
+    window.addEventListener('focus', () => {
+      if (this.isVisible) {
+        this.fitAll()
+      }
     })
 
     // Track when the app is quitting to prevent partial session saves
@@ -659,27 +662,29 @@ export class RealTerminalComponent {
       background,
       foreground,
       cursor,
-      black: '#000000',
-      red: '#cd3131',
-      green: '#0dbc79',
-      yellow: '#e5e510',
-      blue: '#2472c8',
-      magenta: '#bc3fbc',
-      cyan: '#11a8cd',
-      white: '#e5e5e5',
-      brightBlack: '#666666',
-      brightRed: '#f14c4c',
-      brightGreen: '#23d18b',
-      brightYellow: '#f5f543',
-      brightBlue: '#3b8eea',
-      brightMagenta: '#d670d6',
-      brightCyan: '#29b8db',
+      selectionBackground: 'rgba(255, 255, 255, 0.15)',
+      black: '#282c34',
+      red: '#e06c75',
+      green: '#98c379',
+      yellow: '#e5c07b',
+      blue: '#61afef',
+      magenta: '#c678dd',
+      cyan: '#56b6c2',
+      white: '#abb2bf',
+      brightBlack: '#5c6370',
+      brightRed: '#e06c75',
+      brightGreen: '#98c379',
+      brightYellow: '#e5c07b',
+      brightBlue: '#61afef',
+      brightMagenta: '#c678dd',
+      brightCyan: '#56b6c2',
       brightWhite: '#ffffff'
     }
 
     this.sessions.forEach((session) => {
       session.terminal.options.fontSize = fontSize
       session.terminal.options.fontFamily = fontFamily
+      session.terminal.options.lineHeight = 1.2
       session.terminal.options.theme = theme
 
       // Force refresh of the terminal
@@ -719,23 +724,26 @@ export class RealTerminalComponent {
         background,
         foreground,
         cursor,
-        black: '#000000',
-        red: '#cd3131',
-        green: '#0dbc79',
-        yellow: '#e5e510',
-        blue: '#2472c8',
-        magenta: '#bc3fbc',
-        cyan: '#11a8cd',
-        white: '#e5e5e5',
-        brightBlack: '#666666',
-        brightRed: '#f14c4c',
-        brightGreen: '#23d18b',
-        brightYellow: '#f5f543',
-        brightBlue: '#3b8eea',
+        selectionBackground: 'rgba(255, 255, 255, 0.15)',
+        black: '#282c34',
+        red: '#e06c75',
+        green: '#98c379',
+        yellow: '#e5c07b',
+        blue: '#61afef',
+        magenta: '#c678dd',
+        cyan: '#56b6c2',
+        white: '#abb2bf',
+        brightBlack: '#5c6370',
+        brightRed: '#e06c75',
+        brightGreen: '#98c379',
+        brightYellow: '#e5c07b',
+        brightBlue: '#61afef',
         brightMagenta: '#d670d6',
-        brightCyan: '#29b8db',
+        brightCyan: '#56b6c2',
         brightWhite: '#ffffff'
       },
+      lineHeight: 1.2,
+      cursorBlink: true,
       allowProposedApi: true
     })
 
@@ -791,8 +799,16 @@ export class RealTerminalComponent {
       terminalContent.appendChild(terminalElement)
 
       // Ensure element is visible so fit() works
+      // Ensure element is visible so fit() works
       terminalElement.style.display = 'block'
-      terminal.open(terminalElement)
+
+      // We create a nested container for xterm to handle padding correctly.
+      // FitAddon results are based on the parent element's content box.
+      const xtermContainer = document.createElement('div')
+      xtermContainer.className = 'xterm-container'
+      terminalElement.appendChild(xtermContainer)
+
+      terminal.open(xtermContainer)
 
       // Wait for fonts and next frame to ensure accurate fit
       await document.fonts.ready
@@ -813,9 +829,40 @@ export class RealTerminalComponent {
         terminalElement.style.display = 'none'
       }
     } else {
-      terminal.open(terminalElement)
+      const xtermContainer = document.createElement('div')
+      xtermContainer.className = 'xterm-container'
+      terminalElement.appendChild(xtermContainer)
+      terminal.open(xtermContainer)
       await document.fonts.ready
       fitAddon.fit()
+
+      // RESTORE BUFFER: If we have a saved buffer for this ID, write it now
+      const savedBuffer = localStorage.getItem(`terminal_buffer_${sessionId}`)
+      // Guard against common storage pollution ('false', 'true', 'null' strings)
+      if (
+        savedBuffer &&
+        savedBuffer !== 'false' &&
+        savedBuffer !== 'true' &&
+        savedBuffer !== 'null'
+      ) {
+        terminal.write(savedBuffer)
+        // Add a small visual marker that this is restored history
+        terminal.write('\r\n\x1b[2m--- Restored History ---\x1b[0m\r\n')
+      }
+
+      // If this is a secondary terminal being created in background, hide it again
+      if (this.sessions.size > 0 && !this.isVisible) {
+        terminalElement.style.display = 'none'
+      }
+
+      // CRITICAL: We wait for the DOM to settle and fit the terminal BEFORE creating the backend.
+      // This ensures node-pty starts with the correct dimensions, preventing the
+      // "truncated copyright" (rved.) issue common in ConPTY.
+      await new Promise((r) => setTimeout(r, 60))
+      fitAddon.fit()
+
+      const cols = terminal.cols || 80
+      const rows = terminal.rows || 24
     }
 
     // Create terminal in main process
@@ -833,17 +880,21 @@ export class RealTerminalComponent {
       // Setup data listener
       let initialBurst = true
       window.api.on(`terminal:data:${sessionId}`, (data: string) => {
+        // Double safety for boolean pollution from IPC
+        if (typeof data !== 'string') return
+
         terminal.write(data)
 
         // Anti-scroll hack: After the first data (shell header),
         // ensure we are at the bottom and the fit is definitely correct.
         if (initialBurst) {
           initialBurst = false
+          // A bit longer delay for the first shell output to stabilize
           setTimeout(() => {
             fitAddon.fit()
             terminal.scrollToBottom()
-            terminal.clearSelection()
-          }, 50)
+            this.resizeTerminal(sessionId)
+          }, 150)
         }
       })
 
