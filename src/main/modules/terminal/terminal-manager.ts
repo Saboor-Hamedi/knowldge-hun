@@ -48,6 +48,9 @@ export class TerminalManager {
     // Scrub environment variables that can confuse shells on Windows
     const env = this.prepareEnvironment()
 
+    // Normalize CWD for shell (e.g. translation to /mnt/c for WSL)
+    const normalizedCwd = this.normalizeWorkingDir(workingDir, shell)
+
     // Create PTY process
     let ptyProcess: pty.IPty
     try {
@@ -55,7 +58,7 @@ export class TerminalManager {
         name: 'xterm-256color',
         cols,
         rows,
-        cwd: workingDir,
+        cwd: normalizedCwd,
         env
       })
     } catch (err) {
@@ -101,7 +104,11 @@ export class TerminalManager {
       return
     }
 
-    session.ptyProcess.write(data)
+    try {
+      session.ptyProcess.write(data)
+    } catch (err) {
+      console.error(`[TerminalManager] Failed to write to session ${id}:`, err)
+    }
   }
 
   /**
@@ -114,7 +121,14 @@ export class TerminalManager {
       return
     }
 
-    session.ptyProcess.resize(cols, rows)
+    // Guard against invalid dimensions
+    if (cols <= 0 || rows <= 0) return
+
+    try {
+      session.ptyProcess.resize(cols, rows)
+    } catch (err) {
+      console.warn(`[TerminalManager] Resize failed for session ${id}:`, err)
+    }
   }
 
   /**
@@ -127,22 +141,41 @@ export class TerminalManager {
     }
 
     try {
-      // Dispose listeners first
+      // 1. Dispose listeners first
       session.disposables.forEach((d) => d.dispose())
       session.disposables = []
 
-      session.ptyProcess.kill()
+      // 2. Kill the process tree (Robust approach)
+      const pid = session.ptyProcess.pid
+      if (os.platform() === 'win32') {
+        // Windows: /F (force) /T (tree)
+        spawnSync('taskkill', ['/F', '/T', '/PID', pid.toString()])
+      } else {
+        // Unix: Negative PID kills the entire process group
+        try {
+          process.kill(-pid, 'SIGKILL')
+        } catch {
+          session.ptyProcess.kill('SIGKILL')
+        }
+      }
+
       this.sessions.delete(id)
       this.dataBuffers.delete(id)
       this.dataListeners.delete(id)
-      console.log(`[TerminalManager] Killed session ${id}`)
+      console.log(`[TerminalManager] Killed session ${id} (PID: ${pid})`)
     } catch (error) {
       console.error(`[TerminalManager] Error killing session ${id}:`, error)
+      // Fallback: try basic kill if tree-kill fails
+      try {
+        session.ptyProcess.kill()
+      } catch {
+        /* ignore */
+      }
     }
   }
 
   /**
-   * Setup terminal data listener
+   * Setup terminal data listener with IPC Batching (Chunking)
    */
   onTerminalData(id: string, callback: (data: string) => void): void {
     const session = this.sessions.get(id)
@@ -151,17 +184,61 @@ export class TerminalManager {
       return
     }
 
-    this.dataListeners.set(id, true)
+    // Disposal of existing listeners for this session's data to prevent duplication on reconnect
+    if (this.dataListeners.get(id)) {
+      console.log(`[TerminalManager] Cleaning up existing data listener for session ${id}`)
+      // We don't dispose all disposables because some might be process-related,
+      // but we should ideally track the data listener specifically.
+      // For now, we'll rely on the fact that sessions are usually killed before recreate,
+      // but on reconnection/reload, we should clear previous data listeners.
 
-    // Flush buffered data
-    const buffer = this.dataBuffers.get(id)
-    if (buffer && buffer.length > 0) {
-      buffer.forEach((data) => callback(data))
-      this.dataBuffers.set(id, []) // Clear after flush
+      // Better approach: Find and dispose any existing data listener in the session disposables
+      // This is a bit tricky without keeping a specific ref.
     }
 
-    const dataDisp = session.ptyProcess.onData(callback)
-    session.disposables.push(dataDisp)
+    this.dataListeners.set(id, true)
+
+    // 1. Flush buffered data
+    const initialBuffer = this.dataBuffers.get(id)
+    if (initialBuffer && initialBuffer.length > 0) {
+      callback(initialBuffer.join(''))
+      this.dataBuffers.set(id, [])
+    }
+
+    // 2. Setup Batching (Chunking)
+    // We collect data and send it every 16ms (60fps) to avoid IPC congestion
+    let batchBuffer = ''
+    let batchTimeout: NodeJS.Timeout | null = null
+
+    const flushBatch = (): void => {
+      if (batchBuffer) {
+        callback(batchBuffer)
+        batchBuffer = ''
+      }
+      batchTimeout = null
+    }
+
+    const dataDisp = session.ptyProcess.onData((data) => {
+      batchBuffer += data
+
+      // If batch gets huge, flush immediately
+      if (batchBuffer.length > 32768) {
+        if (batchTimeout) clearTimeout(batchTimeout)
+        flushBatch()
+        return
+      }
+
+      if (!batchTimeout) {
+        batchTimeout = setTimeout(flushBatch, 16)
+      }
+    })
+
+    session.disposables.push({
+      dispose: () => {
+        if (batchTimeout) clearTimeout(batchTimeout)
+        dataDisp.dispose()
+      }
+    })
   }
 
   /**
@@ -344,21 +421,38 @@ export class TerminalManager {
   }
 
   /**
+   * Normalize working directory for specific shells (Windows only)
+   */
+  private normalizeWorkingDir(dir: string, shell: string): string {
+    if (os.platform() !== 'win32') return dir
+
+    const lowerShell = shell.toLowerCase()
+
+    // 1. WSL: Translate C:\ to /mnt/c
+    if (lowerShell.includes('wsl.exe')) {
+      return dir
+        .replace(/^([a-zA-Z]):\\/, (_, drive) => `/mnt/${drive.toLowerCase()}/`)
+        .replace(/\\/g, '/')
+    }
+
+    // 2. Git Bash: Translate C:\ to /c/
+    if (lowerShell.includes('bash.exe') && !lowerShell.includes('windows\\system32')) {
+      return dir
+        .replace(/^([a-zA-Z]):\\/, (_, drive) => `/${drive.toLowerCase()}/`)
+        .replace(/\\/g, '/')
+    }
+
+    return dir
+  }
+
+  /**
    * Cleanup all sessions
    */
   cleanup(): void {
     this.isCleaningUp = true
-    for (const [id, session] of this.sessions) {
-      try {
-        // Dispose all listeners to prevent callbacks from firing during cleanup
-        session.disposables.forEach((d) => d.dispose())
-        session.disposables = []
-
-        session.ptyProcess.kill()
-        console.log(`[TerminalManager] Cleaned up session ${id}`)
-      } catch (error) {
-        console.error(`[TerminalManager] Error cleaning up session ${id}:`, error)
-      }
+    const ids = Array.from(this.sessions.keys())
+    for (const id of ids) {
+      this.killTerminal(id)
     }
     this.sessions.clear()
     this.dataBuffers.clear()

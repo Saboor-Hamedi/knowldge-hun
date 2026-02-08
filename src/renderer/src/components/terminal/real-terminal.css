@@ -423,6 +423,7 @@
 
 .session-rename-input {
   flex: 1;
+  min-width: 0;
   background: #3c3c3c;
   border: 1px solid #007acc;
   color: #ffffff;
@@ -430,7 +431,13 @@
   padding: 2px 4px;
   border-radius: 2px;
   outline: none;
-  margin-right: 8px;
+}
+
+.terminal-session-item:hover .session-close,
+.terminal-session-item:hover .session-color-btn,
+.terminal-session-item:focus-within .session-close,
+.terminal-session-item:focus-within .session-color-btn {
+  display: flex;
 }
 
 .session-close:hover {

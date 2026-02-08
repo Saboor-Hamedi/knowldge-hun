@@ -40,6 +40,8 @@ export class RealTerminalComponent {
   private onNoteSelect?: (id: string, path?: string) => void
   private hubConsole?: ConsoleComponent
   private lastVaultPath: string | null = null
+  private resizeObserver: ResizeObserver | null = null
+  private resizeDebounceTimeout: any = null
 
   constructor(containerId: string, hubConsole?: ConsoleComponent) {
     this.hubConsole = hubConsole
@@ -194,6 +196,43 @@ export class RealTerminalComponent {
 
     // Embed Console
     this.initConsoleEmbedding()
+
+    // Setup ResizeObserver for perfectly synced resizing
+    this.initResizeObserver()
+  }
+
+  private initResizeObserver(): void {
+    if (this.resizeObserver) this.resizeObserver.disconnect()
+
+    this.resizeObserver = new ResizeObserver(() => {
+      if (this.isVisible) {
+        this.debounceFitAll()
+      }
+    })
+
+    const body = this.container.querySelector('.real-terminal-body')
+    if (body) {
+      this.resizeObserver.observe(body)
+    }
+  }
+
+  private debounceFitAll(): void {
+    if (this.resizeDebounceTimeout) clearTimeout(this.resizeDebounceTimeout)
+    this.resizeDebounceTimeout = setTimeout(() => {
+      this.fitAll()
+    }, 100)
+  }
+
+  private fitAll(): void {
+    for (const session of this.sessions.values()) {
+      if (this.isVisible) {
+        try {
+          session.fitAddon.fit()
+        } catch (err) {
+          console.warn('[RealTerminal] Fit failed:', err)
+        }
+      }
+    }
   }
 
   setNoteSelectHandler(handler: (id: string, path?: string) => void): void {
@@ -1260,7 +1299,7 @@ export class RealTerminalComponent {
     const session = this.sessions.get(sessionId)
     if (!session) return
 
-    const { cols, rows } = session.terminal
+    const { cols, rows } = session.terminal // Notify backend
     window.api.send('terminal:resize', sessionId, cols, rows)
   }
 
