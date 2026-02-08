@@ -4,6 +4,7 @@
   align-items: center;
   height: 28px;
   min-height: 28px;
+  max-height: 28px;
   flex-shrink: 0;
   padding: 0 12px;
   background: var(--panel);
@@ -17,6 +18,9 @@
   scrollbar-width: none;
   position: relative;
   z-index: 100;
+  /* Prevent layout shifts and ensure stable positioning */
+  contain: layout style;
+  will-change: scroll-position;
 }
 
 .breadcrumbs::-webkit-scrollbar {

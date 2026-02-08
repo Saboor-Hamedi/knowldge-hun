@@ -3,7 +3,9 @@
   display: flex;
   align-items: stretch;
   gap: 0;
-  height: var(--tab-height);
+  height: var(--tab-height, 36px);
+  min-height: var(--tab-height, 36px);
+  max-height: var(--tab-height, 36px);
   padding: 0;
   background: var(--tab-bg, var(--bg));
   border-bottom: 1px solid var(--border);
@@ -15,6 +17,16 @@
   z-index: 50;
   /* Subtle gradient to make it feel less flat */
   background-image: linear-gradient(to bottom, rgba(255, 255, 255, 0.02), transparent);
+  /* Prevent layout shifts during tab operations */
+  contain: layout style;
+  /* Transitions on height can cause "walking" during re-renders */
+  transition: none;
+}
+
+.tabbar.is-compact {
+  height: 28px !important;
+  min-height: 28px !important;
+  max-height: 28px !important;
 }
 
 .tabbar:empty {

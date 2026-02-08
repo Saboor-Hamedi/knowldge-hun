@@ -35,9 +35,10 @@ export class TabBar {
   }
 
   render(): void {
-    this.container.innerHTML = ''
+    // Check if empty FIRST, before clearing innerHTML to prevent flash
     if (state.openTabs.length === 0) {
       this.container.style.display = 'none'
+      this.container.innerHTML = ''
       return
     }
 
@@ -192,11 +193,27 @@ export class TabBar {
       fragment.appendChild(button)
     })
 
-    this.container.innerHTML = ''
-    this.container.appendChild(fragment)
+    // --- CRITICAL: Scroll Preservation ---
+    const currentScrollLeft = this.container.scrollLeft
 
-    // Scroll active tab into view - immediate for initial render to prevent sliding jump
-    this.scrollActiveTabIntoView(true)
+    // Final swap - clear and append fragment to minimize flicker
+    this.container.replaceChildren(fragment)
+
+    // Restore scroll position immediately to prevent jump
+    this.container.scrollLeft = currentScrollLeft
+
+    // Preserve scroll position when closing other tabs
+    // Only scroll active tab into view if it's not visible
+    const activeTab = this.container.querySelector('.tab.is-active') as HTMLElement
+    if (activeTab) {
+      const rect = activeTab.getBoundingClientRect()
+      const containerRect = this.container.getBoundingClientRect()
+      const isVisible = rect.left >= containerRect.left && rect.right <= containerRect.right
+
+      if (!isVisible) {
+        requestAnimationFrame(() => this.scrollActiveTabIntoView(true))
+      }
+    }
   }
 
   /**
@@ -211,10 +228,13 @@ export class TabBar {
     const containerCenter = this.container.offsetWidth / 2
     const scrollTarget = tabCenter - containerCenter
 
-    this.container.scrollTo({
-      left: Math.max(0, scrollTarget),
-      behavior: immediate ? 'auto' : 'smooth'
-    })
+    // Only scroll if we are not already at the target (within 1px)
+    if (Math.abs(this.container.scrollLeft - scrollTarget) > 1) {
+      this.container.scrollTo({
+        left: Math.max(0, scrollTarget),
+        behavior: immediate ? 'auto' : 'smooth'
+      })
+    }
   }
 
   private attachEvents(): void {

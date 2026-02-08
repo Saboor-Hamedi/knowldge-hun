@@ -57,9 +57,30 @@ export class Breadcrumbs {
       return
     }
 
+    // Track if the active ID actually changed (not just dirty state)
+    const activeIdChanged = this.lastRenderedId !== activeId
+
+    // If only dirty state changed (not the active file), just update the dirty indicator
+    // This prevents unnecessary re-rendering and scroll position changes
+    if (!activeIdChanged && this.lastRenderedIsDirty !== isDirty) {
+      this.lastRenderedIsDirty = isDirty
+      const activeItem = this.container.querySelector('.breadcrumb-item.is-active')
+      if (activeItem) {
+        if (isDirty) {
+          activeItem.classList.add('is-dirty')
+        } else {
+          activeItem.classList.remove('is-dirty')
+        }
+      }
+      return
+    }
+
     this.lastRenderedId = activeId
     this.lastRenderedIsDirty = isDirty
     this.container.style.display = 'flex'
+
+    // Preserve current scroll position before re-rendering
+    const currentScrollLeft = this.container.scrollLeft
 
     const fragment = document.createDocumentFragment()
 
@@ -83,22 +104,20 @@ export class Breadcrumbs {
       }
     })
 
-    // Capture current scroll to see if we were at the end
-    const wasAtEnd =
-      this.container.scrollLeft + this.container.clientWidth >= this.container.scrollWidth - 10
-
     // Final swap - clear and append fragment to minimize flicker
-    this.container.innerHTML = ''
-    this.container.appendChild(fragment)
+    this.container.replaceChildren(fragment)
 
-    // Immediate scroll anchoring to prevent 0-position jump
-    // We scroll to end if we were already at the end or if the ID changed
-    const shouldScrollToEnd = this.lastRenderedId !== activeId || wasAtEnd
-    this.lastRenderedId = activeId
-    this.lastRenderedIsDirty = isDirty
-
-    if (shouldScrollToEnd) {
-      this.container.scrollLeft = this.container.scrollWidth
+    // Only scroll to end if the active file actually changed
+    // Otherwise, restore the previous scroll position to prevent jumping
+    if (activeIdChanged) {
+      // Use requestAnimationFrame to ensure smooth scrolling after DOM update
+      requestAnimationFrame(() => {
+        this.container.scrollLeft = this.container.scrollWidth
+      })
+    } else {
+      // Immediately restore scroll position to prevent any flicker
+      // This is especially important after replaceChildren
+      this.container.scrollLeft = currentScrollLeft
     }
   }
 

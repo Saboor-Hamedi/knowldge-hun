@@ -468,6 +468,9 @@ export class VaultHandler {
       setTimeout(() => activeOverlay.remove(), 300)
     }
 
+    // Dispatch global event so Terminal, Git, and other services can update
+    window.dispatchEvent(new CustomEvent('vault-changed'))
+
     // RAG Initialization & Indexing (Handled via Header status)
     this.backgroundIndexVault().catch((err) => console.error('Background indexing failed:', err))
   }

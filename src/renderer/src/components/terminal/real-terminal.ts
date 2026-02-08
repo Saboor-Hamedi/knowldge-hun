@@ -39,6 +39,7 @@ export class RealTerminalComponent {
   private startHeight: number = 0
   private onNoteSelect?: (id: string, path?: string) => void
   private hubConsole?: ConsoleComponent
+  private lastVaultPath: string | null = null
 
   constructor(containerId: string, hubConsole?: ConsoleComponent) {
     this.hubConsole = hubConsole
@@ -56,11 +57,13 @@ export class RealTerminalComponent {
 
   private async init(): Promise<void> {
     await this.render()
+
+    // Get initial path BEFORE attaching listeners to avoid redundant switch on startup
+    const path = await this.getVaultPath()
+    this.lastVaultPath = path || null
+
     this.setupEventListeners()
     await this.restoreSessions()
-
-    // Initialize currentVaultPath after restore, so we check against this on next switch
-    // (Removed unused tracker)
 
     // Restore visibility if it was open (Scoped to vault)
     const vaultPath = await this.getVaultPath()
@@ -497,32 +500,69 @@ export class RealTerminalComponent {
   }
 
   private async handleVaultSwitch(): Promise<void> {
-    // 1. Clear storage for the old vault? NO. We want to persist them for when we return.
-    // However, we MUST stop the current running processes.
-    // (Storage clearing removed to allow persistence)
+    if (this.isRestoring) {
+      console.log('[RealTerminal] Already restoring sessions, skipping vault switch trigger')
+      return
+    }
 
-    // 2. Kill all backend processes and clear UI
+    const newPath = await this.getVaultPath()
+    if (!newPath) return
+
+    // IGNORE if it's the same vault (prevents terminal restart on folder create/rename/etc)
+    if (this.lastVaultPath === newPath) {
+      console.log('[RealTerminal] Vault path unchanged, skipping terminal reset')
+      return
+    }
+
+    console.log(
+      `[RealTerminal] Vault switched: ${this.lastVaultPath} -> ${newPath}. Cleaning up...`
+    )
+
+    // 1. Save sessions for the OLD vault before cleaning up
+    if (this.lastVaultPath) {
+      this.saveSessions(this.lastVaultPath)
+    }
+
+    this.lastVaultPath = newPath
+
+    // 2. Kill all backend processes and clear UI for the OLD vault
     await this.cleanupAllSessions()
-    // 3. Update local tracker to new path
-    // (Removed unused tracker)
 
-    // 4. Start a fresh terminal for the new vault
-    await this.createNewTerminal()
+    // 3. Restore sessions for the NEW vault
+    await this.restoreSessions()
+
+    // 3. Fallback: If no sessions were restored, start a fresh terminal
+    if (this.sessions.size === 0) {
+      console.log('[RealTerminal] No sessions restored for new vault, creating fresh terminal')
+      await this.createNewTerminal()
+    }
   }
 
   private async cleanupAllSessions(): Promise<void> {
     const ids = Array.from(this.sessions.keys())
+    console.log(`[RealTerminal] Cleaning up ${ids.length} sessions...`)
 
-    // Kill backend processes
+    // Kill backend processes and dispose UI
     for (const id of ids) {
-      // Clean up backend
+      const session = this.sessions.get(id)
+
+      // 1. Clean up backend
       try {
         await window.api.invoke('terminal:kill', id)
       } catch (err) {
         console.warn(`[RealTerminal] Failed to kill session ${id}`, err)
       }
 
-      // Remove from UI
+      // 2. Dispose Xterm terminal instance to free resources and stop listeners
+      if (session) {
+        try {
+          session.terminal.dispose()
+        } catch (err) {
+          console.warn(`[RealTerminal] Error disposing terminal ${id}:`, err)
+        }
+      }
+
+      // 3. Remove DOM elements
       const el = document.getElementById(`terminal-${id}`)
       if (el) el.remove()
       const item = document.getElementById(`session-${id}`)
@@ -536,6 +576,8 @@ export class RealTerminalComponent {
 
     const list = document.getElementById('terminal-sessions-list')
     if (list) list.innerHTML = ''
+
+    console.log('[RealTerminal] Cleanup complete')
   }
 
   /**
