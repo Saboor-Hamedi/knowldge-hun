@@ -156,11 +156,19 @@
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 12px 10px 12px 12px;
+  padding: 12px 10px 24px 12px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 16px; 
   -webkit-overflow-scrolling: touch;
+  align-items: stretch; /* Stretch children, they control their own max-width */
+}
+
+/* Fix global indicator wrapper */
+#msg-typing-indicator {
+  display: block;
+  width: 100%;
+  flex-shrink: 0;
 }
 
 /* ---- Welcome ---- */
@@ -226,22 +234,39 @@
 
 /* ---- Messages ---- */
 .rightbar__message {
-  display: flex;
-  flex-direction: row;
+  display: grid !important;
+  grid-template-columns: auto 1fr;
+  grid-template-areas: "avatar body";
   align-items: flex-start;
-  gap: 8px;
-  max-width: 92%;
-  min-width: 0;
-  margin-bottom: 6px;
+  gap: 12px;
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box;
+  margin-bottom: 24px;
 }
 
 .rightbar__message--user {
-  align-self: flex-end;
-  flex-direction: row-reverse;
+  grid-template-areas: "body avatar";
+  grid-template-columns: 1fr auto;
+  margin-left: auto;
+  max-width: 85% !important;
+  justify-items: end;
 }
 
-.rightbar__message--assistant {
-  align-self: flex-start;
+.rightbar__message--assistant,
+.rightbar__message--system {
+  align-self: stretch;
+  width: 100% !important;
+}
+
+.kb-avatar {
+  grid-area: avatar;
+}
+
+.rightbar__message-body {
+  grid-area: body;
+  min-width: 0;
+  width: 100%;
 }
 
 /* Message body (content + actions) */
@@ -301,10 +326,19 @@
   color: #0b1220;
 }
 
-.rightbar__message--assistant .rightbar__message-content {
+.rightbar__message--assistant .rightbar__message-body,
+.rightbar__message--system .rightbar__message-body {
+  width: 100%;
+  max-width: 100%;
+}
+
+.rightbar__message--assistant .rightbar__message-content,
+.rightbar__message--system .rightbar__system-details {
   background: var(--panel-strong);
   color: var(--text-strong);
   border: 1px solid var(--border);
+  width: 100%; /* Fully seamless */
+  box-sizing: border-box;
 }
 
 .rightbar__message--error .rightbar__message-content {
@@ -1627,12 +1661,12 @@
 }
 /* ---- System / Agentic Messages ---- */
 .rightbar__system-message {
-  align-self: flex-start;
-  max-width: 92%;
-  width: auto;
-  margin: 2px 0 6px 28px; /* Offset to match assistant body alignment (avatar is 20px + 8px gap) */
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  margin: 0;
   font-size: 11px;
-  opacity: 0.85;
+  opacity: 0.95;
   transition: opacity 0.2s ease;
 }
 

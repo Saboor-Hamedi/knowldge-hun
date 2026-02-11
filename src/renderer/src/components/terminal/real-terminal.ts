@@ -500,13 +500,7 @@ export class RealTerminalComponent {
       this.toggleSplitView()
     })
 
-    // Global Keybinds
-    window.addEventListener('keydown', (e) => {
-      if (e.ctrlKey && e.key === 'f' && this.isVisible) {
-        e.preventDefault()
-        this.toggleSearch(true)
-      }
-    })
+    // Global Keybinds (handled via keyboardManager in app.ts for better focus routing)
 
     trashTerminalBtn?.addEventListener('click', () => {
       if (this.activeSessionId) {
@@ -1272,7 +1266,7 @@ export class RealTerminalComponent {
     }
   }
 
-  private toggleSearch(force?: boolean): void {
+  public toggleSearch(force?: boolean): void {
     const searchContainer = document.getElementById('terminal-search-container')
     const searchInput = document.getElementById('terminal-search-input') as HTMLInputElement
 
@@ -1355,6 +1349,11 @@ export class RealTerminalComponent {
     } catch (error) {
       console.error(`[RealTerminal] Error closing terminal:`, error)
     }
+  }
+
+  public hasFocus(): boolean {
+    // Check if focus is inside our container
+    return this.container.contains(document.activeElement)
   }
 
   /**

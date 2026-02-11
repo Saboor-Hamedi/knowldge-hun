@@ -2,6 +2,7 @@
 .kb-mode-switcher {
   position: relative;
   display: inline-flex;
+  justify-content: flex-start;
 }
 
 .kb-mode-switcher__trigger {
@@ -99,8 +100,9 @@
 }
 
 .kb-mode-switcher__option.is-active {
-  background: var(--primary-alpha);
-  color: var(--primary);
+  background: var(--primary-alpha) !important;
+  color: var(--primary) !important;
+  border: 1px solid rgba(127, 167, 255, 0.2) !important;
 }
 
 .kb-mode-switcher__option-header {
@@ -136,7 +138,7 @@
 
 .kb-mode-switcher__option-check {
   color: var(--primary);
-  font-size: 14px;
+  font-size: 11px;
   font-weight: bold;
 }
 
@@ -469,6 +471,7 @@
   justify-content: center;
   overflow: hidden;
   position: relative;
+  margin-top: 8px; /* Perfectly aligned with first line of padded text */
 }
 
 .kb-avatar--user {
@@ -476,7 +479,8 @@
   color: #0b1220;
 }
 
-.kb-avatar--assistant {
+.kb-avatar--assistant,
+.kb-avatar--system {
   background: var(--panel-strong);
   color: var(--primary);
   border: 1px solid var(--border);
@@ -548,6 +552,7 @@
   border-radius: 50%;
   background: var(--primary);
   animation: kb-typing-dots 1.2s infinite ease-in-out;
+  flex-shrink: 0;
 }
 
 .kb-typing-dot:nth-child(2) {

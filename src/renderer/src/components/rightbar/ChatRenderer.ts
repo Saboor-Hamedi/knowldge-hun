@@ -62,7 +62,8 @@ export class ChatRenderer {
       const feedback = msg.feedback || state.messageFeedback.get(idx) || null
 
       // Cache key includes content length and feedback to detect changes
-      const cacheKey = `${msg.messageId}_${msg.content.length}_${feedback}_${isStreaming}`
+      // Added version suffix to force re-render when layout logic changes
+      const cacheKey = `${msg.messageId}_${msg.content.length}_${feedback}_${isStreaming}_v11`
 
       const messageId = msg.messageId || ''
       let element = this.messageElements.get(messageId)
@@ -75,13 +76,26 @@ export class ChatRenderer {
         this.messageElements.set(messageId, element)
       }
 
-      // 2. Only update innerHTML if content/state actually changed
+      const isErrorMsg =
+        msg.content.includes('🔴') || msg.content.includes('❌') || msg.content.includes('failed')
+      const errorClass = isErrorMsg ? 'rightbar__message--error' : ''
+
+      // Always update className to ensure direction fixes apply to cached elements
+      const roleClass = `rightbar__message--${msg.role}`
+      element.className = `rightbar__message ${roleClass} ${errorClass}`
+
+      // 2. Only update innerHTML if content actually changed
       if (element.getAttribute('data-cache') !== cacheKey) {
         if (msg.role === 'system') {
-          element.innerHTML = this.renderSystemMessage(msg)
-          element.className = 'rightbar__system-message-wrapper'
+          const avatar = Avatar.createHTML('assistant', 20)
+          element.innerHTML = `
+            ${avatar}
+            <div class="rightbar__message-body">
+              <div class="rightbar__message-content">${this.renderSystemContent(msg)}</div>
+            </div>
+          `
         } else {
-          // Skip empty placeholder messages from AI
+          // Hide empty placeholder messages if we're showing the global typing indicator instead
           if (msg.role === 'assistant' && !msg.content && isStreaming) {
             element.style.display = 'none'
           } else {
@@ -89,14 +103,16 @@ export class ChatRenderer {
             let formattedContent = messageFormatter.format(msg.content, msg.role === 'assistant')
 
             // Add subtle indicator if this is the active streaming message
+            // We use a span that stays inside the flow
             if (isStreaming) {
-              formattedContent += `
-                <span class="kb-typing-indicator-inline">
-                  <span class="kb-typing-dot"></span>
-                  <span class="kb-typing-dot"></span>
-                  <span class="kb-typing-dot"></span>
-                </span>
-              `
+              const dots = `<span class="kb-typing-indicator-inline"><span class="kb-typing-dot"></span><span class="kb-typing-dot"></span><span class="kb-typing-dot"></span></span>`
+
+              // If content ends with a closing tag (like </p>), try to inject dots inside it for better wrapping
+              if (formattedContent.trim().endsWith('</p>')) {
+                formattedContent = formattedContent.trim().replace(/<\/p>$/, `${dots}</p>`)
+              } else {
+                formattedContent += dots
+              }
             }
 
             const avatar = Avatar.createHTML(msg.role as 'user' | 'assistant', 20)
@@ -108,13 +124,6 @@ export class ChatRenderer {
               state.lastFailedMessage
             )
 
-            const isErrorMsg =
-              msg.content.includes('🔴') ||
-              msg.content.includes('❌') ||
-              msg.content.includes('failed')
-            const errorClass = isErrorMsg ? 'rightbar__message--error' : ''
-
-            element.className = `rightbar__message rightbar__message--${msg.role} ${errorClass}`
             element.innerHTML = `
               ${avatar}
               <div class="rightbar__message-body">
@@ -141,13 +150,18 @@ export class ChatRenderer {
   }
 
   private updateGlobalIndicators(state: RendererState): void {
-    const shouldShowGlobal =
-      state.isLoading && (state.streamingMessageIndex === null || state.isExecutingCommand)
+    const currentMsg =
+      state.streamingMessageIndex !== null ? state.messages[state.streamingMessageIndex] : null
+    const isActuallyStreaming = !!(currentMsg && currentMsg.content.trim().length > 0)
+
+    // Show global indicator if loading but no content yet, or if executing a command
+    const shouldShowGlobal = state.isLoading && (!isActuallyStreaming || state.isExecutingCommand)
 
     if (shouldShowGlobal) {
       if (!this.typingIndicator) {
         this.typingIndicator = document.createElement('div')
-        this.typingIndicator.className = 'rightbar__global-indicator'
+        this.typingIndicator.id = 'msg-typing-indicator'
+        this.typingIndicator.style.display = 'block' // Allow it to follow standard block layout
         this.chatContainer.appendChild(this.typingIndicator)
       }
       const indicatorHtml = state.isExecutingCommand ? EXECUTING_HTML : TYPING_HTML
@@ -170,7 +184,7 @@ export class ChatRenderer {
     }
   }
 
-  private renderSystemMessage(msg: ChatMessage): string {
+  private renderSystemContent(msg: ChatMessage): string {
     const lines = msg.content.split('\n')
     let title = lines[0]
     title = title.replace(/^>\s*\[(.+?)\]$/, '$1')
@@ -195,7 +209,7 @@ export class ChatRenderer {
     const finalPreview = preview ? `- ${preview}...` : ''
 
     return `
-      <div class="rightbar__system-message rightbar__message rightbar__message--system" title="Click to view details">
+      <div class="rightbar__system-message" title="Click to view details">
         <details class="rightbar__system-details">
           <summary class="rightbar__system-summary">
             <span class="rightbar__system-icon">${icon}</span>
@@ -205,11 +219,6 @@ export class ChatRenderer {
           <div class="rightbar__system-content">
             <div class="rightbar__system-code-wrapper">
               <pre><code>${this.escapeHtml(msg.content)}</code></pre>
-            </div>
-            <div class="rightbar__message-actions rightbar__system-actions">
-              <button type="button" class="rightbar__message-action rightbar__message-action--copy" data-action="copy" data-message-content="${this.escapeHtml(msg.content)}" title="Copy result">
-                ${this.createLucideIcon(Copy, 14)}
-              </button>
             </div>
           </div>
         </details>
