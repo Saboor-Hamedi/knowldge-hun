@@ -111,9 +111,7 @@ export class RightBar {
 
     const conversationUI: ConversationControllerUI = {
       onStateChange: () => {
-        const state = this.conversationController.getState()
         this.renderMessages()
-        this.updateGenerationUI(state.isLoading)
       },
       onMessageAdded: () => {
         this.updateMenuItems()
@@ -856,15 +854,8 @@ export class RightBar {
   }
 
   private updateGenerationUI(loading: boolean): void {
-    const sendBtn = this.container.querySelector('#rightbar-chat-send') as HTMLElement
-    const stopBtn = this.container.querySelector('#rightbar-chat-stop') as HTMLElement
-
-    if (loading) {
-      if (sendBtn) sendBtn.style.display = 'none'
-      if (stopBtn) stopBtn.style.display = 'flex'
-    } else {
-      if (sendBtn) sendBtn.style.display = 'flex'
-      if (stopBtn) stopBtn.style.display = 'none'
+    if (this.chatInputArea) {
+      this.chatInputArea.setBusy(loading, loading ? 'Thinking...' : undefined)
     }
   }
 
@@ -919,16 +910,15 @@ export class RightBar {
     const originalHTML = button.innerHTML
     const isSmall = button.classList.contains('rightbar__message-action')
     // Use 'any' for Lucide icon components to avoid type errors since we don't have the type exported
-    const CheckIcon: any = Check
+    const iconComponent = Check as Parameters<typeof createElement>[0]
     const size = isSmall ? 12 : 14
     const stroke = isSmall ? 2 : 1.5
-    const color = isSmall ? '#22c55e' : undefined
+    const colorValue = isSmall ? '#22c55e' : undefined
 
-    const colorValue: string | number | undefined = color
-    button.innerHTML = createElement(CheckIcon, {
+    button.innerHTML = createElement(iconComponent, {
       size,
       'stroke-width': stroke,
-      color: colorValue as any
+      ...(colorValue ? { color: colorValue } : {})
     }).outerHTML
     button.classList.add(
       isSmall ? 'rightbar__message-action--copied' : 'rightbar__code-copy--copied'
@@ -957,6 +947,11 @@ export class RightBar {
     }
     this.chatRenderer.render(state, this.wasAtBottom)
     this.updateGenerationUI(convState.isLoading || convState.isExecutingCommand)
+
+    // Trigger highlighting
+    if (convState.messages.length > 0) {
+      void this.chatRenderer.highlightAll(() => this.initHighlightJS(), !convState.isLoading)
+    }
   }
 
   async refreshApiKey(): Promise<void> {

@@ -88,7 +88,7 @@ export class ConsoleComponent {
           this.aiAbortController.abort()
           this.isBusy = false
           this.chatInput.setBusy(false)
-          const thinking = this.bodyEl.querySelector('.hub-console__line--thinking')
+          const thinking = this.bodyEl.querySelector('.kb-chat-pill')
           if (thinking) thinking.remove()
         }
       },
@@ -343,12 +343,19 @@ export class ConsoleComponent {
   }
 
   private attachEvents(): void {
-    // Focus input on click anywhere in console (but skip interactive elements)
+    // Focus input on click anywhere in console (but skip interactive elements or active selection)
     this.consoleEl.addEventListener('click', (e) => {
       const target = e.target as HTMLElement
       if (target.closest('select') || target.closest('button') || target.closest('input')) {
         return
       }
+
+      // If user is selecting text, don't steal focus
+      const selection = window.getSelection()
+      if (selection && selection.toString().length > 0) {
+        return
+      }
+
       this.chatInput.focus()
     })
 
@@ -515,7 +522,7 @@ export class ConsoleComponent {
     // Thinking indicator
     const thinkingEl = document.createElement('div')
     thinkingEl.className = 'kb-chat-pill'
-    thinkingEl.style.marginTop = '4px'
+    thinkingEl.style.cssText = 'margin-top: 4px; padding: 6px 12px; display: inline-flex;'
     thinkingEl.innerHTML = `
       <div class="kb-typing-dots">
         <span></span><span></span><span></span>
@@ -532,10 +539,17 @@ export class ConsoleComponent {
     try {
       const response = await aiService.buildContextMessage(input)
       const context = response.context
+      const { formatMarkdown } = await import('../../utils/markdown')
+      const markdownCache = new Map<string, string>()
+
+      let lastRenderTime = 0
+      let lastVisibleHtml = ''
+      let RENDER_THROTTLE_MS = 150 // Dynamic throttle
 
       let streamingTargetId: string | null = null
       let inStreamingWrite = false
       let streamBuffer = ''
+      let lastFileUpdateTime = 0
 
       await aiService.callDeepSeekAPIStream(
         this.chatHistory,
@@ -550,6 +564,10 @@ export class ConsoleComponent {
           streamBuffer += chunk
 
           // --- LIVE STREAMING WRITE/APPEND/PROPOSE LOGIC ---
+          const FILE_UPDATE_THROTTLE = 100 // ms
+          // Dynamic throttle: if output is getting very long, slow down rendering to keep UI responsive
+          if (fullText.length > 10000) RENDER_THROTTLE_MS = 250
+          if (fullText.length > 30000) RENDER_THROTTLE_MS = 400
           if (!inStreamingWrite) {
             const writeMatch = streamBuffer.match(
               /\[RUN:\s*(write|append|propose)\s+("([^"]+)"|([^\s"]+))\s+/
@@ -564,7 +582,10 @@ export class ConsoleComponent {
                   streamingTargetId = `temp_propose_${title}`
                   this.proposeBuffer = ''
                 } else {
-                  const resolved = await agentExecutor.resolveNote(title)
+                  const resolved = (await agentExecutor.resolveNote(title)) as {
+                    id: string
+                    title: string
+                  } | null
                   if (resolved) {
                     streamingTargetId = resolved.id
                     if (type === 'write') {
@@ -573,7 +594,7 @@ export class ConsoleComponent {
                         content: '',
                         title: resolved.title,
                         updatedAt: Date.now()
-                      } as any)
+                      } as Parameters<typeof window.api.saveNote>[0])
                     }
                   } else if (type === 'write') {
                     const meta = await window.api.createNote(title)
@@ -598,13 +619,26 @@ export class ConsoleComponent {
                 const type = streamingTargetId.startsWith('temp_propose_') ? 'propose' : 'write'
                 if (type === 'propose') {
                   this.proposeBuffer += contentToAppend
+                  streamBuffer = streamBuffer.substring(contentToAppend.length)
                 } else {
-                  await window.api.appendNote(streamingTargetId, contentToAppend)
+                  // Only append to note if we have a substantial chunk or time passed
+                  // to avoid freezing the UI with thousands of IPC calls
+                  const now = Date.now()
+                  if (
+                    closingIdx !== -1 ||
+                    contentToAppend.length > 500 ||
+                    now - lastFileUpdateTime > FILE_UPDATE_THROTTLE
+                  ) {
+                    lastFileUpdateTime = now
+                    await window.api.appendNote(streamingTargetId, contentToAppend)
+                    streamBuffer = streamBuffer.substring(contentToAppend.length)
+                  }
+                  // If we didn't append, we KEEP it in streamBuffer for the next chunk
                 }
               } catch (e) {
                 console.error('[Console] Live stream append failed:', e)
+                streamBuffer = streamBuffer.substring(contentToAppend.length)
               }
-              streamBuffer = streamBuffer.substring(contentToAppend.length)
             }
 
             if (closingIdx !== -1) {
@@ -625,21 +659,56 @@ export class ConsoleComponent {
             }
           }
 
-          // Update visible text (strip [RUN:] tags)
-          const visibleText = fullText.replace(/\[RUN:[\s\S]*?(\]|(?=$))/g, '')
-          try {
-            const { formatMarkdown } = await import('../../utils/markdown')
-            contentEl.innerHTML = formatMarkdown(visibleText)
-          } catch {
-            contentEl.textContent = visibleText
+          // Update visible text (strip [RUN:] tags) - THROTTLED
+          const now = Date.now()
+          if (now - lastRenderTime >= RENDER_THROTTLE_MS) {
+            lastRenderTime = now
+            const visibleText = fullText.replace(/\[RUN:[\s\S]*?(\]|(?=$))/g, '')
+
+            try {
+              let html: string
+              if (markdownCache.has(visibleText)) {
+                html = markdownCache.get(visibleText)!
+              } else {
+                html = formatMarkdown(visibleText)
+                markdownCache.set(visibleText, html)
+                if (markdownCache.size > 100)
+                  markdownCache.delete(markdownCache.keys().next().value)
+              }
+
+              // Add inline typing dots
+              const dotsHtml = `
+                <span class="kb-typing-indicator-inline">
+                  <span class="kb-typing-dot"></span>
+                  <span class="kb-typing-dot"></span>
+                  <span class="kb-typing-dot"></span>
+                </span>
+              `
+              const totalHtml = html + dotsHtml
+              if (totalHtml !== lastVisibleHtml) {
+                contentEl.innerHTML = totalHtml
+                lastVisibleHtml = totalHtml
+              }
+            } catch {
+              contentEl.textContent = visibleText
+            }
+            this.bodyEl.scrollTop = this.bodyEl.scrollHeight
           }
-          this.bodyEl.scrollTop = this.bodyEl.scrollHeight
         },
         this.aiAbortController.signal
       )
 
       outputLine.classList.remove('is-typing')
       if (thinkingEl.parentNode) thinkingEl.remove()
+
+      // Final complete render
+      const finalTextDisplay = fullText.replace(/\[RUN:[\s\S]*?(\]|(?=$))/g, '')
+      try {
+        contentEl.innerHTML = formatMarkdown(finalTextDisplay)
+      } catch {
+        contentEl.textContent = finalTextDisplay
+      }
+      this.bodyEl.scrollTop = this.bodyEl.scrollHeight
 
       if (fullText.trim() && !this.aiAbortController?.signal.aborted) {
         const actionArea = document.createElement('div')

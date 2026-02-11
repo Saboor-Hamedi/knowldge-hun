@@ -107,7 +107,7 @@ export class AIService {
   private vaultCache: Map<string, VaultNote> = new Map()
   private vaultMetadataCache: Map<string, NoteMetadata> = new Map()
   private vaultCacheTime: number = 0
-  private readonly CACHE_DURATION = 120000 // 2 minutes cache
+  private readonly CACHE_DURATION = 30000 // Reduced to 30s for more freshness
   private readonly MAX_CONTEXT_TOKENS = 8000 // Approximate token limit
   private readonly MAX_NOTES_TO_LOAD = 30 // Limit notes loaded at once (reduced for performance)
   private readonly MAX_CONTENT_LENGTH = 1500 // Max chars per note in context (reduced for performance)
@@ -446,9 +446,9 @@ export class AIService {
 
       // Higher threshold for relevance - filter out weak matches
       return scoredNotes
-        .filter((n) => n.score > 15)
+        .filter((n) => n.score > 20)
         .sort((a, b) => b.score - a.score)
-        .slice(0, limit)
+        .slice(0, 10) // Increased from 5 to 10
     } catch (error) {
       console.error('[AIService] Failed to find relevant notes:', error)
       return []
@@ -462,13 +462,17 @@ export class AIService {
     userMessage: string,
     limit: number = 5
   ): Promise<ScoredNote[]> {
+    const scoredNotes: ScoredNote[] = []
     try {
       // 1. Try Vector RAG
-      const ragResults = await ragService.search(userMessage, limit)
+      // Clean query: remove common conversational filler to focus the vector on the actual topic
+      const cleanMsg = userMessage
+        .replace(/^(can you |please |tell me |show me |find |search for |what is |who is )/i, '')
+        .trim()
+      const ragResults = await ragService.search(cleanMsg || userMessage, limit)
 
       if (ragResults && ragResults.length > 0) {
         // Hydrate results with content
-        const scoredNotes: ScoredNote[] = []
         for (const res of ragResults) {
           try {
             const content = await this.loadNoteContent(res.id, res.metadata?.path)
@@ -487,17 +491,25 @@ export class AIService {
         }
 
         if (scoredNotes.length > 0) {
-          console.log(`[AIService] Using ${scoredNotes.length} RAG results`)
-          return scoredNotes
+          console.log(`[AIService] Hydrated ${scoredNotes.length} RAG results`)
         }
       }
     } catch (err) {
       console.warn('[AIService] RAG search failed, falling back to TF-IDF:', err)
     }
 
-    // 2. Fallback to TF-IDF
-    console.log('[AIService] Using TF-IDF fallback')
-    return this.findRelevantNotes(userMessage, limit)
+    // 2. Fallback/Supplement with TF-IDF
+    const tfidfResults = await this.findRelevantNotes(userMessage, limit)
+
+    // Merge results, removing duplicates by ID
+    const merged = [...scoredNotes]
+    tfidfResults.forEach((tfidf) => {
+      if (!merged.find((m) => m.id === tfidf.id)) {
+        merged.push(tfidf)
+      }
+    })
+
+    return merged.sort((a, b) => b.score - a.score).slice(0, limit + 2)
   }
 
   /**
@@ -516,13 +528,15 @@ export class AIService {
     const isStopCommand = stopPhrases.test(userMessage)
 
     // Check if this is just an acknowledgment
+    // Check if this is ONLY a short acknowledgment (e.g., "okay", "thanks")
+    const isShortMessage = userMessage.trim().length < 15
     const isAcknowledgment =
-      /^(okay|ok|fine|thanks|got it|alright|cool|nice|good|sure|yep|yeah|yes)\b/i.test(
+      /^(okay|ok|fine|thanks|got it|alright|cool|nice|good|sure|yep|yeah|yes|👍)\W*$/i.test(
         userMessage.trim()
       )
 
-    if (isStopCommand || isAcknowledgment) {
-      // User wants us to stop - send ONLY their message, no context at all
+    if (isStopCommand || (isAcknowledgment && isShortMessage)) {
+      // User wants us to stop or just said "okay" - send ONLY their message, no intensive context
       return { context: userMessage, citations: [] }
     }
 
@@ -598,7 +612,7 @@ export class AIService {
           }
         } else {
           // Check for explicit @mentions or [[wikilinks]]
-          const mentionRegex = /@([a-zA-Z0-9_\-\.]+)|\[\[(.*?)\]\]/g
+          const mentionRegex = /@([a-zA-Z0-9_\-.]+)|\[\[(.*?)\]\]/g
           const mentions: string[] = []
           let match
           while ((match = mentionRegex.exec(userMessage)) !== null) {
@@ -643,8 +657,8 @@ export class AIService {
           if (isCreationIntent) {
             context += `\nIntent detected: Creation. Focus on asking for name and location.\n`
           } else {
-            // Find and load only relevant notes (smart RAG) - reduced limit to minimize noise
-            const relevantNotes = await this.findRelevantNotesHybrid(userMessage, 3)
+            // Find and load only relevant notes (smart RAG) - increased limit for better coverage
+            const relevantNotes = await this.findRelevantNotesHybrid(userMessage, 8)
 
             if (relevantNotes.length > 0) {
               context += `\nRelevant notes from vault (${relevantNotes.length} most relevant):\n`

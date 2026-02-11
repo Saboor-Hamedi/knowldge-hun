@@ -55,14 +55,18 @@ export class ConversationController {
     this.notify()
   }
 
+  private currentActionId: number = 0
+
   public stopGeneration(): void {
+    this.currentActionId++ // Invalidate any pending async actions
     if (this.abortController) {
       this.abortController.abort()
       this.abortController = null
-      this.state.isLoading = false
-      this.state.streamingMessageIndex = null
-      this.notify()
     }
+    this.state.isLoading = false
+    this.state.isExecutingCommand = false
+    this.state.streamingMessageIndex = null
+    this.notify()
   }
 
   public async sendMessage(text: string): Promise<void> {
@@ -103,6 +107,7 @@ export class ConversationController {
     skipAddingUserMessage: boolean = false,
     role: 'user' | 'assistant' | 'system' = 'user'
   ): Promise<void> {
+    const actionId = ++this.currentActionId
     await this.ui.onNewSessionRequired()
 
     if (!skipAddingUserMessage && role !== 'user') {
@@ -149,6 +154,9 @@ export class ConversationController {
         citations = contextObj.citations
       }
 
+      // Check if cancelled during context build
+      if (actionId !== this.currentActionId) return
+
       const insertIndex = this.state.messages.length
       this.state.messages.push({
         role: 'assistant',
@@ -162,19 +170,28 @@ export class ConversationController {
 
       const messagesForAPI = this.state.messages.slice(0, insertIndex)
       let lastRenderTime = 0
-      const RENDER_THROTTLE_MS = 100
+      let currentThrottle = 100
 
       const fullResponse = await aiService.callDeepSeekAPIStream(
         messagesForAPI,
         { context: contextMessage, citations },
         (chunk: string) => {
+          if (actionId !== this.currentActionId) return
+
           if (
             this.state.streamingMessageIndex !== null &&
             this.state.messages[this.state.streamingMessageIndex]
           ) {
-            this.state.messages[this.state.streamingMessageIndex].content += chunk
+            const msg = this.state.messages[this.state.streamingMessageIndex]
+            msg.content += chunk
+
+            // Dynamic throttle: if output is getting very long, slow down rendering to keep UI responsive
+            const contentLength = msg.content.length
+            if (contentLength > 10000) currentThrottle = 250
+            if (contentLength > 30000) currentThrottle = 400
+
             const now = Date.now()
-            if (now - lastRenderTime >= RENDER_THROTTLE_MS) {
+            if (now - lastRenderTime >= currentThrottle) {
               lastRenderTime = now
               this.notify()
             }
@@ -182,6 +199,8 @@ export class ConversationController {
         },
         this.abortController.signal
       )
+
+      if (actionId !== this.currentActionId) return
 
       if (this.state.streamingMessageIndex !== null) {
         this.state.messages[this.state.streamingMessageIndex].content = fullResponse
@@ -195,13 +214,16 @@ export class ConversationController {
       await this.ui.onAutoSaveRequired()
 
       if (fullResponse.includes('[RUN:')) {
-        await this.handleAgenticCommands(fullResponse)
+        await this.handleAgenticCommands(fullResponse, actionId)
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
+      if (actionId !== this.currentActionId) return
+
       this.state.isLoading = false
       this.abortController = null
 
-      if (err.name === 'AbortError' || err.message === 'Request cancelled') {
+      const error = err as Error
+      if (error.name === 'AbortError' || error.message === 'Request cancelled') {
         this.notify()
         return
       }
@@ -209,26 +231,33 @@ export class ConversationController {
       this.state.lastFailedMessage = message
       this.addMessage(
         'assistant',
-        `❌ **Error**\n\n${err.message || 'Failed to get response'}\n\nPlease check your API key and connection.`
+        `❌ **Error**\n\n${error.message || 'Failed to get response'}\n\nPlease check your API key and connection.`
       )
       this.notify()
     }
   }
 
-  private async handleAgenticCommands(content: string): Promise<void> {
+  private async handleAgenticCommands(content: string, actionId: number): Promise<void> {
     this.state.isExecutingCommand = true
     this.notify()
 
     const results = await AgentExecutor.executeAll(content, () => {
-      this.notify()
+      if (actionId === this.currentActionId) {
+        this.notify()
+      }
     })
+
+    if (actionId !== this.currentActionId) return
 
     this.state.isExecutingCommand = false
 
     if (results.length > 0) {
       const resultsMessage = results.join('\n\n')
+      // Delay slightly before responding to user with tool results
       setTimeout(() => {
-        void this.doSend(resultsMessage, false, 'system')
+        if (actionId === this.currentActionId) {
+          void this.doSend(resultsMessage, false, 'system')
+        }
       }, 600)
     } else {
       this.notify()

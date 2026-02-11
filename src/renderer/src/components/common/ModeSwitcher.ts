@@ -40,11 +40,12 @@ export class ModeSwitcher {
         ${CHAT_MODES.map(
           (mode) => `
           <button class="kb-mode-switcher__option ${mode.id === this.currentMode ? 'is-active' : ''}" data-mode="${mode.id}">
-            <span class="kb-mode-switcher__option-icon">${mode.icon}</span>
-            <div class="kb-mode-switcher__option-info">
+            <div class="kb-mode-switcher__option-header">
+              <span class="kb-mode-switcher__option-icon">${mode.icon}</span>
               <span class="kb-mode-switcher__option-label">${mode.label}</span>
-              <span class="kb-mode-switcher__option-desc">${mode.description}</span>
+              ${mode.id === this.currentMode ? `<span class="kb-mode-switcher__option-check">${codicons.check || '✓'}</span>` : ''}
             </div>
+            <span class="kb-mode-switcher__option-desc">${mode.description}</span>
           </button>
         `
         ).join('')}

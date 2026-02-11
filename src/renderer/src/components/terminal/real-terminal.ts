@@ -76,6 +76,13 @@ export class RealTerminalComponent {
     if (savedVisibility) {
       this.show()
     }
+
+    // Restore active tab (Scoped to vault)
+    const tabKey = vaultPath ? `terminal_active_tab_${vaultPath}` : 'terminal_active_tab'
+    const savedTab = localStorage.getItem(tabKey) as 'terminal' | 'console' | null
+    if (savedTab) {
+      this.switchView(savedTab)
+    }
   }
 
   private async render(): Promise<void> {
@@ -269,6 +276,12 @@ export class RealTerminalComponent {
     const tabs = this.container.querySelectorAll('.terminal-tab')
     const termBody = this.container.querySelector('.real-terminal-body') as HTMLElement
     const consoleHost = this.container.querySelector('#real-terminal-console-host') as HTMLElement
+
+    // Persist active tab (Scoped to vault if possible)
+    const tabKey = this.lastVaultPath
+      ? `terminal_active_tab_${this.lastVaultPath}`
+      : 'terminal_active_tab'
+    localStorage.setItem(tabKey, view)
 
     // Update tabs
     tabs.forEach((t) => {

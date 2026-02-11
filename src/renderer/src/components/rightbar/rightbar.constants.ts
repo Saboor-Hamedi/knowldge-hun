@@ -1,3 +1,5 @@
+import { Avatar } from './avatar'
+
 export const WELCOME_HTML = `
   <div class="rightbar__welcome">
     <div class="rightbar__welcome-icon">✨</div>
@@ -9,12 +11,11 @@ export const WELCOME_HTML = `
 
 export const TYPING_HTML = `
   <div class="rightbar__message rightbar__message--assistant">
+    <div class="rightbar__Avatar-wrapper">${Avatar.createHTML('assistant', 20)}</div>
     <div class="rightbar__message-body">
-      <div class="rightbar__typing" aria-live="polite">
-        <div class="rightbar__typing-dots">
-          <span></span>
-          <span></span>
-          <span></span>
+      <div class="kb-chat-pill" style="margin-top: 4px; padding: 6px 12px; display: inline-flex;">
+        <div class="kb-typing-dots">
+          <span></span><span></span><span></span>
         </div>
       </div>
     </div>
@@ -23,17 +24,18 @@ export const TYPING_HTML = `
 
 export const EXECUTING_HTML = `
   <div class="rightbar__message rightbar__message--assistant">
+    <div class="rightbar__Avatar-wrapper">${Avatar.createHTML('assistant', 20)}</div>
     <div class="rightbar__message-body">
-      <div class="rightbar__message-content rightbar__executing" aria-live="polite">
-        <div class="rightbar__typing-dots">
+      <div class="kb-chat-pill" style="margin-top: 4px; padding: 6px 12px; display: inline-flex; border-color: var(--primary-alpha);">
+        <div class="kb-typing-dots">
           <span style="background: var(--primary)"></span>
           <span style="background: var(--primary); animation-delay: 0.15s"></span>
           <span style="background: var(--primary); animation-delay: 0.3s"></span>
-          <span style="margin-left: 6px; font-size: 10px; font-weight: 600; color: var(--primary); opacity: 0.9;">Running actions...</span>
         </div>
+        <span style="font-size: 11px; font-weight: 700; color: var(--primary); margin-left: 8px;">Running local actions...</span>
       </div>
     </div>
   </div>
 `
 
-export const RENDER_THROTTLE_MS = 100
+export const RENDER_THROTTLE_MS = 200
