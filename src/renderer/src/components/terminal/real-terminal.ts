@@ -743,7 +743,6 @@ export class RealTerminalComponent {
         brightWhite: '#ffffff'
       },
       lineHeight: 1.2,
-      cursorBlink: true,
       allowProposedApi: true
     })
 
@@ -860,9 +859,6 @@ export class RealTerminalComponent {
       // "truncated copyright" (rved.) issue common in ConPTY.
       await new Promise((r) => setTimeout(r, 60))
       fitAddon.fit()
-
-      const cols = terminal.cols || 80
-      const rows = terminal.rows || 24
     }
 
     // Create terminal in main process
@@ -872,10 +868,15 @@ export class RealTerminalComponent {
       const workingDir = cwd || vaultPath
 
       // Get dimensions after fit()
-      const cols = terminal.cols || 80
-      const rows = terminal.rows || 24
-
-      await window.api.invoke('terminal:create', sessionId, workingDir, shellType, cols, rows)
+      // Create terminal in main process
+      await window.api.invoke(
+        'terminal:create',
+        sessionId,
+        workingDir,
+        shellType,
+        terminal.cols || 80,
+        terminal.rows || 24
+      )
 
       // Setup data listener
       let initialBurst = true

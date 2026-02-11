@@ -172,6 +172,7 @@ const api = {
     void callback
   },
   getGitHistory: (filePath: string): Promise<any[]> => ipcRenderer.invoke('git:history', filePath),
+  getGitRepoHistory: (): Promise<any[]> => ipcRenderer.invoke('git:repo-history'),
   getGitContentAtCommit: (filePath: string, hash: string): Promise<string> =>
     ipcRenderer.invoke('git:show-content', filePath, hash)
 }

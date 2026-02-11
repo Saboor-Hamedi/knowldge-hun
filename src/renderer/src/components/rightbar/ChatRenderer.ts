@@ -17,8 +17,6 @@ export interface RendererState {
  * ChatRenderer - Handles DOM manipulation and message rendering for RightBar
  */
 export class ChatRenderer {
-  private hljsPromise: Promise<any> | null = null
-
   constructor(private chatContainer: HTMLElement) {}
 
   /**
@@ -65,7 +63,6 @@ export class ChatRenderer {
         const avatar = Avatar.createHTML(msg.role as 'user' | 'assistant', 20)
         const feedback = msg.feedback || state.messageFeedback.get(idx) || null
 
-        const citations = this.renderCitations(msg)
         const actions = this.renderActions(
           msg,
           idx,
@@ -149,23 +146,6 @@ export class ChatRenderer {
     `
   }
 
-  private renderCitations(msg: ChatMessage): string {
-    if (!msg.citations || msg.citations.length === 0) return ''
-
-    return `
-      <div class="rightbar__message-citations">
-        <button class="rightbar__message-citations-label" data-action="citations-toggle" title="Show or hide referenced notes">Referenced notes:</button>
-        ${msg.citations
-          .map(
-            (citation) =>
-              `<button class="rightbar__message-citation" data-note-id="${citation.id}" data-note-path="${citation.path || ''}" title="Open: ${citation.title}">
-                ${this.escapeHtml(citation.title)}
-              </button>`
-          )
-          .join('')}
-      </div>`
-  }
-
   private renderActions(
     msg: ChatMessage,
     idx: number,
@@ -208,6 +188,7 @@ export class ChatRenderer {
   }
 
   private createLucideIcon(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     IconComponent: any,
     size: number = 12,
     strokeWidth: number = 1.5
@@ -216,7 +197,7 @@ export class ChatRenderer {
     return svgElement?.outerHTML || ''
   }
 
-  async highlightAll(initHighlightJS: () => Promise<any>): Promise<void> {
+  async highlightAll(initHighlightJS: () => Promise<unknown>): Promise<void> {
     const codeBlocks = this.chatContainer.querySelectorAll(
       'pre code[data-lang], pre code:not([data-lang])'
     )
@@ -231,9 +212,12 @@ export class ChatRenderer {
         const lang = codeElement.getAttribute('data-lang')
         const code = codeElement.getAttribute('data-code') || codeElement.textContent || ''
 
-        if (lang && hljs && hljs.getLanguage(lang)) {
+        if (lang && hljs && (hljs as any).getLanguage(lang)) {
           try {
-            const highlighted = hljs.highlight(code, { language: lang, ignoreIllegals: true })
+            const highlighted = (hljs as any).highlight(code, {
+              language: lang,
+              ignoreIllegals: true
+            })
             codeElement.innerHTML = highlighted.value
             codeElement.classList.add('hljs')
           } catch (err) {

@@ -304,6 +304,12 @@ export class ConsoleComponent {
     this.chatHistory = []
   }
 
+  public clear(): void {
+    if (this.bodyEl) {
+      this.bodyEl.innerHTML = ''
+    }
+  }
+
   public destroy(): void {
     if (this.chatInput) {
       this.chatInput.destroy()

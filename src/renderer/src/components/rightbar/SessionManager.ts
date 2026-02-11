@@ -1,8 +1,5 @@
-import {
-  sessionStorageService,
-  type ChatSession,
-  type ChatMessage
-} from '../../services/sessionStorageService'
+import { sessionStorageService, type ChatSession } from '../../services/sessionStorageService'
+import type { ChatMessage } from '../../services/aiService'
 import { SessionSidebar } from './session-sidebar'
 
 export interface SessionManagerUI {
@@ -276,7 +273,7 @@ export class SessionManager {
   /**
    * Get active session metadata
    */
-  async getSessionMetadata(): Promise<any | null> {
+  async getSessionMetadata(): Promise<ChatSession | null> {
     if (!this.currentSessionId) return null
     return await sessionStorageService.getSession(this.currentSessionId)
   }

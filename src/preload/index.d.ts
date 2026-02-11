@@ -18,6 +18,7 @@ type GitCommit = {
   timestamp: number
   author: string
   subject: string
+  parents?: string[]
 }
 
 type NotePayload = NoteMeta & {
@@ -113,6 +114,7 @@ type NoteApi = {
   ) => Promise<{ status: Record<string, string>; metadata: GitMetadata }>
   gitInit: () => Promise<boolean>
   getGitHistory: (filePath: string) => Promise<GitCommit[]>
+  getGitRepoHistory: () => Promise<GitCommit[]>
   getGitContentAtCommit: (filePath: string, hash: string) => Promise<string>
   getVault: () => Promise<VaultInfo>
   chooseVault: () => Promise<VaultInfo>

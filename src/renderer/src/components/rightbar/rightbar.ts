@@ -928,7 +928,7 @@ export class RightBar {
     button.innerHTML = createElement(CheckIcon, {
       size,
       'stroke-width': stroke,
-      color: colorValue
+      color: colorValue as any
     }).outerHTML
     button.classList.add(
       isSmall ? 'rightbar__message-action--copied' : 'rightbar__code-copy--copied'
@@ -943,26 +943,6 @@ export class RightBar {
       )
       button.title = originalTitle
     }, 2000)
-  }
-
-  private createLucideIcon(
-    IconComponent: LucideIcon,
-    size: number = 12,
-    strokeWidth: number = 1.5,
-    color?: string
-  ): string {
-    // Use Lucide's createElement to create SVG element
-    const svgElement = createElement(IconComponent, {
-      size: size,
-      'stroke-width': strokeWidth,
-      stroke: color || 'currentColor',
-      color: color || 'currentColor'
-    })
-    // Convert SVGElement to string
-    if (svgElement && svgElement.outerHTML) {
-      return svgElement.outerHTML
-    }
-    return ''
   }
 
   private renderMessages(): void {

@@ -126,7 +126,7 @@
 }
 
 .hub-console__line--ai {
-  margin: 0; 
+  margin: 0;
   padding-bottom: 4px; /* Tightened from 12px to bring prompt closer */
 }
 
@@ -249,4 +249,3 @@
   font-family: var(--font-mono);
   background: var(--terminal-bg, transparent) !important;
 }
-

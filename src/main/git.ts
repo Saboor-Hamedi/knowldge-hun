@@ -193,26 +193,26 @@ export async function initGit(rootPath: string): Promise<boolean> {
 }
 
 /**
- * Returns the history of a specific file.
+ * Returns the history of a specific file, including graph data.
  */
 export async function getFileHistory(rootPath: string, filePath: string): Promise<any[]> {
   if (!rootPath || !existsSync(rootPath)) return []
   try {
-    // On Windows CMD, % needs to be escaped as %% in format strings
     const isWindows = process.platform === 'win32'
     const formatString = isWindows
-      ? '--pretty=format:%%H|%%at|%%an|%%s'
-      : '--pretty=format:%H|%at|%an|%s'
+      ? '--pretty=format:%%H|%%P|%%at|%%an|%%s'
+      : '--pretty=format:%H|%P|%at|%an|%s'
 
-    const output = await runGit(['log', '--max-count=50', formatString, '--', filePath], rootPath)
+    const output = await runGit(['log', '--max-count=100', formatString, '--', filePath], rootPath)
     if (!output) return []
     return output
       .split(/\r?\n/)
       .filter((line) => line.trim())
       .map((line) => {
-        const [hash, timestamp, author, subject] = line.split('|')
+        const [hash, parents, timestamp, author, subject] = line.split('|')
         return {
           hash,
+          parents: parents ? parents.split(' ') : [],
           timestamp: parseInt(timestamp) * 1000,
           author,
           subject
@@ -220,6 +220,42 @@ export async function getFileHistory(rootPath: string, filePath: string): Promis
       })
   } catch (err) {
     console.error('[Main:Git] Failed to fetch file history:', err)
+    return []
+  }
+}
+
+/**
+ * Returns the global repository history with graph data.
+ */
+export async function getRepoHistory(rootPath: string): Promise<any[]> {
+  if (!rootPath || !existsSync(rootPath)) return []
+  try {
+    const isWindows = process.platform === 'win32'
+    const formatString = isWindows
+      ? '--pretty=format:%%H|%%P|%%at|%%an|%%s'
+      : '--pretty=format:%H|%P|%at|%an|%s'
+
+    // We get the full graph including merges
+    const output = await runGit(
+      ['log', '--max-count=200', '--all', '--topo-order', formatString],
+      rootPath
+    )
+    if (!output) return []
+    return output
+      .split(/\r?\n/)
+      .filter((line) => line.trim())
+      .map((line) => {
+        const [hash, parents, timestamp, author, subject] = line.split('|')
+        return {
+          hash,
+          parents: parents ? parents.split(' ') : [],
+          timestamp: parseInt(timestamp) * 1000,
+          author,
+          subject
+        }
+      })
+  } catch (err) {
+    console.error('[Main:Git] Failed to fetch repo history:', err)
     return []
   }
 }
@@ -234,7 +270,6 @@ export async function getFileContentAtCommit(
 ): Promise<string> {
   if (!rootPath || !existsSync(rootPath)) return ''
   try {
-    // filePath is expected to be relative to the repo root
     return await runGit(['show', `${hash}:${filePath}`], rootPath)
   } catch (err) {
     console.error('[Main:Git] Failed to get file content at commit:', err)

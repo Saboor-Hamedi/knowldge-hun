@@ -90,18 +90,14 @@ export class ViewOrchestrator {
       this.components.editor.layout()
     }
 
-    // Update sidebar views - use visibility instead of display to preserve layout
+    // Update sidebar views
     const view = state.activeView || 'notes'
     if (view === 'history') {
       if (sidebar) {
-        sidebar.style.visibility = 'hidden'
-        sidebar.style.position = 'absolute'
-        sidebar.style.pointerEvents = 'none'
+        sidebar.style.display = 'none'
       }
       if (timelineHost) {
-        timelineHost.style.display = 'flex'
-        timelineHost.style.visibility = 'visible'
-        timelineHost.style.position = 'relative'
+        timelineHost.style.display = 'grid'
       }
       this.components.timeline.setVisible(true)
 
@@ -114,9 +110,7 @@ export class ViewOrchestrator {
       }
     } else {
       if (sidebar) {
-        sidebar.style.visibility = 'visible'
-        sidebar.style.position = 'relative'
-        sidebar.style.pointerEvents = 'auto'
+        sidebar.style.display = 'grid'
       }
       if (timelineHost) {
         timelineHost.style.display = 'none'
