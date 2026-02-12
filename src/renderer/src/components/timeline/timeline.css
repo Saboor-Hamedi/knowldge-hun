@@ -250,10 +250,18 @@
   opacity: 0.85;
 }
 
-.ref-tag { background: #10b981; }
-.ref-branch { background: #3b82f6; }
-.ref-remote { background: #8b5cf6; }
-.ref-other { background: #64748b; }
+.ref-tag {
+  background: #10b981;
+}
+.ref-branch {
+  background: #3b82f6;
+}
+.ref-remote {
+  background: #8b5cf6;
+}
+.ref-other {
+  background: #64748b;
+}
 
 .timeline-graph-overlay svg {
   display: block;

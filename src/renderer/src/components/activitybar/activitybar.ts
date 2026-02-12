@@ -152,7 +152,7 @@ export class ActivityBar {
         <button class="activitybar__item" data-view="lock" data-tooltip="Lock App">
           <span class="activitybar__icon">${lockIcon}</span>
         </button>
-        <button class="activitybar__item" data-view="theme" data-tooltip="Theme">
+        <button class="activitybar__item${state.activeView === 'theme' ? ' is-active' : ''}" data-view="theme" data-tooltip="Theme">
           <span class="activitybar__icon">${paletteIcon}</span>
         </button>
         <button class="activitybar__item${state.activeView === 'settings' ? ' is-active' : ''}" data-view="settings" data-tooltip="Settings">
@@ -255,13 +255,24 @@ export class ActivityBar {
         return
       }
 
-      // Do NOT set active for modal actions (theme, settings is also kinda modal but treated as view in previous logic)
+      // Toggle for modals as well
       if (view === 'theme' || view === 'documentation' || view === 'lock') {
         if (view === 'lock') {
           void securityService.promptAndLock()
           return
         }
-        this.onViewChange?.(view)
+
+        if (state.activeView === view) {
+          state.activeView = 'notes' // default back
+          this.onViewChange?.(null)
+        } else {
+          // Temporarily set activeView for modals so they highlight
+          if (view === 'theme') {
+            state.activeView = view
+          }
+          this.onViewChange?.(view)
+        }
+        this.render()
         return
       }
 

@@ -27,8 +27,13 @@ export class StatusBar {
     const rightContainer = this.container.querySelector('.statusbar__right') as HTMLElement
     this.metaText = rightContainer?.querySelector('.statusbar__meta') as HTMLElement
 
-    // Create custom tooltip instance
-    this.tooltip = new RichTooltip({ delay: 200 })
+    // Create custom tooltip instance - set interactive false for statusbar
+    // unless specifically needed, to ensure they don't block clicks.
+    this.tooltip = new RichTooltip({
+      delay: 200,
+      interactive: false,
+      className: 'statusbar-tooltip'
+    })
 
     this.updateStatusText()
     this.attachSyncEvents()
@@ -70,6 +75,20 @@ export class StatusBar {
     const downloadIconMenu = this.createLucideIcon(CloudDownload, 10)
 
     this.container.innerHTML = `
+      <style>
+        .statusbar__sync-button .lucide-icon {
+          width: 12px;
+          height: 12px;
+          transition: transform 0.3s ease;
+        }
+        .statusbar__sync-menu-icon .lucide-icon {
+          width: 10px !important;
+          height: 10px !important;
+        }
+        .statusbar__sync-menu {
+          width: 180px;
+        }
+      </style>
       <div class="statusbar__left">
         <span class="statusbar__item statusbar__version"></span>
         <span class="statusbar__item statusbar__git" title="No repository">
@@ -92,7 +111,7 @@ export class StatusBar {
           <div class="statusbar__sync-menu">
             <button class="statusbar__sync-menu-item" data-action="backup">
               <span class="statusbar__sync-menu-icon">${uploadIconMenu}</span>
-              <span>Backup to Gist</span>
+              <span>Back to Gist</span>
             </button>
             <button class="statusbar__sync-menu-item" data-action="restore">
               <span class="statusbar__sync-menu-icon">${downloadIconMenu}</span>
@@ -213,52 +232,36 @@ export class StatusBar {
       git: true
     }
 
-    const wordsEl = this.container.querySelector('.statusbar__words') as HTMLElement
-    const charsEl = this.container.querySelector('.statusbar__chars') as HTMLElement
-    const linesEl = this.container.querySelector('.statusbar__lines') as HTMLElement
-    const tagsEl = this.container.querySelector('.statusbar__tags') as HTMLElement
-    const linksEl = this.container.querySelector('.statusbar__links') as HTMLElement
-    const cursorEl = this.container.querySelector('.statusbar__cursor') as HTMLElement
-    const syncEl = this.container.querySelector('.statusbar__sync') as HTMLElement
-    const versionEl = this.container.querySelector('.statusbar__version') as HTMLElement
-    const gitEl = this.container.querySelector('.statusbar__git') as HTMLElement
+    const items = [
+      { sel: '.statusbar__words', key: 'words' },
+      { sel: '.statusbar__chars', key: 'chars' },
+      { sel: '.statusbar__lines', key: 'lines' },
+      { sel: '.statusbar__tags', key: 'tags' },
+      { sel: '.statusbar__links', key: 'links' },
+      { sel: '.statusbar__mentions', key: 'mentions' },
+      { sel: '.statusbar__cursor', key: 'cursor' },
+      { sel: '.statusbar__sync', key: 'sync' },
+      { sel: '.statusbar__version', key: 'version' },
+      { sel: '.statusbar__git', key: 'git' }
+    ]
 
-    if (wordsEl) {
-      wordsEl.style.visibility = s.words !== false ? 'visible' : 'hidden'
-      wordsEl.style.display = 'flex'
-    }
-    if (charsEl) {
-      charsEl.style.visibility = s.chars !== false ? 'visible' : 'hidden'
-      charsEl.style.display = 'flex'
-    }
-    if (linesEl) {
-      linesEl.style.visibility = s.lines !== false ? 'visible' : 'hidden'
-      linesEl.style.display = 'flex'
-    }
-    if (tagsEl) {
-      tagsEl.style.visibility = s.tags !== false ? 'visible' : 'hidden'
-      tagsEl.style.display = 'flex'
-    }
-    if (linksEl) {
-      linksEl.style.visibility = s.links !== false ? 'visible' : 'hidden'
-      linksEl.style.display = 'flex'
-    }
-    if (cursorEl) {
-      cursorEl.style.visibility = s.cursor !== false ? 'visible' : 'hidden'
-      cursorEl.style.display = 'flex'
-    }
-    if (syncEl) {
-      syncEl.style.visibility = s.sync !== false ? 'visible' : 'hidden'
-      syncEl.style.display = 'flex'
-    }
-    if (versionEl) {
-      versionEl.style.visibility = s.version !== false ? 'visible' : 'hidden'
-      versionEl.style.display = 'flex'
-    }
-    if (gitEl) {
-      gitEl.style.visibility = s.git !== false ? 'visible' : 'hidden'
-      // We don't force display: flex here because updateGitInfo handles show/hide logic based on branch existence
-    }
+    items.forEach((item) => {
+      const el = this.container.querySelector(item.sel) as HTMLElement
+      if (!el) return
+
+      const isEnabled = (s as Record<string, boolean | undefined>)[item.key] !== false
+      const hasContent = !!el.textContent?.trim() || !!el.querySelector('svg')
+
+      // Some items are persistent or managed externally (like Git)
+      const isPersistent = ['version', 'sync', 'git'].includes(item.key)
+
+      if (isEnabled && (isPersistent || hasContent)) {
+        el.style.display = 'flex'
+        el.style.visibility = 'visible'
+      } else {
+        el.style.display = 'none'
+      }
+    })
   }
 
   setMetrics(
@@ -285,6 +288,7 @@ export class StatusBar {
       if (tagsEl) tagsEl.textContent = ''
       if (linksEl) linksEl.textContent = ''
       if (mentionsEl) mentionsEl.textContent = ''
+      this.updateVisibility()
       return
     }
 
@@ -296,19 +300,20 @@ export class StatusBar {
       linksEl.textContent = `${metrics.wikiLinks} Link${metrics.wikiLinks === 1 ? '' : 's'}`
     if (mentionsEl) {
       mentionsEl.textContent = `${metrics.mentions} Mention${metrics.mentions === 1 ? '' : 's'}`
-      ;(mentionsEl as HTMLElement).style.visibility = metrics.mentions > 0 ? 'visible' : 'hidden'
-      ;(mentionsEl as HTMLElement).style.display = metrics.mentions > 0 ? 'flex' : 'none'
     }
+
+    this.updateVisibility()
   }
 
   setCursor(pos: { ln: number; col: number } | null): void {
-    const el = this.container.querySelector('.statusbar__cursor')
+    const el = this.container.querySelector('.statusbar__cursor') as HTMLElement
     if (el) {
       if (!pos) {
         el.textContent = ''
-        return
+      } else {
+        el.textContent = `Ln ${pos.ln}, Col ${pos.col}`
       }
-      el.textContent = `Ln ${pos.ln}, Col ${pos.col}`
+      this.updateVisibility()
     }
   }
 
@@ -462,10 +467,13 @@ export class StatusBar {
       `
 
       this.tooltip.setCompact(false)
+      // Enable interaction only for Git tooltip as it contains a link
+      this.tooltip.setInteractive(true)
       this.tooltip.show(el, content)
     })
 
     el.addEventListener('mouseleave', () => {
+      if (this.tooltip) this.tooltip.setInteractive(false)
       this.tooltip?.hide()
     })
   }
@@ -487,6 +495,11 @@ export class StatusBar {
 
       el.addEventListener('mouseenter', () => {
         if (!this.tooltip) return
+
+        // Guard: Don't show tooltip for hidden elements or items with no content
+        // This prevents "ghost" tooltips when the editor is closed
+        if (el.style.display === 'none' || el.style.visibility === 'hidden') return
+        if (!el.textContent?.trim() && !el.querySelector('svg')) return
 
         let content = ''
         const cl = el.classList
@@ -523,11 +536,14 @@ export class StatusBar {
 
         if (content) {
           this.tooltip.setCompact(true)
+          // Disable interaction for regular items to prevent click blocking
+          this.tooltip.setInteractive(false)
           this.tooltip.show(el, content)
         }
       })
 
       el.addEventListener('mouseleave', () => {
+        if (this.tooltip) this.tooltip.setInteractive(false)
         this.tooltip?.hide()
       })
     })

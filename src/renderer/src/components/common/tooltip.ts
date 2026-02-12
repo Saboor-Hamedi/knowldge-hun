@@ -9,7 +9,7 @@ export class RichTooltip {
   private visible = false
   private hideTimer: ReturnType<typeof setTimeout> | null = null
   private currentTarget: HTMLElement | null = null
-  private options: TooltipOptions
+  public options: TooltipOptions
 
   constructor(options: TooltipOptions = {}) {
     this.options = {
@@ -31,6 +31,10 @@ export class RichTooltip {
   public setCompact(compact: boolean): void {
     if (compact) this.el.classList.add('is-compact')
     else this.el.classList.remove('is-compact')
+  }
+
+  public setInteractive(interactive: boolean): void {
+    this.options.interactive = interactive
   }
 
   public show(target: HTMLElement, content: string | HTMLElement): void {
@@ -102,7 +106,16 @@ export class RichTooltip {
     const y = rect.top
 
     // Set initial position
-    this.el.style.left = `${x}px`
+    let finalX = x
+    const activityBarWidth = 60 // Safe zone for activity bar
+    const halfWidth = this.el.offsetWidth / 2
+
+    // Shift right if it overlaps the activity bar area
+    if (finalX - halfWidth < activityBarWidth) {
+      finalX = activityBarWidth + halfWidth
+    }
+
+    this.el.style.left = `${finalX}px`
     this.el.style.bottom = `${window.innerHeight - y + 8}px`
     this.el.style.right = 'auto'
 
