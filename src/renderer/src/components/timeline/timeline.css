@@ -75,7 +75,7 @@
   bottom: 0;
   width: 100%;
   pointer-events: none;
-  z-index: 1; /* Below item text content but above backgrounds */
+  z-index: 10; /* Above items so background doesn't clip lines */
   overflow: visible;
 }
 
@@ -88,7 +88,7 @@
   transition: background 0.1s ease;
   min-height: 48px;
   position: relative;
-  z-index: 2; /* Above SVG lines but dots are above items? No, dots are in SVG. */
+  z-index: 5;
 }
 
 /* Dots and lines are at z-index 1, text at 2, so dots appear *behind* text?
@@ -251,34 +251,33 @@
   background: var(--selection);
 }
 
-/* DETAILS EXPANSION */
+/* DETAILS EXPANSION - Smooth Height Transition */
 .timeline-item-details {
-  display: none;
-  font-size: 11px;
-  color: var(--text-muted);
-  width: 100%;
-  margin-top: 4px;
-  border-top: 1px dashed var(--border-subtle);
-  padding-top: 4px;
-}
-
-.timeline-item.is-expanded .timeline-item-details {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  animation: slideDown 0.2s ease-out;
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 1px dashed transparent;
+  transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
+              opacity 0.3s ease, 
+              margin-top 0.3s ease, 
+              padding-top 0.3s ease, 
+              border-color 0.3s ease;
 }
 
-@keyframes slideDown {
-  from {
-    opacity: 0;
-    transform: translateY(-5px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+.timeline-item.is-expanded .timeline-item-details {
+  max-height: 800px; /* Large enough to fit content */
+  opacity: 1;
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top-color: var(--border-subtle);
 }
+
+/* Remove keyframes as we use transition now */
 
 .timeline-item.is-expanded {
   background: var(--bg-accent, #2a2a2a);

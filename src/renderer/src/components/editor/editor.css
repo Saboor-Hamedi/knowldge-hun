@@ -40,7 +40,8 @@
   position: relative;
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
+  height: 100%; /* Force height to match parent flex */
+  overflow-y: auto !important;
   background: var(--panel);
   display: none;
 }

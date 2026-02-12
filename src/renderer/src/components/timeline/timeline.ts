@@ -205,6 +205,17 @@ export class TimelineComponent {
         // If expanding and no details loaded, fetch them
         if (!wasExpanded) {
           const detailsEl = item.querySelector('.timeline-item-details') as HTMLElement
+
+          // Animate graph during expansion
+          const startTime = Date.now()
+          const animate = (): void => {
+            this.renderGraph()
+            if (Date.now() - startTime < 300) {
+              requestAnimationFrame(animate)
+            }
+          }
+          requestAnimationFrame(animate)
+
           if (detailsEl && !detailsEl.dataset.loaded) {
             detailsEl.innerHTML = `<div class="timeline-loading-sm">${codicons.refresh} Loading details...</div>`
 
@@ -218,16 +229,22 @@ export class TimelineComponent {
 
               // Adjust graph height after expansion
               requestAnimationFrame(() => this.renderGraph())
-            } catch (err: any) {
+            } catch (err: unknown) {
               console.error(err)
-              detailsEl.innerHTML = `<div class="error-text">Failed: ${err?.message || 'Unknown'}</div>`
+              const msg = err instanceof Error ? err.message : 'Unknown error'
+              detailsEl.innerHTML = `<div class="error-text">Failed: ${msg}</div>`
             }
-          } else {
-            // Just adjust graph
-            requestAnimationFrame(() => this.renderGraph())
           }
         } else {
-          requestAnimationFrame(() => this.renderGraph())
+          // Collapsing - animate graph
+          const startTime = Date.now()
+          const animate = (): void => {
+            this.renderGraph()
+            if (Date.now() - startTime < 300) {
+              requestAnimationFrame(animate)
+            }
+          }
+          requestAnimationFrame(animate)
         }
       })
     })
@@ -286,7 +303,7 @@ export class TimelineComponent {
         .slice(0, maxFiles)
         .map(
           (f) => `
-            <div class="commit-file">
+            <div class="commit-file" data-path="${f.path}">
               <span class="file-path" title="${f.path}">${f.path}</span>
               <span class="file-mods">
                  <span class="add">+${f.additions}</span>
@@ -310,21 +327,53 @@ export class TimelineComponent {
         ${statsHtml}
         ${filesHtml}
         <div class="commit-actions">
-           <button class="action-btn" onclick="const e = new CustomEvent('timeline:compare', { detail: { hash: '${commit.hash}', path: '${this.currentPath}' }, bubbles: true }); this.dispatchEvent(e);">Compare</button>
+           ${this.currentPath ? '<button class="action-btn">Compare</button>' : ''}
         </div>
       `
 
+    // File click handlers
+    const fileItems = container.querySelectorAll('.commit-file')
+    fileItems.forEach((item) => {
+      item.addEventListener('click', async (e) => {
+        e.stopPropagation()
+        const path = (item as HTMLElement).dataset.path
+        if (!path) return
+
+        // Visual feedback
+        item.classList.add('loading-file')
+        try {
+          // Fetch content for this specific file at this commit
+          const finalContent = await window.api.getGitContentAtCommit(path, commit.hash)
+
+          this.container.dispatchEvent(
+            new CustomEvent('timeline:compare', {
+              detail: { commit, path, content: finalContent },
+              bubbles: true
+            })
+          )
+        } catch (err) {
+          console.error('Failed to load file', err)
+        } finally {
+          item.classList.remove('loading-file')
+        }
+      })
+    })
+
     // Re-attach event listeners for buttons if needed or use delegation
     // Since innerHTML kills event listeners, we rely on bubbling or re-adding
-    const btn = container.querySelector('.action-btn')
+    const btn = container.querySelector('.action-btn') as HTMLButtonElement
     if (btn) {
-      btn.addEventListener('click', (e) => {
+      btn.addEventListener('click', async (e) => {
         e.stopPropagation()
-        // Legacy Compare dispatch
-        // We need to fetch content first if we want to match old behavior
-        // But maybe just emitting the hash is enough for the listener?
-        // The old listener fetched content. Let's act like the old click.
-        this.handleCompare(commit)
+        const originalText = btn.innerText
+        btn.innerText = 'Loading...'
+        btn.disabled = true
+        try {
+          await this.handleCompare(commit)
+        } finally {
+          btn.innerText = originalText
+          btn.disabled = false
+        }
       })
     }
   }
@@ -369,8 +418,8 @@ export class TimelineComponent {
     const items = Array.from(this.container.querySelectorAll('.timeline-item')) as HTMLElement[]
     if (items.length === 0) return
 
-    const trackWidth = 12
-    const startX = 16
+    const trackWidth = 14
+    const startX = 14
     const svgRect = svg.getBoundingClientRect()
     const tracks: string[] = []
     const commitNodes: Map<string, { x: number; y: number; color: string; trackIndex: number }> =
@@ -382,7 +431,10 @@ export class TimelineComponent {
       if (!item) return
 
       const rect = item.getBoundingClientRect()
-      const y = rect.top - svgRect.top + rect.height / 2
+      // Pin Y to the top part of the item (stable during expansion)
+      // Item padding-top is 6px. Header line-height is approx 16px.
+      // 6 + 16/2 = 14px roughly. Let's use 18px to align with the first line center.
+      const y = rect.top - svgRect.top + 18
 
       // Find ALL tracks currently pointing to this commit (merges)
       let trackIndex = tracks.indexOf(commit.hash)
@@ -439,16 +491,26 @@ export class TimelineComponent {
           const pNode = commitNodes.get(parentHash)
           if (pNode) {
             const path = document.createElementNS('http://www.w3.org/2000/svg', 'path')
-            // Smooth Bezier Curve
-            const d = `M ${node.x} ${node.y} C ${node.x} ${node.y + 20}, ${pNode.x} ${pNode.y - 20}, ${pNode.x} ${pNode.y}`
+
+            // Calculate dynamic control points based on vertical distance
+            const distY = Math.abs(pNode.y - node.y)
+            // If distance is large (expanded item), increase curve steepness
+            const curveStrength = Math.min(distY * 0.5, 40) // Cap at 40px
+
+            // Cubic Bezier: Start -> Control1 -> Control2 -> End
+            // C x1 y1, x2 y2, x y
+            // We want C1 to go down from Start, and C2 to go up from End
+
+            const d = `M ${node.x} ${node.y} C ${node.x} ${node.y + curveStrength}, ${pNode.x} ${pNode.y - curveStrength}, ${pNode.x} ${pNode.y}`
+
             path.setAttribute('d', d)
             path.setAttribute('stroke', node.color)
             path.setAttribute('stroke-width', '1.5')
             path.setAttribute('fill', 'none')
-            path.setAttribute('opacity', '0.5')
+            path.setAttribute('opacity', '0.6')
             svg.appendChild(path)
           } else {
-            // Tail
+            // Tail (parent not loaded in this batch)
             const line = document.createElementNS('http://www.w3.org/2000/svg', 'line')
             line.setAttribute('x1', node.x.toString())
             line.setAttribute('y1', node.y.toString())
@@ -467,10 +529,10 @@ export class TimelineComponent {
       const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle')
       circle.setAttribute('cx', node.x.toString())
       circle.setAttribute('cy', node.y.toString())
-      circle.setAttribute('r', '3.5')
+      circle.setAttribute('r', '4')
       circle.setAttribute('fill', node.color)
       circle.setAttribute('stroke', 'var(--sidebar-bg, #1a1a1a)')
-      circle.setAttribute('stroke-width', '1.5')
+      circle.setAttribute('stroke-width', '2')
       svg.appendChild(circle)
     })
   }

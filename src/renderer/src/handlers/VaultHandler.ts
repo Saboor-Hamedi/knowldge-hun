@@ -337,8 +337,12 @@ export class VaultHandler {
       if (state.isLoading) return
       if (state.openTabs.length === 0 && !state.vaultPath) return
 
+      const tabsToSave = state.openTabs
+        .filter((t) => !t.id.startsWith('preview-') && !t.id.startsWith('commit-'))
+        .map((t) => ({ id: t.id, path: t.path, title: t.title }))
+
       await window.api.updateSettings({
-        openTabs: state.openTabs.map((t) => ({ id: t.id, path: t.path, title: t.title })),
+        openTabs: tabsToSave,
         activeId: state.activeId,
         pinnedTabs: Array.from(state.pinnedTabs),
         cursorPositions: Object.fromEntries(state.cursorPositions)

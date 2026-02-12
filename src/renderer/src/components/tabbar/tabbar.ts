@@ -148,6 +148,9 @@ export class TabBar {
           color: 'currentColor'
         })
         icon.innerHTML = eyeIcon.outerHTML || getFileIcon(title, 'markdown')
+      } else if (tab.id.startsWith('commit-')) {
+        // Use git-commit icon from codicons if available, or fallback
+        icon.innerHTML = codicons.gitCommit || getFileIcon(title, 'txt')
       } else if (tab.id === 'settings') {
         const settingsIcon = createElement(Settings, {
           size: 16,

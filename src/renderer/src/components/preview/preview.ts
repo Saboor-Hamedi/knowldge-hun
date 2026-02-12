@@ -428,10 +428,15 @@ export class PreviewComponent {
 
     // Determine if we need to wrap content in code fence
     let renderContent = content
-    if (this.currentFilePath && this.isCodeFile(this.currentFilePath)) {
-      const language = this.getLanguageFromPath(this.currentFilePath)
+    const isCode = this.currentFilePath && this.isCodeFile(this.currentFilePath)
+
+    if (isCode) {
+      previewContent.classList.add('is-full-file')
+      const language = this.getLanguageFromPath(this.currentFilePath!)
       // Wrap entire content in code fence for syntax highlighting
       renderContent = `\`\`\`${language}\n${content}\n\`\`\``
+    } else {
+      previewContent.classList.remove('is-full-file')
     }
 
     // Normalize image markdown syntax (fix spaces after !)

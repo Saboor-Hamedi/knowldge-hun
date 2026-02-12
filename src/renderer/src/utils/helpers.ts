@@ -33,8 +33,13 @@ export function syncTabsWithNotes(openTabs: NoteMeta[], notes: NoteMeta[]): Note
   const map = new Map(notes.map((note) => [note.id, note]))
   return openTabs
     .map((tab) => {
-      // Keep special tabs (settings, graphs, previews) as they aren't in the main notes list
-      if (tab.id === 'settings' || tab.id === 'graph' || tab.id.startsWith('preview-')) {
+      // Keep special tabs (settings, graphs, previews, commits) as they aren't in the main notes list
+      if (
+        tab.id === 'settings' ||
+        tab.id === 'graph' ||
+        tab.id.startsWith('preview-') ||
+        tab.id.startsWith('commit-')
+      ) {
         return tab
       }
       // For all other tabs, they MUST exist in the current notes list

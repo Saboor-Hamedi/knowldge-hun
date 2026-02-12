@@ -363,12 +363,12 @@ export async function getCommitDetails(
     return null
   }
   try {
-    console.log(`[Main:Git] Getting details for hash: ${hash} in ${rootPath}`)
+    // console.log(`[Main:Git] Getting details for hash: ${hash} in ${rootPath}`)
     // --numstat gives: additions deletions path
     // Use --format="" to avoid newline issues with empty format string if any
     const output = await runGit(['show', '--numstat', '--format=', hash], rootPath)
 
-    console.log('[Main:Git] Raw output length:', output?.length)
+    // console.log('[Main:Git] Raw output length:', output?.length)
     // console.log('[Main:Git] Raw output snippet:', output?.substring(0, 100))
 
     if (!output) {
@@ -418,9 +418,9 @@ export async function getCommitDetails(
       files.push({ path, additions, deletions })
     }
 
-    console.log(
-      `[Main:Git] Parsed ${files.length} files. Stats: +${totalAdditions}/-${totalDeletions}`
-    )
+    // console.log(
+    //   `[Main:Git] Parsed ${files.length} files. Stats: +${totalAdditions}/-${totalDeletions}`
+    // )
 
     return {
       hash,

@@ -1,4 +1,5 @@
 import { state } from './core/state'
+import { tabService } from './services/tabService'
 import type { AppSettings } from './core/types'
 import { keyboardManager } from './core/keyboardManager'
 import { modalManager } from './components/modal/modal'
@@ -88,6 +89,7 @@ class App {
   private fileOps: FileOperationHandler
   private viewOrchestrator: ViewOrchestrator
   private syncHandler: SyncHandler
+  private previewCache = new Map<string, string>()
 
   constructor() {
     this.activityBar = new ActivityBar('activityBar')
@@ -278,6 +280,46 @@ class App {
       void this.fileOps.duplicateItem(id, type)
     }) as EventListener)
 
+    // Handle Timeline Compare
+    // Handle Timeline Compare
+    window.addEventListener('timeline:compare', ((
+      e: CustomEvent<{ commit: any; path: string; content: string }>
+    ) => {
+      console.log('[App] Compare requested', e.detail)
+      const { commit, path, content } = e.detail
+
+      const id = `commit-${commit.hash.substring(0, 7)}-${path}`
+      const title = `${path.split(/[/\\]/).pop()} (@${commit.hash.substring(0, 7)})`
+
+      this.previewCache.set(id, content)
+
+      // Ensure tab exists
+      tabService.ensureTab({
+        id,
+        title,
+        updatedAt: commit.timestamp,
+        path: undefined,
+        type: 'note'
+      })
+
+      // Manually set active and show immediately
+      state.activeId = id
+
+      // Force UI updates
+      this.welcomePage.hide()
+      const editorHost = document.getElementById('editorContainer')
+      if (editorHost) editorHost.style.display = 'block' // or flex, depending on layout
+
+      this.tabBar.render()
+
+      // Show content
+      this.editor.showPreview(content)
+      this.statusBar.setStatus(`Viewing ${title}`)
+
+      // Ensure layout is correct
+      this.viewOrchestrator.updateViewVisibility()
+    }) as EventListener)
+
     // Terminal toggle via custom event (triggered by Monaco command or global shortcut)
     window.addEventListener('toggle-terminal', () => {
       console.log('[App] toggle-terminal event received')
@@ -447,11 +489,27 @@ class App {
       this.previewHandlers.closePreviewTabs(id)
       if (id === 'settings') return void this.viewOrchestrator.openSettings()
 
+      // Check if it's a cached preview (e.g. commit comparison)
+      if (this.previewCache.has(id)) {
+        state.activeId = id
+        this.tabBar.render()
+        const content = this.previewCache.get(id)!
+        this.editor.showPreview(content)
+        this.statusBar.setStatus('Read-only Preview')
+        return
+      }
+
       const tab = state.openTabs.find((t) => t.id === id)
       if (tab) await this.vaultHandler.openNote(tab.id, tab.path)
     })
 
-    this.tabBar.setTabCloseHandler((id) => void this.closeTab(id))
+    this.tabBar.setTabCloseHandler((id) => {
+      if (this.previewCache.has(id)) {
+        this.previewCache.delete(id)
+      }
+      void this.closeTab(id)
+    })
+
     this.tabBar.setTabContextMenuHandler((id, e) => {
       this.tabHandlers.handleTabContextMenu(
         id,
@@ -582,7 +640,18 @@ class App {
         await window.api.deleteNote(id, path)
       },
       () => this.vaultHandler.refreshNotes(),
-      (id, path) => this.vaultHandler.openNote(id, path),
+      (id, path) => {
+        if (this.previewCache.has(id)) {
+          state.activeId = id
+          this.tabBar.render()
+          this.viewOrchestrator.updateViewVisibility()
+          const content = this.previewCache.get(id)!
+          this.editor.showPreview(content)
+          this.statusBar.setStatus('Read-only Preview')
+          return Promise.resolve()
+        }
+        return this.vaultHandler.openNote(id, path)
+      },
       () => this.viewOrchestrator.showWelcomePage()
     )
   }

@@ -380,6 +380,9 @@ export class EditorComponent {
   public async showPreview(content: string): Promise<void> {
     if (!this.previewHost || !this.editorHost || !this.preview) return
 
+    // Ensure main container is visible (in case it was hidden by welcome page)
+    this.container.style.display = 'block'
+
     // Hide editor, show preview
     this.editorHost.style.display = 'none'
     this.previewHost.style.display = 'block'
