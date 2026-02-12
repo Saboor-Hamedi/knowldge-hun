@@ -51,6 +51,7 @@ export class TimelineComponent {
         <div class="sidebar__actions timeline-mode-toggle">
           <button class="sidebar__action ${this.mode === 'file' ? 'is-active' : ''}" id="mode-file" title="File History">File</button>
           <button class="sidebar__action ${this.mode === 'repo' ? 'is-active' : ''}" id="mode-repo" title="Repo History">Repo</button>
+          <button class="sidebar__action" id="timeline-refresh" title="Refresh History">${codicons.refresh}</button>
         </div>
       </header>
       <div class="sidebar__body timeline-body" id="timeline-body-target">
@@ -121,7 +122,7 @@ export class TimelineComponent {
       const emptyMsg =
         this.mode === 'file'
           ? this.currentPath
-            ? 'No history found for this file.'
+            ? `No history found for file:<br/><code style="font-size: 10px; opacity: 0.7">${this.currentPath}</code>`
             : 'Select a file to view history.'
           : 'No history found for this repository.'
 
@@ -150,14 +151,18 @@ export class TimelineComponent {
     // Use requestAnimationFrame AND a small delay to ensure rendering is complete
     requestAnimationFrame(() => {
       setTimeout(() => this.renderGraph(), 50)
+      setTimeout(() => this.renderGraph(), 300) // Safety for slow layout
     })
   }
 
   private setupHeaderHandlers(): void {
     const fileBtn = this.container.querySelector('#mode-file')
     const repoBtn = this.container.querySelector('#mode-repo')
+    const refreshBtn = this.container.querySelector('#timeline-refresh')
+
     if (fileBtn) fileBtn.addEventListener('click', () => this.setMode('file'))
     if (repoBtn) repoBtn.addEventListener('click', () => this.setMode('repo'))
+    if (refreshBtn) refreshBtn.addEventListener('click', () => this.update('', this.currentPath))
   }
 
   private setupItemHandlers(): void {
@@ -195,13 +200,13 @@ export class TimelineComponent {
     }
   }
 
-  private renderItem(commit: GitCommit, _index: number): string {
+  private renderItem(commit: GitCommit, index: number): string {
     const date = new Date(commit.timestamp)
     const dateStr = date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
     const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 
     return `
-      <div class="timeline-item" data-hash="${commit.hash}">
+      <div class="timeline-item" data-hash="${commit.hash}" data-index="${index}">
         <div class="timeline-item-graph-stub"></div>
         <div class="timeline-item-content">
           <div class="commit-header">
@@ -224,7 +229,9 @@ export class TimelineComponent {
     const scrollContainer = this.container.querySelector('.timeline-list') as HTMLElement
     if (!scrollContainer) return
 
-    // Clear previous
+    // Explicitly set SVG height to full scrollable container
+    const totalHeight = scrollContainer.scrollHeight
+    svg.style.height = `${totalHeight}px`
     svg.innerHTML = ''
 
     const colors = [
@@ -241,13 +248,12 @@ export class TimelineComponent {
     const items = Array.from(this.container.querySelectorAll('.timeline-item')) as HTMLElement[]
     if (items.length === 0) return
 
-    // Standard track width
-    const trackWidth = 15
-    const startX = 20
-
+    const trackWidth = 12
+    const startX = 16
     const svgRect = svg.getBoundingClientRect()
     const tracks: string[] = []
-    const commitNodes: Map<string, { x: number; y: number; color: string }> = new Map()
+    const commitNodes: Map<string, { x: number; y: number; color: string; trackIndex: number }> =
+      new Map()
 
     // Pass 1: Allocate tracks and find positions
     this.history.forEach((commit, i) => {
@@ -255,12 +261,12 @@ export class TimelineComponent {
       if (!item) return
 
       const rect = item.getBoundingClientRect()
-      // Calculate Y relative to the SVG container (which is inside the scrollable list)
       const y = rect.top - svgRect.top + rect.height / 2
 
-      // Track allocation
+      // Find ALL tracks currently pointing to this commit (merges)
       let trackIndex = tracks.indexOf(commit.hash)
       if (trackIndex === -1) {
+        // New branch tip or disconnected commit
         trackIndex = tracks.findIndex((t) => t === '')
         if (trackIndex === -1) {
           trackIndex = tracks.length
@@ -272,66 +278,78 @@ export class TimelineComponent {
 
       const x = startX + trackIndex * trackWidth
       const color = colors[trackIndex % colors.length]
-      commitNodes.set(commit.hash, { x, y, color })
+      commitNodes.set(commit.hash, { x, y, color, trackIndex })
 
-      // Clean up track for parents
-      tracks[trackIndex] = ''
+      // Update tracks for parents
+      // 1. Clear this hash from ANY other tracks it might be in (merges)
+      for (let j = 0; j < tracks.length; j++) {
+        if (j !== trackIndex && tracks[j] === commit.hash) {
+          tracks[j] = ''
+        }
+      }
+
+      // 2. Assign parents
       if (commit.parents && commit.parents.length > 0) {
+        // Primary parent stays in the same track
         tracks[trackIndex] = commit.parents[0]
+
+        // Secondary parents get new tracks
         for (let p = 1; p < commit.parents.length; p++) {
-          const parentHash = commit.parents[p]
-          if (tracks.indexOf(parentHash) === -1) {
-            const freeSlot = tracks.indexOf('')
-            if (freeSlot !== -1) tracks[freeSlot] = parentHash
-            else tracks.push(parentHash)
+          const pHash = commit.parents[p]
+          if (tracks.indexOf(pHash) === -1) {
+            const free = tracks.indexOf('')
+            if (free !== -1) tracks[free] = pHash
+            else tracks.push(pHash)
           }
         }
+      } else {
+        // Root commit, free the track
+        tracks[trackIndex] = ''
       }
     })
 
-    // Pass 2: Draw connections (only if node exists)
+    // Pass 2: Draw connections and dots
     this.history.forEach((commit) => {
       const node = commitNodes.get(commit.hash)
       if (!node) return
 
-      if (commit.parents) {
+      if (commit.parents && commit.parents.length > 0) {
         commit.parents.forEach((parentHash) => {
           const pNode = commitNodes.get(parentHash)
           if (pNode) {
             const path = document.createElementNS('http://www.w3.org/2000/svg', 'path')
-            // Bezier curve
-            const d = `M ${node.x} ${node.y} C ${node.x} ${node.y + 15}, ${pNode.x} ${pNode.y - 15}, ${pNode.x} ${pNode.y}`
+            // Smooth Bezier Curve
+            const d = `M ${node.x} ${node.y} C ${node.x} ${node.y + 20}, ${pNode.x} ${pNode.y - 20}, ${pNode.x} ${pNode.y}`
             path.setAttribute('d', d)
             path.setAttribute('stroke', node.color)
-            path.setAttribute('stroke-width', '2')
+            path.setAttribute('stroke-width', '1.5')
             path.setAttribute('fill', 'none')
-            path.setAttribute('opacity', '0.6')
+            path.setAttribute('opacity', '0.5')
             svg.appendChild(path)
           } else {
-            // Draw a tail if parent is not in current view (limit reached)
+            // Tail
             const line = document.createElementNS('http://www.w3.org/2000/svg', 'line')
             line.setAttribute('x1', node.x.toString())
             line.setAttribute('y1', node.y.toString())
             line.setAttribute('x2', node.x.toString())
-            line.setAttribute('y2', (node.y + 30).toString())
+            line.setAttribute('y2', (node.y + 25).toString())
             line.setAttribute('stroke', node.color)
-            line.setAttribute('stroke-width', '2')
+            line.setAttribute('stroke-width', '1.5')
             line.setAttribute('stroke-dasharray', '2,2')
-            line.setAttribute('opacity', '0.4')
+            line.setAttribute('opacity', '0.3')
             svg.appendChild(line)
           }
         })
       }
 
-      // Draw commit dot
+      // Dot
       const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle')
       circle.setAttribute('cx', node.x.toString())
       circle.setAttribute('cy', node.y.toString())
-      circle.setAttribute('r', '4.5')
+      circle.setAttribute('r', '3.5')
       circle.setAttribute('fill', node.color)
-      circle.setAttribute('stroke', 'var(--sidebar-bg, #1e1e1e)')
-      circle.setAttribute('stroke-width', '2')
-      circle.style.cursor = 'pointer'
+      circle.setAttribute('stroke', 'var(--sidebar-bg, #1a1a1a)')
+      circle.setAttribute('stroke-width', '1.5')
       svg.appendChild(circle)
     })
   }

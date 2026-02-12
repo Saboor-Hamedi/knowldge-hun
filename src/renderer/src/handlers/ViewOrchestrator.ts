@@ -104,8 +104,8 @@ export class ViewOrchestrator {
       // Update with current note if available
       if (state.activeId && state.activeId !== 'settings' && state.activeId !== 'graph') {
         const note = state.notes.find((n) => n.id === state.activeId)
-        if (note && note.path) {
-          this.components.timeline.update(note.id, note.path)
+        if (note) {
+          this.components.timeline.update(note.id, note.id)
         }
       }
     } else {

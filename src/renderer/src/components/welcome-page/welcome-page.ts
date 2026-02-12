@@ -196,8 +196,8 @@ export class WelcomePage {
         if (!path) return
 
         modalManager.open({
-          title: 'Remove Recent Vault',
-          content: `Are you sure you want to remove this vault from your recent list?<br/><br/><code style="font-size: 11px; opacity: 0.7;">${path}</code>`,
+          title: 'Remove Vault',
+          content: `Are you sure you want to remove this vault from your recent list?<br/><br/><code style="font-size: 11px; opacity: 0.7;">${this.escapeHtml(path)}</code>`,
           size: 'md',
           buttons: [
             {

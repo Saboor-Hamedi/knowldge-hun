@@ -1785,7 +1785,7 @@ export class SettingsView {
 
         modalManager.open({
           title: 'Remove Vault',
-          content: `Are you sure you want to remove this vault from your recent list?<br/><br/><code style="font-size: 11px; opacity: 0.7;">${path}</code>`,
+          content: `Are you sure you want to remove this vault from your recent list?<br/><br/><code style="font-size: 11px; opacity: 0.7;">${this.escapeHtml(path)}</code>`,
           size: 'md',
           buttons: [
             {

@@ -72,10 +72,11 @@
   position: absolute;
   top: 0;
   left: 0;
-  bottom: 0px;
+  bottom: 0;
   width: 100%;
   pointer-events: none;
-  z-index: 1; /* Below item content (text) but above backgrounds */
+  z-index: 1; /* Below item text content but above backgrounds */
+  overflow: visible;
 }
 
 .timeline-item {
@@ -103,9 +104,8 @@
 }
 
 .timeline-item-graph-stub {
-  width: 40px;
+  width: 64px;
   flex-shrink: 0;
-  height: 100%;
 }
 
 .timeline-item-content {
@@ -165,14 +165,11 @@
   border-radius: 3px;
 }
 
-.timeline-graph-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
+.timeline-graph-overlay svg {
+  display: block;
   width: 100%;
   height: 100%;
-  pointer-events: none;
-  z-index: 10;
+  min-height: 100%;
 }
 
 .timeline-loading,

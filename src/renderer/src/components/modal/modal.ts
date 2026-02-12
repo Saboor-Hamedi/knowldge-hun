@@ -15,7 +15,7 @@ export interface ModalConfig {
   closeOnEscape?: boolean
   closeOnBackdrop?: boolean
   onClose?: () => void
-  onSubmit?: (data: Record<string, any>) => void
+  onSubmit?: (data: Record<string, string>) => void
   customContent?: HTMLElement
 }
 
@@ -82,8 +82,8 @@ export class Modal {
   /**
    * Get input values
    */
-  getValues(): Record<string, any> {
-    const values: Record<string, any> = {}
+  getValues(): Record<string, string> {
+    const values: Record<string, string> = {}
     this.inputs.forEach((input, name) => {
       values[name] = input.value
     })
@@ -179,7 +179,7 @@ export class Modal {
     if (this.config.customContent) {
       body.appendChild(this.config.customContent)
     } else if (this.config.content) {
-      body.innerHTML = this.escapeHtml(this.config.content)
+      body.innerHTML = this.config.content
     }
 
     // Inputs

@@ -1,10 +1,10 @@
-import { exec } from 'child_process'
+import { execFile } from 'child_process'
 import { promisify } from 'util'
 import { existsSync } from 'fs'
-import { writeFile } from 'fs/promises'
-import { join } from 'path'
+import { writeFile, readdir } from 'fs/promises'
+import { join, dirname, basename, isAbsolute, resolve } from 'path'
 
-const execAsync = promisify(exec)
+const execFileAsync = promisify(execFile)
 
 export interface GitStatusResult {
   [path: string]: string
@@ -21,17 +21,22 @@ export interface GitInfo {
   metadata: GitMetadata
 }
 
+export interface GitHistoryItem {
+  hash: string
+  parents: string[]
+  timestamp: number
+  author: string
+  subject: string
+}
+
 /**
  * Executes a git command and returns the stdout
  */
 async function runGit(args: string[], cwd: string): Promise<string> {
-  // On Windows, we need to use shell: true to properly handle git commands
-  const command = `git ${args.join(' ')}`
-  const { stdout } = await execAsync(command, {
+  const { stdout } = await execFileAsync('git', args, {
     cwd,
     windowsHide: true,
-    timeout: 5000 // 5 second timeout for git commands
-    // shell: true - removed as exec runs in shell by default and expects string
+    timeout: 5000
   })
   return stdout.trim()
 }
@@ -71,7 +76,7 @@ export async function getGitInfo(rootPath: string): Promise<GitInfo> {
             try {
               // Priority 2: config (older git versions)
               return await runGit(['config', '--get', 'remote.origin.url'], rootPath)
-            } catch (e2) {
+            } catch {
               // Priority 3: any remote
               try {
                 const remotes = await runGit(['remote'], rootPath)
@@ -195,29 +200,66 @@ export async function initGit(rootPath: string): Promise<boolean> {
 /**
  * Returns the history of a specific file, including graph data.
  */
-export async function getFileHistory(rootPath: string, filePath: string): Promise<any[]> {
+export async function getFileHistory(
+  rootPath: string,
+  filePath: string
+): Promise<GitHistoryItem[]> {
   if (!rootPath || !existsSync(rootPath)) return []
   try {
-    const isWindows = process.platform === 'win32'
-    const formatString = isWindows
-      ? '--pretty=format:%%H|%%P|%%at|%%an|%%s'
-      : '--pretty=format:%H|%P|%at|%an|%s'
+    const fullPath = isAbsolute(filePath) ? filePath : resolve(rootPath, filePath)
+    const fileDir = dirname(fullPath)
 
-    const output = await runGit(['log', '--max-count=100', formatString, '--', filePath], rootPath)
-    if (!output) return []
-    return output
-      .split(/\r?\n/)
-      .filter((line) => line.trim())
+    if (!existsSync(fileDir)) {
+      console.warn(`[Main:Git] File directory does not exist: ${fileDir}`)
+      return []
+    }
+
+    // Use a unique separator to avoid issues with tabs in subjects/authors
+    const separator = '||KH_SEP||'
+    const formatString = `--format=%H${separator}%P${separator}%at${separator}%an${separator}%s`
+
+    console.log(`[Main:Git] Fetching history for ${basename(fullPath)} from ${fileDir}`)
+
+    const output = await runGit(
+      ['log', '--max-count=100', formatString, '--', basename(fullPath)],
+      fileDir
+    )
+    console.log(`[Main:Git] Log output length: ${output?.length || 0} characters`)
+
+    if (!output || output.trim().length === 0) {
+      console.log('[Main:Git] No log output received')
+      return []
+    }
+
+    const lines = output.split(/\r?\n/).filter((line) => line.trim())
+    console.log(`[Main:Git] Found ${lines.length} lines in log`)
+
+    return lines
       .map((line) => {
-        const [hash, parents, timestamp, author, subject] = line.split('|')
+        const parts = line.split(separator)
+        if (parts.length < 5) {
+          console.warn(
+            `[Main:Git] Malformed log line (expected 5 parts, got ${parts.length}):`,
+            line
+          )
+          return null
+        }
+        const [hash, parents, timestampStr, author, subject] = parts
+        const timestamp = parseInt(timestampStr)
+
+        if (isNaN(timestamp)) {
+          console.warn(`[Main:Git] Invalid timestamp "${timestampStr}" in line:`, line)
+        }
+
         return {
-          hash,
-          parents: parents ? parents.split(' ') : [],
-          timestamp: parseInt(timestamp) * 1000,
-          author,
-          subject
+          hash: hash || '',
+          parents: parents ? parents.split(' ').filter((p) => p.length > 0) : [],
+          timestamp: (timestamp || 0) * 1000,
+          author: author || 'unknown',
+          subject: subject || 'no subject'
         }
       })
+      .filter((c): c is GitHistoryItem => c !== null)
   } catch (err) {
     console.error('[Main:Git] Failed to fetch file history:', err)
     return []
@@ -227,33 +269,69 @@ export async function getFileHistory(rootPath: string, filePath: string): Promis
 /**
  * Returns the global repository history with graph data.
  */
-export async function getRepoHistory(rootPath: string): Promise<any[]> {
+export async function getRepoHistory(rootPath: string): Promise<GitHistoryItem[]> {
   if (!rootPath || !existsSync(rootPath)) return []
   try {
-    const isWindows = process.platform === 'win32'
-    const formatString = isWindows
-      ? '--pretty=format:%%H|%%P|%%at|%%an|%%s'
-      : '--pretty=format:%H|%P|%at|%an|%s'
+    const separator = '||KH_SEP||'
+    const formatString = `--format=%H${separator}%P${separator}%at${separator}%an${separator}%s`
 
-    // We get the full graph including merges
+    let runDir = rootPath
+    try {
+      await runGit(['rev-parse', '--is-inside-work-tree'], rootPath)
+    } catch {
+      console.log(`[Main:Git] Checking subdirectories of ${rootPath} for .git folder...`)
+      const entries = await readdir(rootPath, { withFileTypes: true })
+      for (const entry of entries) {
+        if (entry.isDirectory()) {
+          const checkPath = join(rootPath, entry.name)
+          if (existsSync(join(checkPath, '.git'))) {
+            console.log(`[Main:Git] Found Git repository in subdirectory: ${checkPath}`)
+            runDir = checkPath
+            break
+          }
+        }
+      }
+    }
+
+    console.log(`[Main:Git] Running repo history log in ${runDir}`)
+
     const output = await runGit(
       ['log', '--max-count=200', '--all', '--topo-order', formatString],
-      rootPath
+      runDir
     )
-    if (!output) return []
-    return output
-      .split(/\r?\n/)
-      .filter((line) => line.trim())
+    console.log(`[Main:Git] Repo log output length: ${output?.length || 0} characters`)
+
+    if (!output || output.trim().length === 0) return []
+
+    const lines = output.split(/\r?\n/).filter((line) => line.trim())
+    console.log(`[Main:Git] Found ${lines.length} lines in repo log`)
+
+    return lines
       .map((line) => {
-        const [hash, parents, timestamp, author, subject] = line.split('|')
+        const parts = line.split(separator)
+        if (parts.length < 5) {
+          console.warn(
+            `[Main:Git] Malformed repo log line (expected 5 parts, got ${parts.length}):`,
+            line
+          )
+          return null
+        }
+        const [hash, parents, timestampStr, author, subject] = parts
+        const timestamp = parseInt(timestampStr)
+
+        if (isNaN(timestamp)) {
+          console.warn(`[Main:Git] Invalid timestamp "${timestampStr}" in repo line:`, line)
+        }
+
         return {
-          hash,
-          parents: parents ? parents.split(' ') : [],
-          timestamp: parseInt(timestamp) * 1000,
-          author,
-          subject
+          hash: hash || '',
+          parents: parents ? parents.split(' ').filter((p) => p.length > 0) : [],
+          timestamp: (timestamp || 0) * 1000,
+          author: author || 'unknown',
+          subject: subject || 'no subject'
         }
       })
+      .filter((c): c is GitHistoryItem => c !== null)
   } catch (err) {
     console.error('[Main:Git] Failed to fetch repo history:', err)
     return []

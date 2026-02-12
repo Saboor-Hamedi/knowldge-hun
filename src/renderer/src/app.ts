@@ -141,8 +141,8 @@ class App {
         onNoteOpened: (id: string, path?: string) => {
           this.viewOrchestrator.updateEditorMetrics()
           // Update timeline if in history view
-          if (state.activeView === 'history' && path) {
-            this.timeline.update(id, path)
+          if (state.activeView === 'history') {
+            this.timeline.update(id, path || id)
           }
         }
       }
