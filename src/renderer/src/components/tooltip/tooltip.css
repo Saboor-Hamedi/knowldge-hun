@@ -6,7 +6,7 @@
   color: var(--text-strong);
   border: 1px solid rgba(255, 255, 255, 0.08); /* More subtle border */
   border-radius: 6px;
-  font-size: 11px; /* Slighly smaller */
+  font-size: 10px; /* Slighly smaller */
   font-weight: 500;
   pointer-events: none;
   opacity: 0;
@@ -15,8 +15,10 @@
     transform 0.12s cubic-bezier(0.4, 0, 0.2, 1);
   transform: translateY(3px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25); /* Slimmer shadow */
-  white-space: nowrap;
+  white-space: normal;
+  word-break: break-all;
   max-width: 400px;
+  line-height: 1.4;
   overflow: visible;
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
@@ -33,7 +35,7 @@
   position: absolute;
   width: 6px; /* Smaller knob */
   height: 6px;
-  background: rgba(22, 22, 24, 0.85);
+  background: inherit;
   border-left: 1px solid rgba(255, 255, 255, 0.08);
   border-top: 1px solid rgba(255, 255, 255, 0.08);
   transform: rotate(45deg);

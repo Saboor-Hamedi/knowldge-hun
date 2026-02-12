@@ -1359,7 +1359,22 @@ export class SettingsView {
             this.onSettingChange?.({ activeSettingsSection: section })
           }
 
-          this.render()
+          // Soft Update: Toggle classes instead of full destructive render
+          this.container.querySelectorAll('[data-section-tab]').forEach((t) => {
+            t.classList.toggle('is-active', (t as HTMLElement).dataset.sectionTab === section)
+          })
+
+          this.container.querySelectorAll('[data-section]').forEach((s) => {
+            const isTarget = (s as HTMLElement).dataset.section === section
+            s.classList.toggle('is-active', isTarget)
+          })
+
+          // Reset scroll position for the content area
+          const contentArea = this.container.querySelector('.settings-view__content')
+          if (contentArea) {
+            contentArea.scrollTop = 0
+          }
+
           if (section === 'vault') {
             void this.loadRecentVaults()
           }

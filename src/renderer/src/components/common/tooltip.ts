@@ -101,40 +101,34 @@ export class RichTooltip {
   }
 
   private position(rect: DOMRect): void {
-    // Position the tooltip centered above the target
-    const x = rect.left + rect.width / 2
-    const y = rect.top
-
-    // Set initial position
-    let finalX = x
-    const activityBarWidth = 60 // Safe zone for activity bar
-    const halfWidth = this.el.offsetWidth / 2
-
-    // Shift right if it overlaps the activity bar area
-    if (finalX - halfWidth < activityBarWidth) {
-      finalX = activityBarWidth + halfWidth
-    }
-
-    this.el.style.left = `${finalX}px`
-    this.el.style.bottom = `${window.innerHeight - y + 8}px`
-    this.el.style.right = 'auto'
-
-    // Calculate real dimensions
+    // 1. Measure dimensions after content is updated
+    this.el.style.display = 'flex' // Ensure it's measurable
     const tooltipRect = this.el.getBoundingClientRect()
 
-    // Align center
-    const left = x - tooltipRect.width / 2
+    // 2. Center above the target
+    const targetCenterX = rect.left + rect.width / 2
+    const targetTopY = rect.top
 
-    // Bound checks
-    const minLeft = 10
-    const maxLeft = window.innerWidth - tooltipRect.width - 10
-    const clampedLeft = Math.max(minLeft, Math.min(maxLeft, left))
+    const left = targetCenterX - tooltipRect.width / 2
 
+    // 3. Bound checks (Horizontal)
+    const padding = 12
+    const minLeft = padding
+    const maxLeft = window.innerWidth - tooltipRect.width - padding
+
+    // Activity bar safe zone (usually on the left)
+    const activityBarWidth = 64
+    const finalMinLeft = Math.max(minLeft, activityBarWidth)
+
+    const clampedLeft = Math.max(finalMinLeft, Math.min(maxLeft, left))
+
+    // 4. Update element style
     this.el.style.left = `${clampedLeft}px`
-    this.el.style.bottom = `${window.innerHeight - y + 8}px`
+    this.el.style.bottom = `${window.innerHeight - targetTopY + 8}px`
+    this.el.style.right = 'auto'
 
-    // Update arrow offset
-    const arrowOffset = x - clampedLeft
+    // 5. Update arrow offset relative to the tooltip
+    const arrowOffset = targetCenterX - clampedLeft
     this.el.style.setProperty('--tooltip-arrow-offset', `${arrowOffset}px`)
   }
 

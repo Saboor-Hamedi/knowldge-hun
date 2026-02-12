@@ -235,7 +235,7 @@
   border-radius: 6px;
   padding: 12px;
   color: var(--text-soft, #e3e3e3);
-  font-size: 11px;
+  font-size: 10px;
   box-shadow: 0 10px 30px var(--shadow-strong, rgba(0, 0, 0, 0.5));
   z-index: 100000;
   opacity: 0;
@@ -248,6 +248,15 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+  white-space: normal;
+  word-break: break-all;
+}
+
+/* The Knob */
+.rich-tooltip.statusbar-tooltip::after {
+  background: var(--panel-strong, rgba(30, 31, 34, 0.95));
+  border-right: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+  border-bottom: 1px solid var(--border, rgba(255, 255, 255, 0.1));
 }
 
 .rich-tooltip.statusbar-tooltip.is-visible {
