@@ -9,13 +9,25 @@ import type { FileOperationHandler } from '../../handlers/FileOperationHandler'
 import { ChatInput } from '../common/ChatInput'
 import { Avatar } from '../rightbar/avatar'
 import { ChatIndicator } from '../common/ChatIndicator'
-import { createElement, Copy, ThumbsUp, ThumbsDown, RefreshCw } from 'lucide'
+import {
+  createElement,
+  Copy,
+  ThumbsUp,
+  ThumbsDown,
+  RefreshCw,
+  Info,
+  Plus,
+  Eraser,
+  Terminal,
+  Sparkles
+} from 'lucide'
 
 export interface Command {
   name: string
   description: string
   usage?: string
   action: (args: string[]) => void | Promise<void>
+  icon?: any // eslint-disable-line @typescript-eslint/no-explicit-any
 }
 
 /**
@@ -27,6 +39,7 @@ export interface Command {
  *
  * 1. **No Arbitrary Code Execution**: Unlike a real terminal, this console CANNOT execute
  *    arbitrary system commands, shell scripts, or JavaScript code. It only runs pre-registered
+ *    commands defined in the application.
  *    commands defined in the application.
  *
  * 2. **Whitelist-Only Commands**: Only commands explicitly registered via `registerCommand()`
@@ -96,7 +109,7 @@ export class ConsoleComponent {
       onModeChange: (mode) => {
         this.setMode(mode)
       },
-      slashCommands: [] // Console commands are handled via execute() currently
+      slashCommands: this.getSlashCommands()
     })
 
     if (this.container) {
@@ -225,6 +238,68 @@ export class ConsoleComponent {
       return
     }
     this.commands.set(command.name.toLowerCase().trim(), command)
+
+    // Update ChatInput's slash commands if they changed
+    if (this.chatInput) {
+      this.chatInput.setSlashCommands(this.getSlashCommands())
+    }
+  }
+
+  public getSlashCommands(): { command: string; description: string; icon?: any }[] {
+    const list: { command: string; description: string; icon?: any; action?: () => void }[] = []
+
+    if (this.currentMode === 'ai') {
+      // AI-specific commands for the Console's AI mode
+      list.push({
+        command: '/term',
+        description: 'Switch to Terminal mode',
+        icon: Terminal,
+        action: () => this.setMode('terminal')
+      })
+      list.push({
+        command: '/clear',
+        description: 'Clear chat bubbles',
+        icon: Eraser,
+        action: () => this.clear()
+      })
+      list.push({
+        command: '/new',
+        description: 'Reset AI conversation',
+        icon: Plus,
+        action: () => {
+          this.chatHistory = []
+          this.log('AI session reset.', 'system')
+        }
+      })
+      list.push({
+        command: '/help',
+        description: 'AI command help',
+        icon: Info,
+        action: () => {
+          this.log('AI Mode Commands:', 'system')
+          this.log('  /term  - Switch to Terminal mode', 'system')
+          this.log('  /clear - Clear the console display', 'system')
+          this.log('  /new   - Reset conversation history', 'system')
+          this.log('  /help  - Show this message', 'system')
+        }
+      })
+    } else {
+      // Terminal-specific commands
+      list.push({
+        command: '/ai',
+        description: 'Switch to AI Agent mode',
+        icon: Sparkles,
+        action: () => this.setMode('ai')
+      })
+      this.commands.forEach((cmd, name) => {
+        list.push({
+          command: `/${name}`,
+          description: cmd.description,
+          icon: cmd.icon // eslint-disable-line @typescript-eslint/no-explicit-any
+        })
+      })
+    }
+    return list.sort((a, b) => a.command.localeCompare(b.command))
   }
 
   public get isVisible(): boolean {
@@ -260,6 +335,8 @@ export class ConsoleComponent {
 
     if (this.chatInput) {
       this.chatInput.setMode(mode)
+      // Refresh slash commands for the new mode
+      this.chatInput.setSlashCommands(this.getSlashCommands())
     }
 
     void this.initUsername()
@@ -859,7 +936,7 @@ export class ConsoleComponent {
   }
 
   private createLucideIcon(
-    IconComponent: any,
+    IconComponent: any, // eslint-disable-line @typescript-eslint/no-explicit-any
     size: number = 12,
     strokeWidth: number = 1.5
   ): string {

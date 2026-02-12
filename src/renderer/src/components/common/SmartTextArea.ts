@@ -1,5 +1,6 @@
 import { state } from '../../core/state'
 import { messageFormatter } from '../rightbar/MessageFormatter'
+import { getSnippetIconHtml } from '../../utils/fileIconMappers'
 import { createElement } from 'lucide'
 
 export interface SmartTextAreaOptions {
@@ -10,7 +11,7 @@ export interface SmartTextAreaOptions {
   slashCommands?: Array<{
     command: string
     description: string
-    icon: any
+    icon?: any // eslint-disable-line @typescript-eslint/no-explicit-any
     action?: () => void
   }>
 }
@@ -26,6 +27,12 @@ export class SmartTextArea {
   private autocompleteItems: HTMLElement[] = []
   private selectedAutocompleteIndex = -1
   private typingTimeout: number | null = null
+  private autocompleteContext: {
+    atIndex: number
+    range: Range
+    query: string
+    triggerChar: string
+  } | null = null
 
   constructor(parent: HTMLElement, options: SmartTextAreaOptions = {}) {
     this.options = options
@@ -203,7 +210,7 @@ export class SmartTextArea {
     range: Range,
     triggerChar: string
   ): void {
-    let items: any[] = []
+    let items: Array<any> = [] // eslint-disable-line @typescript-eslint/no-explicit-any
 
     if (triggerChar === '@') {
       items = state.notes.filter((n) => (n.title || n.id).toLowerCase().includes(query)).slice(0, 8)
@@ -220,31 +227,34 @@ export class SmartTextArea {
 
     this.selectedAutocompleteIndex = -1
     this.autocompleteItems = []
-    ;(this.autocompleteEl as any).__context = { atIndex, range, query, triggerChar } as {
-      atIndex: number
-      range: Range
-      query: string
-      triggerChar: string
-    }
+    this.autocompleteContext = { atIndex, range, query, triggerChar }
 
     this.autocompleteEl.innerHTML = items
       .map((item, idx) => {
         if (triggerChar === '@') {
+          const iconHtml = getSnippetIconHtml({ title: item.title, language: 'markdown' }, 14)
           return `
           <div class="kb-smart-input__item" data-index="${idx}" data-id="${item.id}" data-title="${item.title}" data-type="note">
-            <div class="kb-smart-input__item-title">${this.escapeHtml(item.title)}</div>
-            ${item.path ? `<div class="kb-smart-input__item-path">/${this.escapeHtml(item.path)}</div>` : ''}
+            <div class="kb-smart-input__item-row">
+              <span class="kb-smart-input__item-icon">${iconHtml}</span>
+              <div class="kb-smart-input__item-details">
+                <div class="kb-smart-input__item-title">${this.escapeHtml(item.title)}</div>
+                ${item.path ? `<div class="kb-smart-input__item-path">/${this.escapeHtml(item.path)}</div>` : ''}
+              </div>
+            </div>
           </div>
         `
         } else {
-          const iconHtml = item.icon ? this.renderIcon(item.icon) : ''
+          const iconHtml = item.icon ? this.renderIcon(item.icon, 12) : ''
           return `
           <div class="kb-smart-input__item" data-index="${idx}" data-command="${item.command}" data-type="command">
             <div class="kb-smart-input__item-row">
               <span class="kb-smart-input__item-icon">${iconHtml}</span>
-              <span class="kb-smart-input__item-title">${this.escapeHtml(item.command)}</span>
+              <div class="kb-smart-input__item-details">
+                <div class="kb-smart-input__item-title">${this.escapeHtml(item.command)}</div>
+                <div class="kb-smart-input__item-path">${this.escapeHtml(item.description)}</div>
+              </div>
             </div>
-            <div class="kb-smart-input__item-path">${this.escapeHtml(item.description)}</div>
           </div>
         `
         }
@@ -267,15 +277,9 @@ export class SmartTextArea {
 
   private selectAutocompleteItem(): void {
     const item = this.autocompleteItems[this.selectedAutocompleteIndex]
-    if (!item) return
+    if (!item || !this.autocompleteContext) return
 
-    const context = (this.autocompleteEl as any).__context as {
-      atIndex: number
-      range: Range
-      query: string
-      triggerChar: string
-    }
-    if (!context) return
+    const context = this.autocompleteContext
 
     const value = item.dataset.type === 'note' ? item.dataset.title : item.dataset.command
     const type = item.dataset.type
@@ -373,9 +377,17 @@ export class SmartTextArea {
           mention.after(space)
           this.setCursorAfter(space)
         } else {
-          const text = document.createTextNode(value || '')
-          range.insertNode(text)
-          this.setCursorAfter(text)
+          // Check if the command has an associated action
+          const commandText = value || ''
+          const commandObj = this.options.slashCommands?.find((c) => c.command === commandText)
+
+          if (commandObj?.action) {
+            commandObj.action()
+          } else {
+            const text = document.createTextNode(commandText)
+            range.insertNode(text)
+            this.setCursorAfter(text)
+          }
         }
       } catch (err) {
         console.error('[SmartTextArea] Replacement failed:', err)
@@ -446,8 +458,12 @@ export class SmartTextArea {
     this.container.classList.toggle('is-disabled', !enabled)
   }
 
-  public setPlaceholder(text: string): void {
-    this.inputEl.dataset.placeholder = text
+  public setSlashCommands(commands: { command: string; description: string; icon?: any }[]): void {
+    this.options.slashCommands = commands
+  }
+
+  public setPlaceholder(ph: string): void {
+    this.inputEl.dataset.placeholder = ph
   }
 
   public setValue(text: string): void {
@@ -464,8 +480,9 @@ export class SmartTextArea {
     return messageFormatter.escapeHtml(s)
   }
 
-  private renderIcon(icon: any): string {
-    const el = createElement(icon, { size: 14 })
+  private renderIcon(icon: any, size: number = 14): string {
+    // eslint-disable-line @typescript-eslint/no-explicit-any
+    const el = createElement(icon, { size })
     return el?.outerHTML || ''
   }
 }

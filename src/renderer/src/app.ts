@@ -11,6 +11,20 @@ import { StatusBar } from './components/statusbar/statusbar'
 import { RightBar } from './components/rightbar/rightbar'
 import { SettingsView } from './components/settings/settings-view'
 import { contextMenu } from './components/contextmenu/contextmenu'
+import {
+  createElement,
+  Plus,
+  Trash2,
+  Info,
+  Terminal,
+  Zap,
+  Lock,
+  Unlock,
+  RefreshCw,
+  Search,
+  BookOpen,
+  PieChart
+} from 'lucide'
 
 import { ThemeModal } from './components/theme-modal/theme-modal'
 import { DocumentationModal } from './components/documentation/documentation'
@@ -879,7 +893,8 @@ class App {
   private registerConsoleCommands(): void {
     this.hubConsole.registerCommand({
       name: 'help',
-      description: 'List commands',
+      description: 'List available commands',
+      icon: Info,
       action: () => {
         this.hubConsole.log('Available Commands:', 'system')
         this.hubConsole.log('  index-vault     - Re-index for AI search')
@@ -897,6 +912,7 @@ class App {
     this.hubConsole.registerCommand({
       name: 'ping',
       description: 'Test console latency',
+      icon: Zap,
       action: () => {
         this.hubConsole.log('pong! 🏓', 'system')
       }
@@ -904,6 +920,7 @@ class App {
     this.hubConsole.registerCommand({
       name: 'stats',
       description: 'Show vault statistics',
+      icon: PieChart,
       action: () => {
         this.hubConsole.log(`Notes: ${state.notes.length}`)
         this.hubConsole.log(`Tabs:  ${state.openTabs.length}`)
@@ -913,6 +930,7 @@ class App {
     this.hubConsole.registerCommand({
       name: 'open',
       description: 'Open a note by title',
+      icon: BookOpen,
       action: (args) => {
         if (!args.length) {
           this.hubConsole.log('Usage: open <note title>', 'error')
@@ -931,6 +949,7 @@ class App {
     this.hubConsole.registerCommand({
       name: 'find',
       description: 'Search in notes',
+      icon: Search,
       action: (args) => {
         const query = args.join(' ')
         this.activityBar.setActiveView('search')
@@ -951,6 +970,7 @@ class App {
     this.hubConsole.registerCommand({
       name: 'clear',
       description: 'Clear console output',
+      icon: Trash2,
       action: () => {
         this.hubConsole.clear()
       }
@@ -958,11 +978,13 @@ class App {
     this.hubConsole.registerCommand({
       name: 'close',
       description: 'Close console',
+      icon: Terminal,
       action: () => this.hubConsole.setVisible(false)
     })
     this.hubConsole.registerCommand({
       name: 'index-vault',
       description: 'Re-index vault for AI',
+      icon: RefreshCw,
       action: async () => {
         this.hubConsole.log('Starting background indexing...', 'system')
         await this.vaultHandler.backgroundIndexVault()
@@ -972,6 +994,7 @@ class App {
     this.hubConsole.registerCommand({
       name: 'lock',
       description: 'Lock the application',
+      icon: Lock,
       action: () => {
         if (!securityService.hasPassword()) {
           this.hubConsole.log('No password set. Launching security setup...', 'system')
@@ -991,6 +1014,7 @@ class App {
     this.hubConsole.registerCommand({
       name: 'unlock',
       description: 'Unlock session or remove protection',
+      icon: Unlock,
       action: async () => {
         if (securityService.isAppUnlocked()) {
           if (!securityService.hasPassword()) {

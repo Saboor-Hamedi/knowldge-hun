@@ -161,6 +161,12 @@ export class ChatInput {
     return this.textArea.getPlainText()
   }
 
+  public setSlashCommands(
+    commands: { command: string; description: string; icon?: any; action?: () => void }[]
+  ): void {
+    this.textArea.setSlashCommands(commands)
+  }
+
   public updatePrompt(text: string): void {
     if (this.promptEl) this.promptEl.textContent = text
   }

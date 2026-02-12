@@ -7,10 +7,10 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  box-shadow: -1px 0 0 rgba(0, 0, 0, 0.03);
+  box-shadow: -1px 0 0 var(--border-subtle);
   position: relative;
   overflow: hidden;
-  z-index: 0; /* Lower z-index so sync menu (10001) appears above */
+  z-index: 0;
 }
 
 .rightbar__resize-handle {
@@ -159,7 +159,7 @@
   padding: 12px 10px 24px 12px;
   display: flex;
   flex-direction: column;
-  gap: 16px; 
+  gap: 16px;
   -webkit-overflow-scrolling: touch;
   align-items: stretch; /* Stretch children, they control their own max-width */
 }
@@ -169,7 +169,7 @@
   display: block;
   width: 100%;
   flex-shrink: 0;
-  margin-top: auto; 
+  margin-top: auto;
   min-height: auto; /* Remove forced height */
 }
 
@@ -238,7 +238,7 @@
 .rightbar__message {
   display: grid !important;
   grid-template-columns: auto 1fr;
-  grid-template-areas: "avatar body";
+  grid-template-areas: 'avatar body';
   align-items: flex-start;
   gap: 12px;
   width: 100% !important;
@@ -248,7 +248,7 @@
 }
 
 .rightbar__message--user {
-  grid-template-areas: "body avatar";
+  grid-template-areas: 'body avatar';
   grid-template-columns: minmax(0, 1fr) auto;
   margin-left: auto;
   max-width: 85% !important;
@@ -283,7 +283,6 @@
 .rightbar__message-body .kb-chat-pill {
   margin-top: 4px;
 }
-
 
 /* User body should align content to right */
 .rightbar__message--user .rightbar__message-body {
@@ -334,7 +333,8 @@
 
 .rightbar__message--user .rightbar__message-content {
   background: var(--primary);
-  color: #0b1220;
+  color: var(--bg); /* Theme-aware contrast fix */
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .rightbar__message--assistant .rightbar__message-body,
@@ -1075,9 +1075,9 @@
 }
 
 .rightbar__mode-option.is-active {
-  background: rgba(127, 167, 255, 0.1);
-  border-color: rgba(127, 167, 255, 0.3);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  background: var(--hover);
+  border-color: var(--primary);
+  box-shadow: 0 2px 4px var(--shadow-subtle);
 }
 
 .rightbar__mode-option.is-active .rightbar__mode-option-label {
