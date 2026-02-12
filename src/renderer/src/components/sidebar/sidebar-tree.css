@@ -16,7 +16,7 @@
   justify-content: space-between;
   height: var(--tab-height, 36px);
   padding: 0 8px 0 12px;
-  border-bottom: 1px solid var(--border); /* Restored for structure */
+  border-bottom: none;
   background: transparent;
   -webkit-app-region: no-drag;
   flex-shrink: 0;
@@ -39,45 +39,47 @@
 
 .sidebar__actions {
   display: flex;
-  gap: 2px;
+  gap: 4px;
 }
 
 .sidebar__action {
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   border: none;
-  background: transparent;
+  background: transparent !important;
   color: var(--text-soft);
   cursor: pointer;
-  border-radius: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 150ms ease;
-  opacity: 0.4;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  opacity: 0.5;
+  box-shadow: none !important;
 }
 
 .sidebar:hover .sidebar__action {
-  opacity: 0.7;
+  opacity: 0.8;
 }
 
 .sidebar__action:hover {
-  background: var(--hover);
-  color: var(--text-strong);
+  background: transparent;
+  color: var(--primary);
   opacity: 1 !important;
+  transform: translateY(-1px);
 }
 
 .sidebar__action:active {
-  background: var(--selection);
+  background: transparent;
+  transform: translateY(0) scale(0.95);
 }
 
 .sidebar__action svg {
   width: 16px;
   height: 16px;
   stroke: currentColor;
-  fill: none;
+  fill: inherit;
   display: block;
-  transition: stroke 100ms ease;
+  transition: all 150ms ease;
 }
 
 .sidebar__action:hover svg {
@@ -386,8 +388,16 @@
   position: relative;
   outline: none;
   background: transparent;
-  transition: background 150ms ease;
+  transition: background 0.2s ease, color 0.1s ease, transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: hidden;
+}
+
+.tree-item:hover {
+  background: var(--hover);
+}
+
+.tree-item:hover .tree-item__icon {
+  transform: scale(1.1);
 }
 
 .tree-item > *:first-child {
@@ -486,14 +496,14 @@
   width: 16px;
   height: 16px;
   stroke: currentColor;
-  fill: none;
+  fill: inherit;
 }
 
 /* Folder icons - specific styling */
 .tree-item--folder .tree-item__icon svg {
   color: var(--primary, #7fa7ff);
   stroke: currentColor;
-  fill: none;
+  fill: inherit;
 }
 
 .tree-item--folder:hover .tree-item__icon svg,

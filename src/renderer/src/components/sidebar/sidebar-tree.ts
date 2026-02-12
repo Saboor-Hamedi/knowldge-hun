@@ -6,22 +6,22 @@ import { sortTreeItems } from '../../utils/tree-utils'
 import { contextMenu } from '../contextmenu/contextmenu'
 import getFileIcon from '../../utils/fileIconMappers'
 import {
-  createElement,
+  Search,
+  Settings,
+  X,
+  Plus,
   FolderPlus,
   FilePlus,
-  FolderOpen,
-  Pencil,
+  ChevronRight,
+  ChevronDown,
+  FileText,
   Trash2,
   Copy,
-  ClipboardCopy,
   ExternalLink,
-  FileText,
   Folder,
-  Files,
-  ChevronDown,
   Replace,
   ReplaceAll,
-  ChevronRight
+  createElement
 } from 'lucide'
 import { setTooltip } from '../tooltip/tooltip'
 import './sidebar-tree.css'
@@ -681,9 +681,9 @@ export class SidebarTree {
   }
 
   private render(): void {
-    const newFolderIcon = this.createLucideIcon(FolderPlus, 16, 1.5)
-    const newNoteIcon = this.createLucideIcon(FilePlus, 16, 1.5)
-    const revealIcon = this.createLucideIcon(FolderOpen, 16, 1.5)
+    const newFolderIcon = this.createLucideIcon(FolderPlus, 14, 2.2)
+    const newNoteIcon = this.createLucideIcon(FilePlus, 14, 2.2)
+    const revealIcon = this.createLucideIcon(Search, 14, 2.2)
 
     this.container.innerHTML = `
       <header class="sidebar__header">

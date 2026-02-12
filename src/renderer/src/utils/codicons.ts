@@ -60,13 +60,14 @@ import {
  * Helper to create Lucide icon SVG string
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function lucideIcon(IconComponent: any, size: number = 16, strokeWidth: number = 1.5): string {
+function lucideIcon(IconComponent: any, size: number = 16, strokeWidth: number = 2): string {
   const svgElement = createElement(IconComponent, {
     width: size,
     height: size,
     'stroke-width': strokeWidth,
     stroke: 'currentColor',
-    fill: 'none',
+    fill: 'currentColor',
+    'fill-opacity': 0.1,
     'stroke-linecap': 'round',
     'stroke-linejoin': 'round'
   })

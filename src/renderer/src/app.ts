@@ -450,7 +450,11 @@ class App {
     })
 
     this.sidebar.setVisibilityChangeHandler((visible) => {
+      if (state.settings) {
+        state.settings.sidebarVisible = visible
+      }
       void window.api.updateSettings({ sidebarVisible: visible })
+      this.activityBar.render() // Force activity bar to reflect change
     })
 
     this.sidebar.setNoteSelectHandler((id, path, highlight) => {

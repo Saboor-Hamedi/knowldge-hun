@@ -73,7 +73,7 @@ export class ActivityBar {
     this.onViewChange?.(view)
   }
 
-  private render(): void {
+  public render(): void {
     let updateIcon = ''
     if (this.updateState === 'idle') {
       // Use a circular refresh icon for update (outline version)
@@ -118,15 +118,17 @@ export class ActivityBar {
     const lockIcon = this.createLucideIcon(Lock)
     const historyIcon = this.createLucideIcon(History)
 
+    const sidebarVisible = state.settings?.sidebarVisible !== false
+
     this.container.innerHTML = `
       <div class="activitybar__top">
-        <button class="activitybar__item${state.activeView === 'notes' ? ' is-active' : ''}" data-view="notes" data-tooltip="Explorer">
+        <button class="activitybar__item${sidebarVisible && state.activeView === 'notes' ? ' is-active' : ''}" data-view="notes" data-tooltip="Explorer">
           <span class="activitybar__icon">${fileIcon}</span>
         </button>
-        <button class="activitybar__item${state.activeView === 'search' ? ' is-active' : ''}" data-view="search" data-tooltip="Search">
+        <button class="activitybar__item${sidebarVisible && state.activeView === 'search' ? ' is-active' : ''}" data-view="search" data-tooltip="Search">
           <span class="activitybar__icon">${searchIcon}</span>
         </button>
-        <button class="activitybar__item${state.activeView === 'graph' ? ' is-active' : ''}" data-view="graph" data-tooltip="Graph View">
+        <button class="activitybar__item${sidebarVisible && state.activeView === 'graph' ? ' is-active' : ''}" data-view="graph" data-tooltip="Graph View">
           <span class="activitybar__icon">
             <svg width="24" height="24" viewBox="0 0 16 16" fill="none">
               <circle cx="4" cy="4" r="2" stroke-width="1.5" fill="none"/>
@@ -136,7 +138,7 @@ export class ActivityBar {
             </svg>
           </span>
         </button>
-        <button class="activitybar__item${state.activeView === 'history' ? ' is-active' : ''}" data-view="history" data-tooltip="Timeline">
+        <button class="activitybar__item${sidebarVisible && state.activeView === 'history' ? ' is-active' : ''}" data-view="history" data-tooltip="Timeline">
           <span class="activitybar__icon">${historyIcon}</span>
         </button>
         <button class="activitybar__item${this.updateState !== 'idle' ? ' has-notification' : ''}" data-view="update" data-tooltip="Update">
@@ -210,8 +212,10 @@ export class ActivityBar {
     // Use Lucide's createElement to create SVG element
     const svgElement = createElement(IconComponent, {
       size: 24,
-      'stroke-width': 1.5,
+      'stroke-width': 2,
       stroke: 'currentColor',
+      fill: 'currentColor',
+      'fill-opacity': 0.1,
       color: 'currentColor'
     })
     // Convert SVGElement to string
@@ -264,11 +268,9 @@ export class ActivityBar {
       // Toggle behavior: if already active, deactivate and close sidebar
       if (button.classList.contains('is-active')) {
         button.classList.remove('is-active')
-        state.activeView = 'notes'
-        // Save active view to settings
         if (state.settings) {
-          state.settings.activeView = 'notes'
-          void window.api.updateSettings({ activeView: 'notes' })
+          state.settings.sidebarVisible = false
+          void window.api.updateSettings({ sidebarVisible: false })
         }
         this.onViewChange?.(null)
         return
@@ -292,7 +294,8 @@ export class ActivityBar {
           view === 'history')
       ) {
         state.settings.activeView = view as 'notes' | 'search' | 'settings' | 'graph' | 'history'
-        void window.api.updateSettings({ activeView: view })
+        state.settings.sidebarVisible = true
+        void window.api.updateSettings({ activeView: view, sidebarVisible: true })
       }
 
       this.onViewChange?.(view)

@@ -82,9 +82,10 @@ const createLucideSvg = (IconComponent: any, size: number = 16, color?: string):
   const svgElement = createElement(IconComponent, {
     width: size,
     height: size,
-    'stroke-width': 2, // Slightly bolder for better visibility
+    'stroke-width': 2,
     stroke: color || 'currentColor',
-    fill: 'none'
+    fill: color || 'currentColor',
+    'fill-opacity': 0.1
   })
   return svgElement.outerHTML
 }

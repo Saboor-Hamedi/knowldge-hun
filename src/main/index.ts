@@ -875,11 +875,16 @@ app.whenReady().then(async () => {
   ipcMain.handle('app:getDocumentation', async (_event, section?: string) => {
     let docsDir = is.dev
       ? join(process.cwd(), 'resources/docs')
-      : join(process.resourcesPath, 'resources/docs')
+      : join(process.resourcesPath, 'docs')
 
     // Extra fallback for strange dev environments
     if (is.dev && !existsSync(docsDir)) {
       docsDir = join(__dirname, '../../resources/docs')
+    }
+
+    // Additional fallback for production build variations
+    if (!is.dev && !existsSync(docsDir)) {
+      docsDir = join(process.resourcesPath, 'resources/docs')
     }
 
     console.log(`[Main] Documentation request: ${section}, dir: ${docsDir}`)
