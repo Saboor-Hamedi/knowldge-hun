@@ -498,19 +498,24 @@
   gap: 4px;
 }
 
-.kb-typing-dots span {
-  width: 5px;
-  height: 5px;
+.kb-typing-dots span,
+.kb-typing-dot {
+  width: 4px;
+  height: 4px;
   border-radius: 50%;
   background: var(--text-soft);
   opacity: 0.4;
   animation: kb-typing-dots 1.2s infinite ease-in-out;
+  flex-shrink: 0;
 }
 
-.kb-typing-dots span:nth-child(2) {
+.kb-typing-dots span:nth-child(2),
+.kb-typing-dot:nth-child(2) {
   animation-delay: 0.15s;
 }
-.kb-typing-dots span:nth-child(3) {
+
+.kb-typing-dots span:nth-child(3),
+.kb-typing-dot:nth-child(3) {
   animation-delay: 0.3s;
 }
 
@@ -537,29 +542,15 @@
   border-radius: 8px;
 }
 
+
 /* Inline typing indicator for streaming */
+
 .kb-typing-indicator-inline {
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  margin-left: 8px;
+  margin-left: 6px;
   opacity: 0.6;
-}
-
-.kb-typing-dot {
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: var(--primary);
-  animation: kb-typing-dots 1.2s infinite ease-in-out;
-  flex-shrink: 0;
-}
-
-.kb-typing-dot:nth-child(2) {
-  animation-delay: 0.15s;
-}
-.kb-typing-dot:nth-child(3) {
-  animation-delay: 0.3s;
 }
 
 /* Shared Message Actions (Unified Console & RightBar) */

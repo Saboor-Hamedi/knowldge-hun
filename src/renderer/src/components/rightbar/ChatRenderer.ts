@@ -3,6 +3,7 @@ import { messageFormatter } from './MessageFormatter'
 import { WELCOME_HTML, TYPING_HTML, EXECUTING_HTML } from './rightbar.constants'
 import { createElement, Edit2, Copy, RefreshCw, ThumbsUp, ThumbsDown, AlertCircle } from 'lucide'
 import { ChatMessage } from '../../services/aiService'
+import { ChatIndicator } from '../common/ChatIndicator'
 
 export interface RendererState {
   messages: ChatMessage[]
@@ -105,7 +106,7 @@ export class ChatRenderer {
             // Add subtle indicator if this is the active streaming message
             // We use a span that stays inside the flow
             if (isStreaming) {
-              const dots = `<span class="kb-typing-indicator-inline"><span class="kb-typing-dot"></span><span class="kb-typing-dot"></span><span class="kb-typing-dot"></span></span>`
+              const dots = ChatIndicator.createInline()
 
               // If content ends with a closing tag (like </p>), try to inject dots inside it for better wrapping
               if (formattedContent.trim().endsWith('</p>')) {

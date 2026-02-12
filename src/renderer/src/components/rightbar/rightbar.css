@@ -169,6 +169,8 @@
   display: block;
   width: 100%;
   flex-shrink: 0;
+  margin-top: auto; 
+  min-height: auto; /* Remove forced height */
 }
 
 /* ---- Welcome ---- */
@@ -247,9 +249,10 @@
 
 .rightbar__message--user {
   grid-template-areas: "body avatar";
-  grid-template-columns: 1fr auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   margin-left: auto;
   max-width: 85% !important;
+  width: fit-content !important; /* Make it a bubble */
   justify-items: end;
 }
 
@@ -259,6 +262,13 @@
   width: 100% !important;
 }
 
+/* Specific fix for indicators to NOT be full width */
+#msg-typing-indicator .rightbar__message {
+  width: fit-content !important;
+  max-width: 85% !important;
+  margin-bottom: 8px;
+}
+
 .kb-avatar {
   grid-area: avatar;
 }
@@ -266,17 +276,18 @@
 .rightbar__message-body {
   grid-area: body;
   min-width: 0;
-  width: 100%;
-}
-
-/* Message body (content + actions) */
-
-/* Message body (content + actions) */
-.rightbar__message-body {
   display: flex;
   flex-direction: column;
-  flex: 1;
-  min-width: 0;
+}
+
+.rightbar__message-body .kb-chat-pill {
+  margin-top: 4px;
+}
+
+
+/* User body should align content to right */
+.rightbar__message--user .rightbar__message-body {
+  align-items: flex-end;
 }
 
 .rightbar__message-content {

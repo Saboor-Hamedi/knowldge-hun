@@ -1,6 +1,6 @@
 import './console.css'
 import { codicons } from '../../utils/codicons'
-import type { ChatMessage } from '../../services/aiService'
+import { ChatMessage } from '../../services/aiService'
 import { agentService } from '../../services/agent/agent-service'
 import { agentExecutor } from '../../services/agent/executor'
 import { state } from '../../core/state'
@@ -8,6 +8,7 @@ import { ragService } from '../../services/rag/ragService'
 import type { FileOperationHandler } from '../../handlers/FileOperationHandler'
 import { ChatInput } from '../common/ChatInput'
 import { Avatar } from '../rightbar/avatar'
+import { ChatIndicator } from '../common/ChatIndicator'
 import { createElement, Copy, ThumbsUp, ThumbsDown, RefreshCw } from 'lucide'
 
 export interface Command {
@@ -326,14 +327,12 @@ export class ConsoleComponent {
     line.className = `hub-console__line hub-console__line--${type}`
 
     if (type === 'command') {
-      line.innerHTML = `
-        <div class="hub-console__turn">
-          ${Avatar.createHTML('user', 18)}
+      line.innerHTML = `<div class="hub-console__turn">
           <div class="hub-console__user-body">
             <div class="hub-console__user-content">${this.escapeHtml(message)}</div>
           </div>
-        </div>
-      `
+          ${Avatar.createHTML('user', 20)}
+        </div>`
     } else {
       line.textContent = message
     }
@@ -506,29 +505,19 @@ export class ConsoleComponent {
 
     const outputLine = document.createElement('div')
     outputLine.className = 'hub-console__line hub-console__line--ai is-typing'
-    outputLine.innerHTML = `
-      <div class="hub-console__turn">
-        ${Avatar.createHTML('assistant', 18)}
+    outputLine.innerHTML = `<div class="hub-console__turn">
+        ${Avatar.createHTML('assistant', 20)}
         <div class="hub-console__ai-body">
           <div class="hub-console__ai-content"></div>
         </div>
-      </div>
-    `
+      </div>`
     this.bodyEl.appendChild(outputLine)
 
     const aiBody = outputLine.querySelector('.hub-console__ai-body') as HTMLElement
     const contentEl = outputLine.querySelector('.hub-console__ai-content') as HTMLElement
 
     // Thinking indicator
-    const thinkingEl = document.createElement('div')
-    thinkingEl.className = 'kb-chat-pill'
-    thinkingEl.style.cssText = 'margin-top: 4px; padding: 6px 12px; display: inline-flex;'
-    thinkingEl.innerHTML = `
-      <div class="kb-typing-dots">
-        <span></span><span></span><span></span>
-      </div>
-    `
-    contentEl.appendChild(thinkingEl)
+    contentEl.innerHTML = ChatIndicator.createPill('thinking')
 
     this.bodyEl.scrollTop = this.bodyEl.scrollHeight
 
@@ -557,8 +546,8 @@ export class ConsoleComponent {
         async (chunk) => {
           if (currentController?.signal.aborted) return
 
-          if (fullText === '' && thinkingEl.parentNode) {
-            thinkingEl.remove()
+          if (fullText === '') {
+            contentEl.querySelector('.kb-chat-pill')?.remove()
           }
           fullText += chunk
           streamBuffer += chunk
@@ -677,13 +666,7 @@ export class ConsoleComponent {
               }
 
               // Add inline typing dots
-              const dotsHtml = `
-                <span class="kb-typing-indicator-inline">
-                  <span class="kb-typing-dot"></span>
-                  <span class="kb-typing-dot"></span>
-                  <span class="kb-typing-dot"></span>
-                </span>
-              `
+              const dotsHtml = ChatIndicator.createInline()
               const totalHtml = html + dotsHtml
               if (totalHtml !== lastVisibleHtml) {
                 contentEl.innerHTML = totalHtml
@@ -699,7 +682,7 @@ export class ConsoleComponent {
       )
 
       outputLine.classList.remove('is-typing')
-      if (thinkingEl.parentNode) thinkingEl.remove()
+      contentEl.querySelector('.kb-chat-pill')?.remove()
 
       // Final complete render
       const finalTextDisplay = fullText.replace(/\[RUN:[\s\S]*?(\]|(?=$))/g, '')
@@ -801,6 +784,7 @@ export class ConsoleComponent {
         const lightActions = document.createElement('div')
         lightActions.className = 'kb-message-actions'
         lightActions.style.marginTop = '8px'
+        const finalText = fullText.replace(/\[RUN:[\s\S]*?\]/g, '').trim()
         lightActions.innerHTML = `
           <button class="kb-message-action" data-action="copy" title="Copy response">
             ${this.createLucideIcon(Copy, 14)}
@@ -841,7 +825,6 @@ export class ConsoleComponent {
         }
         aiBody.appendChild(lightActions)
 
-        const finalText = fullText.replace(/\[RUN:[\s\S]*?\]/g, '').trim()
         try {
           const { formatMarkdown } = await import('../../utils/markdown')
           contentEl.innerHTML = formatMarkdown(finalText)
@@ -861,7 +844,7 @@ export class ConsoleComponent {
         this.log(`AI Error: ${(err as Error).message}`, 'error')
       }
     } finally {
-      if (thinkingEl.parentNode) thinkingEl.remove()
+      contentEl.querySelector('.kb-chat-pill')?.remove()
       this.isBusy = false
       this.aiAbortController = null
       this.chatInput.setBusy(false)

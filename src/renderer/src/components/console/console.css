@@ -72,38 +72,89 @@
 
 /* Output lines */
 .hub-console__line {
-  margin-bottom: 2px;
-  white-space: pre-wrap;
+  margin-bottom: 0px;
+  white-space: normal;
   word-break: break-word;
   user-select: text;
 }
 
+
 .hub-console__line--command {
-  margin: 4px 0 2px 0; /* Tightened from 10px to reduce huge gaps */
+  margin: 0;
   padding: 0;
 }
 
 /* Profiles & Turns */
 .hub-console__turn {
-  display: flex;
-  gap: 8px; /* Slightly tighter gap */
+  display: grid !important;
+  grid-template-columns: auto 1fr;
+  grid-template-areas: 'avatar body';
   align-items: flex-start;
-  margin-top: 0;
+  gap: 12px;
+  width: 100%;
+  margin: 2px 0; /* Tightened from 8px to reduce gaps between turns */
   user-select: text;
 }
 
+/* User turns (Commands): Avatar on Right, Text on Left */
+.hub-console__line--command .hub-console__turn {
+  grid-template-areas: 'body avatar';
+  grid-template-columns: 1fr auto;
+}
+
+.hub-console__line--command .hub-console__user-body {
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.hub-console__line--ai .hub-console__turn {
+  grid-template-areas: 'avatar body';
+  grid-template-columns: auto 1fr;
+  align-items: flex-start; /* Always stay at the top */
+}
+
+/* Static alignment for the thinking/searching pill */
+.hub-console__ai-body .kb-chat-pill {
+  margin-top: 2px;
+}
+
+
+
 .hub-console__user-body,
 .hub-console__ai-body {
-  flex: 1;
+  grid-area: body;
   min-width: 0;
+}
+
+.kb-avatar {
+  grid-area: avatar;
+  margin-top: 4px !important; /* Better alignment with first line */
 }
 
 .hub-console__user-content,
 .hub-console__ai-content {
   font-size: 13px;
-  line-height: 1.4; /* Slightly tighter line height */
+  line-height: 1.5;
+  color: var(--text-strong);
+  white-space: pre-wrap;
+  padding: 0; /* Removed padding to eliminate gap between avatar and text */
+}
+
+
+.hub-console__line--command .hub-console__user-content {
+  color: var(--primary); /* Maintain distinction but without the heavy bubble */
+  font-weight: 500;
+}
+
+.hub-console__line--ai .hub-console__ai-content {
   color: var(--text-strong);
 }
+
+
+
+
 
 /* Tighten vertical rhythm - Remove all default paragraph/list margins */
 .hub-console__user-content p,
@@ -123,21 +174,26 @@
 .hub-console__line--error {
   color: var(--danger);
   margin-top: 2px;
+  white-space: pre-wrap;
 }
 
 .hub-console__line--system {
   color: var(--text-muted);
   font-style: italic;
   font-size: 11px;
+  white-space: pre-wrap;
 }
 
 .hub-console__line--success {
   color: var(--success);
+  white-space: pre-wrap;
 }
 
 .hub-console__line--warning {
   color: var(--warning);
+  white-space: pre-wrap;
 }
+
 
 .hub-console__line--ai {
   margin: 0;
