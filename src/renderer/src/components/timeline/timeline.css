@@ -1,6 +1,6 @@
 .timeline-panel {
   display: none;
-  grid-template-rows: auto 1fr;
+  grid-template-rows: auto auto 1fr;
   height: 100%;
   width: var(--sidebar-width) !important;
   min-width: var(--sidebar-width) !important;
@@ -45,11 +45,72 @@
   opacity: 1;
 }
 
+#timeline-refresh {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  padding: 0;
+}
+
+.timeline-search {
+  padding: 8px 12px 12px;
+  background: transparent;
+  flex-shrink: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.timeline-search-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  padding: 5px 10px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.timeline-search-box:focus-within {
+  border-color: var(--primary);
+  background: rgba(0, 0, 0, 0.3);
+  box-shadow: 0 0 0 3px rgba(79, 172, 254, 0.1);
+}
+
+.timeline-search-box .search-icon {
+  display: flex;
+  align-items: center;
+  opacity: 0.4;
+  color: var(--text-soft);
+}
+
+.timeline-search-box .search-icon svg {
+  width: 12px;
+  height: 12px;
+}
+
+.timeline-search-box input {
+  background: transparent;
+  border: none;
+  color: var(--text-normal);
+  font-size: 11px;
+  width: 100%;
+  outline: none;
+  padding: 0;
+  font-weight: 500;
+}
+
+.timeline-search-box input::placeholder {
+  color: var(--text-muted, #666);
+  font-size: 10px;
+}
+
 .timeline-body {
   overflow: hidden;
   display: flex;
   flex-direction: column;
   background: transparent !important;
+  min-height: 0;
   height: 100%;
 }
 
@@ -57,7 +118,7 @@
   flex: 1;
   overflow: hidden;
   position: relative;
-  height: 100%;
+  min-height: 0;
 }
 
 .timeline-list {
@@ -65,7 +126,7 @@
   overflow-y: auto;
   overflow-x: hidden;
   padding: 4px 0;
-  position: relative; /* CRITICAL for graph overlay inside */
+  position: relative;
 }
 
 .timeline-graph-overlay {
@@ -169,6 +230,31 @@
   border-radius: 3px;
 }
 
+.commit-refs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.ref-badge {
+  font-size: 8.5px;
+  font-weight: 700;
+  padding: 0 4px;
+  border-radius: 2px;
+  color: #fff;
+  white-space: nowrap;
+  max-width: 90px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0.85;
+}
+
+.ref-tag { background: #10b981; }
+.ref-branch { background: #3b82f6; }
+.ref-remote { background: #8b5cf6; }
+.ref-other { background: #64748b; }
+
 .timeline-graph-overlay svg {
   display: block;
   width: 100%;
@@ -186,10 +272,26 @@
   min-height: 200px;
   gap: 16px;
   color: var(--text-soft);
-  font-size: 12px;
+  font-size: 11px;
   text-align: center;
-  padding: 20px;
-  flex: 1; /* Ensure it takes full height */
+  padding: 40px 20px;
+}
+
+.timeline-loading-sm {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10px;
+  color: var(--text-soft);
+  padding: 12px;
+  justify-content: center;
+}
+
+.timeline-loading-sm svg {
+  width: 14px;
+  height: 14px;
+  animation: spin 1s linear infinite;
+  color: var(--primary);
 }
 
 /* Rotation animation class */
@@ -217,13 +319,18 @@
 }
 
 .spinner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
   animation: spin 1s linear infinite;
   color: var(--primary);
 }
 
 .spinner svg {
-  width: 24px;
-  height: 24px;
+  width: 100%;
+  height: 100%;
 }
 
 @keyframes spin {

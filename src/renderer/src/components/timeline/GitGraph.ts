@@ -143,10 +143,6 @@ export class GitGraph {
       if (!node) return
 
       this.drawDot(node.x, node.y, node.color)
-
-      if (commit.refs && Array.isArray(commit.refs) && commit.refs.length > 0) {
-        this.renderBadges(node.x + 12, node.y, commit.refs)
-      }
     })
   }
 
@@ -194,73 +190,5 @@ export class GitGraph {
     circle.setAttribute('stroke', 'var(--sidebar-bg, #1a1a1a)')
     circle.setAttribute('stroke-width', '2')
     this.svg.appendChild(circle)
-  }
-
-  private renderBadges(startX: number, y: number, refs: string[]): void {
-    let currentX = startX
-    const g = document.createElementNS('http://www.w3.org/2000/svg', 'g')
-
-    refs.forEach((ref) => {
-      let text = ref.trim()
-      let color = '#3b82f6' // blue
-
-      if (text.startsWith('HEAD ->')) {
-        text = text.replace('HEAD ->', '').trim()
-        color = '#3b82f6' // blue active
-      } else if (text === 'HEAD') {
-        color = '#3b82f6'
-      } else if (text.startsWith('tag:')) {
-        text = text.replace('tag:', '').trim()
-        color = '#10b981' // green
-      } else if (text.startsWith('origin/')) {
-        text = text.replace('origin/', '')
-        color = '#8b5cf6' // purple
-      } else {
-        // Branch or other
-        color = '#64748b' // slate
-      }
-
-      // Truncate long refs to avoid massive overflow
-      const fullText = text
-      if (text.length > 15) {
-        text = text.substring(0, 12) + '...'
-      }
-
-      // Only show if text is not empty
-      if (!text) return
-
-      // SVG Text
-      const textEl = document.createElementNS('http://www.w3.org/2000/svg', 'text')
-      textEl.textContent = text
-      textEl.setAttribute('x', (currentX + 5).toString())
-      textEl.setAttribute('y', (y + 3).toString()) // Baseline adj
-      textEl.setAttribute('font-size', '10px')
-      textEl.setAttribute('fill', '#fff')
-      textEl.setAttribute('font-family', '-apple-system, BlinkMacSystemFont, sans-serif')
-      textEl.setAttribute('font-weight', '500')
-      if (fullText !== text) {
-        textEl.innerHTML = `<title>${fullText}</title>` // Tooltip
-      }
-
-      // Approximate width
-      const width = Math.max(text.length * 7 + 12, 24)
-
-      // Background rect
-      const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect')
-      rect.setAttribute('x', currentX.toString())
-      rect.setAttribute('y', (y - 7).toString())
-      rect.setAttribute('width', width.toString())
-      rect.setAttribute('height', '14')
-      rect.setAttribute('rx', '3')
-      rect.setAttribute('fill', color)
-      // rect.setAttribute('opacity', '0.9')
-
-      g.appendChild(rect)
-      g.appendChild(textEl)
-
-      currentX += width + 4
-    })
-
-    this.svg.appendChild(g)
   }
 }

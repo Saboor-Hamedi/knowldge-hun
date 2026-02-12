@@ -12,6 +12,8 @@ export class TimelineComponent {
   private mode: 'file' | 'repo' = 'file'
   private lastFetchedPath: string = ''
   private lastFetchedMode: 'file' | 'repo' | null = null
+  private filterQuery: string = ''
+  private filteredHistoryState: GitCommit[] = []
   private expandedCommits: Set<string> = new Set()
   private resizeObserver: ResizeObserver
 
@@ -57,6 +59,12 @@ export class TimelineComponent {
           <button class="sidebar__action" id="timeline-refresh" title="Refresh History">${codicons.refresh}</button>
         </div>
       </header>
+      <div class="timeline-search">
+        <div class="timeline-search-box">
+          <span class="search-icon">${codicons.search}</span>
+          <input type="text" id="timeline-search-input" placeholder="Filter history..." spellcheck="false" autocomplete="off" />
+        </div>
+      </div>
       <div class="sidebar__body timeline-body" id="timeline-body-target">
         <!-- Content will be injected here -->
       </div>
@@ -132,9 +140,19 @@ export class TimelineComponent {
       return
     }
 
-    if (this.history.length === 0) {
-      const emptyMsg =
-        this.mode === 'file'
+    this.filteredHistoryState = this.history.filter((commit) => {
+      if (!this.filterQuery) return true
+      return (
+        commit.subject.toLowerCase().includes(this.filterQuery) ||
+        commit.author.toLowerCase().includes(this.filterQuery) ||
+        commit.hash.toLowerCase().includes(this.filterQuery)
+      )
+    })
+
+    if (this.filteredHistoryState.length === 0) {
+      const emptyMsg = this.filterQuery
+        ? `No commits matching "${this.filterQuery}"`
+        : this.mode === 'file'
           ? this.currentPath
             ? `No history found for file:<br/><code style="font-size: 10px; opacity: 0.7">${this.currentPath}</code>`
             : 'Select a file to view history.'
@@ -152,7 +170,7 @@ export class TimelineComponent {
     const historyHtml: string[] = []
     let lastDateLabel = ''
 
-    this.history.forEach((commit, index) => {
+    this.filteredHistoryState.forEach((commit, index) => {
       const date = new Date(commit.timestamp)
       const dateLabel = this.isToday(date)
         ? 'Today'
@@ -187,17 +205,50 @@ export class TimelineComponent {
     ) as HTMLElement[]
     expandedItems.forEach((item) => {
       const hash = item.dataset.hash
-      const commit = this.history.find((c) => c.hash === hash)
+      const commit = this.filteredHistoryState.find((c) => c.hash === hash)
       if (commit) {
         this.loadDetailsForItem(item, commit)
       }
     })
 
-    // Use requestAnimationFrame AND a small delay to ensure rendering is complete
-    requestAnimationFrame(() => {
-      setTimeout(() => this.renderGraph(), 50)
-      setTimeout(() => this.renderGraph(), 300) // Safety for slow layout
+    // Adjust graph when rendering
+    requestAnimationFrame(() => this.renderGraph())
+  }
+
+  private renderGraph(): void {
+    const svg = this.container.querySelector('#timeline-svg') as SVGSVGElement
+    if (!svg) return
+
+    const scrollContainer = this.container.querySelector('.timeline-list') as HTMLElement
+    if (!scrollContainer) return
+
+    // Explicitly set SVG height to full scrollable container
+    const totalHeight = scrollContainer.scrollHeight
+    svg.style.height = `${totalHeight}px`
+
+    // Also set overlay height to ensure it covers scrolling area
+    const overlay = this.container.querySelector('.timeline-graph-overlay') as HTMLElement
+    if (overlay) overlay.style.height = `${totalHeight}px`
+
+    const commitYPositions = this.collectYPositions()
+    new GitGraph(svg, this.filteredHistoryState, commitYPositions)
+  }
+
+  private collectYPositions(): Map<string, number> {
+    const svg = this.container.querySelector('#timeline-svg') as SVGSVGElement
+    const items = Array.from(this.container.querySelectorAll('.timeline-item')) as HTMLElement[]
+    const commitYPositions = new Map<string, number>()
+    if (!svg) return commitYPositions
+
+    const svgRect = svg.getBoundingClientRect()
+    items.forEach((item) => {
+      const hash = item.dataset.hash
+      if (!hash) return
+      const rect = item.getBoundingClientRect()
+      const y = rect.top - svgRect.top + 18
+      commitYPositions.set(hash, y)
     })
+    return commitYPositions
   }
 
   private setupHeaderHandlers(): void {
@@ -212,6 +263,14 @@ export class TimelineComponent {
         refreshBtn.classList.add('rotate-icon')
         await this.update('', this.currentPath)
         setTimeout(() => refreshBtn.classList.remove('rotate-icon'), 500)
+      })
+    }
+
+    const searchInput = this.container.querySelector('#timeline-search-input') as HTMLInputElement
+    if (searchInput) {
+      searchInput.addEventListener('input', () => {
+        this.filterQuery = searchInput.value.toLowerCase().trim()
+        this.renderInternal()
       })
     }
   }
@@ -231,7 +290,7 @@ export class TimelineComponent {
         // Prevent if clicking a button inside (future proofing)
         if (target.tagName === 'BUTTON') return
 
-        const commit = this.history[index]
+        const commit = this.filteredHistoryState[index]
         if (!commit) return
 
         // Toggle expanded class
@@ -298,6 +357,36 @@ export class TimelineComponent {
     const initials = this.getInitials(commit.author)
     const avatarColor = this.getAvatarColor(commit.author)
 
+    // Generate badges HTML
+    let refsHtml = ''
+    if (commit.refs && commit.refs.length > 0) {
+      const badges = commit.refs
+        .map((ref) => {
+          let text = ref.trim()
+          let type = 'other'
+
+          if (text.startsWith('HEAD ->')) {
+            text = text.replace('HEAD ->', '').trim()
+            type = 'branch'
+          } else if (text === 'HEAD') {
+            type = 'branch'
+          } else if (text.startsWith('tag:')) {
+            text = text.replace('tag:', '').trim()
+            type = 'tag'
+          } else if (text.startsWith('origin/')) {
+            text = text.replace('origin/', '')
+            type = 'remote'
+          }
+
+          if (!text) return ''
+          return `<span class="ref-badge ref-${type}" title="${ref}">${text}</span>`
+        })
+        .join('')
+      if (badges) {
+        refsHtml = `<div class="commit-refs">${badges}</div>`
+      }
+    }
+
     return `
       <div class="timeline-item ${isExpanded ? 'is-expanded' : ''}" 
            data-hash="${commit.hash}" 
@@ -315,6 +404,7 @@ export class TimelineComponent {
             <span class="commit-hash">${commit.hash.substring(0, 7)}</span>
             ${commit.body ? `<span class="commit-has-body" title="Has description">${codicons.ellipsis}</span>` : ''}
           </div>
+          ${refsHtml}
           <div class="timeline-item-details"></div>
         </div>
       </div>
@@ -476,38 +566,6 @@ export class TimelineComponent {
     } catch (err) {
       console.error('Failed to compare', err)
     }
-  }
-
-  private renderGraph(): void {
-    const svg = this.container.querySelector('#timeline-svg') as SVGSVGElement
-    if (!svg) return
-
-    const scrollContainer = this.container.querySelector('.timeline-list') as HTMLElement
-    if (!scrollContainer) return
-
-    // Explicitly set SVG height to full scrollable container
-    const totalHeight = scrollContainer.scrollHeight
-    svg.style.height = `${totalHeight}px`
-
-    // Also set overlay height to ensure it covers scrolling area
-    const overlay = this.container.querySelector('.timeline-graph-overlay') as HTMLElement
-    if (overlay) overlay.style.height = `${totalHeight}px`
-
-    // Collect Y positions
-    const items = Array.from(this.container.querySelectorAll('.timeline-item')) as HTMLElement[]
-    const commitYPositions = new Map<string, number>()
-    const svgRect = svg.getBoundingClientRect()
-
-    items.forEach((item) => {
-      const hash = item.dataset.hash
-      if (!hash) return
-      const rect = item.getBoundingClientRect()
-      const y = rect.top - svgRect.top + 18
-      commitYPositions.set(hash, y)
-    })
-
-    // Render using new component
-    new GitGraph(svg, this.history, commitYPositions)
   }
 
   public setVisible(visible: boolean): void {
