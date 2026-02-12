@@ -189,7 +189,7 @@ body {
 
 .btn:hover {
   transform: translateY(-1px);
-  border-color: #31405c;
+  border-color: var(--primary-muted, #31405c);
 }
 
 .btn:active {
@@ -199,13 +199,13 @@ body {
 .btn--primary {
   background: linear-gradient(135deg, var(--primary), var(--primary-strong));
   border-color: transparent;
-  color: #0b1220;
+  color: var(--bg, #0b1220);
 }
 
 .btn--danger {
-  background: rgba(248, 113, 113, 0.12);
-  border-color: rgba(248, 113, 113, 0.35);
-  color: #ffc6c6;
+  background: var(--danger-muted, rgba(248, 113, 113, 0.12));
+  border-color: var(--danger-subtle, rgba(248, 113, 113, 0.35));
+  color: var(--text-strong, #ffc6c6);
 }
 
 .btn--ghost {

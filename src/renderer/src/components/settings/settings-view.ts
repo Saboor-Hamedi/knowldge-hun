@@ -93,7 +93,7 @@ export class SettingsView {
   }
 
   // create the settings view HTML ->tab
-  private render(): void {
+  public render(): void {
     // Restore active section from settings if available
     if (state.settings?.activeSettingsSection) {
       this.activeSection = state.settings.activeSettingsSection

@@ -82,6 +82,13 @@ export class GraphView {
         this.close()
       }
     })
+
+    // Listen for global theme changes to reset graph theme
+    window.addEventListener('knowledge-hub:theme-changed', () => {
+      if (state.settings?.graphTheme) {
+        this.handleThemeChange(state.settings.graphTheme)
+      }
+    })
   }
 
   private render(): void {

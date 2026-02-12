@@ -2,7 +2,7 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: #1e1e1e;
+  background: var(--panel-strong, #1e1e1e);
   overflow: visible !important;
 }
 
@@ -41,12 +41,12 @@
 
 .real-terminal-header {
   height: 48px;
-  background: #2d2d2d;
+  background: var(--panel, #2d2d2d);
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 12px;
-  border-bottom: 3px solid rgba(0, 0, 0, 0.2);
+  border-bottom: 2px solid var(--border, rgba(0, 0, 0, 0.2));
   flex-shrink: 0;
   position: relative;
 }
@@ -62,7 +62,7 @@
   background: transparent;
   border: none;
   border-bottom: 2px solid transparent;
-  color: #858585;
+  color: var(--text-muted, #858585);
   font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
@@ -74,19 +74,19 @@
 }
 
 .terminal-tab:hover {
-  color: #cccccc;
+  color: var(--text-soft, #cccccc);
 }
 
 .terminal-tab.active {
-  color: #ffffff;
-  border-bottom-color: #007acc;
+  color: var(--text-strong, #ffffff);
+  border-bottom-color: var(--primary, #007acc);
 }
 
 .real-terminal-console-host {
   flex: 1;
   min-height: 0;
   position: relative;
-  background: #1e1e1e;
+  background: var(--bg, #1e1e1e);
 }
 
 /* Terminal search now uses unified-search.css */
@@ -107,7 +107,7 @@
 .real-terminal-title {
   font-size: 11px;
   font-weight: 600;
-  color: #cccccc;
+  color: var(--text-soft, #cccccc);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -147,10 +147,10 @@
   position: absolute;
   top: 45px;
   right: 110px;
-  background: #252526;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--panel-strong, #252526);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
   border-radius: 4px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 4px 20px var(--shadow-strong, rgba(0, 0, 0, 0.5));
   z-index: 1000;
   min-width: 160px;
   padding: 4px 0;
@@ -176,13 +176,13 @@
   padding: 6px 12px;
   cursor: pointer;
   font-size: 12px;
-  color: #cccccc;
+  color: var(--text-soft, #cccccc);
   transition: background 0.1s ease;
 }
 
 .shell-menu-item:hover {
-  background: #094771;
-  color: #ffffff;
+  background: var(--selection, #094771);
+  color: var(--text-strong, #ffffff);
 }
 
 .shell-menu-item .shell-icon {
@@ -201,7 +201,7 @@
 .real-terminal-btn {
   background: transparent;
   border: none;
-  color: #cccccc;
+  color: var(--text-soft, #cccccc);
   cursor: pointer;
   padding: 4px 6px;
   border-radius: 3px;
@@ -231,8 +231,8 @@
 /* Terminal Sidebar */
 .real-terminal-sidebar {
   width: 200px;
-  background: #252526;
-  border-right: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--panel, #252526);
+  border-right: 1px solid var(--border, rgba(255, 255, 255, 0.1));
   overflow-y: auto;
   overflow-x: hidden;
   transition:
@@ -337,7 +337,7 @@
 .session-label {
   flex: 1;
   font-size: 12px;
-  color: #cccccc;
+  color: var(--text-soft, #cccccc);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -345,7 +345,7 @@
 }
 
 .terminal-session-item.active .session-label {
-  color: #ffffff;
+  color: var(--text-strong, #ffffff);
   font-weight: 500;
 }
 
@@ -424,9 +424,9 @@
 .session-rename-input {
   flex: 1;
   min-width: 0;
-  background: #3c3c3c;
-  border: 1px solid #007acc;
-  color: #ffffff;
+  background: var(--panel-strong, #3c3c3c);
+  border: 1px solid var(--primary, #007acc);
+  color: var(--text-strong, #ffffff);
   font-size: 12px;
   padding: 2px 4px;
   border-radius: 2px;
@@ -441,8 +441,8 @@
 }
 
 .session-close:hover {
-  background: rgba(205, 49, 49, 0.2);
-  color: #f14c4c;
+  background: var(--danger-hover, rgba(205, 49, 49, 0.2));
+  color: var(--danger, #f14c4c);
 }
 
 /* Terminal Content */

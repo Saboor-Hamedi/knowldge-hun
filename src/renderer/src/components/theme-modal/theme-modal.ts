@@ -2,6 +2,7 @@ import { state } from '../../core/state'
 import { themes } from '../../core/themes'
 import { themeManager } from '../../core/themeManager'
 import { codicons } from '../../utils/codicons'
+import type { AppSettings } from '../../core/types'
 import './theme-modal.css'
 
 export class ThemeModal {
@@ -9,7 +10,7 @@ export class ThemeModal {
   private modal: HTMLElement | null = null
   private isOpen = false
   private backdrop: HTMLElement | null = null
-  private onThemeChange?: (themeId: string) => void
+  private onThemeChange?: (updates: Partial<AppSettings>) => void
 
   constructor(containerId: string) {
     this.container = document.getElementById(containerId) as HTMLElement
@@ -22,7 +23,7 @@ export class ThemeModal {
     window.addEventListener('close-theme-modal', () => this.close())
   }
 
-  setThemeChangeHandler(handler: (themeId: string) => void): void {
+  setThemeChangeHandler(handler: (updates: Partial<AppSettings>) => void): void {
     this.onThemeChange = handler
   }
 
@@ -130,23 +131,81 @@ export class ThemeModal {
   }
 
   private async applyTheme(id: string): Promise<void> {
-    // 1. Apply theme immediately
-    themeManager.setTheme(id)
-    this.onThemeChange?.(id)
-
-    // 2. Update toggle state
-    if (state.settings) {
-      state.settings.theme = id
+    // 1. Prepare clean slate updates (explicitly clear overrides)
+    const updates: any = {
+      theme: id,
+      sidebar: {
+        backgroundColor: undefined,
+        borderColor: undefined,
+        textColor: undefined,
+        activeItemColor: undefined,
+        activeTextColor: undefined,
+        fontSize: state.settings?.sidebar?.fontSize
+      },
+      tab: {
+        backgroundColor: undefined,
+        borderColor: undefined,
+        activeTabColor: undefined,
+        inactiveTabColor: undefined,
+        activeTextColor: undefined,
+        inactiveTextColor: undefined,
+        borderPosition: state.settings?.tab?.borderPosition,
+        compactMode: state.settings?.tab?.compactMode
+      },
+      activityBar: {
+        backgroundColor: undefined,
+        borderColor: undefined,
+        activeItemColor: undefined,
+        activeIconColor: undefined,
+        inactiveIconColor: undefined
+      },
+      searchInput: {
+        backgroundColor: undefined,
+        borderColor: undefined,
+        focusBorderColor: undefined,
+        textColor: undefined,
+        placeholderColor: undefined,
+        buttonColor: undefined,
+        buttonHoverColor: undefined,
+        buttonActiveColor: undefined
+      },
+      terminalBackground: undefined,
+      terminalForeground: undefined,
+      terminalCursor: undefined,
+      terminalFrameColor: undefined,
+      editorTheme: undefined,
+      graphTheme: 'default'
     }
 
-    // 3. Render list to show checkmark
+    // 2. Apply theme and update state
+    themeManager.setTheme(id)
+    if (state.settings) {
+      // Local updates for immediate consistency
+      Object.assign(state.settings.sidebar || {}, updates.sidebar)
+      Object.assign(state.settings.tab || {}, updates.tab)
+      Object.assign(state.settings.activityBar || {}, updates.activityBar)
+      Object.assign(state.settings.searchInput || {}, updates.searchInput)
+      state.settings.theme = id
+      state.settings.terminalBackground = undefined
+      state.settings.terminalForeground = undefined
+      state.settings.terminalCursor = undefined
+      state.settings.terminalFrameColor = undefined
+      state.settings.editorTheme = undefined
+      state.settings.graphTheme = 'default'
+    }
+
+    // 3. Notify app to re-apply styles and persist
+    this.onThemeChange?.(updates)
     this.renderList()
 
-    // 4. Persist
     try {
-      await window.api.updateSettings({ theme: id })
+      await (window.api.updateSettings as any)(updates)
+      // Custom event to notify all components to re-run applyStyles
+      window.dispatchEvent(
+        new CustomEvent('knowledge-hub:theme-changed', { detail: { themeId: id } })
+      )
     } catch (e) {
-      console.error('Failed to save theme', e)
+      console.error('Failed to save theme and reset overrides', e)
     }
   }
 }

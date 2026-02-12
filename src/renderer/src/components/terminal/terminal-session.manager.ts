@@ -6,6 +6,7 @@ import { CanvasAddon } from '@xterm/addon-canvas'
 import { SerializeAddon } from '@xterm/addon-serialize'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 import { TerminalSession, TERMINAL_CONSTANTS } from './terminal.types'
+import { themes } from '../../core/themes'
 
 export class TerminalSessionManager {
   private sessions: Map<string, TerminalSession> = new Map()
@@ -58,31 +59,43 @@ export class TerminalSessionManager {
   }
 
   createXtermInstance(settings: any): Terminal {
+    const appThemeId = settings?.theme || 'dark'
+    const appTheme = themes[appThemeId] || themes['dark']
+
     return new Terminal({
       cursorBlink: true,
       fontSize: settings?.terminalFontSize || TERMINAL_CONSTANTS.DEFAULT_FONT_SIZE,
       fontFamily: settings?.terminalFontFamily || TERMINAL_CONSTANTS.DEFAULT_FONT_FAMILY,
       theme: {
-        background: settings?.terminalBackground || TERMINAL_CONSTANTS.DEFAULT_BACKGROUND,
-        foreground: settings?.terminalForeground || TERMINAL_CONSTANTS.DEFAULT_FOREGROUND,
-        cursor: settings?.terminalCursor || TERMINAL_CONSTANTS.DEFAULT_CURSOR,
+        background:
+          settings?.terminalBackground ||
+          appTheme.colors['--panel-strong'] ||
+          TERMINAL_CONSTANTS.DEFAULT_BACKGROUND,
+        foreground:
+          settings?.terminalForeground ||
+          appTheme.colors['--text'] ||
+          TERMINAL_CONSTANTS.DEFAULT_FOREGROUND,
+        cursor:
+          settings?.terminalCursor ||
+          appTheme.colors['--primary'] ||
+          TERMINAL_CONSTANTS.DEFAULT_CURSOR,
         selectionBackground: 'rgba(255, 255, 255, 0.15)',
-        black: '#282c34',
+        black: appTheme.colors['--bg'] || '#282c34',
         red: '#e06c75',
         green: '#98c379',
         yellow: '#e5c07b',
         blue: '#61afef',
         magenta: '#c678dd',
         cyan: '#56b6c2',
-        white: '#abb2bf',
-        brightBlack: '#5c6370',
+        white: appTheme.colors['--text-soft'] || '#abb2bf',
+        brightBlack: appTheme.colors['--muted'] || '#5c6370',
         brightRed: '#e06c75',
         brightGreen: '#98c379',
         brightYellow: '#e5c07b',
         brightBlue: '#61afef',
         brightMagenta: '#d670d6',
         brightCyan: '#56b6c2',
-        brightWhite: '#ffffff'
+        brightWhite: appTheme.colors['--text-strong'] || '#ffffff'
       },
       lineHeight: 1.2,
       allowProposedApi: true

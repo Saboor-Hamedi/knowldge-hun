@@ -285,10 +285,10 @@
 }
 
 .search-result-snippet mark {
-  background: rgba(204, 153, 0, 0.4);
+  background: var(--primary-muted, rgba(204, 153, 0, 0.4));
   color: inherit;
   border-radius: 1px;
-  border-bottom: 1px solid #cc9900;
+  border-bottom: 1px solid var(--primary, #cc9900);
 }
 
 /* Standard Sidebar Search (Explorer) */
@@ -557,8 +557,8 @@
   top: 0;
   bottom: 0;
   width: 1px;
-  background-color: #ffffff; /* FORCE SOLID WHITE FOR VISIBILITY */
-  opacity: 0.25;
+  background-color: var(--text-strong, #ffffff);
+  opacity: 0.15;
   transition: opacity 0.2s;
   z-index: 1;
 }

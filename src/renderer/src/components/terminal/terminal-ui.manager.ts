@@ -179,8 +179,8 @@ export class TerminalUiManager {
   }
 
   applyTheme(settings: any): void {
-    const frameColor = settings.terminalFrameColor || TERMINAL_CONSTANTS.DEFAULT_BACKGROUND
-    const background = settings.terminalBackground || TERMINAL_CONSTANTS.DEFAULT_BACKGROUND
+    const frameColor = settings.terminalFrameColor || 'var(--panel)'
+    const background = settings.terminalBackground || 'var(--panel-strong)'
 
     const frameElements = [
       '.real-terminal-wrapper',

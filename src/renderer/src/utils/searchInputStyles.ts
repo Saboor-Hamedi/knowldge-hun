@@ -5,40 +5,26 @@ import type { AppSettings } from '../core/types'
  * This affects all search inputs: terminal, editor find widget, and global search
  */
 export function applySearchInputStyles(settings: AppSettings): void {
-  if (!settings.searchInput) return
-
   const root = document.documentElement
   const searchInput = settings.searchInput
 
-  if (searchInput.backgroundColor) {
-    root.style.setProperty('--search-bg', searchInput.backgroundColor)
+  const props = {
+    backgroundColor: '--search-bg',
+    borderColor: '--search-border',
+    focusBorderColor: '--search-focus-border',
+    textColor: '--search-text',
+    placeholderColor: '--search-placeholder',
+    buttonColor: '--search-button',
+    buttonHoverColor: '--search-button-hover',
+    buttonActiveColor: '--search-button-active'
   }
 
-  if (searchInput.borderColor) {
-    root.style.setProperty('--search-border', searchInput.borderColor)
-  }
-
-  if (searchInput.focusBorderColor) {
-    root.style.setProperty('--search-focus-border', searchInput.focusBorderColor)
-  }
-
-  if (searchInput.textColor) {
-    root.style.setProperty('--search-text', searchInput.textColor)
-  }
-
-  if (searchInput.placeholderColor) {
-    root.style.setProperty('--search-placeholder', searchInput.placeholderColor)
-  }
-
-  if (searchInput.buttonColor) {
-    root.style.setProperty('--search-button', searchInput.buttonColor)
-  }
-
-  if (searchInput.buttonHoverColor) {
-    root.style.setProperty('--search-button-hover', searchInput.buttonHoverColor)
-  }
-
-  if (searchInput.buttonActiveColor) {
-    root.style.setProperty('--search-button-active', searchInput.buttonActiveColor)
+  for (const [key, prop] of Object.entries(props)) {
+    const val = searchInput?.[key as keyof typeof searchInput]
+    if (val) {
+      root.style.setProperty(prop, val)
+    } else {
+      root.style.removeProperty(prop)
+    }
   }
 }

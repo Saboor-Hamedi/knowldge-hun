@@ -11,7 +11,7 @@
   font-family: var(--font-ui, 'Inter', sans-serif);
   z-index: 1000;
   box-sizing: border-box;
-  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 -4px 12px var(--shadow-subtle, rgba(0, 0, 0, 0.1));
 }
 
 .statusbar__left,
@@ -50,7 +50,7 @@
 }
 
 .statusbar__item:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--hover, rgba(255, 255, 255, 0.08));
   color: var(--text-strong, #e4e8f1);
 }
 
@@ -99,7 +99,7 @@
 }
 
 .statusbar__sync-button:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--hover, rgba(255, 255, 255, 0.08));
   color: var(--text-strong, #e4e8f1);
 }
 
@@ -125,7 +125,7 @@
   background: var(--panel-strong, #1a1f2c);
   border: 1px solid var(--border, #2d3548);
   border-radius: 8px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 10px 30px var(--shadow-strong, rgba(0, 0, 0, 0.5));
   min-width: 150px;
   display: none;
   flex-direction: column;
@@ -229,14 +229,14 @@
 /* Premium Custom Tooltip (Universal class + specific class) */
 .rich-tooltip.statusbar-tooltip {
   position: fixed;
-  background: rgba(30, 31, 34, 0.95);
+  background: var(--panel-strong, rgba(30, 31, 34, 0.95));
   backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
   border-radius: 6px;
   padding: 12px;
-  color: #e3e3e3;
+  color: var(--text-soft, #e3e3e3);
   font-size: 11px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 10px 30px var(--shadow-strong, rgba(0, 0, 0, 0.5));
   z-index: 100000;
   opacity: 0;
   transform: translateY(4px);
@@ -277,13 +277,13 @@
 
 .statusbar-tooltip__title {
   font-weight: 700;
-  color: #fff;
+  color: var(--text-strong, #fff);
   font-size: 12px;
 }
 
 .statusbar-tooltip__repo {
   font-weight: 700;
-  color: #fff;
+  color: var(--text-strong, #fff);
   font-size: 11px;
 }
 
@@ -305,7 +305,7 @@
 
 .statusbar-tooltip__footer {
   font-size: 10px;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--text-muted, rgba(255, 255, 255, 0.4));
   margin-top: 4px;
   font-style: italic;
 }

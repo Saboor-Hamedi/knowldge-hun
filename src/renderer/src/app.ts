@@ -391,7 +391,7 @@ class App {
       // Restore active view (explorer, search, history, etc.)
       if (state.settings.activeView) {
         state.activeView = state.settings.activeView
-        this.activityBar.setActiveView(state.settings.activeView)
+        this.activityBar.setActiveView(state.settings.activeView as any)
       }
     }
 
@@ -559,9 +559,8 @@ class App {
     this.editor.setCursorPositionChangeHandler(() => this.viewOrchestrator.updateEditorMetrics())
     this.editor.attachKeyboardShortcuts()
 
-    this.themeModal.setThemeChangeHandler((themeId) => {
-      themeManager.setTheme(themeId)
-      this.editor.applySettings({ ...state.settings!, theme: themeId })
+    this.themeModal.setThemeChangeHandler((updates) => {
+      void this.handleSettingChange(updates)
     })
 
     this.rightBar.setEditorContext(
@@ -615,8 +614,13 @@ class App {
       // Debounce the actual disk/IPC update to prevent lag during rapid sliding
       if (this.pendingSettingsUpdate) window.clearTimeout(this.pendingSettingsUpdate)
       this.pendingSettingsUpdate = window.setTimeout(() => {
-        void window.api.updateSettings(newSettings)
+        void (window.api.updateSettings as any)(newSettings)
         this.statusBar.setStatus('Settings auto-saved')
+
+        // If settings view is active, trigger a re-render to reflect potentially cleared overrides
+        if (state.activeId === 'settings' || state.activeView === 'settings') {
+          this.settingsView.render()
+        }
       }, 500) as unknown as number
 
       if (newSettings.deepseekApiKey !== undefined) {
