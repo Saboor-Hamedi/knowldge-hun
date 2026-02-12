@@ -6,7 +6,18 @@ type GitCommit = {
   timestamp: number
   author: string
   subject: string
+  body?: string
   parents?: string[]
+}
+
+type CommitDetails = {
+  hash: string
+  files: { path: string; additions: number; deletions: number }[]
+  stats: {
+    insertions: number
+    deletions: number
+    filesChanged: number
+  }
 }
 
 export class TimelineComponent {
@@ -162,33 +173,61 @@ export class TimelineComponent {
 
     if (fileBtn) fileBtn.addEventListener('click', () => this.setMode('file'))
     if (repoBtn) repoBtn.addEventListener('click', () => this.setMode('repo'))
-    if (refreshBtn) refreshBtn.addEventListener('click', () => this.update('', this.currentPath))
+    if (refreshBtn) {
+      refreshBtn.addEventListener('click', async () => {
+        refreshBtn.classList.add('rotate-icon')
+        await this.update('', this.currentPath)
+        setTimeout(() => refreshBtn.classList.remove('rotate-icon'), 500)
+      })
+    }
   }
 
   private setupItemHandlers(): void {
     const items = this.container.querySelectorAll('.timeline-item')
     items.forEach((item, index) => {
-      item.addEventListener('click', async () => {
+      // Toggle expansion on click (except if clicking actions if we add any)
+      item.addEventListener('click', async (e) => {
+        const target = e.target as HTMLElement
+        // Prevent if clicking a button inside (future proofing)
+        if (target.tagName === 'BUTTON') return
+
         const commit = this.history[index]
         if (!commit) return
 
-        try {
-          // Highlight selection
-          items.forEach((el) => el.classList.remove('is-active'))
-          item.classList.add('is-active')
+        // Toggle expanded class
+        const wasExpanded = item.classList.contains('is-expanded')
 
-          const content = await window.api.getGitContentAtCommit(
-            this.currentPath || '',
-            commit.hash
-          )
-          this.container.dispatchEvent(
-            new CustomEvent('timeline:compare', {
-              detail: { commit, path: this.currentPath, content },
-              bubbles: true
-            })
-          )
-        } catch (err) {
-          console.error('[Timeline] Failed to fetch content for commit:', err)
+        // Collapse others if desired (optional, maybe keep multiple open?)
+        // Let's keep multiple open for comparison utility
+
+        item.classList.toggle('is-expanded')
+
+        // If expanding and no details loaded, fetch them
+        if (!wasExpanded) {
+          const detailsEl = item.querySelector('.timeline-item-details') as HTMLElement
+          if (detailsEl && !detailsEl.dataset.loaded) {
+            detailsEl.innerHTML = `<div class="timeline-loading-sm">${codicons.refresh} Loading details...</div>`
+
+            try {
+              if (typeof window.api.getCommitDetails !== 'function') {
+                throw new Error('API not available')
+              }
+              const details = await window.api.getCommitDetails(commit.hash)
+              this.renderCommitDetails(detailsEl, commit, details)
+              detailsEl.dataset.loaded = 'true'
+
+              // Adjust graph height after expansion
+              requestAnimationFrame(() => this.renderGraph())
+            } catch (err: any) {
+              console.error(err)
+              detailsEl.innerHTML = `<div class="error-text">Failed: ${err?.message || 'Unknown'}</div>`
+            }
+          } else {
+            // Just adjust graph
+            requestAnimationFrame(() => this.renderGraph())
+          }
+        } else {
+          requestAnimationFrame(() => this.renderGraph())
         }
       })
     })
@@ -216,10 +255,92 @@ export class TimelineComponent {
           <div class="commit-subject" title="${commit.subject}">${commit.subject}</div>
           <div class="commit-footer">
             <span class="commit-hash">${commit.hash.substring(0, 7)}</span>
+            ${commit.body ? `<span class="commit-has-body" title="Has description">${codicons.ellipsis}</span>` : ''}
           </div>
+          <div class="timeline-item-details"></div>
         </div>
       </div>
     `
+  }
+
+  private renderCommitDetails(
+    container: HTMLElement,
+    commit: GitCommit,
+    details: CommitDetails
+  ): void {
+    let statsHtml = ''
+    if (details && details.stats) {
+      statsHtml = `
+            <div class="commit-stats">
+              <span class="stat-add">+${details.stats.insertions}</span>
+              <span class="stat-del">-${details.stats.deletions}</span>
+              <span class="stat-files">${details.stats.filesChanged} files</span>
+            </div>
+          `
+    }
+
+    let filesHtml = ''
+    if (details && details.files && details.files.length > 0) {
+      const maxFiles = 5
+      const filesList = details.files
+        .slice(0, maxFiles)
+        .map(
+          (f) => `
+            <div class="commit-file">
+              <span class="file-path" title="${f.path}">${f.path}</span>
+              <span class="file-mods">
+                 <span class="add">+${f.additions}</span>
+                 <span class="del">-${f.deletions}</span>
+              </span>
+            </div>
+          `
+        )
+        .join('')
+
+      filesHtml = `
+            <div class="commit-files-list">
+               ${filesList}
+               ${details.files.length > maxFiles ? `<div class="more-files">+${details.files.length - maxFiles} more files...</div>` : ''}
+            </div>
+          `
+    }
+
+    container.innerHTML = `
+        <div class="commit-body">${commit.body ? commit.body.replace(/\n/g, '<br/>') : ''}</div>
+        ${statsHtml}
+        ${filesHtml}
+        <div class="commit-actions">
+           <button class="action-btn" onclick="const e = new CustomEvent('timeline:compare', { detail: { hash: '${commit.hash}', path: '${this.currentPath}' }, bubbles: true }); this.dispatchEvent(e);">Compare</button>
+        </div>
+      `
+
+    // Re-attach event listeners for buttons if needed or use delegation
+    // Since innerHTML kills event listeners, we rely on bubbling or re-adding
+    const btn = container.querySelector('.action-btn')
+    if (btn) {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation()
+        // Legacy Compare dispatch
+        // We need to fetch content first if we want to match old behavior
+        // But maybe just emitting the hash is enough for the listener?
+        // The old listener fetched content. Let's act like the old click.
+        this.handleCompare(commit)
+      })
+    }
+  }
+
+  private async handleCompare(commit: GitCommit): Promise<void> {
+    try {
+      const content = await window.api.getGitContentAtCommit(this.currentPath || '', commit.hash)
+      this.container.dispatchEvent(
+        new CustomEvent('timeline:compare', {
+          detail: { commit, path: this.currentPath, content },
+          bubbles: true
+        })
+      )
+    } catch (err) {
+      console.error('Failed to compare', err)
+    }
   }
 
   private renderGraph(): void {

@@ -116,6 +116,7 @@ type NoteApi = {
   getGitHistory: (filePath: string) => Promise<GitCommit[]>
   getGitRepoHistory: () => Promise<GitCommit[]>
   getGitContentAtCommit: (filePath: string, hash: string) => Promise<string>
+  getCommitDetails: (hash: string) => Promise<any>
   getVault: () => Promise<VaultInfo>
   chooseVault: () => Promise<VaultInfo>
   setVault: (dir: string) => Promise<VaultInfo>

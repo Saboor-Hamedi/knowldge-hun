@@ -174,7 +174,8 @@ const api = {
   getGitHistory: (filePath: string): Promise<any[]> => ipcRenderer.invoke('git:history', filePath),
   getGitRepoHistory: (): Promise<any[]> => ipcRenderer.invoke('git:repo-history'),
   getGitContentAtCommit: (filePath: string, hash: string): Promise<string> =>
-    ipcRenderer.invoke('git:show-content', filePath, hash)
+    ipcRenderer.invoke('git:show-content', filePath, hash),
+  getCommitDetails: (hash: string): Promise<any> => ipcRenderer.invoke('git:commit-details', hash)
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

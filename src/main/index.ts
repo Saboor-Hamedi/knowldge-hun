@@ -31,7 +31,8 @@ import {
   initGit,
   getFileHistory,
   getRepoHistory,
-  getFileContentAtCommit
+  getFileContentAtCommit,
+  getCommitDetails
 } from './git'
 
 let mainWindowRef: BrowserWindow | null = null
@@ -960,6 +961,12 @@ app.whenReady().then(async () => {
     const v = getVaultManager(event.sender)
     const root = v?.getRootPath() || resolveVaultPath()
     return getFileContentAtCommit(root, filePath, hash)
+  })
+
+  ipcMain.handle('git:commit-details', async (event, hash: string) => {
+    const v = getVaultManager(event.sender)
+    const root = v?.getRootPath() || resolveVaultPath()
+    return getCommitDetails(root, hash)
   })
 
   ipcMain.handle('system:getUsername', () => {

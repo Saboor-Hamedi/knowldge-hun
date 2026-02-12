@@ -185,6 +185,21 @@
   font-size: 13px;
   text-align: center;
   padding: 20px;
+  flex: 1; /* Ensure it takes full height */
+}
+
+/* Rotation animation class */
+.rotate-icon svg {
+  animation: spin 1s linear infinite;
+}
+
+.timeline-mode-toggle button.rotate-icon {
+    pointer-events: none; /* Prevent multiple clicks while spinning */
+}
+
+.timeline-mode-toggle button.rotate-icon span {
+    display: flex;
+    animation: spin 1s linear infinite;
 }
 
 .empty-icon {
@@ -234,4 +249,146 @@
 
 .timeline-list::-webkit-scrollbar-thumb:hover {
   background: var(--selection);
+}
+
+/* DETAILS EXPANSION */
+.timeline-item-details {
+  display: none;
+  font-size: 11px;
+  color: var(--text-muted);
+  width: 100%;
+  margin-top: 4px;
+  border-top: 1px dashed var(--border-subtle);
+  padding-top: 4px;
+}
+
+.timeline-item.is-expanded .timeline-item-details {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  animation: slideDown 0.2s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.timeline-item.is-expanded {
+  background: var(--bg-accent, #2a2a2a);
+}
+
+.commit-has-body {
+  opacity: 0.5;
+  display: inline-flex;
+  margin-left: auto;
+}
+
+.commit-body {
+  white-space: pre-wrap;
+  font-family: var(--font-mono, monospace);
+  color: var(--text-normal);
+  background: var(--bg);
+  padding: 6px;
+  border-radius: 4px;
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+.commit-stats {
+  display: flex;
+  gap: 8px;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.stat-add { color: var(--success, #4caf50); }
+.stat-del { color: var(--danger, #f44336); }
+.stat-files { color: var(--info, #2196f3); margin-left: auto; }
+
+.commit-files-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.commit-file {
+  display: flex;
+  justify-content: space-between;
+  padding: 2px 4px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 3px;
+}
+
+.commit-file:hover {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.file-path {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 70%;
+}
+
+.file-mods {
+  font-family: var(--font-mono, monospace);
+  font-size: 9px;
+  display: flex;
+  gap: 4px;
+}
+
+.file-mods .add { color: var(--success); }
+.file-mods .del { color: var(--danger); }
+
+.more-files {
+  font-style: italic;
+  opacity: 0.6;
+  text-align: center;
+  padding: 2px;
+}
+
+.commit-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+
+.action-btn {
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  padding: 4px 8px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 600;
+  transition: opacity 0.2s;
+}
+
+.action-btn:hover {
+  opacity: 0.9;
+}
+
+.timeline-loading-sm {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  opacity: 0.7;
+  padding: 8px;
+  justify-content: center;
+}
+
+.timeline-loading-sm svg {
+    animation: spin 1s linear infinite;
+}
+
+.error-text {
+  color: var(--danger);
 }

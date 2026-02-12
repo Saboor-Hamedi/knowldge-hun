@@ -27,6 +27,17 @@ export interface GitHistoryItem {
   timestamp: number
   author: string
   subject: string
+  body: string
+}
+
+export interface CommitDetails {
+  hash: string
+  files: { path: string; additions: number; deletions: number }[]
+  stats: {
+    insertions: number
+    deletions: number
+    filesChanged: number
+  }
 }
 
 /**
@@ -216,7 +227,7 @@ export async function getFileHistory(
 
     // Use a unique separator to avoid issues with tabs in subjects/authors
     const separator = '||KH_SEP||'
-    const formatString = `--format=%H${separator}%P${separator}%at${separator}%an${separator}%s`
+    const formatString = `--format=%H${separator}%P${separator}%at${separator}%an${separator}%s${separator}%b`
 
     console.log(`[Main:Git] Fetching history for ${basename(fullPath)} from ${fileDir}`)
 
@@ -244,7 +255,7 @@ export async function getFileHistory(
           )
           return null
         }
-        const [hash, parents, timestampStr, author, subject] = parts
+        const [hash, parents, timestampStr, author, subject, body] = parts
         const timestamp = parseInt(timestampStr)
 
         if (isNaN(timestamp)) {
@@ -256,7 +267,8 @@ export async function getFileHistory(
           parents: parents ? parents.split(' ').filter((p) => p.length > 0) : [],
           timestamp: (timestamp || 0) * 1000,
           author: author || 'unknown',
-          subject: subject || 'no subject'
+          subject: subject || 'no subject',
+          body: body || ''
         }
       })
       .filter((c): c is GitHistoryItem => c !== null)
@@ -316,7 +328,7 @@ export async function getRepoHistory(rootPath: string): Promise<GitHistoryItem[]
           )
           return null
         }
-        const [hash, parents, timestampStr, author, subject] = parts
+        const [hash, parents, timestampStr, author, subject, body] = parts
         const timestamp = parseInt(timestampStr)
 
         if (isNaN(timestamp)) {
@@ -328,13 +340,100 @@ export async function getRepoHistory(rootPath: string): Promise<GitHistoryItem[]
           parents: parents ? parents.split(' ').filter((p) => p.length > 0) : [],
           timestamp: (timestamp || 0) * 1000,
           author: author || 'unknown',
-          subject: subject || 'no subject'
+          subject: subject || 'no subject',
+          body: body || ''
         }
       })
       .filter((c): c is GitHistoryItem => c !== null)
   } catch (err) {
     console.error('[Main:Git] Failed to fetch repo history:', err)
     return []
+  }
+}
+
+/**
+ * Returns detailed stats for a specific commit.
+ */
+export async function getCommitDetails(
+  rootPath: string,
+  hash: string
+): Promise<CommitDetails | null> {
+  if (!rootPath || !existsSync(rootPath)) {
+    console.error('[Main:Git] rootPath invalid:', rootPath)
+    return null
+  }
+  try {
+    console.log(`[Main:Git] Getting details for hash: ${hash} in ${rootPath}`)
+    // --numstat gives: additions deletions path
+    // Use --format="" to avoid newline issues with empty format string if any
+    const output = await runGit(['show', '--numstat', '--format=', hash], rootPath)
+
+    console.log('[Main:Git] Raw output length:', output?.length)
+    // console.log('[Main:Git] Raw output snippet:', output?.substring(0, 100))
+
+    if (!output) {
+      console.warn('[Main:Git] No output for commit details')
+      return null
+    }
+
+    const files: { path: string; additions: number; deletions: number }[] = []
+    let totalAdditions = 0
+    let totalDeletions = 0
+
+    // Better parsing for numstat
+    const numstatLines = output.split(/\r?\n/).filter((l) => l.trim())
+
+    for (const line of numstatLines) {
+      // numstat is tab separated: added deleted path
+      const parts = line.split(/\t/)
+      if (parts.length < 3) {
+        // Sometimes only 2 parts if binary? no, binary is - - path
+        // If split by tab fails, maybe it's using spaces?
+        // Fallback to regex split if tab seems to fail (parts len 1)
+        if (parts.length === 1) {
+          const spaceParts = line.trim().split(/\s+/)
+          if (spaceParts.length >= 3) {
+            const addIdx = 0
+            const delIdx = 1
+            const p = spaceParts.slice(2).join(' ')
+            const additions = spaceParts[addIdx] === '-' ? 0 : parseInt(spaceParts[addIdx]) || 0
+            const deletions = spaceParts[delIdx] === '-' ? 0 : parseInt(spaceParts[delIdx]) || 0
+            totalAdditions += additions
+            totalDeletions += deletions
+            files.push({ path: p, additions, deletions })
+            continue
+          }
+        }
+        continue
+      }
+
+      const [add, del, ...pathParts] = parts
+      const path = pathParts.join('\t')
+
+      const additions = add === '-' ? 0 : parseInt(add) || 0
+      const deletions = del === '-' ? 0 : parseInt(del) || 0
+
+      totalAdditions += additions
+      totalDeletions += deletions
+      files.push({ path, additions, deletions })
+    }
+
+    console.log(
+      `[Main:Git] Parsed ${files.length} files. Stats: +${totalAdditions}/-${totalDeletions}`
+    )
+
+    return {
+      hash,
+      files,
+      stats: {
+        insertions: totalAdditions,
+        deletions: totalDeletions,
+        filesChanged: files.length
+      }
+    }
+  } catch (err) {
+    console.error('[Main:Git] Failed to get commit details:', err)
+    return null
   }
 }
 
