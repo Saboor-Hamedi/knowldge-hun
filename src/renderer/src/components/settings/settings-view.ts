@@ -35,7 +35,9 @@ import {
   Frame,
   Pipette,
   PanelLeft,
-  Activity
+  Activity,
+  Search,
+  X
 } from 'lucide'
 import { renderShortcutItems } from '../../utils/shortcutUtils'
 import { SecuritySection } from '../security/security-section'
@@ -101,6 +103,21 @@ export class SettingsView {
       <div class="settings-view">
         <aside class="settings-view__sidebar">
           <div class="settings-view__sidebar-title">Settings</div>
+          <div class="settings-sidebar-search">
+             <div class="settings-sidebar-search__icon">${this.createLucideIcon(Search, 14)}</div>
+             <input
+               type="text"
+               class="settings-search__input"
+               placeholder="Filter settings..."
+               value="${this.searchQuery}"
+               spellcheck="false"
+             />
+             ${
+               this.searchQuery
+                 ? `<button class="settings-sidebar-search__clear" id="settings-search-clear" title="Clear search">${this.createLucideIcon(X, 14)}</button>`
+                 : ''
+             }
+          </div>
           <button class="settings-view__sidebar-item ${this.activeSection === 'editor' ? 'is-active' : ''}" data-section-tab="editor">
             ${codicons.edit} Editor
           </button>
@@ -128,9 +145,6 @@ export class SettingsView {
           <button class="settings-view__sidebar-item ${this.activeSection === 'terminal' ? 'is-active' : ''}" data-section-tab="terminal">
             ${codicons.terminal} Terminal
           </button>
-          <button class="settings-view__sidebar-item ${this.activeSection === 'search' ? 'is-active' : ''}" data-section-tab="search">
-            ${codicons.search} Search
-          </button>
           <button class="settings-view__sidebar-item ${this.activeSection === 'tab' ? 'is-active' : ''}" data-section-tab="tab">
             ${this.createLucideIcon(Layout, 16)} Tab
           </button>
@@ -143,19 +157,12 @@ export class SettingsView {
           <button class="settings-view__sidebar-item ${this.activeSection === 'activityBar' ? 'is-active' : ''}" data-section-tab="activityBar">
             ${this.createLucideIcon(Activity, 16)} Activity Bar
           </button>
+          <button class="settings-view__sidebar-item ${this.activeSection === 'search' ? 'is-active' : ''}" data-section-tab="search">
+            ${this.createLucideIcon(Search, 16)} Search UI
+          </button>
         </aside>
 
         <div class="settings-view__content">
-
-          <!-- Search Bar -->
-          <div class="settings-search">
-            <input
-              type="text"
-              class="settings-search__input"
-              placeholder="Search settings..."
-              value="${this.searchQuery}"
-            />
-          </div>
 
           <!-- Editor Section -->
           <div class="settings-view__section ${this.activeSection === 'editor' ? 'is-active' : ''}" data-section="editor">
@@ -1307,12 +1314,31 @@ export class SettingsView {
       }, 150)
     })
 
+    const clearBtn = this.container.querySelector('#settings-search-clear')
+    clearBtn?.addEventListener('click', () => {
+      this.searchQuery = ''
+      if (searchInput) {
+        searchInput.value = ''
+        searchInput.focus()
+      }
+      this.filterSettings()
+      // We don't call render here to keep focus, but the X will disappear on next render
+      clearBtn.remove()
+    })
+
     searchInput?.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
         if (searchInput.value) {
           searchInput.value = ''
           this.searchQuery = ''
           this.filterSettings()
+          // Re-render to remove the X button
+          this.render()
+          // Refocus after render
+          const newInput = this.container.querySelector(
+            '.settings-search__input'
+          ) as HTMLInputElement
+          newInput?.focus()
           e.stopPropagation()
         } else {
           searchInput.blur()
@@ -1811,14 +1837,44 @@ export class SettingsView {
   }
 
   private filterSettings(): void {
-    const fields = this.container.querySelectorAll('.settings-field') as NodeListOf<HTMLElement>
-    // Use requestAnimationFrame for smooth UI updates
+    const query = this.searchQuery.trim().toLowerCase()
+    const isSearching = query !== ''
+
+    const sections = this.container.querySelectorAll(
+      '.settings-view__section'
+    ) as NodeListOf<HTMLElement>
+    const rows = this.container.querySelectorAll(
+      '.settings-row, .settings-field'
+    ) as NodeListOf<HTMLElement>
+
     requestAnimationFrame(() => {
-      fields.forEach((field) => {
-        const searchText = field.dataset.search || ''
-        const matches =
-          this.searchQuery === '' || searchText.toLowerCase().includes(this.searchQuery)
-        field.style.display = matches ? '' : 'none'
+      // 1. Filter rows
+      rows.forEach((row) => {
+        // textContent is faster than innerText (no layout trigger)
+        const searchText = (row.dataset.search || row.textContent || '').toLowerCase()
+        const matches = !isSearching || searchText.includes(query)
+        row.style.display = matches ? '' : 'none'
+      })
+
+      // 2. Handle section visibility
+      sections.forEach((section) => {
+        if (isSearching) {
+          const sectionRows = section.querySelectorAll(
+            '.settings-row, .settings-field'
+          ) as NodeListOf<HTMLElement>
+          let hasVisibleRow = false
+          // Use for loop for early exit (faster than forEach)
+          for (let i = 0; i < sectionRows.length; i++) {
+            if (sectionRows[i].style.display !== 'none') {
+              hasVisibleRow = true
+              break
+            }
+          }
+          section.style.display = hasVisibleRow ? 'block' : 'none'
+        } else {
+          // Normal tab behavior
+          section.style.display = section.dataset.section === this.activeSection ? 'block' : 'none'
+        }
       })
     })
   }
