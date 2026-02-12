@@ -950,7 +950,7 @@ export class RightBar {
 
     // Trigger highlighting
     if (convState.messages.length > 0) {
-      void this.chatRenderer.highlightAll(() => this.initHighlightJS(), !convState.isLoading)
+      void this.chatRenderer.highlightAll(() => initHighlightJS(), !convState.isLoading)
     }
   }
 

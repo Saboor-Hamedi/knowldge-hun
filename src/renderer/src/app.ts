@@ -12,8 +12,6 @@ import { RightBar } from './components/rightbar/rightbar'
 import { SettingsView } from './components/settings/settings-view'
 import { contextMenu } from './components/contextmenu/contextmenu'
 import {
-  createElement,
-  Plus,
   Trash2,
   Info,
   Terminal,

@@ -738,8 +738,10 @@ export class ConsoleComponent {
               } else {
                 html = formatMarkdown(visibleText)
                 markdownCache.set(visibleText, html)
-                if (markdownCache.size > 100)
-                  markdownCache.delete(markdownCache.keys().next().value)
+                if (markdownCache.size > 100) {
+                  const firstKey = markdownCache.keys().next().value
+                  if (firstKey !== undefined) markdownCache.delete(firstKey)
+                }
               }
 
               // Add inline typing dots
