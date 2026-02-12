@@ -86,6 +86,7 @@ export const codicons = {
   markdown: lucideIcon(FileText),
   html: lucideIcon(FileCode2),
   css: lucideIcon(FileCode),
+  image: lucideIcon(FilePlus),
 
   // UI elements
   chevronRight: lucideIcon(ChevronRight),
@@ -251,43 +252,26 @@ export function getFileIcon(fileName: string | undefined | null): string {
   }
   const name = fileName.toLowerCase()
 
-  // Since this is a .md project, all notes are .md files by default
-  // The fileName here is the note title (without .md extension in the system)
-  // But we check for special patterns like "settings.json" which would be "settings.json.md"
+  if (name.endsWith('.json')) return codicons.json
+  if (name.endsWith('.md')) return codicons.markdown
+  if (name.endsWith('.html') || name.endsWith('.htm')) return codicons.html
+  if (name.endsWith('.css') || name.endsWith('.scss') || name.endsWith('.sass')) return codicons.css
+  if (name.endsWith('.js') || name.endsWith('.jsx') || name.endsWith('.mjs'))
+    return codicons.fileCode
+  if (name.endsWith('.ts') || name.endsWith('.tsx')) return codicons.fileCode
+  if (name.endsWith('.yaml') || name.endsWith('.yml')) return codicons.fileCode
 
-  // Check for special patterns in the title (these would be *.json.md, *.yaml.md, etc.)
-  if (name.includes('.json')) {
-    // e.g., "settings.json" -> "settings.json.md"
-    return codicons.json
-  }
-  if (name.includes('.yaml') || name.includes('.yml')) {
-    // e.g., "config.yaml" -> "config.yaml.md"
-    return codicons.fileCode
-  }
-  if (name.includes('.js') && (name.includes('.jsx') || name.endsWith('.js'))) {
-    // e.g., "component.jsx" -> "component.jsx.md"
-    return codicons.fileCode
-  }
-  if (name.includes('.ts') && (name.includes('.tsx') || name.endsWith('.ts'))) {
-    // e.g., "component.tsx" -> "component.tsx.md"
-    return codicons.fileCode
-  }
-  if (name.includes('.html')) {
-    // e.g., "template.html" -> "template.html.md"
-    return codicons.html
-  }
-  if (
-    name.includes('.css') ||
-    name.includes('.scss') ||
-    name.includes('.sass') ||
-    name.includes('.less')
-  ) {
-    // e.g., "styles.css" -> "styles.css.md"
-    return codicons.css
-  }
+  // Images
+  if (name.match(/\.(png|jpe?g|gif|svg|ico|webp)$/)) return codicons.image
 
-  // Default: all notes are markdown files, use markdown icon
-  return codicons.markdown
+  // Fallback for names containing extensions (older logic)
+  if (name.includes('.json')) return codicons.json
+  if (name.includes('.js')) return codicons.fileCode
+  if (name.includes('.ts')) return codicons.fileCode
+  if (name.includes('.css')) return codicons.css
+  if (name.includes('.html')) return codicons.html
+
+  return codicons.file
 }
 
 export function renderIcon(svg: string, className = ''): HTMLSpanElement {

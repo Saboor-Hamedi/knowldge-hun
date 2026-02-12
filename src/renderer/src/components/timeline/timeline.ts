@@ -1,4 +1,4 @@
-import { codicons } from '../../utils/codicons'
+import { codicons, getFileIcon } from '../../utils/codicons'
 import './timeline.css'
 import { GitGraph } from './GitGraph'
 import { GitCommit, CommitDetails } from './types'
@@ -318,17 +318,19 @@ export class TimelineComponent {
     if (details && details.files && details.files.length > 0) {
       const displayFiles = showAll ? details.files : details.files.slice(0, 5)
       const filesList = displayFiles
-        .map(
-          (f) => `
+        .map((f) => {
+          const icon = getFileIcon(f.path)
+          return `
             <div class="commit-file" data-path="${f.path}">
-              <span class="file-path" title="${f.path}">${f.path}</span>
+              <span class="file-icon-wrapper">${icon}</span>
+              <span class="file-path" title="${f.path}">${f.path.split('/').pop()}</span>
               <span class="file-mods">
                  <span class="add">+${f.additions}</span>
                  <span class="del">-${f.deletions}</span>
               </span>
             </div>
           `
-        )
+        })
         .join('')
 
       filesHtml = `
