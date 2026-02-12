@@ -1,24 +1,7 @@
 import { codicons } from '../../utils/codicons'
 import './timeline.css'
-
-type GitCommit = {
-  hash: string
-  timestamp: number
-  author: string
-  subject: string
-  body?: string
-  parents?: string[]
-}
-
-type CommitDetails = {
-  hash: string
-  files: { path: string; additions: number; deletions: number }[]
-  stats: {
-    insertions: number
-    deletions: number
-    filesChanged: number
-  }
-}
+import { GitGraph } from './GitGraph'
+import { GitCommit, CommitDetails } from './types'
 
 export class TimelineComponent {
   private container: HTMLElement
@@ -27,6 +10,9 @@ export class TimelineComponent {
   private history: GitCommit[] = []
   private isLoading: boolean = false
   private mode: 'file' | 'repo' = 'file'
+  private lastFetchedPath: string = ''
+  private lastFetchedMode: 'file' | 'repo' | null = null
+  private expandedCommits: Set<string> = new Set()
   private resizeObserver: ResizeObserver
 
   constructor(containerOrId: HTMLElement | string) {
@@ -36,6 +22,12 @@ export class TimelineComponent {
       this.container = el
     } else {
       this.container = containerOrId
+    }
+
+    // Restore mode
+    const savedMode = localStorage.getItem('timeline-mode') as 'file' | 'repo'
+    if (savedMode === 'file' || savedMode === 'repo') {
+      this.mode = savedMode
     }
 
     // Add specific classes
@@ -80,6 +72,7 @@ export class TimelineComponent {
   public setMode(mode: 'file' | 'repo'): void {
     if (this.mode === mode) return
     this.mode = mode
+    localStorage.setItem('timeline-mode', mode)
 
     // Update button states immediately
     const fileBtn = this.container.querySelector('#mode-file')
@@ -91,6 +84,12 @@ export class TimelineComponent {
   }
 
   public async update(_id: string, path: string): Promise<void> {
+    // If requesting same data we already have, skip fetch (unless it's a force refresh scenario)
+    // Actually, update is called when file changes mainly.
+    // If called manually (refresh button), we should force it.
+    // But here we can't distinguish force.
+    // Let's rely on setVisible to manage when to call update.
+
     this.currentPath = path
     this.isLoading = true
     this.renderInternal()
@@ -106,6 +105,10 @@ export class TimelineComponent {
       } else {
         this.history = await window.api.getGitRepoHistory()
       }
+
+      this.lastFetchedPath = path
+      this.lastFetchedMode = this.mode
+
       console.log(`[Timeline] History received: ${this.history.length} commits`)
     } catch (err) {
       console.error('[Timeline] Failed to update:', err)
@@ -159,6 +162,18 @@ export class TimelineComponent {
 
     this.setupItemHandlers()
 
+    // Load details for already expanded items
+    const expandedItems = Array.from(
+      this.container.querySelectorAll('.timeline-item.is-expanded')
+    ) as HTMLElement[]
+    expandedItems.forEach((item) => {
+      const hash = item.dataset.hash
+      const commit = this.history.find((c) => c.hash === hash)
+      if (commit) {
+        this.loadDetailsForItem(item, commit)
+      }
+    })
+
     // Use requestAnimationFrame AND a small delay to ensure rendering is complete
     requestAnimationFrame(() => {
       setTimeout(() => this.renderGraph(), 50)
@@ -185,6 +200,12 @@ export class TimelineComponent {
   private setupItemHandlers(): void {
     const items = this.container.querySelectorAll('.timeline-item')
     items.forEach((item, index) => {
+      // Prevent collapse when clicking inside details
+      const detailsEl = item.querySelector('.timeline-item-details')
+      if (detailsEl) {
+        detailsEl.addEventListener('click', (e) => e.stopPropagation())
+      }
+
       // Toggle expansion on click (except if clicking actions if we add any)
       item.addEventListener('click', async (e) => {
         const target = e.target as HTMLElement
@@ -196,56 +217,28 @@ export class TimelineComponent {
 
         // Toggle expanded class
         const wasExpanded = item.classList.contains('is-expanded')
-
-        // Collapse others if desired (optional, maybe keep multiple open?)
-        // Let's keep multiple open for comparison utility
-
         item.classList.toggle('is-expanded')
+
+        if (item.classList.contains('is-expanded')) {
+          this.expandedCommits.add(commit.hash)
+        } else {
+          this.expandedCommits.delete(commit.hash)
+        }
 
         // If expanding and no details loaded, fetch them
         if (!wasExpanded) {
-          const detailsEl = item.querySelector('.timeline-item-details') as HTMLElement
-
-          // Animate graph during expansion
-          const startTime = Date.now()
-          const animate = (): void => {
-            this.renderGraph()
-            if (Date.now() - startTime < 300) {
-              requestAnimationFrame(animate)
-            }
-          }
-          requestAnimationFrame(animate)
-
-          if (detailsEl && !detailsEl.dataset.loaded) {
-            detailsEl.innerHTML = `<div class="timeline-loading-sm">${codicons.refresh} Loading details...</div>`
-
-            try {
-              if (typeof window.api.getCommitDetails !== 'function') {
-                throw new Error('API not available')
-              }
-              const details = await window.api.getCommitDetails(commit.hash)
-              this.renderCommitDetails(detailsEl, commit, details)
-              detailsEl.dataset.loaded = 'true'
-
-              // Adjust graph height after expansion
-              requestAnimationFrame(() => this.renderGraph())
-            } catch (err: unknown) {
-              console.error(err)
-              const msg = err instanceof Error ? err.message : 'Unknown error'
-              detailsEl.innerHTML = `<div class="error-text">Failed: ${msg}</div>`
-            }
-          }
-        } else {
-          // Collapsing - animate graph
-          const startTime = Date.now()
-          const animate = (): void => {
-            this.renderGraph()
-            if (Date.now() - startTime < 300) {
-              requestAnimationFrame(animate)
-            }
-          }
-          requestAnimationFrame(animate)
+          this.loadDetailsForItem(item as HTMLElement, commit)
         }
+
+        // Animate graph during state change
+        const startTime = Date.now()
+        const animate = (): void => {
+          this.renderGraph()
+          if (Date.now() - startTime < 300) {
+            requestAnimationFrame(animate)
+          }
+        }
+        requestAnimationFrame(animate)
       })
     })
 
@@ -256,13 +249,37 @@ export class TimelineComponent {
     }
   }
 
+  private async loadDetailsForItem(item: HTMLElement, commit: GitCommit): Promise<void> {
+    const detailsEl = item.querySelector('.timeline-item-details') as HTMLElement
+    if (!detailsEl || detailsEl.dataset.loaded) return
+
+    detailsEl.innerHTML = `<div class="timeline-loading-sm">${codicons.refresh} Loading details...</div>`
+
+    try {
+      if (typeof window.api.getCommitDetails !== 'function') {
+        throw new Error('API not available')
+      }
+      const details = await window.api.getCommitDetails(commit.hash)
+      this.renderCommitDetails(detailsEl, commit, details)
+      detailsEl.dataset.loaded = 'true'
+
+      // Adjust graph height after expansion
+      requestAnimationFrame(() => this.renderGraph())
+    } catch (err: unknown) {
+      console.error(err)
+      const msg = err instanceof Error ? err.message : 'Unknown error'
+      detailsEl.innerHTML = `<div class="error-text">Failed: ${msg}</div>`
+    }
+  }
+
   private renderItem(commit: GitCommit, index: number): string {
+    const isExpanded = this.expandedCommits.has(commit.hash)
     const date = new Date(commit.timestamp)
     const dateStr = date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
     const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 
     return `
-      <div class="timeline-item" data-hash="${commit.hash}" data-index="${index}">
+      <div class="timeline-item ${isExpanded ? 'is-expanded' : ''}" data-hash="${commit.hash}" data-index="${index}">
         <div class="timeline-item-graph-stub"></div>
         <div class="timeline-item-content">
           <div class="commit-header">
@@ -283,7 +300,8 @@ export class TimelineComponent {
   private renderCommitDetails(
     container: HTMLElement,
     commit: GitCommit,
-    details: CommitDetails
+    details: CommitDetails,
+    showAll: boolean = false
   ): void {
     let statsHtml = ''
     if (details && details.stats) {
@@ -298,9 +316,8 @@ export class TimelineComponent {
 
     let filesHtml = ''
     if (details && details.files && details.files.length > 0) {
-      const maxFiles = 5
-      const filesList = details.files
-        .slice(0, maxFiles)
+      const displayFiles = showAll ? details.files : details.files.slice(0, 5)
+      const filesList = displayFiles
         .map(
           (f) => `
             <div class="commit-file" data-path="${f.path}">
@@ -317,7 +334,8 @@ export class TimelineComponent {
       filesHtml = `
             <div class="commit-files-list">
                ${filesList}
-               ${details.files.length > maxFiles ? `<div class="more-files">+${details.files.length - maxFiles} more files...</div>` : ''}
+               ${!showAll && details.files.length > 5 ? `<div class="more-files">+${details.files.length - 5} more files...</div>` : ''}
+               ${showAll && details.files.length > 5 ? `<div class="show-less">Show less</div>` : ''}
             </div>
           `
     }
@@ -330,6 +348,28 @@ export class TimelineComponent {
            ${this.currentPath ? '<button class="action-btn">Compare</button>' : ''}
         </div>
       `
+
+    // More files click handler
+    const moreFilesBtn = container.querySelector('.more-files') as HTMLElement
+    if (moreFilesBtn) {
+      moreFilesBtn.addEventListener('click', (e) => {
+        e.stopPropagation()
+        this.renderCommitDetails(container, commit, details, true)
+        // Adjust graph height after expansion
+        requestAnimationFrame(() => this.renderGraph())
+      })
+    }
+
+    // Show less click handler
+    const showLessBtn = container.querySelector('.show-less') as HTMLElement
+    if (showLessBtn) {
+      showLessBtn.addEventListener('click', (e) => {
+        e.stopPropagation()
+        this.renderCommitDetails(container, commit, details, false)
+        // Adjust graph height after collapse
+        requestAnimationFrame(() => this.renderGraph())
+      })
+    }
 
     // File click handlers
     const fileItems = container.querySelectorAll('.commit-file')
@@ -402,145 +442,41 @@ export class TimelineComponent {
     // Explicitly set SVG height to full scrollable container
     const totalHeight = scrollContainer.scrollHeight
     svg.style.height = `${totalHeight}px`
-    svg.innerHTML = ''
 
-    const colors = [
-      '#4facfe', // Blue
-      '#00f2fe', // Cyan
-      '#f093fb', // Purple
-      '#f5576c', // Red
-      '#fa709a', // Pink
-      '#fee140', // Yellow
-      '#81fbb8', // Green
-      '#667eea' // Indigo
-    ]
+    // Also set overlay height to ensure it covers scrolling area
+    const overlay = this.container.querySelector('.timeline-graph-overlay') as HTMLElement
+    if (overlay) overlay.style.height = `${totalHeight}px`
 
+    // Collect Y positions
     const items = Array.from(this.container.querySelectorAll('.timeline-item')) as HTMLElement[]
-    if (items.length === 0) return
-
-    const trackWidth = 14
-    const startX = 14
+    const commitYPositions = new Map<string, number>()
     const svgRect = svg.getBoundingClientRect()
-    const tracks: string[] = []
-    const commitNodes: Map<string, { x: number; y: number; color: string; trackIndex: number }> =
-      new Map()
 
-    // Pass 1: Allocate tracks and find positions
-    this.history.forEach((commit, i) => {
-      const item = items[i]
-      if (!item) return
-
+    items.forEach((item) => {
+      const hash = item.dataset.hash
+      if (!hash) return
       const rect = item.getBoundingClientRect()
-      // Pin Y to the top part of the item (stable during expansion)
-      // Item padding-top is 6px. Header line-height is approx 16px.
-      // 6 + 16/2 = 14px roughly. Let's use 18px to align with the first line center.
       const y = rect.top - svgRect.top + 18
-
-      // Find ALL tracks currently pointing to this commit (merges)
-      let trackIndex = tracks.indexOf(commit.hash)
-      if (trackIndex === -1) {
-        // New branch tip or disconnected commit
-        trackIndex = tracks.findIndex((t) => t === '')
-        if (trackIndex === -1) {
-          trackIndex = tracks.length
-          tracks.push(commit.hash)
-        } else {
-          tracks[trackIndex] = commit.hash
-        }
-      }
-
-      const x = startX + trackIndex * trackWidth
-      const color = colors[trackIndex % colors.length]
-      commitNodes.set(commit.hash, { x, y, color, trackIndex })
-
-      // Update tracks for parents
-      // 1. Clear this hash from ANY other tracks it might be in (merges)
-      for (let j = 0; j < tracks.length; j++) {
-        if (j !== trackIndex && tracks[j] === commit.hash) {
-          tracks[j] = ''
-        }
-      }
-
-      // 2. Assign parents
-      if (commit.parents && commit.parents.length > 0) {
-        // Primary parent stays in the same track
-        tracks[trackIndex] = commit.parents[0]
-
-        // Secondary parents get new tracks
-        for (let p = 1; p < commit.parents.length; p++) {
-          const pHash = commit.parents[p]
-          if (tracks.indexOf(pHash) === -1) {
-            const free = tracks.indexOf('')
-            if (free !== -1) tracks[free] = pHash
-            else tracks.push(pHash)
-          }
-        }
-      } else {
-        // Root commit, free the track
-        tracks[trackIndex] = ''
-      }
+      commitYPositions.set(hash, y)
     })
 
-    // Pass 2: Draw connections and dots
-    this.history.forEach((commit) => {
-      const node = commitNodes.get(commit.hash)
-      if (!node) return
-
-      if (commit.parents && commit.parents.length > 0) {
-        commit.parents.forEach((parentHash) => {
-          const pNode = commitNodes.get(parentHash)
-          if (pNode) {
-            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path')
-
-            // Calculate dynamic control points based on vertical distance
-            const distY = Math.abs(pNode.y - node.y)
-            // If distance is large (expanded item), increase curve steepness
-            const curveStrength = Math.min(distY * 0.5, 40) // Cap at 40px
-
-            // Cubic Bezier: Start -> Control1 -> Control2 -> End
-            // C x1 y1, x2 y2, x y
-            // We want C1 to go down from Start, and C2 to go up from End
-
-            const d = `M ${node.x} ${node.y} C ${node.x} ${node.y + curveStrength}, ${pNode.x} ${pNode.y - curveStrength}, ${pNode.x} ${pNode.y}`
-
-            path.setAttribute('d', d)
-            path.setAttribute('stroke', node.color)
-            path.setAttribute('stroke-width', '1.5')
-            path.setAttribute('fill', 'none')
-            path.setAttribute('opacity', '0.6')
-            svg.appendChild(path)
-          } else {
-            // Tail (parent not loaded in this batch)
-            const line = document.createElementNS('http://www.w3.org/2000/svg', 'line')
-            line.setAttribute('x1', node.x.toString())
-            line.setAttribute('y1', node.y.toString())
-            line.setAttribute('x2', node.x.toString())
-            line.setAttribute('y2', (node.y + 25).toString())
-            line.setAttribute('stroke', node.color)
-            line.setAttribute('stroke-width', '1.5')
-            line.setAttribute('stroke-dasharray', '2,2')
-            line.setAttribute('opacity', '0.3')
-            svg.appendChild(line)
-          }
-        })
-      }
-
-      // Dot
-      const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle')
-      circle.setAttribute('cx', node.x.toString())
-      circle.setAttribute('cy', node.y.toString())
-      circle.setAttribute('r', '4')
-      circle.setAttribute('fill', node.color)
-      circle.setAttribute('stroke', 'var(--sidebar-bg, #1a1a1a)')
-      circle.setAttribute('stroke-width', '2')
-      svg.appendChild(circle)
-    })
+    // Render using new component
+    new GitGraph(svg, this.history, commitYPositions)
   }
 
   public setVisible(visible: boolean): void {
     if (visible) {
       this.container.style.display = 'grid'
-      this.update('', this.currentPath)
+
+      const shouldUpdate =
+        this.mode !== this.lastFetchedMode ||
+        (this.mode === 'file' && this.currentPath !== this.lastFetchedPath) ||
+        //!this.history || this.history.length === 0 // Allow retry if empty? Maybe not if it's truly empty.
+        (this.history.length === 0 && (this.mode === 'repo' || !!this.currentPath))
+
+      if (shouldUpdate) {
+        this.update('', this.currentPath)
+      }
     } else {
       this.container.style.display = 'none'
     }

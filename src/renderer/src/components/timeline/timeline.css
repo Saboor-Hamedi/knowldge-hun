@@ -103,10 +103,14 @@
   background: var(--selection, rgba(0, 120, 212, 0.2));
 }
 
+/* ... (previous styles) */
+
 .timeline-item-graph-stub {
-  width: 64px;
+  width: 60px;
   flex-shrink: 0;
 }
+
+/* ... (rest of file) */
 
 .timeline-item-content {
   flex: 1;
@@ -194,12 +198,12 @@
 }
 
 .timeline-mode-toggle button.rotate-icon {
-    pointer-events: none; /* Prevent multiple clicks while spinning */
+  pointer-events: none; /* Prevent multiple clicks while spinning */
 }
 
 .timeline-mode-toggle button.rotate-icon span {
-    display: flex;
-    animation: spin 1s linear infinite;
+  display: flex;
+  animation: spin 1s linear infinite;
 }
 
 .empty-icon {
@@ -262,11 +266,12 @@
   margin-top: 0;
   padding-top: 0;
   border-top: 1px dashed transparent;
-  transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
-              opacity 0.3s ease, 
-              margin-top 0.3s ease, 
-              padding-top 0.3s ease, 
-              border-color 0.3s ease;
+  transition:
+    max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.3s ease,
+    margin-top 0.3s ease,
+    padding-top 0.3s ease,
+    border-color 0.3s ease;
 }
 
 .timeline-item.is-expanded .timeline-item-details {
@@ -307,9 +312,16 @@
   font-weight: 600;
 }
 
-.stat-add { color: var(--success, #4caf50); }
-.stat-del { color: var(--danger, #f44336); }
-.stat-files { color: var(--info, #2196f3); margin-left: auto; }
+.stat-add {
+  color: var(--success, #4caf50);
+}
+.stat-del {
+  color: var(--danger, #f44336);
+}
+.stat-files {
+  color: var(--info, #2196f3);
+  margin-left: auto;
+}
 
 .commit-files-list {
   display: flex;
@@ -343,14 +355,28 @@
   gap: 4px;
 }
 
-.file-mods .add { color: var(--success); }
-.file-mods .del { color: var(--danger); }
+.file-mods .add {
+  color: var(--success);
+}
+.file-mods .del {
+  color: var(--danger);
+}
 
-.more-files {
+.more-files,
+.show-less {
+  padding: 4px 8px;
+  font-size: 11px;
+  color: #3b82f6;
+  cursor: pointer;
+  opacity: 0.8;
+  width: fit-content;
   font-style: italic;
-  opacity: 0.6;
-  text-align: center;
-  padding: 2px;
+}
+
+.more-files:hover,
+.show-less:hover {
+  opacity: 1;
+  text-decoration: underline;
 }
 
 .commit-actions {
@@ -385,7 +411,7 @@
 }
 
 .timeline-loading-sm svg {
-    animation: spin 1s linear infinite;
+  animation: spin 1s linear infinite;
 }
 
 .error-text {

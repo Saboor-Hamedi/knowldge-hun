@@ -28,6 +28,7 @@ export interface GitHistoryItem {
   author: string
   subject: string
   body: string
+  refs: string[]
 }
 
 export interface CommitDetails {
@@ -227,7 +228,7 @@ export async function getFileHistory(
 
     // Use a unique separator to avoid issues with tabs in subjects/authors
     const separator = '||KH_SEP||'
-    const formatString = `--format=%H${separator}%P${separator}%at${separator}%an${separator}%s${separator}%b`
+    const formatString = `--format=%H${separator}%P${separator}%at${separator}%an${separator}%s${separator}%b${separator}%D`
 
     console.log(`[Main:Git] Fetching history for ${basename(fullPath)} from ${fileDir}`)
 
@@ -248,14 +249,23 @@ export async function getFileHistory(
     return lines
       .map((line) => {
         const parts = line.split(separator)
-        if (parts.length < 5) {
-          console.warn(
-            `[Main:Git] Malformed log line (expected 5 parts, got ${parts.length}):`,
-            line
-          )
-          return null
+        if (parts.length < 6) {
+          // Warning: might be missing body or refs if empty?
+          // But separator should still be there.
+          // %b and %D might be empty, but separators remain.
+          // If body is empty, it's just ::
+          // If we split by separator, we should get 7 parts (6 separators).
         }
-        const [hash, parents, timestampStr, author, subject, body] = parts
+
+        // Destructure safely
+        const hash = parts[0]
+        const parents = parts[1]
+        const timestampStr = parts[2]
+        const author = parts[3]
+        const subject = parts[4]
+        const body = parts[5]
+        const refsStr = parts[6] || ''
+
         const timestamp = parseInt(timestampStr)
 
         if (isNaN(timestamp)) {
@@ -268,7 +278,8 @@ export async function getFileHistory(
           timestamp: (timestamp || 0) * 1000,
           author: author || 'unknown',
           subject: subject || 'no subject',
-          body: body || ''
+          body: body || '',
+          refs: refsStr ? refsStr.split(', ').filter((r) => r) : []
         }
       })
       .filter((c): c is GitHistoryItem => c !== null)
@@ -285,7 +296,7 @@ export async function getRepoHistory(rootPath: string): Promise<GitHistoryItem[]
   if (!rootPath || !existsSync(rootPath)) return []
   try {
     const separator = '||KH_SEP||'
-    const formatString = `--format=%H${separator}%P${separator}%at${separator}%an${separator}%s`
+    const formatString = `--format=%H${separator}%P${separator}%at${separator}%an${separator}%s${separator}%D`
 
     let runDir = rootPath
     try {
@@ -321,14 +332,15 @@ export async function getRepoHistory(rootPath: string): Promise<GitHistoryItem[]
     return lines
       .map((line) => {
         const parts = line.split(separator)
-        if (parts.length < 5) {
-          console.warn(
-            `[Main:Git] Malformed repo log line (expected 5 parts, got ${parts.length}):`,
-            line
-          )
-          return null
-        }
-        const [hash, parents, timestampStr, author, subject, body] = parts
+        // Expect 6 parts
+
+        const hash = parts[0]
+        const parents = parts[1]
+        const timestampStr = parts[2]
+        const author = parts[3]
+        const subject = parts[4]
+        const refsStr = parts[5] || ''
+
         const timestamp = parseInt(timestampStr)
 
         if (isNaN(timestamp)) {
@@ -341,7 +353,8 @@ export async function getRepoHistory(rootPath: string): Promise<GitHistoryItem[]
           timestamp: (timestamp || 0) * 1000,
           author: author || 'unknown',
           subject: subject || 'no subject',
-          body: body || ''
+          body: '',
+          refs: refsStr ? refsStr.split(', ').filter((r) => r) : []
         }
       })
       .filter((c): c is GitHistoryItem => c !== null)

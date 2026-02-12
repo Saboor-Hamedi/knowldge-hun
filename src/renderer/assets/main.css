@@ -442,7 +442,7 @@ button {
   }
 
   /* Remove overlay backdrop since it is now pushing content */
-  .vscode-shell.sidebar-hidden::after {
+  .vscode-shell:not(.sidebar-hidden)::after {
     display: none;
   }
 }
