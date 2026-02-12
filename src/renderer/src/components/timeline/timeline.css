@@ -106,7 +106,7 @@
 /* ... (previous styles) */
 
 .timeline-item-graph-stub {
-  width: 60px;
+  width: 50px;
   flex-shrink: 0;
 }
 
@@ -355,11 +355,38 @@
   background: rgba(255, 255, 255, 0.07);
 }
 
+.file-status-badge {
+  font-size: 8px;
+  font-weight: 800;
+  width: 14px;
+  height: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.status-add {
+  background: rgba(76, 175, 80, 0.2);
+  color: #4caf50;
+}
+
+.status-del {
+  background: rgba(244, 67, 54, 0.2);
+  color: #f44336;
+}
+
+.status-mod {
+  background: rgba(33, 150, 243, 0.2);
+  color: #2196f3;
+}
+
 .file-path {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 70%;
+  flex: 1; /* Take available space */
   font-size: 10px;
 }
 
@@ -432,4 +459,90 @@
 
 .error-text {
   color: var(--danger);
+}
+
+.timeline-date-group {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: var(--sidebar-bg, var(--panel));
+  padding: 8px 12px;
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--primary);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  border-bottom: 1px solid var(--border-subtle);
+  margin-top: 8px;
+}
+
+.timeline-date-group:first-child {
+  margin-top: 0;
+}
+
+.commit-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  color: #fff;
+  flex-shrink: 0;
+  margin-right: 10px;
+  background: var(--primary);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.file-progress-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 80px;
+  flex-shrink: 0;
+  justify-content: flex-end;
+}
+
+.file-progress-bar {
+  height: 4px;
+  width: 30px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+  display: flex;
+  flex-shrink: 0;
+}
+
+.progress-add {
+  height: 100%;
+  background: var(--success, #4caf50);
+}
+
+.progress-del {
+  height: 100%;
+  background: var(--danger, #f44336);
+}
+
+.stat-diff {
+  font-size: 8px;
+  opacity: 0.7;
+  font-family: var(--font-mono);
+}
+
+/* Staggered entry animation */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.timeline-item {
+  animation: fadeInUp 0.3s ease-out backwards;
 }

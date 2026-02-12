@@ -149,10 +149,29 @@ export class TimelineComponent {
       return
     }
 
+    const historyHtml: string[] = []
+    let lastDateLabel = ''
+
+    this.history.forEach((commit, index) => {
+      const date = new Date(commit.timestamp)
+      const dateLabel = this.isToday(date)
+        ? 'Today'
+        : this.isYesterday(date)
+          ? 'Yesterday'
+          : date.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })
+
+      if (dateLabel !== lastDateLabel) {
+        historyHtml.push(`<div class="timeline-date-group">${dateLabel}</div>`)
+        lastDateLabel = dateLabel
+      }
+
+      historyHtml.push(this.renderItem(commit, index))
+    })
+
     this.bodyElement.innerHTML = `
       <div class="timeline-content">
         <div class="timeline-list">
-          ${this.history.map((commit, index) => this.renderItem(commit, index)).join('')}
+          ${historyHtml.join('')}
           <div class="timeline-graph-overlay">
             <svg id="timeline-svg" width="100%" height="100%"></svg>
           </div>
@@ -275,16 +294,21 @@ export class TimelineComponent {
   private renderItem(commit: GitCommit, index: number): string {
     const isExpanded = this.expandedCommits.has(commit.hash)
     const date = new Date(commit.timestamp)
-    const dateStr = date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
     const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    const initials = this.getInitials(commit.author)
+    const avatarColor = this.getAvatarColor(commit.author)
 
     return `
-      <div class="timeline-item ${isExpanded ? 'is-expanded' : ''}" data-hash="${commit.hash}" data-index="${index}">
+      <div class="timeline-item ${isExpanded ? 'is-expanded' : ''}" 
+           data-hash="${commit.hash}" 
+           data-index="${index}"
+           style="animation-delay: ${Math.min(index * 0.05, 1)}s">
         <div class="timeline-item-graph-stub"></div>
+        <div class="commit-avatar" style="background: ${avatarColor}">${initials}</div>
         <div class="timeline-item-content">
           <div class="commit-header">
             <span class="commit-author">${commit.author}</span>
-            <span class="commit-date">${dateStr} ${timeStr}</span>
+            <span class="commit-date">${timeStr}</span>
           </div>
           <div class="commit-subject" title="${commit.subject}">${commit.subject}</div>
           <div class="commit-footer">
@@ -320,14 +344,34 @@ export class TimelineComponent {
       const filesList = displayFiles
         .map((f) => {
           const icon = getFileIcon(f.path)
+          const total = f.additions + f.deletions
+          const addPct = total > 0 ? (f.additions / total) * 100 : 0
+          const delPct = total > 0 ? (f.deletions / total) * 100 : 0
+
+          // Determine status letter
+          let statusLetter = 'M'
+          let statusClass = 'mod'
+          if (f.deletions === 0 && f.additions > 0) {
+            statusLetter = 'A'
+            statusClass = 'add'
+          } else if (f.additions === 0 && f.deletions > 0) {
+            statusLetter = 'D'
+            statusClass = 'del'
+          }
+
           return `
             <div class="commit-file" data-path="${f.path}">
+              <span class="file-status-badge status-${statusClass}">${statusLetter}</span>
               <span class="file-icon-wrapper">${icon}</span>
               <span class="file-path" title="${f.path}">${f.path.split('/').pop()}</span>
-              <span class="file-mods">
-                 <span class="add">+${f.additions}</span>
-                 <span class="del">-${f.deletions}</span>
-              </span>
+              
+              <div class="file-progress-wrapper">
+                <div class="file-progress-bar">
+                  <div class="progress-add" style="width: ${addPct}%"></div>
+                  <div class="progress-del" style="width: ${delPct}%"></div>
+                </div>
+                <span class="stat-diff">+${f.additions} -${f.deletions}</span>
+              </div>
             </div>
           `
         })
@@ -486,5 +530,56 @@ export class TimelineComponent {
 
   public dispose(): void {
     this.resizeObserver.disconnect()
+  }
+
+  private isToday(date: Date): boolean {
+    const today = new Date()
+    return (
+      date.getDate() === today.getDate() &&
+      date.getMonth() === today.getMonth() &&
+      date.getFullYear() === today.getFullYear()
+    )
+  }
+
+  private isYesterday(date: Date): boolean {
+    const yesterday = new Date()
+    yesterday.setDate(yesterday.getDate() - 1)
+    return (
+      date.getDate() === yesterday.getDate() &&
+      date.getMonth() === yesterday.getMonth() &&
+      date.getFullYear() === yesterday.getFullYear()
+    )
+  }
+
+  private getInitials(name: string): string {
+    if (!name) return '?'
+    return name
+      .split(' ')
+      .map((n) => n[0])
+      .join('')
+      .substring(0, 2)
+      .toUpperCase()
+  }
+
+  private getAvatarColor(name: string): string {
+    const colors = [
+      '#FF5722',
+      '#E91E63',
+      '#9C27B0',
+      '#673AB7',
+      '#3F51B5',
+      '#2196F3',
+      '#03A9F4',
+      '#00BCD4',
+      '#009688',
+      '#4CAF50',
+      '#8BC34A',
+      '#CDDC39'
+    ]
+    let hash = 0
+    for (let i = 0; i < name.length; i++) {
+      hash = name.charCodeAt(i) + ((hash << 5) - hash)
+    }
+    return colors[Math.abs(hash) % colors.length]
   }
 }

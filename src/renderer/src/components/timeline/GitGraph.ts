@@ -1,8 +1,8 @@
 import { GitCommit } from './types'
 
-const LANE_WIDTH = 14
-const DOT_RADIUS = 4
-const START_X = 14
+const LANE_WIDTH = 12
+const DOT_RADIUS = 3.5
+const START_X = 10
 const COLORS = [
   '#0ea5e9', // Sky Blue
   '#d946ef', // Fuchsia
