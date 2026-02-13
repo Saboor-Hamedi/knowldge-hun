@@ -206,16 +206,16 @@ export class ChatRenderer {
       title = `${parts[0]}: ${cmdName}${targetSuffix}`
     }
 
-    const preview = lines.slice(1).join('\n').trim().substring(0, 40).replace(/\n/g, ' ')
-    const finalPreview = preview ? `- ${preview}...` : ''
-
+    // For CLI-like experience, we want to show the full output immediately,
+    // styled like a terminal block, not hidden behind a click.
+    // For CLI-like experience, we default to OPEN, but allow collapsing
+    // via the standard <details> element behavior.
     return `
-      <div class="rightbar__system-message" title="Click to view details">
-        <details class="rightbar__system-details">
-          <summary class="rightbar__system-summary">
+      <div class="rightbar__system-message" title="Click header to toggle output">
+        <details class="rightbar__system-details" open>
+          <summary class="rightbar__system-summary" style="list-style: none;">
             <span class="rightbar__system-icon">${icon}</span>
-            <span class="rightbar__system-title">${this.escapeHtml(title)}</span>
-            <span class="rightbar__system-preview">${this.escapeHtml(finalPreview)}</span>
+            <span class="rightbar__system-title" style="font-family: monospace;">${this.escapeHtml(title)}</span>
           </summary>
           <div class="rightbar__system-content">
             <div class="rightbar__system-code-wrapper">

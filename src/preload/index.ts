@@ -27,6 +27,7 @@ type VaultInfo = {
 type AppSettings = {
   vaultPath?: string
   theme?: string
+  editorTheme?: string
   sidebarVisible?: boolean
   autoSave?: boolean
   autoSaveDelay?: number
@@ -37,19 +38,94 @@ type AppSettings = {
   recentVaults?: string[]
   lastOpenedNote?: string
   expandedFolders?: string[]
-  openTabs?: { id: string; path?: string }[]
+  openTabs?: { id: string; path?: string; title?: string }[]
+  pinnedTabs?: string[]
   activeId?: string
-  activeView?: 'notes' | 'search' | 'settings' | 'graph'
+  activeView?: 'notes' | 'search' | 'settings' | 'graph' | 'history' | 'theme'
   windowBounds?: { width: number; height: number; x?: number; y?: number }
   deepseekApiKey?: string
+  openaiApiKey?: string
+  claudeApiKey?: string
+  grokApiKey?: string
+  ollamaBaseUrl?: string
+  aiProvider?: 'deepseek' | 'openai' | 'claude' | 'grok' | 'ollama'
+  aiModel?: string
   gistToken?: string
   gistId?: string
   rightPanelWidth?: number
   rightPanelVisible?: boolean
+  passwordHash?: string | null
+  activeSettingsSection?: string
   // Caret settings
   caretEnabled?: boolean
   caretMaxWidth?: number
+  cursorPositions?: Record<string, { lineNumber: number; column: number }>
   graphTheme?: string
+  // Security & Lock screen settings
+  fireWall?: {
+    passwordHash?: string | null
+    lockScreenAlignment?: 'left' | 'center' | 'right'
+    lockScreenName?: string
+    autoLockTimeout?: number
+  }
+  // TTS settings
+  ttsVoice?: string
+  ttsSpeed?: number
+  // Tab appearance settings
+  tab?: {
+    borderPosition?: 'right' | 'left' | 'top' | 'bottom'
+    backgroundColor?: string
+    borderColor?: string
+    activeTabColor?: string
+    inactiveTabColor?: string
+    activeTextColor?: string
+    inactiveTextColor?: string
+    compactMode?: boolean
+  }
+  sidebar?: {
+    backgroundColor?: string
+    borderColor?: string
+    textColor?: string
+    activeItemColor?: string
+    activeTextColor?: string
+    fontSize?: number
+  }
+  activityBar?: {
+    backgroundColor?: string
+    borderColor?: string
+    activeItemColor?: string
+    activeIconColor?: string
+    inactiveIconColor?: string
+  }
+  statusbar?: {
+    words?: boolean
+    chars?: boolean
+    lines?: boolean
+    tags?: boolean
+    links?: boolean
+    cursor?: boolean
+    sync?: boolean
+    version?: boolean
+    git?: boolean
+  }
+  // Terminal Customization
+  terminalFontSize?: number
+  terminalFontFamily?: string
+  terminalBackground?: string
+  terminalForeground?: string
+  terminalCursor?: string
+  terminalFrameColor?: string
+  terminalDefaultShell?: string
+  searchInput?: {
+    backgroundColor?: string
+    borderColor?: string
+    focusBorderColor?: string
+    textColor?: string
+    placeholderColor?: string
+    buttonColor?: string
+    buttonHoverColor?: string
+    buttonActiveColor?: string
+  }
 }
 
 const api = {

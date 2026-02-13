@@ -7,9 +7,6 @@ import { contextMenu } from '../contextmenu/contextmenu'
 import getFileIcon from '../../utils/fileIconMappers'
 import {
   Search,
-  Settings,
-  X,
-  Plus,
   FolderPlus,
   FilePlus,
   ChevronRight,
@@ -21,7 +18,10 @@ import {
   Folder,
   Replace,
   ReplaceAll,
-  createElement
+  createElement,
+  Pencil,
+  ClipboardCopy,
+  Files
 } from 'lucide'
 import { setTooltip } from '../tooltip/tooltip'
 import './sidebar-tree.css'

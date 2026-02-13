@@ -1766,9 +1766,10 @@
 }
 
 .rightbar__system-content code {
-  white-space: pre-wrap;
-  word-break: break-all;
+  white-space: pre; /* Keep lines on one line */
+  word-break: normal; /* Don't break words */
   font-family: var(--font-mono);
+  display: block; /* Ensure it behaves like a block */
 }
 
 .rightbar__system-actions {
