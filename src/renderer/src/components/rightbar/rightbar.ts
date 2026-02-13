@@ -632,30 +632,35 @@ export class RightBar {
           let currentRole: 'user' | 'assistant' | null = null
           let currentContent: string[] = []
 
+          // Enhanced Regex to match exported headers robustly
+          const headerRegex = /^### \*\*(You|AI)\*\* \((.+?)\)/i
+
           for (const line of lines) {
-            if (line.startsWith('# ')) {
-              title = line.slice(2).trim()
-            } else if (line.startsWith('### **You**')) {
+            const trimmedLine = line.trim()
+            if (trimmedLine.startsWith('# ')) {
+              title = trimmedLine.slice(2).trim()
+              continue
+            }
+
+            const headerMatch = trimmedLine.match(headerRegex)
+            if (headerMatch) {
               if (currentRole && currentContent.length > 0) {
                 messages.push({
-                  role: currentRole,
+                  role: currentRole as 'user' | 'assistant',
                   content: currentContent.join('\n').trim(),
                   timestamp: Date.now()
                 })
               }
-              currentRole = 'user'
+              currentRole = headerMatch[1].toLowerCase() === 'you' ? 'user' : 'assistant'
               currentContent = []
-            } else if (line.startsWith('### **AI**')) {
-              if (currentRole && currentContent.length > 0) {
-                messages.push({
-                  role: currentRole,
-                  content: currentContent.join('\n').trim(),
-                  timestamp: Date.now()
-                })
-              }
-              currentRole = 'assistant'
-              currentContent = []
-            } else if (currentRole && !line.startsWith('---') && !line.startsWith('*Exported')) {
+              continue
+            }
+
+            if (
+              currentRole &&
+              !trimmedLine.startsWith('---') &&
+              !trimmedLine.startsWith('*Exported')
+            ) {
               currentContent.push(line)
             }
           }
@@ -865,28 +870,33 @@ export class RightBar {
 
     // Handle slash commands
     if (finalSelection.startsWith('/')) {
-      const command = finalSelection.split(' ')[0].toLowerCase()
-      switch (command) {
-        case '/clear':
-          this.chatInputArea.clear()
-          await this.clearConversation()
-          return
-        case '/new':
-          this.chatInputArea.clear()
-          await this.startNewSession()
-          return
-        case '/help':
-          await this.conversationController.addMessage(
-            'assistant',
-            `**Available Commands:**\n\n` +
-              this.slashCommands.map((c) => `- \`${c.command}\`: ${c.description}`).join('\n')
-          )
-          this.chatInputArea.clear()
-          return
-        case '/export':
-          this.chatInputArea.clear()
-          await this.exportSession()
-          return
+      const parts = finalSelection.split(' ')
+      const command = parts[0].toLowerCase()
+      const isKnownCommand = this.slashCommands.some((c) => c.command === command)
+
+      if (isKnownCommand) {
+        switch (command) {
+          case '/clear':
+            this.chatInputArea.clear()
+            await this.clearConversation()
+            return
+          case '/new':
+            this.chatInputArea.clear()
+            await this.startNewSession()
+            return
+          case '/help':
+            await this.conversationController.addMessage(
+              'assistant',
+              `**Available Commands:**\n\n` +
+                this.slashCommands.map((c) => `- \`${c.command}\`: ${c.description}`).join('\n')
+            )
+            this.chatInputArea.clear()
+            return
+          case '/export':
+            this.chatInputArea.clear()
+            await this.exportSession()
+            return
+        }
       }
     }
 

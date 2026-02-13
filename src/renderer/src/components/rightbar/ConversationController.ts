@@ -258,7 +258,7 @@ export class ConversationController {
         if (actionId === this.currentActionId) {
           void this.doSend(resultsMessage, false, 'system')
         }
-      }, 600)
+      }, 50)
     } else {
       this.notify()
     }

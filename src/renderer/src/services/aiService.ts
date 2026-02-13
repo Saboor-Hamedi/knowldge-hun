@@ -560,7 +560,7 @@ export class AIService {
         )
       if (editorContent && editorContent.trim() && askingAboutContent) {
         const contentPreview =
-          editorContent.length > 800 ? editorContent.substring(0, 800) + '...' : editorContent
+          editorContent.length > 4000 ? editorContent.substring(0, 4000) + '...' : editorContent
         context += `\nNote content:\n${contentPreview}\n\n`
       }
     }

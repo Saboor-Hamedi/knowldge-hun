@@ -288,8 +288,9 @@ export class ChatRenderer {
     }
     this.lastHighlightTime = now
 
+    // Only query code blocks that haven't been highlighted yet to save performance
     const codeBlocks = this.chatContainer.querySelectorAll(
-      'pre code[data-lang], pre code:not([data-lang])'
+      'pre code[data-lang]:not(.hljs), pre code:not([data-lang]):not(.hljs)'
     )
     if (codeBlocks.length === 0) return
 
