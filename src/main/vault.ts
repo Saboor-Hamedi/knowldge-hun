@@ -139,10 +139,34 @@ export class VaultManager {
   }
 
   private async initialScan(): Promise<void> {
-    await this.scanDirectory(this.rootPath)
+    // Phase 1: Rapid Metadata Scan (Names/Paths/Stats) - Non-blocking
+    // This allows the UI to reveal almost instantly even on large vaults.
+    await this.scanDirectory(this.rootPath, false)
+
+    // Phase 2: Background Content Hydration (Titles/Links)
+    // We don't await this so the renderer can move on.
+    this.backgroundContentHydration().catch((err) =>
+      console.error('[Vault] Background hydration failed:', err)
+    )
   }
 
-  private async scanDirectory(dir: string): Promise<void> {
+  private async backgroundContentHydration(): Promise<void> {
+    const ids = Array.from(this.notes.keys())
+    let processedCount = 0
+    for (const id of ids) {
+      const fullPath = join(this.rootPath, id)
+      if (existsSync(fullPath)) {
+        await this.indexFile(fullPath, true)
+      }
+      processedCount++
+      // Yield every few files to keep the main process responsive
+      if (processedCount % 20 === 0) {
+        await new Promise((resolve) => setImmediate(resolve))
+      }
+    }
+  }
+
+  private async scanDirectory(dir: string, indexContent: boolean = true): Promise<void> {
     const entries = await readdir(dir, { withFileTypes: true })
     for (const entry of entries) {
       const fullPath = join(dir, entry.name)
@@ -160,9 +184,9 @@ export class VaultManager {
         const relPath = relative(this.rootPath, fullPath)
         const normalizedPath = relPath.replace(/\\/g, '/')
         this.folders.add(normalizedPath)
-        await this.scanDirectory(fullPath)
+        await this.scanDirectory(fullPath, indexContent)
       } else if (entry.isFile() && this.isSupportedFile(entry.name)) {
-        await this.indexFile(fullPath)
+        await this.indexFile(fullPath, indexContent)
       }
     }
   }
@@ -174,15 +198,18 @@ export class VaultManager {
     })
   }
 
-  private async indexFile(fullPath: string): Promise<void> {
+  private async indexFile(fullPath: string, indexContent: boolean = true): Promise<void> {
     try {
       const stats = await stat(fullPath)
       const relPath = relative(this.rootPath, fullPath)
       const normalizedPath = relPath.replace(/\\/g, '/')
       const id = this.getIdFromPath(normalizedPath)
 
-      // Only read content if it's a text-based file for indexing
-      const content = await readFile(fullPath, 'utf-8')
+      // Only read content if requested (for titles/links/search)
+      let content = ''
+      if (indexContent) {
+        content = await readFile(fullPath, 'utf-8')
+      }
 
       // Extract directory path (without filename)
       const dirPath = dirname(normalizedPath)
@@ -204,7 +231,7 @@ export class VaultManager {
         if (createdAt === 0) createdAt = now
       }
 
-      const extractedTitle = this.extractTitle(content, id)
+      const extractedTitle = indexContent ? this.extractTitle(content, id) : basename(id)
       const meta: NoteMeta = {
         id,
         title: this.sanitizeFilename(extractedTitle) || basename(id) || 'Untitled',
@@ -215,7 +242,9 @@ export class VaultManager {
       }
 
       this.notes.set(id, meta)
-      this.updateLinks(id, content)
+      if (indexContent) {
+        this.updateLinks(id, content)
+      }
     } catch (err) {
       console.error(`[Vault] Failed to index ${fullPath}`, err)
     }

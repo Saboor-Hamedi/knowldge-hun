@@ -106,7 +106,7 @@ class App {
     this.documentationModal = new DocumentationModal('app')
     this.aiSettingsModal = new AISettingsModal('app')
     this.rightBar = new RightBar('rightPanel', this.aiSettingsModal)
-    this.fuzzyFinder = new FuzzyFinder('app')
+    this.fuzzyFinder = new FuzzyFinder()
     this.graphView = new GraphView(document.body, true) // Modal instance
 
     const graphHost = document.getElementById('graphHost')
@@ -283,7 +283,7 @@ class App {
     // Handle Timeline Compare
     // Handle Timeline Compare
     window.addEventListener('timeline:compare', ((
-      e: CustomEvent<{ commit: any; path: string; content: string }>
+      e: CustomEvent<{ commit: { hash: string; timestamp: number }; path: string; content: string }>
     ) => {
       console.log('[App] Compare requested', e.detail)
       const { commit, path, content } = e.detail
@@ -391,7 +391,7 @@ class App {
       // Restore active view (explorer, search, history, etc.)
       if (state.settings.activeView) {
         state.activeView = state.settings.activeView
-        this.activityBar.setActiveView(state.settings.activeView as any)
+        this.activityBar.setActiveView(state.settings.activeView)
       }
     }
 
@@ -614,7 +614,7 @@ class App {
       // Debounce the actual disk/IPC update to prevent lag during rapid sliding
       if (this.pendingSettingsUpdate) window.clearTimeout(this.pendingSettingsUpdate)
       this.pendingSettingsUpdate = window.setTimeout(() => {
-        void (window.api.updateSettings as any)(newSettings)
+        void window.api.updateSettings(newSettings)
         this.statusBar.setStatus('Settings auto-saved')
 
         // If settings view is active, trigger a re-render to reflect potentially cleared overrides
@@ -881,6 +881,7 @@ class App {
     reg('Control+Shift+p', 'Command Palette', () => this.fuzzyFinder.toggle('commands'))
     reg('Control+i', 'Toggle Right Sidebar', () => void this.viewOrchestrator.toggleRightSidebar())
     reg('Control+Alt+s', 'Open AI Configuration', () => this.aiSettingsModal.open())
+    reg('Control+F5', 'Reload Window', () => window.location.reload())
     reg('Control+Shift+r', 'Reload vault', () => void this.reloadVault())
     reg('Control+Shift+v', 'Choose vault', () => void this.vaultHandler.chooseVault())
     reg('Control+n', 'New note', () => void this.fileOps.createNote())
@@ -1284,7 +1285,7 @@ class App {
     const sharedCommands = [
       {
         id: 'help',
-        label: 'Help: List Commands',
+        label: 'Help: List Commands (Ctrl+J)',
         description: 'Show available console commands',
         handler: () => this.realTerminal.showConsole()
       },
@@ -1298,6 +1299,18 @@ class App {
         }
       },
       {
+        id: 'reload-vault',
+        label: 'Vault: Reload (Ctrl+Shift+R)',
+        description: 'Refresh the vault contents from disk',
+        handler: () => void this.reloadVault()
+      },
+      {
+        id: 'switch-vault',
+        label: 'Vault: Switch (Ctrl+Shift+V)',
+        description: 'Open a different vault folder',
+        handler: () => void this.vaultHandler.chooseVault()
+      },
+      {
         id: 'clear',
         label: 'Console: Clear',
         description: 'Clear the application console',
@@ -1307,7 +1320,7 @@ class App {
       },
       {
         id: 'security-lock',
-        label: 'Security: Lock screen',
+        label: 'Security: Lock screen (Ctrl+L)',
         description: 'Immediately secure the application',
         handler: () => void securityService.promptAndLock()
       },
@@ -1356,31 +1369,31 @@ class App {
       },
       {
         id: 'toggle-sidebar',
-        label: 'View: Toggle Sidebar',
+        label: 'View: Toggle Sidebar (Ctrl+B)',
         description: 'Show or hide the primary left sidebar',
         handler: () => void this.viewOrchestrator.toggleSidebar()
       },
       {
         id: 'toggle-right-sidebar',
-        label: 'View: Toggle Right Sidebar',
+        label: 'View: Toggle Right Sidebar (Ctrl+I)',
         description: 'Show or hide the AI assistant (Right Panel)',
         handler: () => void this.viewOrchestrator.toggleRightSidebar()
       },
       {
         id: 'settings',
-        label: 'Settings: Open',
+        label: 'Settings: Open (Ctrl+,)',
         description: 'Open application settings',
         handler: () => this.viewOrchestrator.openSettings()
       },
       {
         id: 'theme',
-        label: 'Theme: Select',
+        label: 'Theme: Select (Ctrl+Shift+<)',
         description: 'Choose a different UI theme',
         handler: () => this.themeModal.open()
       },
       {
         id: 'documentation',
-        label: 'Help: Open Documentation',
+        label: 'Help: Open Documentation (Ctrl+Shift+\\)',
         description: 'Learn how to use Knowledge Hub',
         handler: () => this.documentationModal.open()
       },
@@ -1405,11 +1418,33 @@ class App {
         handler: () => this.syncHandler.restoreVault()
       },
       {
+        id: 'reload-window',
+        label: 'System: Reload Window (Ctrl+F5)',
+        description: 'Refresh the application window',
+        handler: () => window.location.reload()
+      },
+      {
         id: 'reset-settings',
         label: 'System: Reset Settings',
         description: 'Restore factory defaults (Warning: Reloads App)',
         handler: async () => {
           if (confirm('Reset all settings to defaults? This will reload the application.')) {
+            // Clear UI state from localStorage to ensure windows/panels reset
+            const keysToRemove: string[] = []
+            for (let i = 0; i < localStorage.length; i++) {
+              const key = localStorage.key(i)
+              if (
+                key &&
+                (key.startsWith('terminal_') ||
+                  key.startsWith('hub-') ||
+                  key.includes('_visible_') ||
+                  key.includes('_active_tab_'))
+              ) {
+                keysToRemove.push(key)
+              }
+            }
+            keysToRemove.forEach((key) => localStorage.removeItem(key))
+
             await window.api.resetSettings()
             window.location.reload()
           }

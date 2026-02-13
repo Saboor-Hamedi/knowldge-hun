@@ -25,6 +25,7 @@ export class SecurityService {
   private lastActivity = Date.now()
   private trackerInterval: ReturnType<typeof setInterval> | null = null
   private activityListenersRegistered = false
+  private pendingUnlockPromise: Promise<boolean> | null = null
 
   constructor() {
     this.startInactivityTracker()
@@ -86,29 +87,37 @@ export class SecurityService {
     if (!this.hasPassword()) return true
     if (this.isUnlocked) return true
 
-    return new Promise((resolve) => {
+    // Prevent multiple concurrent unlock requests (e.g. from App.init and an auto-lock firing)
+    if (this.pendingUnlockPromise) return this.pendingUnlockPromise
+
+    this.pendingUnlockPromise = new Promise((resolve) => {
       this.showFirewall({
         onSuccess: () => {
           this.isUnlocked = true
           this.lastActivity = Date.now() // Reset on unlock
+          this.pendingUnlockPromise = null
           resolve(true)
         }
       })
     })
+
+    return this.pendingUnlockPromise
   }
 
   /**
-   * Renders the Hardware-Accelerated Firewall Overlay.
-   * Uses: layout.css for blur and glassmorphism styling.
+   * Renders the Hardware-Accelerated Firewall Overlay (Login Screen).
+   * Uses: security.css for visual isolation and glassmorphism.
    *
-   * This method manually manipulates the DOM to ensure it overlays even
-   * logic-based components.
+   * @param options Callbacks for successful authorization.
    */
   private async showFirewall(options: { onSuccess: () => void }): Promise<void> {
     // 0. Prevent duplicate firewalls
     if (document.querySelector('.security-firewall')) return
 
-    // 1. Apply instant visual isolation
+    // 1. Apply instant visual isolation and block shortcuts
+    // This MUST happen before any 'await' to ensure the app is locked immediately.
+    keyboardManager.setEnabled(false)
+
     const app = document.querySelector('.vscode-shell')
     if (app) {
       app.classList.add('is-blurred')
@@ -118,6 +127,46 @@ export class SecurityService {
         filter: 'blur(20px) grayscale(0.2)'
       })
     }
+
+    /**
+     * GLOBAL EVENT ISOLATION (THE "AIRLOCK"):
+     * This interceptor blocks all interactions from reaching the app background.
+     * Captured phase (true) ensures we catch events before any other component.
+     */
+    const blockEvents = (e: Event): void => {
+      const target = e.target as HTMLElement
+      // Exception: Window management buttons (Min/Max/Close) in the header
+      const isHeaderControl = target?.closest('.wh-min, .wh-max, .wh-close, .window-header')
+
+      // Use .closest() to handle clicks on SVG icons inside these elements
+      const isFirewallInput = target?.closest('.security-firewall__input')
+      const isFirewallBtn = target?.closest('.security-firewall__btn')
+
+      // Allow only window controls and firewall interaction
+      if (isHeaderControl || isFirewallInput || isFirewallBtn) {
+        // Even for firewall input, block CMD/CTRL shortcuts that might toggle background panels
+        if (e instanceof KeyboardEvent && (e.ctrlKey || e.metaKey || e.altKey)) {
+          const isCopyPaste = e.key === 'c' || e.key === 'v' || e.key === 'a' || e.key === 'x'
+          const isReload = e.key === 'r'
+
+          // Allow copy/paste and reload, block everything else
+          if (!isCopyPaste && !isReload) {
+            e.preventDefault()
+            e.stopPropagation()
+          }
+        }
+        return
+      }
+
+      // Kill the event before it bubbles down to the main app logic
+      e.preventDefault()
+      e.stopPropagation()
+    }
+
+    // Apply the Airlock listeners immediately (before any awaits)
+    window.addEventListener('keydown', blockEvents, true)
+    window.addEventListener('mousedown', blockEvents, true)
+    window.addEventListener('contextmenu', blockEvents, true)
 
     // 2. Create the standalone Login Screen
     const firewall = document.createElement('div')
@@ -142,12 +191,13 @@ export class SecurityService {
 
     firewall.tabIndex = 0
 
-    // Display the computer user name or custom name
-    const sysUsername = await window.api.getUsername().catch(() => 'User')
+    // Ensure the loading overlay doesn't cover the firewall
+    const loadingOverlay = document.getElementById('loadingOverlay')
+    if (loadingOverlay) loadingOverlay.style.display = 'none'
+
+    // Setup initial UI with placeholder name - username update happens in background
     const firewallSettings = state.settings?.fireWall
-    const rawDisplayName = firewallSettings?.lockScreenName || sysUsername
-    // Escape HTML to prevent XSS
-    const displayName = this.escapeHtml(rawDisplayName)
+    const initialName = firewallSettings?.lockScreenName || 'User'
     const alignment = firewallSettings?.lockScreenAlignment || 'center'
 
     firewall.innerHTML = `
@@ -162,7 +212,7 @@ export class SecurityService {
             <circle cx="12" cy="7" r="4"></circle>
           </svg>
         </div>
-        <div class="security-firewall__username">${displayName}</div>
+        <div class="security-firewall__username">${this.escapeHtml(initialName)}</div>
         <div class="security-firewall__input-group">
           <div class="security-firewall__input-wrapper">
             <input type="password" class="security-firewall__input" placeholder="Enter Master Password" autofocus autocomplete="current-password">
@@ -186,6 +236,17 @@ export class SecurityService {
     `
 
     document.body.appendChild(firewall)
+
+    // Background update of the username to avoid blocking rendering
+    if (!firewallSettings?.lockScreenName) {
+      window.api
+        .getUsername()
+        .then((name) => {
+          const nameEl = firewall.querySelector('.security-firewall__username')
+          if (nameEl) nameEl.textContent = name
+        })
+        .catch(() => {})
+    }
 
     const input = firewall.querySelector('.security-firewall__input') as HTMLInputElement
     const btn = firewall.querySelector('.security-firewall__btn--primary') as HTMLButtonElement
@@ -234,41 +295,9 @@ export class SecurityService {
     window.addEventListener('keyup', checkCapsLock)
 
     /**
-     * GLOBAL EVENT ISOLATION (THE "AIRLOCK"):
-     * This interceptor blocks all interactions from reaching the app background.
-     * Captured phase (true) ensures we catch events before any other component.
+     * DISMISSED: The blockEvents logic was moved earlier in the function
+     * to avoid async hanging during 'getUsername' fetch.
      */
-    const blockEvents = (e: Event): void => {
-      const target = e.target as HTMLElement
-      // Exception: Window management buttons (Min/Max/Close) in the header
-      const isHeaderControl = target?.closest('.wh-min, .wh-max, .wh-close, .window-header')
-      const isActivityBar = target?.closest('.activitybar') // 🔓 ALLOWED per user request
-      const isFirewallInput = target?.classList.contains('security-firewall__input')
-      const isFirewallBtn = target?.classList.contains('security-firewall__btn')
-
-      // Allow only window controls, activity bar, and firewall interaction
-      if (isHeaderControl || isActivityBar || isFirewallInput || isFirewallBtn) {
-        // Even for firewall input, block CMD/CTRL shortcuts that might toggle background panels
-        if (e instanceof KeyboardEvent && (e.ctrlKey || e.metaKey || e.altKey)) {
-          e.preventDefault()
-          e.stopPropagation()
-        }
-        return
-      }
-
-      // Kill the event before it bubbles down to the main app logic
-      e.preventDefault()
-      e.stopPropagation()
-    }
-
-    // 3. Disable the global shortcut registry (keyboardManager.ts)
-    // This prevents things like Ctrl+B (Sidebar) from firing.
-    keyboardManager.setEnabled(false)
-
-    // Apply the Airlock listeners
-    window.addEventListener('keydown', blockEvents, true)
-    window.addEventListener('mousedown', blockEvents, true)
-    window.addEventListener('contextmenu', blockEvents, true)
 
     const handleUnlock = async (): Promise<void> => {
       const password = input.value
@@ -284,7 +313,7 @@ export class SecurityService {
 
       const isValid = await this.verifyPassword(password)
       if (isValid) {
-        //  RESTORE APPLICATION STATE
+        // RESTORE APPLICATION STATE
         keyboardManager.setEnabled(true)
         window.removeEventListener('keydown', blockEvents, true)
         window.removeEventListener('mousedown', blockEvents, true)
@@ -300,7 +329,7 @@ export class SecurityService {
 
         // Remove from DOM after transition finishes
         setTimeout(() => {
-          firewall.remove()
+          if (firewall.parentNode) firewall.remove()
           options.onSuccess()
         }, 400)
       } else {

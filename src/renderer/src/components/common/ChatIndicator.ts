@@ -13,7 +13,7 @@ export class ChatIndicator {
    */
   static createPill(type: ChatIndicatorType = 'thinking'): string {
     const isSearching = type === 'searching'
-    const label = isSearching ? 'Searching...' : 'Thinking...'
+    const label = isSearching ? 'Doing...' : 'Thinking...'
     const pillStyles = isSearching
       ? 'border-color: var(--primary-alpha); box-shadow: 0 4px 12px var(--primary-alpha);'
       : ''

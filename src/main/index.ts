@@ -21,7 +21,7 @@ import {
   loadSettings,
   saveSettings,
   updateSettings,
-  DEFAULT_SETTINGS,
+  resetSettings,
   type Settings
 } from './settings'
 import { registerTerminalHandlers, cleanupTerminals } from './modules/terminal'
@@ -620,8 +620,8 @@ app.whenReady().then(async () => {
     updateSettings(updates)
   )
   ipcMain.handle('settings:reset', async () => {
-    saveSettings(DEFAULT_SETTINGS)
-    return DEFAULT_SETTINGS
+    cleanupTerminals()
+    return resetSettings()
   })
 
   // Gist Sync Handlers
@@ -870,61 +870,48 @@ app.whenReady().then(async () => {
   })
   console.log('[Main] Registering app:getDocumentation handler')
 
-  // ... (existing code)
-
   ipcMain.handle('app:getDocumentation', async (_event, section?: string) => {
+    // Determine the base documentation directory based on environment
     let docsDir = is.dev
       ? join(process.cwd(), 'resources/docs')
       : join(process.resourcesPath, 'docs')
 
-    // Extra fallback for strange dev environments
+    // Support legacy dev paths or alternate layouts
     if (is.dev && !existsSync(docsDir)) {
       docsDir = join(__dirname, '../../resources/docs')
     }
 
-    // Additional fallback for production build variations
+    // Production build variations (ASAR vs non-ASAR, or custom resource paths)
     if (!is.dev && !existsSync(docsDir)) {
       docsDir = join(process.resourcesPath, 'resources/docs')
     }
 
-    console.log(`[Main] Documentation request: ${section}, dir: ${docsDir}`)
+    if (!existsSync(docsDir)) {
+      console.warn(`[Main] Documentation directory not found at any known location: ${docsDir}`)
+      return section === 'list' ? [] : 'Documentation not available.'
+    }
 
-    // If section is 'list', return available sections
+    // Return the list of available documentation modules
     if (section === 'list') {
       try {
-        if (!existsSync(docsDir)) {
-          console.error(`[Main] Docs directory not found: ${docsDir}`)
-          return ['introduction']
-        }
         const files = await readdir(docsDir)
-        const result = files.filter((f) => f.endsWith('.md')).map((f) => f.replace('.md', ''))
-        console.log(`[Main] Found sections: ${result.join(', ')}`)
-        return result
-      } catch {
-        return ['introduction']
+        return files.filter((f) => f.endsWith('.md')).map((f) => f.replace('.md', ''))
+      } catch (error) {
+        console.error('[Main] Failed to list documentation:', error)
+        return []
       }
     }
 
-    const targetSection = section || 'introduction'
-    const docPath = join(docsDir, `${targetSection}.md`)
-    console.log(`[Main] Reading doc: ${docPath}`)
-
+    // Fetch specific documentation content
+    const targetFile = join(docsDir, `${section || 'introduction'}.md`)
     try {
-      if (existsSync(docPath)) {
-        return await readFile(docPath, 'utf-8')
+      if (existsSync(targetFile)) {
+        return await readFile(targetFile, 'utf-8')
       }
-
-      // Fallback to original path if not found in docs dir (silent check)
-      const oldDocPath = is.dev
-        ? resolve(app.getAppPath(), 'resources/documentation.md')
-        : join(process.resourcesPath, 'resources/documentation.md')
-
-      if (existsSync(oldDocPath)) {
-        return await readFile(oldDocPath, 'utf-8')
-      }
-      return '# Documentation Not Found'
-    } catch {
-      return '# Error Loading Documentation'
+      return `Section "${section}" not found.`
+    } catch (error) {
+      console.error(`[Main] Error reading documentation: ${targetFile}`, error)
+      return 'Error loading documentation content.'
     }
   })
 

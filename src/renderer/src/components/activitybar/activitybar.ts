@@ -122,13 +122,13 @@ export class ActivityBar {
 
     this.container.innerHTML = `
       <div class="activitybar__top">
-        <button class="activitybar__item${sidebarVisible && state.activeView === 'notes' ? ' is-active' : ''}" data-view="notes" data-tooltip="Explorer">
+        <button class="activitybar__item${sidebarVisible && state.activeView === 'notes' ? ' is-active' : ''}" data-view="notes" data-tooltip="Explorer (Ctrl+B)">
           <span class="activitybar__icon">${fileIcon}</span>
         </button>
-        <button class="activitybar__item${sidebarVisible && state.activeView === 'search' ? ' is-active' : ''}" data-view="search" data-tooltip="Search">
+        <button class="activitybar__item${sidebarVisible && state.activeView === 'search' ? ' is-active' : ''}" data-view="search" data-tooltip="Search (Ctrl+Shift+F)">
           <span class="activitybar__icon">${searchIcon}</span>
         </button>
-        <button class="activitybar__item${sidebarVisible && state.activeView === 'graph' ? ' is-active' : ''}" data-view="graph" data-tooltip="Graph View">
+        <button class="activitybar__item${sidebarVisible && state.activeView === 'graph' ? ' is-active' : ''}" data-view="graph" data-tooltip="Graph View (Alt+G)">
           <span class="activitybar__icon">
             <svg width="24" height="24" viewBox="0 0 16 16" fill="none">
               <circle cx="4" cy="4" r="2" stroke-width="1.5" fill="none"/>
@@ -144,18 +144,18 @@ export class ActivityBar {
         <button class="activitybar__item${this.updateState !== 'idle' ? ' has-notification' : ''}" data-view="update" data-tooltip="Update">
           <span class="activitybar__icon">${updateIcon}</span>
         </button>
-        <button class="activitybar__item" data-view="documentation" data-tooltip="Documentation">
+        <button class="activitybar__item" data-view="documentation" data-tooltip="Documentation (Ctrl+Shift+\\)">
           <span class="activitybar__icon">${libraryIcon}</span>
         </button>
       </div>
       <div class="activitybar__bottom">
-        <button class="activitybar__item" data-view="lock" data-tooltip="Lock App">
+        <button class="activitybar__item" data-view="lock" data-tooltip="Lock App (Ctrl+L)">
           <span class="activitybar__icon">${lockIcon}</span>
         </button>
-        <button class="activitybar__item${state.activeView === 'theme' ? ' is-active' : ''}" data-view="theme" data-tooltip="Theme">
+        <button class="activitybar__item${state.activeView === 'theme' ? ' is-active' : ''}" data-view="theme" data-tooltip="Theme (Ctrl+Shift+<)">
           <span class="activitybar__icon">${paletteIcon}</span>
         </button>
-        <button class="activitybar__item${state.activeView === 'settings' ? ' is-active' : ''}" data-view="settings" data-tooltip="Settings">
+        <button class="activitybar__item${state.activeView === 'settings' ? ' is-active' : ''}" data-view="settings" data-tooltip="Settings (Ctrl+,)">
           <span class="activitybar__icon">${settingsIcon}</span>
         </button>
       </div>

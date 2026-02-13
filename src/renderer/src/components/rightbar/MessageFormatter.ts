@@ -47,17 +47,52 @@ export class MessageFormatter {
       return this.renderCache.get(text)!
     }
 
-    // Replace [RUN: ...] tags with clean UI pills instead of stripping them
-    const cleanText = text.replace(/\[RUN:\s*([\s\S]*?)(?:\]|$)/g, (match, cmdBody) => {
+    // 0. Handle [FILE: path] tags (Iterative Headers)
+    let processedText = text.replace(/\[FILE:\s*(.+?)\s*\]/g, (_match, path) => {
+      return `<div class="rightbar__file-header">
+        <span class="rightbar__file-path">${this.escapeHtml(path)}</span>
+      </div>`
+    })
+
+    // 1. Handle <thought> tags (subtle dropdown)
+    processedText = processedText.replace(
+      /<thought>\s*([\s\S]*?)(?:<\/thought>|$)/g,
+      (_match, content) => {
+        return `
+        <details class="rightbar__thought-details">
+          <summary class="rightbar__thought-summary">
+            <span class="rightbar__thought-icon">🧠</span>
+            <span class="rightbar__thought-label">Thinking...</span>
+          </summary>
+          <div class="rightbar__thought-content">${this.escapeHtml(content.trim())}</div>
+        </details>
+      `
+      }
+    )
+
+    // 2. Handle [RUN: read ...] specifically as a subtle "Analyzed" chip
+    processedText = processedText.replace(
+      /\[RUN:\s*read\s*"?(.+?)"?\s*(#L\d+-\d+)?\s*\]/g,
+      (_match, path, lines) => {
+        const lineRange = lines || ''
+        return `<div class="rightbar__analyzed-chip" title="Click to view full output">
+        <span class="rightbar__analyzed-icon">🔍</span>
+        <span class="rightbar__analyzed-text">Analyzed <code>${path}${lineRange}</code></span>
+      </div>`
+      }
+    )
+
+    // 3. Replace remaining [RUN: ...] tags with standard UI pills
+    const cleanText = processedText.replace(/\[RUN:\s*([\s\S]*?)(?:\]|$)/g, (match, cmdBody) => {
       const parts = cmdBody.trim().split(/\s+/)
       const cmdName = parts[0] || 'command'
       const isClosed = match.endsWith(']')
-      const status = isClosed ? 'Executing' : 'Preparing'
+      const status = isClosed ? 'Done' : 'Running'
 
-      return `<div class="rightbar__command-pill" data-command="${cmdName}">
-        <span class="rightbar__command-icon">⚡</span>
+      return `<span class="rightbar__command-pill" data-command="${cmdName}">
+        <span class="rightbar__command-icon"></span>
         <span class="rightbar__command-text">${status}: ${cmdName}</span>
-      </div>`
+      </span>`
     })
 
     const rawHtml = this.md.render(cleanText)

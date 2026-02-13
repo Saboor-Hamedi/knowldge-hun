@@ -2,7 +2,7 @@
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.5);
-  z-index: 9998;
+  z-index: 99998;
 }
 
 .fuzzy-modal {
@@ -16,7 +16,7 @@
   border: 1px solid var(--border);
   border-radius: 8px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
-  z-index: 9999;
+  z-index: 100000;
   display: none;
   flex-direction: column;
   overflow: hidden;
@@ -156,6 +156,12 @@
   color: #9ca3af;
 }
 
+/* Selected item icon color - always white for contrast */
+.fuzzy-item.is-selected .fuzzy-item__icon,
+.fuzzy-item.is-selected .fuzzy-item__icon[data-note-type] {
+  color: #ffffff;
+}
+
 .fuzzy-item__title {
   font-weight: 500;
   white-space: nowrap;
@@ -181,14 +187,41 @@
   font-size: 13px;
   font-weight: 500;
   margin-bottom: 2px;
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+}
+
+.fuzzy-item__label span:first-child {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fuzzy-match {
+  background: rgba(4, 137, 246, 0.2);
+  color: #4daafc;
+  border-radius: 1px;
+}
+
+.fuzzy-item__shortcut {
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 400;
+  margin-left: 8px;
+  font-family: monospace;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 1px 4px;
+  border-radius: 4px;
 }
 
 .fuzzy-item__label mark {
-  background: rgba(79, 109, 243, 0.3);
-  color: var(--text-strong);
-  padding: 1px 2px;
-  border-radius: 2px;
-  font-weight: 600;
+  background: rgba(4, 137, 246, 0.2);
+  color: #4daafc;
+  border-radius: 1px;
+  padding: 0;
+  font-weight: inherit;
 }
 
 .fuzzy-item__description {

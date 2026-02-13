@@ -87,7 +87,24 @@ export class KeyboardManager {
    * Normalize key notation (Ctrl vs Control, Cmd vs Meta)
    */
   private normalizeKey(key: string): string {
-    return key.toLowerCase().replace(/ctrl/g, 'control').replace(/cmd/g, 'meta').replace(/\s+/g, '')
+    const parts = key
+      .toLowerCase()
+      .replace(/ctrl/g, 'control')
+      .replace(/cmd/g, 'meta')
+      .replace(/\s+/g, '')
+      .split('+')
+
+    const modifiers = parts.filter((p) => ['control', 'alt', 'shift', 'meta'].includes(p))
+    const keys = parts.filter((p) => !['control', 'alt', 'shift', 'meta'].includes(p))
+
+    // Enforce specific order that matches getKeyNotation: control, alt, shift, meta
+    const orderedModifiers: string[] = []
+    if (modifiers.includes('control')) orderedModifiers.push('control')
+    if (modifiers.includes('alt')) orderedModifiers.push('alt')
+    if (modifiers.includes('shift')) orderedModifiers.push('shift')
+    if (modifiers.includes('meta')) orderedModifiers.push('meta')
+
+    return [...orderedModifiers, ...keys].join('+')
   }
 
   /**

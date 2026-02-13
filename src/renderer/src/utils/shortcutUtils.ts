@@ -111,6 +111,12 @@ export const shortcuts: Shortcut[] = [
     search: 'theme select change ctrl+shift+,'
   },
   {
+    title: 'Reload Window',
+    desc: 'Refresh the application window',
+    keys: ['Ctrl', 'Alt', 'R'],
+    search: 'reload refresh window reset'
+  },
+  {
     title: 'Reload Vault',
     desc: 'Force refresh all vault files',
     keys: ['Ctrl', 'Shift', 'R'],

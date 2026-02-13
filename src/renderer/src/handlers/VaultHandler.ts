@@ -286,7 +286,12 @@ export class VaultHandler {
     } else {
       this.components.sidebar.scrollToActive(false)
       if (focusTarget === 'editor') {
-        this.components.editor.focus?.()
+        const isFuzzyOpen = document.querySelector('.fuzzy-modal.is-open')
+        const isModalOpen = document.querySelector('.modal-overlay.is-open')
+
+        if (!isFuzzyOpen && !isModalOpen) {
+          this.components.editor.focus?.()
+        }
       }
     }
 

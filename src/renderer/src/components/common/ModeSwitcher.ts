@@ -20,6 +20,7 @@ export class ModeSwitcher {
     this.container = document.createElement('div')
     this.container.className = `kb-mode-switcher ${options.className || ''}`
     this.options = options
+    this.currentMode = aiService.getMode()
     this.closeHandler = () => this.close()
     parent.appendChild(this.container)
 

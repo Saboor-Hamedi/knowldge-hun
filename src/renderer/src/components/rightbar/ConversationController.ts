@@ -241,13 +241,21 @@ export class ConversationController {
     this.state.isExecutingCommand = true
     this.notify()
 
-    const results = await AgentExecutor.executeAll(content, () => {
-      if (actionId === this.currentActionId) {
-        this.notify()
-      }
-    })
+    const results = await AgentExecutor.executeAll(
+      content,
+      () => {
+        if (actionId === this.currentActionId) {
+          this.notify()
+        }
+      },
+      this.abortController?.signal
+    )
 
-    if (actionId !== this.currentActionId) return
+    if (actionId !== this.currentActionId || this.abortController?.signal.aborted) {
+      this.state.isExecutingCommand = false
+      this.notify()
+      return
+    }
 
     this.state.isExecutingCommand = false
 

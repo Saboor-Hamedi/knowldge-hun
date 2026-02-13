@@ -7,12 +7,19 @@ export class AgentExecutor {
   /**
    * Parse AI response for [RUN: command] tags and execute them
    */
-  static async executeAll(content: string, onProgress: () => void): Promise<string[]> {
+  static async executeAll(
+    content: string,
+    onProgress: () => void,
+    signal?: AbortSignal
+  ): Promise<string[]> {
     const commandRegex = /\[RUN:\s*(.+?)\]/gs
     const results: string[] = []
     let match
 
     while ((match = commandRegex.exec(content)) !== null) {
+      // Check for cancellation before each command execution
+      if (signal?.aborted) break
+
       const commandText = match[1].trim()
       try {
         const result = await this.executeSingle(commandText)
@@ -109,8 +116,9 @@ export class AgentExecutor {
         if (!query) return 'Error: delete requires a title, path, or ID'
         const item = await this.findInVault(query)
         if (!item) return `Error: Item "${query}" not found.`
-        if (item.type === 'folder') await window.api.deleteFolder(item.path || '')
-        else await window.api.deleteNote(item.id, item.path || '')
+        if (item.type === 'folder')
+          await window.api.deleteFolder(item.id) // ID is the relative path for folders too
+        else await window.api.deleteNote(item.id, item.path)
         return `Success: Deleted "${item.title}".`
       }
 
@@ -120,8 +128,8 @@ export class AgentExecutor {
         if (!oldName || !newName) return 'Error: rename requires old and new names'
         const item = await this.findInVault(oldName)
         if (!item) return `Error: Item "${oldName}" not found.`
-        if (item.type === 'folder') await window.api.renameFolder(item.path || '', newName)
-        else await window.api.renameNote(item.id, newName, item.path || '')
+        if (item.type === 'folder') await window.api.renameFolder(item.id, newName)
+        else await window.api.renameNote(item.id, newName, item.path)
         return `Success: Renamed to "${newName}".`
       }
 
@@ -151,7 +159,7 @@ export class AgentExecutor {
     return null
   }
 
-  private static formatTree(items: any[], indent = ''): string {
+  private static formatTree(items: TreeItem[], indent = ''): string {
     let res = ''
     for (const item of items) {
       const icon = item.type === 'folder' ? '📂' : '📄'

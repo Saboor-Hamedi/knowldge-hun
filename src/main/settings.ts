@@ -7,6 +7,7 @@ const settingsFile = join(app.getPath('userData'), 'settings.json')
 export type Settings = {
   vaultPath?: string
   theme?: string
+  editorTheme?: string
   sidebarVisible?: boolean
   autoSave?: boolean
   autoSaveDelay?: number
@@ -18,8 +19,9 @@ export type Settings = {
   lastOpenedNote?: string
   expandedFolders?: string[]
   openTabs?: { id: string; path?: string; title?: string }[]
+  pinnedTabs?: string[]
   activeId?: string
-  activeView?: 'notes' | 'search' | 'settings'
+  activeView?: 'notes' | 'search' | 'settings' | 'graph' | 'history' | 'theme'
   windowBounds?: { width: number; height: number; x?: number; y?: number }
   deepseekApiKey?: string
   openaiApiKey?: string
@@ -32,21 +34,68 @@ export type Settings = {
   gistId?: string
   rightPanelWidth?: number
   rightPanelVisible?: boolean
+  passwordHash?: string | null
+  activeSettingsSection?: string
   // Caret settings
   caretEnabled?: boolean
   caretMaxWidth?: number
   cursorPositions?: Record<string, { lineNumber: number; column: number }>
   graphTheme?: string
+  // Security & Lock screen settings
   fireWall?: {
     passwordHash?: string | null
     lockScreenAlignment?: 'left' | 'center' | 'right'
     lockScreenName?: string
-    autoLockTimeout?: number // In minutes, 0 to disable
+    autoLockTimeout?: number
   }
+  // TTS settings
   ttsVoice?: string
   ttsSpeed?: number
+  // Tab appearance settings
+  tab?: {
+    borderPosition?: 'right' | 'left' | 'top' | 'bottom'
+    backgroundColor?: string
+    borderColor?: string
+    activeTabColor?: string
+    inactiveTabColor?: string
+    activeTextColor?: string
+    inactiveTextColor?: string
+    compactMode?: boolean
+  }
+  sidebar?: {
+    backgroundColor?: string
+    borderColor?: string
+    textColor?: string
+    activeItemColor?: string
+    activeTextColor?: string
+    fontSize?: number
+  }
+  activityBar?: {
+    backgroundColor?: string
+    borderColor?: string
+    activeItemColor?: string
+    activeIconColor?: string
+    inactiveIconColor?: string
+  }
+  statusbar?: {
+    words?: boolean
+    chars?: boolean
+    lines?: boolean
+    tags?: boolean
+    links?: boolean
+    cursor?: boolean
+    sync?: boolean
+    version?: boolean
+    git?: boolean
+  }
+  // Terminal Customization
+  terminalFontSize?: number
+  terminalFontFamily?: string
+  terminalBackground?: string
+  terminalForeground?: string
+  terminalCursor?: string
+  terminalFrameColor?: string
   terminalDefaultShell?: string
-  terminalSidebarVisible?: boolean
   searchInput?: {
     backgroundColor?: string
     borderColor?: string
@@ -83,9 +132,21 @@ export const DEFAULT_SETTINGS: Settings = {
   },
   ttsSpeed: 1.0,
   terminalDefaultShell: 'powershell',
-  terminalSidebarVisible: true
+  terminalFontSize: 13,
+  editorTheme: 'dark',
+  activeView: 'notes',
+  aiProvider: 'deepseek',
+  aiModel: '',
+  sidebar: {
+    fontSize: 13
+  },
+  activityBar: {}
 }
 
+/**
+ * Loads the current settings from disk, merging with defaults.
+ * @returns The complete Settings object.
+ */
 export function loadSettings(): Settings {
   try {
     if (!existsSync(settingsFile)) {
@@ -122,14 +183,14 @@ export function loadSettings(): Settings {
       merged.fireWall = { ...DEFAULT_SETTINGS.fireWall, ...merged.fireWall }
     }
 
-    const oldKeys = ['passwordHash', 'lockScreenAlignment', 'lockScreenName']
+    const oldKeys = ['passwordHash', 'lockScreenAlignment', 'lockScreenName'] as const
     const loadedAny = loaded as Record<string, unknown>
     const mergedAny = merged as Record<string, unknown>
-    const firewallAny = merged.fireWall as Record<string, unknown>
+    const firewall = merged.fireWall as Record<string, unknown>
 
     oldKeys.forEach((key) => {
       if (loadedAny[key] !== undefined) {
-        firewallAny[key] = loadedAny[key]
+        firewall[key] = loadedAny[key]
         delete mergedAny[key]
       }
     })
@@ -142,6 +203,10 @@ export function loadSettings(): Settings {
   }
 }
 
+/**
+ * Persists the settings object to the local disk.
+ * @param settings The settings to save.
+ */
 export function saveSettings(settings: Settings): void {
   try {
     writeFileSync(settingsFile, JSON.stringify(settings, null, 2), 'utf-8')
@@ -150,18 +215,90 @@ export function saveSettings(settings: Settings): void {
   }
 }
 
+const NESTED_SETTING_OBJECTS: (keyof Settings)[] = [
+  'fireWall',
+  'sidebar',
+  'tab',
+  'activityBar',
+  'statusbar',
+  'searchInput'
+]
+
+/**
+ * Updates the existing settings with a partial object.
+ * Performs deep merging for complex UI preference objects.
+ * @param updates The changes to apply.
+ * @returns The updated complete Settings object.
+ */
 export function updateSettings(updates: Partial<Settings>): Settings {
   const current = loadSettings()
-  const updated = { ...current, ...updates }
 
-  // Deep merge fireWall if both exist
-  if (updates.fireWall && current.fireWall) {
-    updated.fireWall = {
-      ...current.fireWall,
-      ...updates.fireWall
+  // Helper for deep merging specific top-level objects to prevent wiping siblings
+  const deepMerge = (obj: Settings, source: Partial<Settings>, key: keyof Settings): void => {
+    const sourceVal = source[key]
+    const objVal = obj[key]
+
+    if (sourceVal && typeof sourceVal === 'object' && !Array.isArray(sourceVal)) {
+      if (objVal && typeof objVal === 'object' && !Array.isArray(objVal)) {
+        // Safe cast since we checked the key is valid and target is an object
+        ;(obj as unknown as Record<string, unknown>)[key] = {
+          ...(objVal as Record<string, unknown>),
+          ...(sourceVal as Record<string, unknown>)
+        }
+      } else {
+        ;(obj as unknown as Record<string, unknown>)[key] = sourceVal
+      }
+    } else if (sourceVal !== undefined) {
+      ;(obj as unknown as Record<string, unknown>)[key] = sourceVal
     }
   }
 
+  const updated: Settings = { ...current, ...updates }
+
+  // Apply deep merging for complex preference groups
+  NESTED_SETTING_OBJECTS.forEach((key) => deepMerge(updated, updates, key))
+
   saveSettings(updated)
   return updated
+}
+
+/**
+ * Resets UI/Editor settings to defaults while preserving sensitive/structural data.
+ * Keeps: AI Keys, Vault Path, Security Password, and Workspace Setup.
+ */
+export function resetSettings(): Settings {
+  const current = loadSettings()
+  const reset: Settings = { ...DEFAULT_SETTINGS }
+
+  // List of keys to STRICTLY PRESERVE from current settings
+  const preservedKeys: (keyof Settings)[] = [
+    'vaultPath',
+    'recentVaults',
+    'deepseekApiKey',
+    'openaiApiKey',
+    'claudeApiKey',
+    'grokApiKey',
+    'ollamaBaseUrl',
+    'aiProvider',
+    'aiModel',
+    'gistToken',
+    'gistId'
+  ]
+
+  preservedKeys.forEach((key) => {
+    if (current[key] !== undefined) {
+      ;(reset as unknown as Record<string, unknown>)[key] = current[key]
+    }
+  })
+
+  // Deep preserve critical security bits (password) but let other security UI reset
+  if (current.fireWall && current.fireWall.passwordHash) {
+    reset.fireWall = {
+      ...DEFAULT_SETTINGS.fireWall,
+      passwordHash: current.fireWall.passwordHash
+    }
+  }
+
+  saveSettings(reset)
+  return reset
 }

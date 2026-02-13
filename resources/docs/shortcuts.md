@@ -13,6 +13,7 @@
 - **Instant Lock**: `Ctrl + L` / `Alt + L`
 - **Reload Vault**: `Ctrl + Shift + R`
 - **Switch Vault**: `Ctrl + Shift + V`
+- **Reload Window**: `Ctrl + F5`
 - **Close UI / Escape**: `Esc`
 
 ### ✍️ Editor Operations

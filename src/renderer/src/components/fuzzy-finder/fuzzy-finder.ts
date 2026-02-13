@@ -1,4 +1,5 @@
 import { state } from '../../core/state'
+import type { NoteMeta } from '../../core/types'
 import { codicons } from '../../utils/codicons'
 import getFileIcon from '../../utils/fileIconMappers'
 import './fuzzy-finder.css'
@@ -17,7 +18,7 @@ export class FuzzyFinder {
   private input: HTMLInputElement | null = null
   private list: HTMLElement | null = null
   private selectedIndex = 0
-  private visibleItems: any[] = []
+  private visibleItems: (NoteMeta | Command)[] = []
   private isOpen = false
   private backdrop: HTMLElement | null = null
 
@@ -33,14 +34,23 @@ export class FuzzyFinder {
   private mode: 'notes' | 'commands' = 'notes'
   private commands: Command[] = []
 
-  constructor(containerId: string) {
-    this.container = document.getElementById(containerId) as HTMLElement
+  constructor() {
+    this.container = document.createElement('div')
+    this.container.className = 'fuzzy-container'
+    document.body.appendChild(this.container)
     this.render()
 
     // Global Esc listener as safety
     window.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && this.isOpen) {
         this.close()
+      }
+    })
+
+    // Recovery focus when window is focused
+    window.addEventListener('focus', () => {
+      if (this.isOpen) {
+        this.input?.focus()
       }
     })
   }
@@ -69,6 +79,7 @@ export class FuzzyFinder {
     this.mode = mode
     this.isOpen = true
     this.modal.classList.add('is-open')
+    this.modal.style.pointerEvents = 'auto'
 
     // Create backdrop
     this.backdrop = document.createElement('div')
@@ -93,9 +104,18 @@ export class FuzzyFinder {
     if (this.input) {
       this.input.placeholder =
         this.mode === 'commands' ? 'Type a command name...' : 'Type filename to search...'
+
+      // Force interaction-ready state
+      this.input.readOnly = false
+      this.input.style.pointerEvents = 'auto'
+
+      // Multi-stage focus to beat layout engine and async transitions
       this.input.focus()
-      // Use micro-delay to ensure focus is solid after shortcut chord processing
-      setTimeout(() => this.input?.focus(), 10)
+      requestAnimationFrame(() => {
+        this.input?.focus()
+        // Final fallback for slow modal transitions
+        setTimeout(() => this.input?.focus(), 50)
+      })
     }
     const iconEl = this.modal?.querySelector('.fuzzy-icon')
     if (iconEl) {
@@ -121,7 +141,7 @@ export class FuzzyFinder {
     this.modal.innerHTML = `
       <div class="fuzzy-header">
         <span class="fuzzy-icon">🔍</span>
-        <input class="fuzzy-input" placeholder="Type filename to search..." autocomplete="off" />
+        <input class="fuzzy-input" placeholder="Type filename to search..." autocomplete="off" style="pointer-events: auto !important;" />
       </div>
       <div class="fuzzy-list"></div>
     `
@@ -210,8 +230,9 @@ export class FuzzyFinder {
           await command.handler()
         } else {
           // Call onSelect for notes
-          if (item.id) {
-            await this.onSelect?.(item.id, item.path, item.type, true)
+          const note = item as NoteMeta
+          if (note.id) {
+            await this.onSelect?.(note.id, note.path, note.type, true)
           }
         }
       }
@@ -252,14 +273,14 @@ export class FuzzyFinder {
     const term = query.toLowerCase()
 
     // 1. Collect only notes (files)
-    const allItems: any[] = []
+    const allItems: NoteMeta[] = []
 
     // Add notes - ensure type is always 'note' by putting it after spread
     state.notes.forEach((n) => allItems.push({ ...n, type: 'note' }))
 
     // FOLDERS REMOVED from search results as per request ("only allow files two show up")
 
-    let matches: any[] = []
+    let matches: NoteMeta[] = []
 
     if (!term) {
       // Show recent 5 notes on empty query
@@ -328,11 +349,25 @@ export class FuzzyFinder {
         .map((item, index) => {
           const isSelected = index === this.selectedIndex ? 'is-selected' : ''
           const command = item as Command
-          const label = this.highlightMatch(command.label, this.query)
+          // Extract shortcut from label if present (e.g. "Settings (Ctrl+,)")
+          const labelMatch = command.label.match(/^(.*?)\s*(\(.*\))$/)
+          let displayLabel = command.label
+          let shortcut = ''
+
+          if (labelMatch) {
+            displayLabel = labelMatch[1]
+            shortcut = labelMatch[2]
+          }
+
+          const highlightedLabel = this.highlightMatch(displayLabel, this.query)
+
           return `
           <div class="fuzzy-item ${isSelected}" data-index="${index}">
             <div class="fuzzy-item__content">
-              <div class="fuzzy-item__label">${label}</div>
+              <div class="fuzzy-item__label">
+                <span>${highlightedLabel}</span>
+                ${shortcut ? `<span class="fuzzy-item__shortcut">${shortcut}</span>` : ''}
+              </div>
               ${command.description ? `<div class="fuzzy-item__description">${command.description}</div>` : ''}
             </div>
             ${command.icon ? `<div class="fuzzy-item__icon">${command.icon}</div>` : ''}
@@ -344,11 +379,12 @@ export class FuzzyFinder {
       this.list.innerHTML = this.visibleItems
         .map((item, index) => {
           const isSelected = index === this.selectedIndex ? 'is-selected' : ''
+          const note = item as NoteMeta
           const icon =
-            item.type === 'folder' ? codicons.folder : getFileIcon(item.title || '', 'markdown')
-          const noteType = item.type === 'note' ? this.getNoteType(item.title || '') : ''
-          const title = this.highlight(item.title || '', this.query)
-          const path = this.highlight(item.path ? item.path.replace(/\\/g, '/') : '', this.query)
+            note.type === 'folder' ? codicons.folder : getFileIcon(note.title || '', 'markdown')
+          const noteType = note.type === 'note' ? this.getNoteType(note.title || '') : ''
+          const title = this.highlight(note.title || '', this.query)
+          const path = this.highlight(note.path ? note.path.replace(/\\/g, '/') : '', this.query)
 
           return `
           <div class="fuzzy-item ${isSelected}" data-index="${index}" ${noteType ? `data-note-type="${noteType}"` : ''}>
@@ -382,15 +418,21 @@ export class FuzzyFinder {
           await command.handler()
         } else {
           // Call onSelect for notes
-          if (item.id) {
-            await this.onSelect?.(item.id, item.path, item.type, true)
+          const note = item as NoteMeta
+          if (note.id) {
+            await this.onSelect?.(note.id, note.path, note.type, true)
           }
         }
       })
       el.addEventListener('mouseover', () => {
         const idx = parseInt((el as HTMLElement).dataset.index || String(index))
-        this.selectedIndex = idx
-        this.renderList()
+        if (this.selectedIndex !== idx) {
+          const prev = this.list?.querySelector(`.fuzzy-item[data-index="${this.selectedIndex}"]`)
+          if (prev) prev.classList.remove('is-selected')
+
+          this.selectedIndex = idx
+          el.classList.add('is-selected')
+        }
       })
     })
   }

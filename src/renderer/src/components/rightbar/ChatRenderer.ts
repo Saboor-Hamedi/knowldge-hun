@@ -206,13 +206,14 @@ export class ChatRenderer {
       title = `${parts[0]}: ${cmdName}${targetSuffix}`
     }
 
-    // For CLI-like experience, we want to show the full output immediately,
-    // styled like a terminal block, not hidden behind a click.
-    // For CLI-like experience, we default to OPEN, but allow collapsing
-    // via the standard <details> element behavior.
+    // For Antigravity style: Keep READ operations collapsed by default (subtle)
+    // Keep internal CLI/Success/Write operations OPEN.
+    const isRead = title.toLowerCase().includes('read') || title.toLowerCase().includes('list')
+    const isOpen = !isRead || title.toLowerCase().includes('error')
+
     return `
       <div class="rightbar__system-message" title="Click header to toggle output">
-        <details class="rightbar__system-details" open>
+        <details class="rightbar__system-details" ${isOpen ? 'open' : ''}>
           <summary class="rightbar__system-summary" style="list-style: none;">
             <span class="rightbar__system-icon">${icon}</span>
             <span class="rightbar__system-title" style="font-family: monospace;">${this.escapeHtml(title)}</span>

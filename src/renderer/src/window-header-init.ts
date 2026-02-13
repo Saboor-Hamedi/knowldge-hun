@@ -28,7 +28,7 @@ if (container) {
         <div class="ai-status-tooltip">AI Brain: Initializing...</div>
       </div>
       <div class="window-header__separator">|</div>
-      <button class="wh-btn wh-chat" id="window-header-chat" title="Open AI Chat" aria-label="Open AI Chat">
+      <button class="wh-btn wh-chat" id="window-header-chat" title="Open AI Chat (Ctrl+I)" aria-label="Open AI Chat">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
         </svg>
