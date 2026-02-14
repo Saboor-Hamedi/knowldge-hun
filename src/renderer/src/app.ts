@@ -228,6 +228,9 @@ class App {
       void this.vaultHandler.refreshNotes()
       void this.vaultHandler.saveExpandedFolders()
     })
+    window.api.onVaultChanged(() => {
+      window.dispatchEvent(new CustomEvent('vault-changed'))
+    })
     window.addEventListener('status', ((e: CustomEvent<{ message: string }>) => {
       if (e.detail?.message) this.statusBar.setStatus(e.detail.message)
     }) as EventListener)
@@ -571,7 +574,8 @@ class App {
           return note ? { title: note.title, id: note.id } : null
         }
         return null
-      }
+      },
+      () => this.editor.getCursorPosition()
     )
   }
 

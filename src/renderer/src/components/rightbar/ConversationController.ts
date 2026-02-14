@@ -1,6 +1,6 @@
 import { aiService, type ChatMessage } from '../../services/aiService'
 import { state } from '../../core/state'
-import { AgentExecutor } from './AgentExecutor'
+import { agentService } from '../../services/agent/agent-service'
 
 export interface ConversationState {
   messages: ChatMessage[]
@@ -241,14 +241,14 @@ export class ConversationController {
     this.state.isExecutingCommand = true
     this.notify()
 
-    const results = await AgentExecutor.executeAll(
+    const results = await agentService.processResponse(
       content,
       () => {
         if (actionId === this.currentActionId) {
           this.notify()
         }
       },
-      this.abortController?.signal
+      this.abortController?.signal || undefined
     )
 
     if (actionId !== this.currentActionId || this.abortController?.signal.aborted) {

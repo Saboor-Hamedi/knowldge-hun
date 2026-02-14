@@ -440,6 +440,13 @@ export class EditorComponent {
     this.editor?.focus()
   }
 
+  getCursorPosition(): { line: number; ch: number } | null {
+    if (!this.editor) return null
+    const pos = this.editor.getPosition()
+    if (!pos) return null
+    return { line: pos.lineNumber - 1, ch: pos.column - 1 }
+  }
+
   layout(): void {
     if (this.editor) {
       const width = this.container.clientWidth

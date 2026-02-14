@@ -108,6 +108,8 @@ export class VaultManager {
   private folders = new Set<string>()
   private links = new Map<string, Set<string>>() // Source -> Targets
   private backlinks = new Map<string, Set<string>>() // Target -> Sources
+  private folderMetasCache: NoteMeta[] = []
+  private folderCacheValid: boolean = false
 
   public addWindow(window: BrowserWindow): void {
     this.windows.add(window)
@@ -133,6 +135,7 @@ export class VaultManager {
     this.folders.clear()
     this.links.clear()
     this.backlinks.clear()
+    this.folderCacheValid = false
 
     await this.startWatcher()
     await this.initialScan()
@@ -295,7 +298,7 @@ export class VaultManager {
     // Notify all windows looking at this vault
     this.windows.forEach((win) => {
       if (!win.isDestroyed()) {
-        win.webContents.send('vault-changed', {
+        win.webContents.send('vault:changed', {
           event,
           id,
           meta: this.notes.get(id)
@@ -313,10 +316,11 @@ export class VaultManager {
     } else {
       this.folders.delete(normalizedPath)
     }
+    this.folderCacheValid = false
     // Notify all windows for refresh
     this.windows.forEach((win) => {
       if (!win.isDestroyed()) {
-        win.webContents.send('vault-changed', { event: 'refresh' })
+        win.webContents.send('vault:changed', { event: 'refresh' })
       }
     })
   }
@@ -368,6 +372,11 @@ export class VaultManager {
 
   public async getNotes(): Promise<NoteMeta[]> {
     const notes = Array.from(this.notes.values())
+
+    if (this.folderCacheValid) {
+      return [...notes, ...this.folderMetasCache]
+    }
+
     const folderMetas: NoteMeta[] = []
 
     for (const path of this.folders) {
@@ -395,6 +404,9 @@ export class VaultManager {
         type: 'folder'
       })
     }
+
+    this.folderMetasCache = folderMetas
+    this.folderCacheValid = true
     return [...notes, ...folderMetas]
   }
 
@@ -707,6 +719,7 @@ export class VaultManager {
 
     const relPath = relative(this.rootPath, folderPath).replace(/\\/g, '/')
     this.folders.add(relPath)
+    this.folderCacheValid = false
 
     return { name: safeName, path: relPath }
   }
@@ -718,6 +731,7 @@ export class VaultManager {
 
       const normalizedPath = relativePath.replace(/\\/g, '/')
       this.folders.delete(normalizedPath)
+      this.folderCacheValid = false
 
       // Cleanup all notes inside this folder from cache
       for (const [id, meta] of this.notes.entries()) {
@@ -756,6 +770,7 @@ export class VaultManager {
     // Update cache
     this.folders.delete(normalizedPath)
     this.folders.add(finalRelPath)
+    this.folderCacheValid = false
 
     // Update all notes inside from cache
     for (const [id, meta] of this.notes.entries()) {

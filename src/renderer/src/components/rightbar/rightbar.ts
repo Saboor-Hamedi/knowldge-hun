@@ -1,5 +1,6 @@
 import { state } from '../../core/state'
 import { aiService, type ChatMessage } from '../../services/aiService'
+import { agentService } from '../../services/agent/agent-service'
 import { sessionStorageService, type ChatSession } from '../../services/sessionStorageService'
 import { SessionSidebar } from './session-sidebar'
 import { AIMenu, type AIMenuItem } from './ai-menu'
@@ -159,6 +160,14 @@ export class RightBar {
       }
     }
     this.sessionManager = new SessionManager(this.sessionSidebar, ui)
+
+    // Set up agent confirmation handler
+    agentService.setConfirmHandler(async (command: string) => {
+      return window.confirm(
+        `AI Agent wants to run a hazardous command:\n\n${command}\n\nDo you allow this?`
+      )
+    })
+
     this.attachEvents()
     void this.sessionManager.initialize()
   }
@@ -194,9 +203,12 @@ export class RightBar {
 
   setEditorContext(
     getEditorContent: () => string | null,
-    getActiveNoteInfo: () => { title: string; id: string } | null
+    getActiveNoteInfo: () => { title: string; id: string } | null,
+    getCursorPosition?: () => { line: number; ch: number } | null
   ): void {
-    aiService.setEditorContext({ getEditorContent, getActiveNoteInfo })
+    const context = { getEditorContent, getActiveNoteInfo, getCursorPosition }
+    aiService.setEditorContext(context)
+    agentService.setEditorContext(context)
   }
 
   private render(): void {

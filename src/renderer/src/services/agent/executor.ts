@@ -1,7 +1,7 @@
 import { state } from '../../core/state'
 import { ragService } from '../rag/ragService'
 import { tabService } from '../tabService'
-import type { NoteMeta, NotePayload } from '../../core/types'
+import type { NoteMeta, NotePayload, TreeItem } from '../../core/types'
 
 /**
  * Agent Executor
@@ -110,6 +110,16 @@ export class AgentExecutor {
         title: meta.title
       } as NotePayload)
       void ragService.indexNote(meta.id, content, { title: meta.title, path: meta.path })
+
+      this.dispatchVaultChange()
+
+      // Auto-open the newly created note
+      window.dispatchEvent(
+        new CustomEvent('knowledge-hub:open-note', {
+          detail: { id: meta.id, path: meta.path }
+        })
+      )
+
       return result
     }
   }
@@ -172,7 +182,7 @@ export class AgentExecutor {
   /**
    * EXECUTE: Rename
    */
-  async rename(oldId: string, newName: string): Promise<any> {
+  async rename(oldId: string, newName: string): Promise<NoteMeta | { name: string; path: string }> {
     const item = this.resolveNote(oldId)
     if (item) {
       let result
@@ -190,7 +200,10 @@ export class AgentExecutor {
   /**
    * EXECUTE: Move
    */
-  async move(id: string, targetFolderPath: string): Promise<any> {
+  async move(
+    id: string,
+    targetFolderPath: string
+  ): Promise<NoteMeta | { success?: boolean; path?: string }> {
     const item = this.resolveNote(id)
     if (!item) throw new Error(`Item not found for moving: ${id}`)
 
@@ -216,7 +229,7 @@ export class AgentExecutor {
   /**
    * EXECUTE: Delete
    */
-  async delete(id: string): Promise<any> {
+  async delete(id: string): Promise<{ success: boolean }> {
     const item = this.resolveNote(id)
     if (!item) throw new Error(`Item not found for deletion: ${id}`)
 
@@ -239,6 +252,41 @@ export class AgentExecutor {
       void ragService.deleteNote(item.id)
     }
     this.dispatchVaultChange()
+    return res
+  }
+  /**
+   * EXECUTE: Run terminal command
+   */
+  async executeTerminal(command: string): Promise<string> {
+    try {
+      // Get current vault path for CWD
+      const vault = await window.api.getVault()
+      const result = (await window.api.invoke('terminal:run-command', command, vault.path)) as {
+        success: boolean
+        output: string
+        error: string
+      }
+
+      if (result.success) {
+        return result.output || 'Command executed successfully (no output).'
+      } else {
+        return `Error: ${result.error}\nOutput: ${result.output}`
+      }
+    } catch (err) {
+      throw new Error(`Terminal execution failed: ${(err as Error).message}`)
+    }
+  }
+
+  /**
+   * Helper to format the vault tree for AI output
+   */
+  public formatTree(items: TreeItem[], indent = ''): string {
+    let res = ''
+    for (const item of items) {
+      const icon = item.type === 'folder' ? '📂' : '📄'
+      res += `${indent}${icon} ${item.title}\n`
+      if (item.children) res += this.formatTree(item.children, indent + '  ')
+    }
     return res
   }
 }

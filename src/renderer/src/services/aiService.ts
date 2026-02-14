@@ -1,5 +1,6 @@
 import { state } from '../core/state'
 import { ragService } from './rag/ragService'
+import { agentExecutor } from './agent/executor'
 import type { TreeItem } from '../core/types'
 import { aiProviderManager } from './ai/provider-manager'
 import { AIMessage } from './ai/providers/base'
@@ -16,6 +17,7 @@ export interface ChatMessage {
 export interface EditorContext {
   getEditorContent: () => string | null
   getActiveNoteInfo: () => { title: string; id: string } | null
+  getCursorPosition?: () => { line: number; ch: number } | null
 }
 
 export interface VaultNote {
@@ -527,16 +529,13 @@ export class AIService {
       /\b(stop|don't explain|dont explain|just help|just fix|no explanation|skip the|enough|stop explaining|stop it|please stop)\b/i
     const isStopCommand = stopPhrases.test(userMessage)
 
-    // Check if this is just an acknowledgment
-    // Check if this is ONLY a short acknowledgment (e.g., "okay", "thanks")
-    const isShortMessage = userMessage.trim().length < 15
+    // Aggressive fast-path for conversational fluff/short messages
+    const trimmed = userMessage.trim().toLowerCase()
+    const isVeryShort = trimmed.length < 15
     const isAcknowledgment =
-      /^(okay|ok|fine|thanks|got it|alright|cool|nice|good|sure|yep|yeah|yes|👍)\W*$/i.test(
-        userMessage.trim()
-      )
+      /^(hi|hello|hey|ok|okay|thanks|good|cool|nice|👍|yep|yeah|yes)\W*$/i.test(trimmed)
 
-    if (isStopCommand || (isAcknowledgment && isShortMessage)) {
-      // User wants us to stop or just said "okay" - send ONLY their message, no intensive context
+    if (isStopCommand || isAcknowledgment || isVeryShort) {
       return { context: userMessage, citations: [] }
     }
 
@@ -551,6 +550,11 @@ export class AIService {
       if (noteInfo) {
         context += `Current note: "${noteInfo.title}"\n`
         citations.push({ id: noteInfo.id, title: noteInfo.title })
+      }
+
+      const cursor = this.editorContext.getCursorPosition?.()
+      if (cursor) {
+        context += `Cursor position: Line ${cursor.line + 1}, Column ${cursor.ch + 1}\n`
       }
 
       // Only include content if user is asking about it specifically
@@ -589,27 +593,16 @@ export class AIService {
 
         context += `\nVault: ${vaultSize} notes available.\n`
 
-        // Check if user is asking about vault overview
         const isVaultQuery =
-          lowerMessage.includes('vault') ||
-          lowerMessage.includes('all notes') ||
-          lowerMessage.includes('my notes') ||
-          lowerMessage.includes('list') ||
-          lowerMessage.includes('show me')
+          (lowerMessage.includes('vault') || lowerMessage.includes('folder structure')) &&
+          (lowerMessage.includes('show') ||
+            lowerMessage.includes('list') ||
+            lowerMessage.includes('tree'))
 
         if (isVaultQuery) {
-          // Show vault overview (metadata only, lightweight)
-          // Don't add vault overview notes to citations - they're just context, not specific references
-          const notesToShow = metadata.slice(0, 15)
-          context += `\nVault overview (${notesToShow.length} of ${vaultSize} notes):\n`
-          notesToShow.forEach((note, index) => {
-            const path = note.path ? ` [${note.path}]` : ''
-            context += `${index + 1}. "${note.title}"${path}\n`
-          })
-
-          if (vaultSize > notesToShow.length) {
-            context += `\n... and ${vaultSize - notesToShow.length} more notes.\n`
-          }
+          const notes = await window.api.listNotes()
+          const tree = agentExecutor.formatTree(notes)
+          context += `\nVault Structure:\n${tree}\n`
         } else {
           // Check for explicit @mentions or [[wikilinks]]
           const mentionRegex = /@([a-zA-Z0-9_\-.]+)|\[\[(.*?)\]\]/g
@@ -657,8 +650,8 @@ export class AIService {
           if (isCreationIntent) {
             context += `\nIntent detected: Creation. Focus on asking for name and location.\n`
           } else {
-            // Find and load only relevant notes (smart RAG) - increased limit for better coverage
-            const relevantNotes = await this.findRelevantNotesHybrid(userMessage, 8)
+            // Find and load only relevant notes (smart RAG) - use limit of 2 for maximum speed
+            const relevantNotes = await this.findRelevantNotesHybrid(userMessage, 2)
 
             if (relevantNotes.length > 0) {
               context += `\nRelevant notes from vault (${relevantNotes.length} most relevant):\n`

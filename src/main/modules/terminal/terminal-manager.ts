@@ -12,8 +12,18 @@ import type { TerminalSession, ShellPathConfig } from './terminal.types'
 export class TerminalManager {
   private sessions: Map<string, TerminalSession> = new Map()
   private dataBuffers: Map<string, string[]> = new Map()
+  private recentBuffers: Map<string, string[]> = new Map()
   private dataListeners: Map<string, boolean> = new Map()
   private isCleaningUp: boolean = false
+
+  /**
+   * Get recently seen data for a terminal (rolling buffer)
+   */
+  getTerminalBuffer(id: string): string {
+    const recent = this.recentBuffers.get(id) || []
+    const initial = this.dataBuffers.get(id) || []
+    return [...initial, ...recent].join('')
+  }
 
   /**
    * Create a new terminal session
@@ -78,6 +88,7 @@ export class TerminalManager {
 
     // Prepare buffer for initial output
     this.dataBuffers.set(id, [])
+    this.recentBuffers.set(id, [])
     this.dataListeners.set(id, false)
 
     // Start listening for data immediately to buffer it
@@ -85,6 +96,13 @@ export class TerminalManager {
       const buffer = this.dataBuffers.get(id)
       if (buffer && !this.dataListeners.get(id)) {
         buffer.push(data)
+      }
+
+      // Also keep a rolling buffer of recent data
+      const recent = this.recentBuffers.get(id)
+      if (recent) {
+        recent.push(data)
+        if (recent.length > 100) recent.shift() // Keep last 100 chunks
       }
     })
 
@@ -161,6 +179,7 @@ export class TerminalManager {
 
       this.sessions.delete(id)
       this.dataBuffers.delete(id)
+      this.recentBuffers.delete(id)
       this.dataListeners.delete(id)
       console.log(`[TerminalManager] Killed session ${id} (PID: ${pid})`)
     } catch (error) {
@@ -466,6 +485,7 @@ export class TerminalManager {
     }
     this.sessions.clear()
     this.dataBuffers.clear()
+    this.recentBuffers.clear()
     this.dataListeners.clear()
   }
 

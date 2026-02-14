@@ -182,6 +182,8 @@ const api = {
     metadata: { branch: string; remote?: string; repoName?: string }
   }> => ipcRenderer.invoke('git:info', forcedPath),
   gitInit: (): Promise<boolean> => ipcRenderer.invoke('git:init'),
+  getTerminalBuffer: (id: string): Promise<{ success: boolean; buffer: string }> =>
+    ipcRenderer.invoke('terminal:get-buffer', id),
 
   getSettings: (): Promise<AppSettings> => ipcRenderer.invoke('settings:get'),
   updateSettings: (updates: Partial<AppSettings>): Promise<AppSettings> =>
@@ -247,11 +249,14 @@ const api = {
     // This is currently a stub if not used, but let's keep the parameter to match expected interface
     void callback
   },
-  getGitHistory: (filePath: string): Promise<any[]> => ipcRenderer.invoke('git:history', filePath),
-  getGitRepoHistory: (): Promise<any[]> => ipcRenderer.invoke('git:repo-history'),
+  getGitHistory: (filePath: string): Promise<Record<string, unknown>[]> =>
+    ipcRenderer.invoke('git:history', filePath),
+  getGitRepoHistory: (): Promise<Record<string, unknown>[]> =>
+    ipcRenderer.invoke('git:repo-history'),
   getGitContentAtCommit: (filePath: string, hash: string): Promise<string> =>
     ipcRenderer.invoke('git:show-content', filePath, hash),
-  getCommitDetails: (hash: string): Promise<any> => ipcRenderer.invoke('git:commit-details', hash)
+  getCommitDetails: (hash: string): Promise<Record<string, unknown>> =>
+    ipcRenderer.invoke('git:commit-details', hash)
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

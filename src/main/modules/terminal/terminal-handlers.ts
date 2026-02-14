@@ -1,7 +1,7 @@
 import { ipcMain } from 'electron'
 import * as os from 'os'
 import { existsSync } from 'fs'
-import { execSync } from 'child_process'
+import { execSync, exec } from 'child_process'
 import { TerminalManager } from './terminal-manager'
 
 /**
@@ -26,8 +26,47 @@ export class TerminalHandlers {
     this.registerRestartHandler()
     this.registerListenHandler()
     this.registerGetAvailableShellsHandler()
+    this.registerRunCommandHandler()
+    this.registerGetBufferHandler()
 
     console.log('[TerminalHandlers] IPC handlers registered')
+  }
+
+  /**
+   * Register terminal get buffer handler
+   */
+  private registerGetBufferHandler(): void {
+    ipcMain.handle('terminal:get-buffer', (_, id: string) => {
+      const buffer = this.terminalManager.getTerminalBuffer(id)
+      return { success: true, buffer }
+    })
+  }
+
+  /**
+   * Register terminal run command handler
+   */
+  private registerRunCommandHandler(): void {
+    ipcMain.handle('terminal:run-command', async (_, command: string, cwd?: string) => {
+      const finalCwd = cwd || undefined
+
+      return new Promise((resolve) => {
+        exec(command, { cwd: finalCwd }, (error: Error | null, stdout: string, stderr: string) => {
+          if (error) {
+            resolve({
+              success: false,
+              output: stdout,
+              error: stderr || error.message
+            })
+          } else {
+            resolve({
+              success: true,
+              output: stdout,
+              error: stderr
+            })
+          }
+        })
+      })
+    })
   }
 
   /**

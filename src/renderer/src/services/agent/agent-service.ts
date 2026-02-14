@@ -1,4 +1,5 @@
 import { agentExecutor } from './executor'
+import type { EditorContext } from '../aiService'
 
 /**
  * AgentService
@@ -7,21 +8,50 @@ import { agentExecutor } from './executor'
  * Handles parsing of [RUN: ...] commands and coordinates execution.
  */
 export class AgentService {
+  private editorContext?: EditorContext
+  private onConfirm?: (command: string) => Promise<boolean>
+
+  setEditorContext(context: EditorContext): void {
+    this.editorContext = context
+  }
+
+  setConfirmHandler(handler: (command: string) => Promise<boolean>): void {
+    this.onConfirm = handler
+  }
+
+  private getActiveEditorContent(): string {
+    if (!this.editorContext) return 'Error: Editor context not available'
+    const content = this.editorContext.getEditorContent()
+    if (content === null) return 'No note currently open in editor'
+    return content
+  }
   /**
    * Parse and execute multiple commands from AI text
    */
-  async processResponse(text: string): Promise<string[]> {
+  async processResponse(
+    text: string,
+    onProgress?: () => void,
+    signal?: AbortSignal
+  ): Promise<string[]> {
     const runMatches = Array.from(text.matchAll(/\[RUN:\s*(.+?)\]/g))
     const results: string[] = []
 
     for (const match of runMatches) {
+      if (signal?.aborted) break
+
       const fullCmd = match[1].trim()
       try {
-        await this.executeCommand(fullCmd)
-        results.push(`Success: ${fullCmd}`)
+        const result = await this.executeCommand(fullCmd)
+        // If result is a string, use it. Otherwise, use success message.
+        results.push(`> [RUN: ${fullCmd}]\n${typeof result === 'string' ? result : 'Success'}`)
+        if (onProgress) onProgress()
       } catch (err) {
         console.error(`[AgentService] Execution failed: ${fullCmd}`, err)
-        results.push(`Error: ${fullCmd} (${(err as Error).message})`)
+        results.push(`> [RUN: ${fullCmd}]\nError: ${(err as Error).message}`)
+        if (onProgress) onProgress()
+
+        // incremental feedback: stop on first error to let AI pivot
+        break
       }
     }
 
@@ -41,7 +71,6 @@ export class AgentService {
       const char = cmdString[i]
       if (char === '"') {
         inQuotes = !inQuotes
-        // Don't break if we just closed quotes and there's more
       } else if (char === ' ' && !inQuotes) {
         if (currentPart) {
           parts.push(currentPart)
@@ -51,9 +80,16 @@ export class AgentService {
         currentPart += char
       }
 
-      // Optimization: if it's write/append, we only need the first two parts (cmd, title)
+      // Optimization: if it's write/append/propose, we only need the first two parts (cmd, title)
       // and the REST is content.
-      if (parts.length === 2 && !inQuotes && (parts[0] === 'write' || parts[0] === 'append')) {
+      if (
+        parts.length === 2 &&
+        !inQuotes &&
+        (parts[0] === 'write' ||
+          parts[0] === 'append' ||
+          parts[0] === 'propose' ||
+          parts[0] === 'touch')
+      ) {
         const rest = cmdString.substring(i + 1).trim()
         if (rest) {
           parts.push(rest)
@@ -66,6 +102,15 @@ export class AgentService {
     const action = parts[0].toLowerCase()
     const args = parts.slice(1)
 
+    // HAZARDOUS COMMANDS: Require confirmation
+    const isHazardous = ['terminal', 'shell', 'run', 'delete', 'rm'].includes(action)
+    if (isHazardous && this.onConfirm) {
+      const confirmed = await this.onConfirm(cmdString)
+      if (!confirmed) {
+        throw new Error(`Command "${action}" rejected by user.`)
+      }
+    }
+
     switch (action) {
       case 'read':
         return agentExecutor.readNote(args[0])
@@ -73,8 +118,12 @@ export class AgentService {
         return agentExecutor.writeNote(args[0], args[1])
       case 'append':
         return agentExecutor.appendNote(args[0], args[1])
+      case 'propose':
+        return agentExecutor.proposeNote(args[0], args[1])
       case 'mkdir':
         return agentExecutor.createFolder(args[0], args[1])
+      case 'touch':
+        return agentExecutor.writeNote(args[0], '')
       case 'move':
         return agentExecutor.move(args[0], args[1])
       case 'rename':
@@ -82,6 +131,22 @@ export class AgentService {
       case 'delete':
       case 'rm':
         return agentExecutor.delete(args[0])
+      case 'terminal':
+      case 'shell':
+      case 'run':
+        return agentExecutor.executeTerminal(args.join(' '))
+      case 'search':
+      case 'grep':
+        return window.api.searchNotes(args.join(' ')).then((notes) => {
+          if (notes.length === 0) return 'No results found.'
+          return `Found ${notes.length} matches:\n` + notes.map((n) => `- ${n.title}`).join('\n')
+        })
+      case 'read-editor':
+        return this.getActiveEditorContent()
+      case 'list': {
+        const notes = await window.api.listNotes()
+        return `Vault Structure:\n${agentExecutor.formatTree(notes)}`
+      }
       default:
         throw new Error(`Unknown agent command: ${action}`)
     }
