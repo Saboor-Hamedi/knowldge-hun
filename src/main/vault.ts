@@ -79,7 +79,15 @@ const TEXT_EXTENSIONS = [
   '.mdx',
   'dockerfile',
   'makefile',
-  '.ipynb'
+  '.ipynb',
+  '.kt',
+  '.kts',
+  '.dart',
+  '.swift',
+  '.m',
+  '.mm',
+  '.gradle',
+  '.gradle.kts'
 ]
 
 const IGNORED_NAMES = [
@@ -280,6 +288,14 @@ export class VaultManager {
     this.watcher.on('unlinkDir', (path) => void this.handleDirChange('unlink', path))
   }
 
+  private notifyWindows(data: unknown): void {
+    this.windows.forEach((win) => {
+      if (!win.isDestroyed()) {
+        win.webContents.send('vault:changed', data)
+      }
+    })
+  }
+
   private async handleFileChange(
     event: 'add' | 'change' | 'unlink',
     fullPath: string
@@ -295,15 +311,10 @@ export class VaultManager {
       await this.indexFile(fullPath)
     }
 
-    // Notify all windows looking at this vault
-    this.windows.forEach((win) => {
-      if (!win.isDestroyed()) {
-        win.webContents.send('vault:changed', {
-          event,
-          id,
-          meta: this.notes.get(id)
-        })
-      }
+    this.notifyWindows({
+      event,
+      id,
+      meta: this.notes.get(id)
     })
   }
 
@@ -317,12 +328,7 @@ export class VaultManager {
       this.folders.delete(normalizedPath)
     }
     this.folderCacheValid = false
-    // Notify all windows for refresh
-    this.windows.forEach((win) => {
-      if (!win.isDestroyed()) {
-        win.webContents.send('vault:changed', { event: 'refresh' })
-      }
-    })
+    this.notifyWindows({ event: 'refresh' })
   }
 
   // --- Helpers ---
@@ -339,11 +345,11 @@ export class VaultManager {
   }
 
   private sanitizeFilename(name: string): string {
-    // Windows forbidden chars: < > : " / \ | ? *
+    // Windows forbidden chars: < > : " | ? * (Removed / and \ from here to allow path parsing)
     // Also remove control characters and trim trailing dots/spaces
     return (
       name
-        .replace(/[<>:"/\\|?*]/g, ' ') // Replace forbidden chars with space
+        .replace(/[<>:"|?*]/g, ' ') // Replace forbidden chars with space
         // eslint-disable-next-line no-control-regex
         .replace(/[\x00-\x1f]/g, '') // Remove control characters
         .trim()
@@ -411,7 +417,17 @@ export class VaultManager {
   }
 
   public async getNote(id: string): Promise<NotePayload | null> {
-    const meta = this.notes.get(id)
+    let meta = this.notes.get(id)
+
+    // If not in cache, try to find it on disk directly (Direct Path Awareness)
+    if (!meta) {
+      const fullPath = join(this.rootPath, id)
+      if (existsSync(fullPath) && this.isSupportedFile(fullPath)) {
+        await this.indexFile(fullPath)
+        meta = this.notes.get(id)
+      }
+    }
+
     if (!meta) return null
 
     // Ensure title is set (safety check)
@@ -419,7 +435,6 @@ export class VaultManager {
       meta.title = basename(id) || 'Untitled'
     }
 
-    // Dynamic extension loading: joined id is the full workspace path
     const fullPath = join(this.rootPath, id)
 
     try {
@@ -507,54 +522,71 @@ export class VaultManager {
     return this.notes.get(id)!
   }
 
-  public async createNote(title: string, folderPath?: string): Promise<NoteMeta> {
-    const rawTitle = title.trim() || 'Untitled'
-    const safeTitle = this.sanitizeFilename(rawTitle)
-    let targetDir = folderPath ? join(this.rootPath, folderPath) : this.rootPath
+  public async createNote(titleInput: string, folderPath = '.'): Promise<NoteMeta> {
+    const rawPath = titleInput.trim() || 'Untitled'
+    const normalizedPath = rawPath.replace(/\\/g, '/')
 
-    // If title itself contains a path (e.g. "Sub/Note.md"), extract the subdirectory
-    const normalizedTitlePath = safeTitle.replace(/\\/g, '/')
-    const titleParts = normalizedTitlePath.split('/')
-    let filename = titleParts.pop()!
-    const titleSubDir = titleParts.join('/')
+    // Split into segments to sanitize each part but keep the structure
+    const segments = normalizedPath.split('/').map((s) => this.sanitizeFilename(s))
+    let filename = segments.pop()!
+    const subDir = segments.join('/')
 
-    if (titleSubDir) {
-      targetDir = join(targetDir, titleSubDir)
+    let targetDir = join(this.rootPath, folderPath)
+    if (subDir) {
+      targetDir = join(targetDir, subDir)
     }
 
-    // Ensure target directory exists (including any subdirs from the title)
+    // Ensure target directory exists and all parents are indexed as folders
     await mkdir(targetDir, { recursive: true })
+    const dirRelPath = relative(this.rootPath, targetDir).replace(/\\/g, '/')
+    if (dirRelPath && dirRelPath !== '.') {
+      const dirParts = dirRelPath.split('/')
+      let currentDirPart = ''
+      for (const part of dirParts) {
+        currentDirPart = currentDirPart ? `${currentDirPart}/${part}` : part
+        this.folders.add(currentDirPart)
+      }
+      this.folderCacheValid = false
+    }
 
     // If filename doesn't have an extension, default to .md
     if (!filename.includes('.')) {
       filename = `${filename}.md`
     }
 
-    let fullPath = join(targetDir, filename)
-    let counter = 1
+    const fullPath = join(targetDir, filename)
+    const relPath = relative(this.rootPath, fullPath).replace(/\\/g, '/')
 
-    const nameParts = filename.split('.')
-    const ext = nameParts.length > 1 ? `.${nameParts.pop()}` : '.md'
-    const baseName = nameParts.join('.')
-
-    while (existsSync(fullPath)) {
-      filename = `${baseName} ${counter}${ext}`
-      fullPath = join(targetDir, filename)
-      counter++
+    // For IDE/Agent scaffolding: If it exists, don't suffix, just return existing
+    if (existsSync(fullPath)) {
+      await this.indexFile(fullPath)
+      return this.notes.get(relPath)!
     }
 
-    const content = `\n`
+    const content = '\n'
     await writeFile(fullPath, content, 'utf-8')
     await this.indexFile(fullPath)
 
-    const relPath = relative(this.rootPath, fullPath).replace(/\\/g, '/')
+    // Notify windows of the change to trigger a refresh
+    this.notifyWindows({ event: 'refresh' })
+
     return this.notes.get(relPath)!
   }
 
   public async deleteNote(id: string): Promise<void> {
     const fullPath = join(this.rootPath, id)
-    if (existsSync(fullPath)) {
+    if (!existsSync(fullPath)) return
+
+    // Stop watcher to prevent locks on Windows
+    if (this.watcher) {
+      await this.watcher.close()
+      this.watcher = null
+    }
+
+    try {
       await rm(fullPath, { recursive: true, force: true })
+    } finally {
+      await this.startWatcher()
     }
 
     this.notes.delete(id)
@@ -700,46 +732,83 @@ export class VaultManager {
   }
 
   public async createFolder(
-    name: string,
+    nameInput: string,
     parentPath = '.'
   ): Promise<{ name: string; path: string }> {
-    const targetDir = join(this.rootPath, parentPath)
-    const sanitizedName = this.sanitizeFilename(name) || 'New Folder'
-    let safeName = sanitizedName
-    let folderPath = join(targetDir, safeName)
+    const normalizedPath = nameInput.replace(/\\/g, '/')
+    const segments = normalizedPath.split('/').map((s) => this.sanitizeFilename(s))
+    const name = segments.join('/')
 
-    let counter = 1
-    while (existsSync(folderPath)) {
-      safeName = `${name || 'New Folder'} ${counter}`
-      folderPath = join(targetDir, safeName)
-      counter++
+    const targetDir = join(this.rootPath, parentPath)
+    const safeName = name
+    const folderPath = join(targetDir, safeName)
+
+    // For IDE/Agent: If folder exists, just return it
+    if (existsSync(folderPath)) {
+      const relPath = relative(this.rootPath, folderPath).replace(/\\/g, '/')
+      this.folders.add(relPath)
+      return { name: basename(folderPath), path: relPath }
     }
 
     await mkdir(folderPath, { recursive: true })
 
     const relPath = relative(this.rootPath, folderPath).replace(/\\/g, '/')
-    this.folders.add(relPath)
-    this.folderCacheValid = false
 
+    // Add all intermediate folders to cache
+    const parts = relPath.split('/')
+    let currentPart = ''
+    for (const part of parts) {
+      if (!part) continue
+      currentPart = currentPart ? `${currentPart}/${part}` : part
+      this.folders.add(currentPart)
+    }
+
+    this.folderCacheValid = false
     return { name: safeName, path: relPath }
   }
 
-  public async deleteFolder(relativePath: string): Promise<void> {
+  public async deleteFolder(relativePath: string): Promise<{ success: boolean }> {
     const fullPath = join(this.rootPath, relativePath)
-    if (existsSync(fullPath)) {
+    console.log(`[Vault] deleteFolder request: "${relativePath}" -> "${fullPath}"`)
+
+    if (!existsSync(fullPath)) {
+      console.warn(`[Vault] Folder does not exist: ${fullPath}`)
+      return { success: false }
+    }
+
+    // Stop watcher to prevent locks on Windows
+    if (this.watcher) {
+      await this.watcher.close()
+      this.watcher = null
+    }
+
+    try {
       await rm(fullPath, { recursive: true, force: true })
+      console.log(`[Vault] Successfully deleted: ${fullPath}`)
+    } catch (err) {
+      console.error(`[Vault] Failed to delete folder: ${fullPath}`, err)
+      await this.startWatcher()
+      return { success: false }
+    } finally {
+      await this.startWatcher()
+    }
 
-      const normalizedPath = relativePath.replace(/\\/g, '/')
-      this.folders.delete(normalizedPath)
-      this.folderCacheValid = false
+    const normalizedPath = relativePath.replace(/\\/g, '/')
+    this.folders.delete(normalizedPath)
+    this.folderCacheValid = false
 
-      // Cleanup all notes inside this folder from cache
-      for (const [id, meta] of this.notes.entries()) {
-        if (meta.path?.startsWith(normalizedPath)) {
-          this.notes.delete(id)
-        }
+    // Cleanup all notes inside this folder from cache
+    const prefix = normalizedPath === '' ? '' : normalizedPath + '/'
+    for (const [id] of this.notes.entries()) {
+      if (id.startsWith(prefix) || id === normalizedPath) {
+        this.notes.delete(id)
       }
     }
+
+    // Notify windows that the vault has changed
+    this.notifyWindows({ event: 'refresh' })
+
+    return { success: true }
   }
 
   public async renameFolder(path: string, newName: string): Promise<{ path: string }> {

@@ -230,24 +230,39 @@ export class AgentExecutor {
    * EXECUTE: Delete
    */
   async delete(id: string): Promise<{ success: boolean }> {
+    // CRITICAL: Ensure we have fresh vault data
+    if (state.notes.length === 0) {
+      console.warn('[AgentExecutor] state.notes is empty, fetching fresh vault data...')
+      try {
+        const freshNotes = await window.api.listNotes()
+        state.notes = freshNotes
+        console.log(`[AgentExecutor] Refreshed state with ${freshNotes.length} items`)
+      } catch (err) {
+        console.error('[AgentExecutor] Failed to refresh vault state:', err)
+      }
+    }
+
     const item = this.resolveNote(id)
     if (!item) throw new Error(`Item not found for deletion: ${id}`)
 
     let res
     if (item.type === 'folder') {
-      res = await window.api.deleteFolder(item.path!)
+      // For folders, use item.id as the path (folders don't have a separate path property)
+      res = await window.api.deleteFolder(item.id)
 
       // Close tabs for notes inside this folder
-      const folderPathPrefix = item.path!.endsWith('/') ? item.path! : item.path! + '/'
+      const folderPathPrefix = item.id.endsWith('/') ? item.id : item.id + '/'
       const idsToClose = state.openTabs
-        .filter((tab) => tab.path?.startsWith(folderPathPrefix))
+        .filter(
+          (tab) => tab.path?.startsWith(folderPathPrefix) || tab.id.startsWith(folderPathPrefix)
+        )
         .map((tab) => tab.id)
 
       if (idsToClose.length > 0) {
         tabService.closeTabs(idsToClose)
       }
     } else {
-      res = await window.api.deleteNote(item.id, item.path!)
+      res = await window.api.deleteNote(item.id, item.path || '')
       tabService.closeTab(item.id)
       void ragService.deleteNote(item.id)
     }

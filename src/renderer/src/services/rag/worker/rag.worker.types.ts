@@ -1,6 +1,14 @@
 export interface RagWorkerJob {
   id: string
-  type: 'index' | 'search' | 'init' | 'delete' | 'embed' | 'debug' | 'get-all-metadata'
+  type:
+    | 'index'
+    | 'search'
+    | 'init'
+    | 'delete'
+    | 'embed'
+    | 'debug'
+    | 'get-all-metadata'
+    | 'switch-vault'
   payload: any
 }
 

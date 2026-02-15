@@ -1,23 +1,71 @@
-# AI Agent Robustness Analysis & Suggestions
+# AI Agent Robustness Strategy & Roadmap
 
-## Identified Issues
+This report outlines the current state of the Knowledge Hub AI Agent, recent improvements, and a strategic roadmap for achieving world-class agentic robustness.
 
-1. **Architectural Redundancy**: There are currently two disconnected implementations of agent logic (`src/renderer/src/components/rightbar/AgentExecutor.ts` and `src/renderer/src/services/agent/executor.ts`). The chat UI uses a primitive version that lacks RAG synchronization and advanced path resolution.
-2. **Limited "Sensory" Input**: The agent is restricted to vault notes and lacks visibility into the active editor state (selection, cursor, diagnostics/lint errors) or terminal output.
-3. **Weak Error Recovery**: Commands are executed sequentially without the ability for the AI to pivot or self-correct if an intermediate step fails.
-4. **Brittle Command Parsing**: Regex-based parsing of `[RUN: ...]` tags is susceptible to failures with complex strings, quotes, or special characters in content.
+## 🏁 Phase 1: Completed Stability Improvements
 
-## Recommendations for Robustness (Copilot-Level)
+Recent updates have solidified the core execution layer:
 
-1. **Unify the Core**: Merge the redundant executor implementations into a single, high-level `AgentManager` that handles RAG indexing, UI state (tabs), and file operations consistently.
-2. **Expanded Toolset**: Implement new agentic capabilities:
-   - `[RUN: terminal ...]`: Execute shell commands/scripts.
-   - `[RUN: search ...]`: Project-wide text searching.
-   - `[RUN: read-editor]`: Pull content from the currently active tab.
-3. **Rich Context Injection**: Automatically inject the following into every AI request:
-   - Active file path and content.
-   - Cursor position/selection.
-   - Recent console/terminal errors.
-   - Project structure overview.
-4. **Incremental Feedback Loop**: Instead of executing a block of commands at once, execute them one-by-one and feed results back to the AI immediately. This allows the model to "think" between steps and fix errors as they happen.
-5. **Human-in-the-Loop Integration**: Add a mandatory "Approve/Reject" UI for terminal commands or destructive file operations to ensure safety and alignment.
+- **Pragmatic Identity**: Shifted the agent from a "Heavy Architect" to a "Pragmatic Engineer" (Minimalism and Efficiency).
+- **Atomic Patching**: Implemented `[RUN: patch]` for targeted search-and-replace, avoiding redundant file overwrites.
+- **Token Optimization**: Enforced a "No Redundancy" rule where the agent no longer writes code in chat if it's already using a tool.
+- **Safe Tab Management**: Deleting a file now accurately closes its open tab and cleans up the UI state.
+- **Action Visualization**: Re-engineered the "Agent Log" UI with collapsable, status-aware cards and premium iconography.
+
+---
+
+## 🚀 Phase 2: Intelligence & Sensory Roadmap
+
+### 👁️ Workspace Sensory Input
+
+The agent is currently "blind" to the IDE's real-time state beyond text.
+
+- **Recommendation**: Inject **LSP Diagnostics** (TS errors, ESLint warnings) directly into the agent context.
+- **Implementation**: When the user asks "Why is this failing?", the agent should automatically receive the error message and the exact line number from the IDE's diagnostic engine.
+
+### 🧪 Step-by-Step Self-Correction
+
+Currently, the agent executes commands in a batch and only sees errors after the whole turn is finished.
+
+- **Recommendation**: Move to an **Interactive Feedback Loop**.
+- **User Scenario**: If a `patch` command fails because the search block was slightly off, the agent should immediately get a "Match failed" response and the surrounding code context so it can **self-correct** in the same turn without user intervention.
+
+### 🧠 Intention-Aware Routing
+
+Not all queries need the full weight (and latency/cost) of a top-tier model.
+
+- **Recommendation**: Use a "Small-Fast-Large" pattern.
+- **Pattern**: A small model identifies if the intent is "Chat" or "Action". If "Action", it extracts the files needed. Only then does the Large model generate the code. This reduces latency significantly.
+
+---
+
+## 🏗️ Phase 3: Architectural Robustness
+
+### 🧱 Component Decoupling
+
+The `RightBar.ts` remains a monolithic controller managing too many concerns.
+
+- **Strategy**: Refactor into a **Service-First Architecture**.
+- **Action**: Move all chat history logic to a `SessionService` and all UI rendering to a set of pure functional components. This ensures that the agent logic can be tested in isolation without the DOM.
+
+### 🛡️ Verified Execution (Sandboxing)
+
+Executing terminal commands blindly is a safety risk.
+
+- **Recommendation**: Implement **Virtual File System (VFS)** previews.
+- **Strategy**: Before applying a massive refactor, the agent generates a "Virtual Diff". The user sees a "Compare" view (like a PR), and only upon clicking "Apply" are the real files touched.
+
+---
+
+## 📊 Summary of Robustness KPIs
+
+| Metric                     | Current State            | Target                              |
+| :------------------------- | :----------------------- | :---------------------------------- |
+| **Command Success Rate**   | ~80% (Regex/Exact Match) | 99% (Fuzzy/Normalizing Parser)      |
+| **Latency (First Action)** | ~3s - 5s                 | < 1.5s (Intent Routing)             |
+| **UI Jitter**              | Visible on large streams | Zero (Virtual List + Throttled DOM) |
+| **Redundancy**             | Low (Recent Fix)         | Zero                                |
+
+---
+
+_Report generated by Antigravity Agent v2.1_

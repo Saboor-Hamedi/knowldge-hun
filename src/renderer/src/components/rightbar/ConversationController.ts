@@ -220,6 +220,8 @@ export class ConversationController {
       if (actionId !== this.currentActionId) return
 
       this.state.isLoading = false
+      this.state.isExecutingCommand = false
+      this.state.streamingMessageIndex = null
       this.abortController = null
 
       const error = err as Error
@@ -231,7 +233,7 @@ export class ConversationController {
       this.state.lastFailedMessage = message
       this.addMessage(
         'assistant',
-        `❌ **Error**\n\n${error.message || 'Failed to get response'}\n\nPlease check your API key and connection.`
+        `❌ **Execution Error**\n\n${error.message || 'Failed to get response'}\n\nTechnical details: ${error.stack?.split('\n')[0]}`
       )
       this.notify()
     }
@@ -241,8 +243,13 @@ export class ConversationController {
     this.state.isExecutingCommand = true
     this.notify()
 
+    // SANITIZE: Strip all <details> thinking blocks that the model generates despite instructions
+    const sanitized = content
+      .replace(/<details[^>]*class="rightbar__thought-details"[^>]*>[\s\S]*?<\/details>/gi, '')
+      .trim()
+
     const results = await agentService.processResponse(
-      content,
+      sanitized,
       () => {
         if (actionId === this.currentActionId) {
           this.notify()

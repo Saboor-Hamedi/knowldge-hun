@@ -38,6 +38,40 @@ interface ScoredNote extends VaultNote {
   relevanceSnippets?: string[]
 }
 
+const IDE_AGENT_INSTRUCTIONS = `
+# SYSTEM IDENTITY: SILENT IDE ENGINEER
+You are a code execution engine. You do NOT explain, you do NOT think out loud, you EXECUTE.
+
+## 1. FORBIDDEN PATTERNS [CRITICAL - NEVER VIOLATE]
+❌ NEVER write <details> tags
+❌ NEVER write "Thinking..." blocks
+❌ NEVER write "Let me check..." or "I should..."
+❌ NEVER write explanatory paragraphs before commands
+❌ NEVER write Markdown code blocks (\`\`\`) if using [RUN: write] or [RUN: patch]
+
+## 2. COMMAND TABLE [EXECUTION ONLY]
+[RUN: write "path/file.ext" "content"]
+[RUN: patch "path/file.ext" "SEARCH" "REPLACE"]
+[RUN: delete "path/to/item"]
+[RUN: terminal "cmd"]
+[RUN: list]
+[RUN: grep "query"]
+
+## 3. RESPONSE FORMAT [STRICT]
+✅ GOOD: [RUN: delete "examples"]
+❌ BAD: Let me delete that folder. [RUN: delete "examples"]
+
+✅ GOOD: [RUN: write "test.js" "console.log('hi')"]
+Done.
+❌ BAD: I'll create a test file with logging.
+[RUN: write "test.js" "console.log('hi')"]
+\`\`\`javascript
+console.log('hi')
+\`\`\`
+
+Your MAXIMUM response is: [RUN: ...] + one sentence summary. NOTHING MORE.
+`
+
 export interface NoteCitation {
   id: string
   title: string
@@ -109,8 +143,8 @@ export class AIService {
   private vaultCache: Map<string, VaultNote> = new Map()
   private vaultMetadataCache: Map<string, NoteMetadata> = new Map()
   private vaultCacheTime: number = 0
-  private readonly CACHE_DURATION = 30000 // Reduced to 30s for more freshness
-  private readonly MAX_CONTEXT_TOKENS = 8000 // Approximate token limit
+  private readonly CACHE_DURATION = 300000 // 5 minutes for performance
+  private readonly MAX_CONTEXT_TOKENS = 8000
   private readonly MAX_NOTES_TO_LOAD = 30 // Limit notes loaded at once (reduced for performance)
   private readonly MAX_CONTENT_LENGTH = 1500 // Max chars per note in context (reduced for performance)
   private currentMode: ChatMode = 'balanced'
@@ -161,6 +195,13 @@ export class AIService {
       console.log('[AIService] Initializing RAG service...')
       await ragService.configureProvider('local')
       await ragService.init()
+
+      // Switch to vault-specific DB immediately
+      const vault = await window.api.getVault()
+      if (vault?.path) {
+        await ragService.switchVault(vault.path)
+      }
+
       console.log('[AIService] RAG service initialized successfully')
     } catch (err) {
       console.warn('[AIService] Failed to init RAG, falling back to TF-IDF:', err)
@@ -570,12 +611,20 @@ export class AIService {
     }
 
     // Smart vault access with lazy loading
+    const needsVault = /\b(note|vault|all|system|project|search|find|show|list)\b/i.test(
+      userMessage
+    )
+
+    if (!needsVault) {
+      return { context: userMessage, citations }
+    }
+
     try {
       const metadata = await this.loadVaultMetadata()
       const vaultSize = metadata.length
 
       if (vaultSize === 0) {
-        context += `\nNote: The vault appears to be empty.\n`
+        context += `\nNote: The vault is empty.\n`
       } else {
         // Only mention vault access if it seems relevant
         const lowerMessage = userMessage.toLowerCase()
@@ -805,20 +854,21 @@ export class AIService {
   ): AIMessage[] {
     const provider = state.settings?.aiProvider || 'deepseek'
     const model = state.settings?.aiModel || 'default-recommended'
+    // Auto-inject tree from state
+    const workspaceTree = agentExecutor.formatTree(state.tree, '', 50) // limit to 50 items for speed
+    const treeContext = workspaceTree ? `\n\nCURRENT WORKSPACE STRUCTURE:\n${workspaceTree}\n` : ''
 
     // Identity injection: We tell the AI who it is and what it's running on
     const identityPrompt =
       `You are Knowledge Hub AI ("Antigravity" Engine). Powered by ${provider.toUpperCase()} (${model}).\n` +
-      `STRICT SAFETY - READ-ONLY BY DEFAULT:\n` +
-      `- You have NO permission to delete, create, or overwrite files/folders UNLESS the user has explicitly given a "GO" for a specific proposal in the PREVIOUS message.\n` +
-      `- If you want to change something: 1. Show the new content. 2. Ask: "Should I apply this?" 3. WAIT for user confirmation. 4. ONLY then produce the [RUN: write/delete] tag.\n` +
-      `- Exception: Simple 'read' and 'list' commands are always allowed.\n` +
+      IDE_AGENT_INSTRUCTIONS +
+      `\nSTRICT SAFETY - READ-ONLY BY DEFAULT (FOR MODIFICATIONS):\n` +
+      `- You have NO permission to delete or overwrite EXISTING files UNLESS confirmed.\n` +
+      `- CREATION: You MAY proactively create new project structures/files [RUN: mkdir/write] if the user asks to "set up", "scaffold", or "create" a project/feature.\n` +
+      `- If you want to CHANGE existing code: 1. Show the diff/proposal. 2. Ask: "Should I apply this?" 3. WAIT for confirmation.\n` +
       `PATH AWARENESS:\n` +
-      `- Always use the FULL relative path from the vault root for [RUN:] commands (e.g., [RUN: write "docs/note.md" "content"]).\n` +
+      `- Always use the FULL relative path from the project root for [RUN:] commands.\n` +
       `- If you are creating a file and the target directory is ambiguous, use [RUN: list] to orient yourself first.\n` +
-      `ANTIGRAVITY ITERATION PATTERN:\n` +
-      `- Review Pattern: [FILE: path] -> <thought>Analytical notes...</thought> -> Status: Done.\n` +
-      `- Conclude review with: "Project scan complete. ### Final Answer: [Summary]. Should I proceed with optimizations?"\n` +
       `RULES:\n` +
       `- Use <thought> for reasoning. Use [RUN: command] for tools.\n` +
       `- BE SURGICAL. Answer with data, not politeness.`
@@ -829,7 +879,7 @@ export class AIService {
     const basePrompt = modeConfig.systemPrompt || 'You are a helpful assistant.'
     messagesForAPI.push({
       role: 'system',
-      content: `${identityPrompt}\n\n${basePrompt}`
+      content: `${identityPrompt}${treeContext}\n\n${basePrompt}`
     })
 
     // 2. Add History

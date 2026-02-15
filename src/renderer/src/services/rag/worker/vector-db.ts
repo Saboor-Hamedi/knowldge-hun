@@ -15,7 +15,8 @@ export class VectorDB {
   private storeName = 'vectors'
   private db: IDBDatabase | null = null
 
-  async connect(): Promise<void> {
+  async connect(name?: string): Promise<void> {
+    if (name) this.dbName = name
     if (this.db) return
 
     return new Promise((resolve, reject) => {
@@ -38,6 +39,13 @@ export class VectorDB {
         resolve()
       }
     })
+  }
+
+  async disconnect(): Promise<void> {
+    if (this.db) {
+      this.db.close()
+      this.db = null
+    }
   }
 
   async upsert(record: VectorRecord): Promise<void> {

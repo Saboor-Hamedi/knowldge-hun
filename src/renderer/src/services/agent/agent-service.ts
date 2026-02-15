@@ -33,7 +33,7 @@ export class AgentService {
     onProgress?: () => void,
     signal?: AbortSignal
   ): Promise<string[]> {
-    const runMatches = Array.from(text.matchAll(/\[RUN:\s*(.+?)\]/g))
+    const runMatches = Array.from(text.matchAll(/\[RUN:\s*([\s\S]+?)\]/g))
     const results: string[] = []
 
     for (const match of runMatches) {
@@ -61,16 +61,22 @@ export class AgentService {
   /**
    * Internal command router
    */
-  private async executeCommand(cmdString: string): Promise<any> {
-    // Better parser that handles quoted titles but preserves the REST as a single string
+  private async executeCommand(cmdString: string): Promise<unknown> {
     const parts: string[] = []
     let currentPart = ''
     let inQuotes = false
+    let quoteChar = ''
 
     for (let i = 0; i < cmdString.length; i++) {
       const char = cmdString[i]
-      if (char === '"') {
-        inQuotes = !inQuotes
+      if ((char === '"' || char === "'") && (!inQuotes || char === quoteChar)) {
+        if (!inQuotes) {
+          inQuotes = true
+          quoteChar = char
+        } else {
+          inQuotes = false
+          quoteChar = ''
+        }
       } else if (char === ' ' && !inQuotes) {
         if (currentPart) {
           parts.push(currentPart)
@@ -80,17 +86,21 @@ export class AgentService {
         currentPart += char
       }
 
-      // Optimization: if it's write/append/propose, we only need the first two parts (cmd, title)
-      // and the REST is content.
+      // Special handling for write/append/propose: The second quoted block (or unquoted text)
+      // is the content and we take the rest of the string.
       if (
         parts.length === 2 &&
         !inQuotes &&
-        (parts[0] === 'write' ||
-          parts[0] === 'append' ||
-          parts[0] === 'propose' ||
-          parts[0] === 'touch')
+        ['write', 'append', 'propose'].includes(parts[0].toLowerCase())
       ) {
-        const rest = cmdString.substring(i + 1).trim()
+        let rest = cmdString.substring(i + 1).trim()
+        // Strip exactly one layer of quotes from the rest if they exist
+        if (
+          (rest.startsWith('"') && rest.endsWith('"')) ||
+          (rest.startsWith("'") && rest.endsWith("'"))
+        ) {
+          rest = rest.substring(1, rest.length - 1)
+        }
         if (rest) {
           parts.push(rest)
           break
@@ -115,9 +125,13 @@ export class AgentService {
       case 'read':
         return agentExecutor.readNote(args[0])
       case 'write':
+      case 'create':
         return agentExecutor.writeNote(args[0], args[1])
       case 'append':
         return agentExecutor.appendNote(args[0], args[1])
+      case 'patch':
+      case 'edit':
+        return agentExecutor.patchNote(args[0], args[1], args[2])
       case 'propose':
         return agentExecutor.proposeNote(args[0], args[1])
       case 'mkdir':
@@ -134,16 +148,23 @@ export class AgentService {
       case 'terminal':
       case 'shell':
       case 'run':
-        return agentExecutor.executeTerminal(args.join(' '))
+      case 'npm':
+        return agentExecutor.executeTerminal(
+          action === 'npm' ? `npm ${args.join(' ')}` : args.join(' ')
+        )
       case 'search':
       case 'grep':
         return window.api.searchNotes(args.join(' ')).then((notes) => {
           if (notes.length === 0) return 'No results found.'
-          return `Found ${notes.length} matches:\n` + notes.map((n) => `- ${n.title}`).join('\n')
+          return (
+            `Found ${notes.length} matches:\n` +
+            notes.map((n) => `- ${n.title}${n.path ? ` (${n.path})` : ''}`).join('\n')
+          )
         })
       case 'read-editor':
         return this.getActiveEditorContent()
-      case 'list': {
+      case 'list':
+      case 'tree': {
         const notes = await window.api.listNotes()
         return `Vault Structure:\n${agentExecutor.formatTree(notes)}`
       }

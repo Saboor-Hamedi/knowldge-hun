@@ -178,6 +178,13 @@ export class RagService {
   async getAllMetadata(): Promise<Record<string, number>> {
     return this.dispatch('get-all-metadata', {})
   }
+
+  async switchVault(vaultPath: string): Promise<void> {
+    // Basic hash-like key from path
+    const dbName = `vectors-${vaultPath.replace(/[^a-z0-9]/gi, '_').toLowerCase()}`
+    await this.dispatch('switch-vault', { dbName })
+    console.log(`[RagService] Switched to vault DB: ${dbName}`)
+  }
 }
 
 export const ragService = new RagService()

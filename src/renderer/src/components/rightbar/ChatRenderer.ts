@@ -187,36 +187,66 @@ export class ChatRenderer {
 
   private renderSystemContent(msg: ChatMessage): string {
     const lines = msg.content.split('\n')
-    let title = lines[0]
-    title = title.replace(/^>\s*\[(.+?)\]$/, '$1')
+    const title = lines[0]
+    const contentLines = lines.slice(1).join('\n').trim()
 
-    let icon = '⚙️'
-    if (title.toLowerCase().includes('success')) icon = '✅'
-    if (title.toLowerCase().includes('error')) icon = '❌'
-    if (title.toLowerCase().includes('read')) icon = '📖'
-    if (title.toLowerCase().includes('write') || title.toLowerCase().includes('append')) icon = '📝'
-    if (title.toLowerCase().includes('list')) icon = '📂'
-
-    if (title.includes(':')) {
-      const parts = title.split(':')
-      const cmdParts = parts[1]?.trim().split(' ')
-      const cmdName = cmdParts[0]
-      const cmdTarget = cmdParts.slice(1).join(' ').substring(0, 15)
-      const targetSuffix = cmdTarget ? ` ${cmdTarget}...` : ''
-      title = `${parts[0]}: ${cmdName}${targetSuffix}`
+    // Extract command if present: "> [RUN: write file.ts]"
+    const runMatch = title.match(/^>\s*\[RUN:\s*(.+?)\]$/i)
+    let cmdDisplayName = ''
+    if (runMatch) {
+      const fullCmd = runMatch[1]
+      const cmdParts = fullCmd.split(' ')
+      const action = cmdParts[0]
+      const target = cmdParts
+        .slice(1)
+        .join(' ')
+        .replace(/^["']|["']$/g, '')
+        .substring(0, 30)
+      cmdDisplayName = `${action.toUpperCase()} ${target}${target.length >= 30 ? '...' : ''}`
     }
 
-    // For Antigravity style: Keep READ operations collapsed by default (subtle)
-    // Keep internal CLI/Success/Write operations OPEN.
-    const isRead = title.toLowerCase().includes('read') || title.toLowerCase().includes('list')
-    const isOpen = !isRead || title.toLowerCase().includes('error')
+    let icon = '⚙️'
+    let statusColor = 'var(--text-muted)'
+
+    const lowerTitle = title.toLowerCase()
+    const lowerContent = msg.content.toLowerCase()
+
+    if (lowerContent.includes('success')) {
+      icon = '✅'
+      statusColor = 'var(--success-color, #22c55e)'
+    } else if (lowerContent.includes('error')) {
+      icon = '❌'
+      statusColor = 'var(--error-color, #ef4444)'
+    } else if (lowerTitle.includes('read')) {
+      icon = '📖'
+    } else if (
+      lowerTitle.includes('write') ||
+      lowerTitle.includes('create') ||
+      lowerTitle.includes('patch')
+    ) {
+      icon = '📝'
+    } else if (lowerTitle.includes('delete') || lowerTitle.includes('rm')) {
+      icon = '🗑️'
+    } else if (lowerTitle.includes('list') || lowerTitle.includes('tree')) {
+      icon = '📂'
+    }
+
+    const displayTitle = cmdDisplayName || title.replace(/^>\s*\[(.+?)\]$/, '$1')
+
+    // Auto-collapse if it's a long success or a mundane read operation
+    const isVerbose = contentLines.length > 200
+    const isRead = lowerTitle.includes('read') || lowerTitle.includes('list')
+    const isOpen = !isRead && !isVerbose && !lowerContent.includes('success')
 
     return `
-      <div class="rightbar__system-message" title="Click header to toggle output">
+      <div class="rightbar__system-message">
         <details class="rightbar__system-details" ${isOpen ? 'open' : ''}>
-          <summary class="rightbar__system-summary" style="list-style: none;">
-            <span class="rightbar__system-icon">${icon}</span>
-            <span class="rightbar__system-title" style="font-family: monospace;">${this.escapeHtml(title)}</span>
+          <summary class="rightbar__system-summary">
+            <div class="rightbar__system-header">
+              <span class="rightbar__system-icon" style="color: ${statusColor}">${icon}</span>
+              <span class="rightbar__system-title">${this.escapeHtml(displayTitle)}</span>
+              <span class="rightbar__system-chevron"></span>
+            </div>
           </summary>
           <div class="rightbar__system-content">
             <div class="rightbar__system-code-wrapper">

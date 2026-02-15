@@ -163,6 +163,13 @@ ctx.addEventListener('message', async (event: MessageEvent<RagWorkerJob>) => {
         break
       }
 
+      case 'switch-vault': {
+        const { dbName } = payload
+        await db.disconnect()
+        await db.connect(dbName)
+        result = { status: 'switched', dbName }
+        break
+      }
       default:
         throw new Error(`Unknown job type: ${type}`)
     }

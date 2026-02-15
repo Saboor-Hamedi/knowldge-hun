@@ -163,9 +163,79 @@ export class RightBar {
 
     // Set up agent confirmation handler
     agentService.setConfirmHandler(async (command: string) => {
-      return window.confirm(
-        `AI Agent wants to run a hazardous command:\n\n${command}\n\nDo you allow this?`
-      )
+      const { modalManager } = await import('../modal/modal')
+      const { agentExecutor } = await import('../../services/agent/executor')
+
+      const actionMatch = command.match(/^(\w+)/)
+      const action = (actionMatch ? actionMatch[1].toLowerCase() : 'command') as string
+
+      const isDelete = action === 'delete' || action === 'rm'
+      const title = isDelete ? 'Confirm Deletion' : 'AI Agent Authorization'
+      const variant = isDelete ? 'danger' : 'primary'
+      const actionLabel = isDelete ? 'Delete Forever' : 'Authorize'
+
+      let detailsHtml = `<p>The AI Agent is requesting authorization to execute a <strong>${action}</strong> operation:</p>`
+
+      if (isDelete) {
+        const parts = command.split(/\s+/)
+        const target = parts[1]?.replace(/^["']|["']$/g, '') || ''
+
+        // Try to resolve exactly what is being deleted for realism
+        const folderPath = agentExecutor.resolveFolder(target)
+        const note = !folderPath ? agentExecutor.resolveNote(target) : null
+
+        if (folderPath) {
+          detailsHtml = `
+            <p>The agent wants to delete the following <strong>Project/Folder</strong>:</p>
+            <div class="agent-confirm-item">
+              <span class="agent-confirm-icon">📂</span>
+              <span class="agent-confirm-path">${folderPath}</span>
+            </div>
+            <p class="text-soft" style="font-size: 11px; margin-top: 8px;">All files and subfolders inside this directory will be permanently removed.</p>
+          `
+        } else if (note) {
+          detailsHtml = `
+            <p>The agent wants to delete the following <strong>Note</strong>:</p>
+            <div class="agent-confirm-item">
+              <span class="agent-confirm-icon">📄</span>
+              <span class="agent-confirm-path">${note.path || note.title}</span>
+            </div>
+          `
+        }
+      }
+
+      return new Promise((resolve) => {
+        modalManager.open({
+          title,
+          content: `
+            <div class="agent-confirm-modal">
+              ${detailsHtml}
+              <div class="agent-confirm-cmd"><code>${command}</code></div>
+              ${isDelete ? '<p class="text-danger" style="margin-top: 12px; font-size: 11px;">⚠️ <strong>Warning</strong>: This action is destructive and cannot be undone.</p>' : ''}
+            </div>
+          `,
+          size: 'sm',
+          buttons: [
+            {
+              label: actionLabel,
+              variant: variant,
+              onClick: (m) => {
+                resolve(true) // Resolve BEFORE closing to avoid onClose conflict
+                m.close()
+              }
+            },
+            {
+              label: 'Cancel',
+              variant: 'ghost',
+              onClick: (m) => {
+                resolve(false)
+                m.close()
+              }
+            }
+          ],
+          onClose: () => resolve(false)
+        })
+      })
     })
 
     this.attachEvents()
