@@ -202,8 +202,13 @@ export class ConversationController {
 
       if (actionId !== this.currentActionId) return
 
+      // SANITIZE: Strip all <details> thinking blocks BEFORE displaying to user
+      const sanitizedResponse = fullResponse
+        .replace(/<details[^>]*class="rightbar__thought-details"[^>]*>[\s\S]*?<\/details>/gi, '')
+        .trim()
+
       if (this.state.streamingMessageIndex !== null) {
-        this.state.messages[this.state.streamingMessageIndex].content = fullResponse
+        this.state.messages[this.state.streamingMessageIndex].content = sanitizedResponse
       }
 
       this.state.streamingMessageIndex = null
@@ -213,8 +218,8 @@ export class ConversationController {
 
       await this.ui.onAutoSaveRequired()
 
-      if (fullResponse.includes('[RUN:')) {
-        await this.handleAgenticCommands(fullResponse, actionId)
+      if (sanitizedResponse.includes('[RUN:')) {
+        await this.handleAgenticCommands(sanitizedResponse, actionId)
       }
     } catch (err: unknown) {
       if (actionId !== this.currentActionId) return

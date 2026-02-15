@@ -88,6 +88,18 @@ export class AgentExecutor {
    * EXECUTE: Write Note
    */
   async writeNote(title: string, content: string, parentPath?: string): Promise<NoteMeta> {
+    // CRITICAL: Ensure we have fresh vault data (same as delete)
+    if (state.notes.length === 0) {
+      console.warn('[AgentExecutor] state.notes is empty, fetching fresh vault data...')
+      try {
+        const freshNotes = await window.api.listNotes()
+        state.notes = freshNotes
+        console.log(`[AgentExecutor] Refreshed state with ${freshNotes.length} items`)
+      } catch (err) {
+        console.error('[AgentExecutor] Failed to refresh vault state:', err)
+      }
+    }
+
     const existing = this.resolveNote(title)
 
     if (existing) {
@@ -103,7 +115,22 @@ export class AgentExecutor {
       })
       return result
     } else {
-      const meta = await window.api.createNote(title, parentPath)
+      // CRITICAL: If parentPath is provided, resolve it to an existing folder first
+      let resolvedParentPath = parentPath
+      if (parentPath && parentPath !== '.') {
+        console.log(`[AgentExecutor] Attempting to resolve parent folder: "${parentPath}"`)
+        const existingFolder = this.resolveFolder(parentPath)
+        if (existingFolder) {
+          resolvedParentPath = existingFolder
+          console.log(`[AgentExecutor] ✓ Resolved to existing folder: ${existingFolder}`)
+        } else {
+          console.warn(
+            `[AgentExecutor] ✗ Could not find existing folder "${parentPath}", will create new folder`
+          )
+        }
+      }
+
+      const meta = await window.api.createNote(title, resolvedParentPath)
       const result = await window.api.saveNote({
         id: meta.id,
         content,

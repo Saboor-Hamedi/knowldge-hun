@@ -19,7 +19,8 @@ body {
   width: 100vw;
   max-width: 100vw;
   display: grid;
-  grid-template-columns: var(--activity-width) auto 1fr var(--right-panel-width);
+  /* Removed 4th column since rightbar is now absolutely positioned */
+  grid-template-columns: var(--activity-width) auto 1fr;
   grid-template-rows: 1fr var(--statusbar-height);
   gap: 0;
   background: var(--bg);
@@ -120,13 +121,18 @@ body {
 }
 
 .right-panel {
-  grid-column: 4;
-  grid-row: 1;
+  /* Changed from grid-column to absolute positioning for overlay effect */
+  position: absolute;
+  top: 32px; /* Below window header */
+  right: 0;
+  bottom: var(--statusbar-height);
   background: var(--panel);
   border-left: 1px solid var(--border);
   display: none;
   min-height: 0;
   width: var(--right-panel-width);
+  z-index: 300; /* Above main content */
+  box-shadow: -4px 0 12px rgba(0, 0, 0, 0.15);
 }
 
 .right-panel__empty {

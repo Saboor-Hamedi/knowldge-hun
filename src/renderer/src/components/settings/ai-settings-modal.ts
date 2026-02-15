@@ -139,6 +139,13 @@ export class AISettingsModal {
     let html = ''
 
     if (provider === 'ollama') {
+      // Don't show the current model if it's from a different provider
+      const showCurrentModel =
+        this.currentSettings.aiModel &&
+        !this.currentSettings.aiModel.includes('deepseek') &&
+        !this.currentSettings.aiModel.includes('gpt') &&
+        !this.currentSettings.aiModel.includes('claude')
+
       html = `
         <div class="ai-settings-form">
           <div class="ai-settings-field">
@@ -151,7 +158,7 @@ export class AISettingsModal {
             <div class="ai-settings-input-group">
               <select class="ai-settings-select" id="ai-modal-ollama-model" data-setting="aiModel">
                 <option value="">Loading models...</option>
-                ${this.currentSettings.aiModel ? `<option value="${this.currentSettings.aiModel}" selected>${this.currentSettings.aiModel}</option>` : ''}
+                ${showCurrentModel ? `<option value="${this.currentSettings.aiModel}" selected>${this.currentSettings.aiModel}</option>` : ''}
               </select>
               <button class="ai-settings-refresh" id="ai-modal-refresh-ollama">${codicons.refresh}</button>
             </div>
@@ -202,12 +209,15 @@ export class AISettingsModal {
     // Attach detail-specific events
     this.attachDetailEvents(provider)
 
-    // Update model dropdowns
-    if (provider === 'ollama') {
-      await this.refreshOllamaModels()
-    } else {
-      await this.updateCloudModels(provider as AppSettings['aiProvider'])
-    }
+    // PERFORMANCE: Defer model loading to avoid blocking modal open
+    // Load models asynchronously in the background
+    requestAnimationFrame(() => {
+      if (provider === 'ollama') {
+        void this.refreshOllamaModels()
+      } else {
+        void this.updateCloudModels(provider as AppSettings['aiProvider'])
+      }
+    })
   }
 
   private updateSetting(setting: keyof AppSettings, value: string): void {

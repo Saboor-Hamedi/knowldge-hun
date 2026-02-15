@@ -210,7 +210,11 @@
   color: var(--text-strong);
   font-size: 13px;
   font-family: inherit;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  /* FIXED: Only transition specific properties to prevent arrow animation glitch */
+  transition:
+    border-color 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+    background-color 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 

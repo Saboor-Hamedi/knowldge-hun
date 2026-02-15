@@ -14,7 +14,7 @@
 
 .welcome-content {
   max-width: 1400px;
-  width: 90%;
+  /* Removed width: 90% to prevent shrinking when rightbar opens */
   margin: 0 auto;
   animation: fadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1);
   padding: 6vh 0;
