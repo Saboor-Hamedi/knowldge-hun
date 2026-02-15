@@ -64,6 +64,7 @@ export type AppSettings = {
   ollamaBaseUrl?: string
   aiProvider?: 'deepseek' | 'openai' | 'claude' | 'grok' | 'ollama'
   aiModel?: string
+  aiChatMode?: 'balanced' | 'thinking' | 'creative' | 'precise' | 'code'
   gistToken?: string
   gistId?: string
   rightPanelWidth?: number

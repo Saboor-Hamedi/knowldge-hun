@@ -426,6 +426,9 @@ class App {
       this.activityBar.applyStyles()
       this.statusBar.updateVisibility()
       applySearchInputStyles(state.settings!)
+
+      // Notify components that settings are loaded
+      window.dispatchEvent(new CustomEvent('knowledge-hub:settings-updated'))
     }
   }
 

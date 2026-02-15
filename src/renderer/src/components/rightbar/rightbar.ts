@@ -399,7 +399,7 @@ export class RightBar {
     `
 
     badge.innerHTML = `${model}${checkIcon}`
-    badge.title = `Current Provider: ${providerName}\nModel: ${model}`
+    badge.title = `Current Provider: ${providerName}\nModel: ${model} (${provider})`
   }
 
   private attachEvents(): void {

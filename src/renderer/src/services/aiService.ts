@@ -161,6 +161,8 @@ export class AIService {
     this.currentMode = mode
     // Persist mode to localStorage
     localStorage.setItem('ai-chat-mode', mode)
+    // Also persist to app settings for cross-session persistence
+    void window.api.updateSettings({ aiChatMode: mode })
   }
 
   getMode(): ChatMode {
