@@ -281,6 +281,12 @@ export class RightBar {
     agentService.setEditorContext(context)
   }
 
+  public focusInput(): void {
+    if (this.chatInputArea) {
+      this.chatInputArea.focus()
+    }
+  }
+
   private render(): void {
     const sessionIcon = createElement(PanelRight, {
       size: 16,

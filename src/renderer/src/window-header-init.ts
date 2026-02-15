@@ -56,30 +56,9 @@ if (container) {
 
   // Add chat button click handler
   const chatBtn = header.querySelector('#window-header-chat') as HTMLButtonElement
-  chatBtn?.addEventListener('click', async () => {
-    const shell = document.querySelector('.vscode-shell') as HTMLElement
-    const rightPanel = document.getElementById('rightPanel') as HTMLElement
-    if (!rightPanel || !shell) return
-
-    const isVisible = rightPanel.style.display !== 'none'
-    if (isVisible) {
-      // Toggle OFF: Close it
-      rightPanel.style.display = 'none'
-      shell.style.setProperty('--right-panel-width', '0px')
-      void window.api.updateSettings({ rightPanelVisible: false })
-    } else {
-      // Toggle ON: Open it
-      const s = await window.api.getSettings()
-      const w = (s as { rightPanelWidth?: number }).rightPanelWidth ?? 270
-      rightPanel.style.display = 'block'
-      shell.style.setProperty('--right-panel-width', `${Math.max(200, Math.min(800, w))}px`)
-      // Save visibility state when opening
-      void window.api.updateSettings({ rightPanelVisible: true })
-      setTimeout(() => {
-        const chatInput = rightPanel.querySelector('#rightbar-chat-input') as HTMLTextAreaElement
-        chatInput?.focus()
-      }, 100)
-    }
+  chatBtn?.addEventListener('click', () => {
+    // Dispatch event to toggle rightbar (handled by ViewOrchestrator)
+    window.dispatchEvent(new CustomEvent('toggle-rightbar'))
   })
   container.insertAdjacentElement('afterbegin', header)
 

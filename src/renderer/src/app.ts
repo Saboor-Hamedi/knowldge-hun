@@ -122,7 +122,8 @@ class App {
       activityBar: this.activityBar,
       breadcrumbs: this.breadcrumbs,
       graphTabView: this.graphTabView,
-      timeline: this.timeline
+      timeline: this.timeline,
+      rightBar: this.rightBar
     })
 
     this.vaultHandler = new VaultHandler(
@@ -236,6 +237,10 @@ class App {
     }) as EventListener)
     window.addEventListener(
       'toggle-right-sidebar',
+      () => void this.viewOrchestrator.toggleRightSidebar()
+    )
+    window.addEventListener(
+      'toggle-rightbar',
       () => void this.viewOrchestrator.toggleRightSidebar()
     )
     window.addEventListener('toggle-hub-console', () => this.realTerminal.showConsole())

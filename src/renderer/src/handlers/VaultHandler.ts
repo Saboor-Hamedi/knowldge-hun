@@ -9,6 +9,8 @@ import { aiStatusManager } from '../core/aiStatusManager'
 import { notificationManager } from '../components/notification/notification'
 
 export class VaultHandler {
+  private refreshDebounceTimer: number | null = null
+
   constructor(
     public components: {
       sidebar: {
@@ -105,6 +107,21 @@ export class VaultHandler {
   }
 
   public async refreshNotes(): Promise<void> {
+    // Debounce: Clear existing timer and set a new one
+    if (this.refreshDebounceTimer !== null) {
+      window.clearTimeout(this.refreshDebounceTimer)
+    }
+
+    return new Promise((resolve) => {
+      this.refreshDebounceTimer = window.setTimeout(async () => {
+        this.refreshDebounceTimer = null
+        await this._refreshNotesImpl()
+        resolve()
+      }, 150) as unknown as number
+    })
+  }
+
+  private async _refreshNotesImpl(): Promise<void> {
     const rawNotes = await window.api.listNotes()
 
     // Build tree

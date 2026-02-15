@@ -41,6 +41,7 @@ export class ViewOrchestrator {
         setVisible: (visible: boolean) => void
         update: (id: string, path: string) => Promise<void>
       }
+      rightBar?: { focusInput: () => void }
     }
   ) {}
 
@@ -168,6 +169,11 @@ export class ViewOrchestrator {
       rightPanel.style.display = 'block'
       shell.style.setProperty('--right-panel-width', `${Math.max(200, Math.min(800, w))}px`)
       void window.api.updateSettings({ rightPanelVisible: true })
+
+      // Auto-focus chat input after panel is visible
+      requestAnimationFrame(() => {
+        this.components.rightBar?.focusInput()
+      })
     }
   }
 
