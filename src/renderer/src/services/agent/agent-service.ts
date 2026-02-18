@@ -69,6 +69,16 @@ export class AgentService {
 
     for (let i = 0; i < cmdString.length; i++) {
       const char = cmdString[i]
+
+      if (char === '\\' && i + 1 < cmdString.length) {
+        const nextChar = cmdString[i + 1]
+        if (nextChar === '"' || nextChar === "'" || nextChar === '\\') {
+          currentPart += nextChar
+          i++ // skip next char
+          continue
+        }
+      }
+
       if ((char === '"' || char === "'") && (!inQuotes || char === quoteChar)) {
         if (!inQuotes) {
           inQuotes = true
@@ -76,6 +86,9 @@ export class AgentService {
         } else {
           inQuotes = false
           quoteChar = ''
+          // Finished a quoted block
+          parts.push(currentPart)
+          currentPart = ''
         }
       } else if (char === ' ' && !inQuotes) {
         if (currentPart) {
@@ -85,29 +98,10 @@ export class AgentService {
       } else {
         currentPart += char
       }
-
-      // Special handling for write/append/propose: The second quoted block (or unquoted text)
-      // is the content and we take the rest of the string.
-      if (
-        parts.length === 2 &&
-        !inQuotes &&
-        ['write', 'append', 'propose'].includes(parts[0].toLowerCase())
-      ) {
-        let rest = cmdString.substring(i + 1).trim()
-        // Strip exactly one layer of quotes from the rest if they exist
-        if (
-          (rest.startsWith('"') && rest.endsWith('"')) ||
-          (rest.startsWith("'") && rest.endsWith("'"))
-        ) {
-          rest = rest.substring(1, rest.length - 1)
-        }
-        if (rest) {
-          parts.push(rest)
-          break
-        }
-      }
     }
     if (currentPart) parts.push(currentPart)
+
+    if (parts.length === 0) return null
 
     const action = parts[0].toLowerCase()
     const args = parts.slice(1)

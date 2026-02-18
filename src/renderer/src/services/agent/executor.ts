@@ -14,6 +14,16 @@ export class AgentExecutor {
     window.dispatchEvent(new CustomEvent('vault-changed'))
   }
 
+  private refreshActiveNoteIfNeeded(id: string, path?: string): void {
+    if (state.activeId === id) {
+      window.dispatchEvent(
+        new CustomEvent('knowledge-hub:open-note', {
+          detail: { id, path, focus: 'none' }
+        })
+      )
+    }
+  }
+
   /**
    * EXECUTE: Read Note
    */
@@ -46,13 +56,20 @@ export class AgentExecutor {
     }
 
     // 3. Search all notes by title/id/fuzzy path
-    return state.notes.find(
-      (n) =>
-        n.title.toLowerCase() === qLower ||
-        n.id.toLowerCase() === qLower ||
-        n.id.toLowerCase() === `${qLower}.md` ||
-        n.path?.toLowerCase() === qLower
-    )
+    const commonExtensions = ['.md', '.py', '.ts', '.js', '.txt', '.json']
+    return state.notes.find((n) => {
+      const idLower = n.id.toLowerCase()
+      if (n.title.toLowerCase() === qLower) return true
+      if (idLower === qLower) return true
+      if (n.path?.toLowerCase() === qLower) return true
+
+      // Try fuzzy extension matches
+      for (const ext of commonExtensions) {
+        if (idLower === `${qLower}${ext}`) return true
+      }
+
+      return false
+    })
   }
 
   /**
@@ -113,6 +130,7 @@ export class AgentExecutor {
         title: existing.title,
         path: existing.path
       })
+      this.refreshActiveNoteIfNeeded(existing.id, existing.path)
       return result
     } else {
       // CRITICAL: If parentPath is provided, resolve it to an existing folder first
@@ -139,6 +157,7 @@ export class AgentExecutor {
       void ragService.indexNote(meta.id, content, { title: meta.title, path: meta.path })
 
       this.dispatchVaultChange()
+      this.refreshActiveNoteIfNeeded(meta.id, meta.path)
 
       // Auto-open the newly created note
       window.dispatchEvent(
@@ -185,6 +204,34 @@ export class AgentExecutor {
     } as NotePayload)
 
     void ragService.indexNote(note.id, newContent, { title: note.title, path: note.path })
+    this.refreshActiveNoteIfNeeded(note.id, note.path)
+    return result
+  }
+
+  /**
+   * EXECUTE: Patch Note (Search and Replace)
+   */
+  async patchNote(title: string, search: string, replace: string): Promise<NoteMeta> {
+    const note = this.resolveNote(title)
+    if (!note) throw new Error(`Note not found: ${title}`)
+
+    const data = await window.api.loadNote(note.id, note.path)
+    const content = data?.content || ''
+
+    if (!content.includes(search)) {
+      throw new Error(`Search string not found in "${title}"`)
+    }
+
+    const newContent = content.replace(search, replace)
+    const result = await window.api.saveNote({
+      id: note.id,
+      content: newContent,
+      title: note.title,
+      path: note.path
+    } as NotePayload)
+
+    void ragService.indexNote(note.id, newContent, { title: note.title, path: note.path })
+    this.refreshActiveNoteIfNeeded(note.id, note.path)
     return result
   }
 
