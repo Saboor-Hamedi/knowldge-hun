@@ -320,7 +320,6 @@ export class StatusBar {
   private attachSyncEvents(): void {
     const syncButton = this.container.querySelector('.statusbar__sync-button') as HTMLElement
     const syncMenu = this.container.querySelector('.statusbar__sync-menu') as HTMLElement
-    const menuItems = this.container.querySelectorAll<HTMLElement>('.statusbar__sync-menu-item')
 
     if (syncButton && syncMenu) {
       syncButton.addEventListener('click', (e: MouseEvent) => {
@@ -340,8 +339,26 @@ export class StatusBar {
         syncMenu.classList.toggle('is-open')
       })
 
+      // Use event delegation for menu items to handle clicks on icons/labels correctly
       syncMenu.addEventListener('click', (e: MouseEvent) => {
         e.stopPropagation()
+        const target = e.target as HTMLElement
+        const item = target.closest('.statusbar__sync-menu-item') as HTMLElement
+
+        if (item) {
+          e.preventDefault()
+          const action = item.dataset.action
+          if (action === 'backup' || action === 'restore') {
+            syncButton.classList.add('is-syncing')
+            this.container.dispatchEvent(
+              new CustomEvent('sync-action', { detail: { action }, bubbles: true })
+            )
+
+            // Auto-remove syncing class after 2 seconds (or wait for event)
+            setTimeout(() => syncButton.classList.remove('is-syncing'), 2000)
+          }
+          syncMenu.classList.remove('is-open')
+        }
       })
 
       if (
@@ -357,24 +374,6 @@ export class StatusBar {
           true
       }
     }
-
-    menuItems.forEach((item) => {
-      item.addEventListener('click', (e: MouseEvent) => {
-        e.stopPropagation()
-        e.preventDefault()
-        const action = (item as HTMLElement).dataset.action
-        if (action === 'backup' || action === 'restore') {
-          syncButton.classList.add('is-syncing')
-          this.container.dispatchEvent(
-            new CustomEvent('sync-action', { detail: { action }, bubbles: true })
-          )
-
-          // Auto-remove syncing class after 2 seconds (or wait for event)
-          setTimeout(() => syncButton.classList.remove('is-syncing'), 2000)
-        }
-        syncMenu.classList.remove('is-open')
-      })
-    })
   }
 
   private updateStatusText(): void {
