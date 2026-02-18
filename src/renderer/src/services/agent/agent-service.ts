@@ -42,8 +42,9 @@ export class AgentService {
       const fullCmd = match[1].trim()
       try {
         const result = await this.executeCommand(fullCmd)
-        // If result is a string, use it. Otherwise, use success message.
-        results.push(`> [RUN: ${fullCmd}]\n${typeof result === 'string' ? result : 'Success'}`)
+        // If result is a string, use it. Otherwise, use a technical success status
+        const feedback = typeof result === 'string' ? result : 'Status: OK'
+        results.push(`> [RUN: ${fullCmd}]\n${feedback}`)
         if (onProgress) onProgress()
       } catch (err) {
         console.error(`[AgentService] Execution failed: ${fullCmd}`, err)

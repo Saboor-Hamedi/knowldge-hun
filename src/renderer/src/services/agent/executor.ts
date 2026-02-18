@@ -369,14 +369,32 @@ export class AgentExecutor {
   /**
    * Helper to format the vault tree for AI output
    */
-  public formatTree(items: TreeItem[], indent = ''): string {
-    let res = ''
-    for (const item of items) {
-      const icon = item.type === 'folder' ? '📂' : '📄'
-      res += `${indent}${icon} ${item.title}\n`
-      if (item.children) res += this.formatTree(item.children, indent + '  ')
+  public formatTree(items: TreeItem[], indent = '', maxItems = 100): string {
+    let count = 0
+    const build = (list: TreeItem[], currentIndent = ''): string => {
+      let res = ''
+      for (const item of list) {
+        if (count >= maxItems) {
+          if (count === maxItems) {
+            res += `${currentIndent}... (tree truncated, use 'ls' or 'tree' for more)\n`
+            count++
+          }
+          continue
+        }
+
+        const icon = item.type === 'folder' ? '📂' : '📄'
+        const pathSuffix = item.id ? ` (PATH: ${item.id})` : ''
+        res += `${currentIndent}${icon} ${item.title}${pathSuffix}\n`
+        count++
+
+        if (item.children && item.children.length > 0) {
+          res += build(item.children, currentIndent + '  ')
+        }
+      }
+      return res
     }
-    return res
+
+    return build(items, indent)
   }
 }
 
