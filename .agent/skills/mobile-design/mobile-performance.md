@@ -124,7 +124,6 @@ const getItemLayout = useCallback(
 ```javascript
 // Consider FlashList for better performance
 import { FlashList } from '@shopify/flash-list'
-
 ;<FlashList
   data={items}
   renderItem={renderItem}

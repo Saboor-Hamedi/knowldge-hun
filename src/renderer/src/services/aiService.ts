@@ -40,16 +40,15 @@ interface ScoredNote extends VaultNote {
 
 const IDE_AGENT_INSTRUCTIONS = `
 # SYSTEM IDENTITY: SILENT IDE ENGINEER
-You are a code execution engine. You do NOT explain, you do NOT think out loud, you EXECUTE.
+You are a high-speed code execution engine. Focus: DATA DENSITY. Goal: LATENCY MINIMIZATION.
 
-## 1. FORBIDDEN PATTERNS [CRITICAL - NEVER VIOLATE]
-❌ NEVER write <details> tags
-❌ NEVER write "Thinking..." blocks
-❌ NEVER write "Let me check..." or "I should..."
-❌ NEVER write explanatory paragraphs before commands
-❌ NEVER write Markdown code blocks (\`\`\`) if using [RUN: write] or [RUN: patch]
+## 1. FORBIDDEN PATTERNS [CRITICAL]
+❌ NEVER write "Thinking..." or explain your logic.
+❌ NEVER write conversational filler ("Here is...", "I've checked...", "I see...").
+❌ NEVER repeat the same code twice in one response.
+❌ NEVER provide a summary of the code unless explicitly asked "Summarize".
 
-## 2. COMMAND TABLE [EXECUTION ONLY]
+## 2. DYNAMIC EXECUTION
 [RUN: write "path/file.ext" "content"]
 [RUN: patch "path/file.ext" "SEARCH" "REPLACE"]
 [RUN: delete "path/to/item"]
@@ -57,20 +56,10 @@ You are a code execution engine. You do NOT explain, you do NOT think out loud, 
 [RUN: list]
 [RUN: grep "query"]
 
-## 3. RESPONSE FORMAT [STRICT]
-✅ GOOD: [RUN: delete "examples"]
-❌ BAD: Let me delete that folder. [RUN: delete "examples"]
-
-✅ GOOD: [RUN: write "test.js" "console.log('hi')"]
-Done.
-❌ BAD: I'll create a test file with logging.
-[RUN: write "test.js" "console.log('hi')"]
-\`\`\`javascript
-console.log('hi')
-\`\`\`
-
-Your MAXIMUM response is: [RUN: ...] + one sentence summary. NOTHING MORE.
-`
+## 3. STRICT RESPONSE FORMAT
+- If a file is requested: Just show the file content or [RUN: read] if not in context.
+- If a fix is requested: Just show the [RUN: patch] block.
+Your MAXIMUM response is the data itself + one sentence MAX. ZERO PROSE.`
 
 export interface NoteCitation {
   id: string
@@ -97,7 +86,7 @@ export const CHAT_MODES: ChatModeConfig[] = [
     description: 'General purpose responses',
     temperature: 0.7,
     systemPrompt:
-      'You are Knowledge Hub AI. Follow the "Antigravity" principle: Ultra-concise, high-density information. No conversational filler. If a task can be done with a [RUN:] command, skip the explanation and just show the code + command. If the user acknowledges, just say "👍". Never repeat yourself.'
+      'You are Knowledge Hub AI. Follow the "Antigravity" principle: Ultra-concise, high-density information. No conversational filler. If the user acknowledges, just say "👍". Never repeat yourself. If showing code, show ONLY the code.'
   },
   {
     id: 'thinking',
@@ -106,7 +95,7 @@ export const CHAT_MODES: ChatModeConfig[] = [
     description: 'Deep reasoning and analysis',
     temperature: 0.3,
     systemPrompt:
-      'Think step by step using <thought> blocks. Analyze deeply but keep the final output strictly summarized. Focus on architectural integrity.'
+      'Use <thought> blocks for internal reasoning. Analyze deeply but keep the final output strictly summarized. Focus on architectural integrity.'
   },
   {
     id: 'creative',
@@ -124,7 +113,7 @@ export const CHAT_MODES: ChatModeConfig[] = [
     description: 'Factual and concise',
     temperature: 0.1,
     systemPrompt:
-      'STRICT RULE: Answer in 10-20 words MAX. No "Sure!", "Of course!", or "Here is the...". Direct data only. If you use a tool, do not explain why. Just provide the [RUN:] block. Efficiency is your only priority.'
+      'STRICT RULE: Answer in 10-20 words MAX. No "Sure!", "Of course!", or "Here is the...". Direct data only. Efficiency is your only priority.'
   },
   {
     id: 'code',
@@ -133,7 +122,7 @@ export const CHAT_MODES: ChatModeConfig[] = [
     description: 'Optimized for coding tasks',
     temperature: 0.2,
     systemPrompt:
-      'You are an expert developer. Provide ONLY the code block and a [RUN:] command if needed. Zero prose unless essential for safety. Assume the user is an expert. Never explain what the code does unless explicitly asked "Why?".'
+      'You are an expert developer. Provide ONLY the code block and a [RUN:] command if needed. Zero prose. Assume the user is an expert. Never explain what the code does.'
   }
 ]
 
@@ -144,9 +133,9 @@ export class AIService {
   private vaultMetadataCache: Map<string, NoteMetadata> = new Map()
   private vaultCacheTime: number = 0
   private readonly CACHE_DURATION = 300000 // 5 minutes for performance
-  private readonly MAX_CONTEXT_TOKENS = 8000
-  private readonly MAX_NOTES_TO_LOAD = 30 // Limit notes loaded at once (reduced for performance)
-  private readonly MAX_CONTENT_LENGTH = 1500 // Max chars per note in context (reduced for performance)
+  private readonly MAX_CONTEXT_TOKENS = 16000
+  private readonly MAX_NOTES_TO_LOAD = 50 // Limit notes loaded at once
+  private readonly MAX_CONTENT_LENGTH = 25000 // Increased significantly for code
   private currentMode: ChatMode = 'balanced'
 
   constructor() {
@@ -510,11 +499,8 @@ export class AIService {
     const scoredNotes: ScoredNote[] = []
     try {
       // 1. Try Vector RAG
-      // Clean query: remove common conversational filler to focus the vector on the actual topic
-      const cleanMsg = userMessage
-        .replace(/^(can you |please |tell me |show me |find |search for |what is |who is )/i, '')
-        .trim()
-      const ragResults = await ragService.search(cleanMsg || userMessage, limit)
+      // Use the full message for embeddings as modern models handle context well
+      const ragResults = await ragService.search(userMessage, limit)
 
       if (ragResults && ragResults.length > 0) {
         // Hydrate results with content
@@ -600,22 +586,23 @@ export class AIService {
         context += `Cursor position: Line ${cursor.line + 1}, Column ${cursor.ch + 1}\n`
       }
 
-      // Only include content if user is asking about it specifically
+      // Include content if user refers to it generally OR mentions the filename specifically
+      const activeTitle = noteInfo?.title?.toLowerCase() || ''
       const askingAboutContent =
         /\b(this note|current note|this code|this file|what does|explain this|in this)\b/i.test(
           userMessage
-        )
+        ) ||
+        (activeTitle && userMessage.toLowerCase().includes(activeTitle))
       if (editorContent && editorContent.trim() && askingAboutContent) {
         const contentPreview =
-          editorContent.length > 4000 ? editorContent.substring(0, 4000) + '...' : editorContent
+          editorContent.length > 20000 ? editorContent.substring(0, 20000) + '...' : editorContent
         context += `\nNote content:\n${contentPreview}\n\n`
       }
     }
 
-    // Smart vault access with lazy loading
-    const needsVault = /\b(note|vault|all|system|project|search|find|show|list)\b/i.test(
-      userMessage
-    )
+    // Proactive Vault Access: Always check the vault unless it's a very short greeting/ack.
+    const isGreeting = /^(hello|hi|hey|greetings|hiya|yo|ok|okay|thanks)\W*$/i.test(trimmed)
+    const needsVault = !isGreeting && trimmed.length > 5
 
     if (!needsVault) {
       return { context: userMessage, citations }
@@ -678,7 +665,7 @@ export class AIService {
               if (targetNote) {
                 try {
                   const content = await this.loadNoteContent(targetNote.id, targetNote.path)
-                  context += `\nNOTE: "${targetNote.title}" (Explicitly referenced):\n${content.substring(0, 5000)}\n`
+                  context += `\nNOTE: "${targetNote.title}" (Explicitly referenced):\n${content.substring(0, 25000)}\n`
                   if (!citations.find((c) => c.id === targetNote.id)) {
                     citations.push({
                       id: targetNote.id,
@@ -701,8 +688,8 @@ export class AIService {
           if (isCreationIntent) {
             context += `\nIntent detected: Creation. Focus on asking for name and location.\n`
           } else {
-            // Find and load only relevant notes (smart RAG) - use limit of 2 for maximum speed
-            const relevantNotes = await this.findRelevantNotesHybrid(userMessage, 2)
+            // Find and load only relevant notes (smart RAG) - use limit of 5 for better context
+            const relevantNotes = await this.findRelevantNotesHybrid(userMessage, 5)
 
             if (relevantNotes.length > 0) {
               context += `\nRelevant notes from vault (${relevantNotes.length} most relevant):\n`
@@ -865,15 +852,13 @@ export class AIService {
       `You are Knowledge Hub AI ("Antigravity" Engine). Powered by ${provider.toUpperCase()} (${model}).\n` +
       IDE_AGENT_INSTRUCTIONS +
       `\nSTRICT SAFETY - READ-ONLY BY DEFAULT (FOR MODIFICATIONS):\n` +
-      `- You have NO permission to delete or overwrite EXISTING files UNLESS confirmed.\n` +
-      `- CREATION: You MAY proactively create new project structures/files [RUN: mkdir/write] if the user asks to "set up", "scaffold", or "create" a project/feature.\n` +
-      `- If you want to CHANGE existing code: 1. Show the diff/proposal. 2. Ask: "Should I apply this?" 3. WAIT for confirmation.\n` +
+      `- CREATION: You MAY proactively create new project structures/files [RUN: mkdir/write].\n` +
+      `- If you want to CHANGE existing code: Show the diff/proposal and WAIT for confirmation.\n` +
       `PATH AWARENESS:\n` +
       `- Always use the FULL relative path from the project root for [RUN:] commands.\n` +
-      `- If you are creating a file and the target directory is ambiguous, use [RUN: list] to orient yourself first.\n` +
-      `RULES:\n` +
-      `- Use <thought> for reasoning. Use [RUN: command] for tools.\n` +
-      `- BE SURGICAL. Answer with data, not politeness.`
+      `RAG & CONTEXT:\n` +
+      `- Current Workspace Structure provided below. Trust it.\n` +
+      `- TRUST THE PROVIDED NOTE CONTENT IN CONTEXT OVER YOUR TRAINING DATA.`
 
     const messagesForAPI: AIMessage[] = []
 

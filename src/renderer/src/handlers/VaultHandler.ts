@@ -157,6 +157,9 @@ export class VaultHandler {
     this.components.sidebar.renderTree()
     this.components.tabBar.render()
 
+    // Trigger background indexing to keep RAG up to date with filesystem changes
+    void this.backgroundIndexVault()
+
     // Handle case where active note was deleted
     if (!state.activeId) {
       const nextTab = tabService.findNextTabToOpen()

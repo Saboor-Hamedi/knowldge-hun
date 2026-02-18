@@ -54,7 +54,7 @@ export class MessageFormatter {
       </div>`
     })
 
-    // 1. Handle <thought> tags (subtle dropdown)
+    // 1. Handle <thought> tags (minimal technical log)
     processedText = processedText.replace(
       /<thought>\s*([\s\S]*?)(?:<\/thought>|$)/g,
       (_match, content) => {
@@ -62,7 +62,7 @@ export class MessageFormatter {
         <details class="rightbar__thought-details">
           <summary class="rightbar__thought-summary">
             <span class="rightbar__thought-icon">🧠</span>
-            <span class="rightbar__thought-label">Thinking...</span>
+            <span class="rightbar__thought-label">LOGIC</span>
           </summary>
           <div class="rightbar__thought-content">${this.escapeHtml(content.trim())}</div>
         </details>
