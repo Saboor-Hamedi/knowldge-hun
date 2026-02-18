@@ -127,35 +127,38 @@ export class SuggestionManager {
     if (!model) return
 
     // Apply the change: Replace originalLines with newLines
-    const range = new this.monaco.Range(
-      chunk.startLine,
-      1,
-      chunk.endLine,
-      model.getLineMaxColumn(chunk.endLine)
-    )
+    // If originalLines is empty, it's a pure insertion.
+    // We use a point range to avoid deleting existing lines.
+    const isInsertion = chunk.originalLines.length === 0
+    const range = isInsertion
+      ? new this.monaco.Range(chunk.startLine, 1, chunk.startLine, 1)
+      : new this.monaco.Range(
+          chunk.startLine,
+          1,
+          chunk.endLine,
+          model.getLineMaxColumn(chunk.endLine)
+        )
+
+    const text =
+      chunk.newLines.join('\n') +
+      (isInsertion && chunk.startLine <= model.getLineCount() ? '\n' : '')
 
     this.editor.executeEdits('ai-suggestion', [
       {
         range,
-        text: chunk.newLines.join('\n'),
+        text,
         forceMoveMarkers: true
       }
     ])
 
-    // Refresh remaining suggestions as line numbers might have changed
-    this.recalculateAndRefresh()
+    // CRITICAL: Refresh all suggestions after any acceptance
+    // Acceptance shifts line numbers, making other chunk ranges invalid.
+    this.clear()
   }
 
   private rejectSuggestion(index: number): void {
     this.currentChunks.splice(index, 1)
     this.refreshUI()
-  }
-
-  private recalculateAndRefresh(): void {
-    // Current simple approach: clear all decor and toolbars, and wait for next AI update or re-propose
-    // Better: If we have the full "target" content from AI, we can re-diff.
-    // For now, let's keep it clean since it's streaming.
-    this.clear()
   }
 
   private refreshUI(): void {

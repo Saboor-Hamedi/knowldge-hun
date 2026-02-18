@@ -33,14 +33,64 @@ export class AgentService {
     onProgress?: () => void,
     signal?: AbortSignal
   ): Promise<string[]> {
-    const runMatches = Array.from(text.matchAll(/\[RUN:\s*([\s\S]+?)\]/g))
     const results: string[] = []
     const executedCommands = new Set<string>()
 
-    for (const match of runMatches) {
-      if (signal?.aborted) break
+    // Use a more robust manual scan to find [RUN: ...] blocks.
+    // This allows brackets like [1, 2] to exist inside the command arguments (e.g. in code content)
+    // without prematurely terminating the match.
+    let searchIdx = 0
+    while (true) {
+      const startTag = '[RUN:'
+      const startIdx = text.indexOf(startTag, searchIdx)
+      if (startIdx === -1) break
 
-      const fullCmd = match[1].trim()
+      // Find the closing bracket that matches this [RUN:
+      // We must respect quotes and escaped characters
+      let endIdx = -1
+      let inQuotes = false
+      let quoteChar = ''
+      let escaped = false
+
+      for (let i = startIdx + startTag.length; i < text.length; i++) {
+        const char = text[i]
+
+        if (escaped) {
+          escaped = false
+          continue
+        }
+
+        if (char === '\\') {
+          escaped = true
+          continue
+        }
+
+        const isQuote = char === '"' || char === "'" || char === '`'
+        if (isQuote && (!inQuotes || char === quoteChar)) {
+          if (!inQuotes) {
+            inQuotes = true
+            quoteChar = char
+          } else {
+            inQuotes = false
+            quoteChar = ''
+          }
+        }
+
+        if (char === ']' && !inQuotes) {
+          endIdx = i
+          break
+        }
+      }
+
+      if (endIdx === -1) {
+        // Unclosed [RUN: block - potentially still being streamed
+        break
+      }
+
+      searchIdx = endIdx + 1
+      const fullCmd = text.substring(startIdx + startTag.length, endIdx).trim()
+
+      if (signal?.aborted) break
 
       // DEDUPLICATION: Don't run the exact same command twice in one message
       if (executedCommands.has(fullCmd)) {
@@ -85,14 +135,32 @@ export class AgentService {
 
       if (char === '\\' && i + 1 < cmdString.length) {
         const nextChar = cmdString[i + 1]
-        if (nextChar === '"' || nextChar === "'" || nextChar === '\\') {
+        // Unescape quotes, backslashes and backticks
+        if (nextChar === '"' || nextChar === "'" || nextChar === '`' || nextChar === '\\') {
           currentPart += nextChar
           i++ // skip next char
           continue
         }
+        // Unescape newlines, tabs, and carriage returns
+        if (nextChar === 'n') {
+          currentPart += '\n'
+          i++
+          continue
+        }
+        if (nextChar === 't') {
+          currentPart += '\t'
+          i++
+          continue
+        }
+        if (nextChar === 'r') {
+          currentPart += '\r'
+          i++
+          continue
+        }
       }
 
-      if ((char === '"' || char === "'") && (!inQuotes || char === quoteChar)) {
+      const isQuote = char === '"' || char === "'" || char === '`'
+      if (isQuote && (!inQuotes || char === quoteChar)) {
         if (!inQuotes) {
           inQuotes = true
           quoteChar = char

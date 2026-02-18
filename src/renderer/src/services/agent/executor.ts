@@ -42,6 +42,7 @@ export class AgentExecutor {
    * Resolve a fuzzy title or path to a specific NoteMeta
    */
   public resolveNote(query: string): NoteMeta | undefined {
+    if (!query) return undefined
     const q = query.trim()
     const qLower = q.toLowerCase()
 
@@ -76,6 +77,7 @@ export class AgentExecutor {
    * Resolve a folder path
    */
   public resolveFolder(query: string): string | undefined {
+    if (!query) return undefined
     const q = query.trim()
     const qLower = q.toLowerCase()
 

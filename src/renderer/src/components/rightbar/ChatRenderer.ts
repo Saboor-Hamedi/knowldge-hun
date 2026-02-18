@@ -101,7 +101,11 @@ export class ChatRenderer {
             element.style.display = 'none'
           } else {
             element.style.display = 'block'
-            let formattedContent = messageFormatter.format(msg.content, msg.role === 'assistant')
+            let formattedContent = messageFormatter.format(
+              msg.content,
+              msg.role === 'assistant',
+              isStreaming
+            )
 
             // Add subtle indicator if this is the active streaming message
             // We use a span that stays inside the flow

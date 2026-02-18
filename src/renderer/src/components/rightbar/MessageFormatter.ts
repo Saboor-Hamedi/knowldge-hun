@@ -34,16 +34,13 @@ export class MessageFormatter {
 
   private renderCache = new Map<string, string>()
 
-  /**
-   * Format content for display
-   */
-  format(text: string, isAssistant: boolean): string {
+  format(text: string, isAssistant: boolean, isStreaming: boolean = false): string {
     if (!isAssistant) {
       return this.escapeHtml(text).replace(/\n/g, '<br>')
     }
 
-    // Check cache first for assistant messages
-    if (this.renderCache.has(text)) {
+    // Check cache first for assistant messages (only for non-streaming)
+    if (!isStreaming && this.renderCache.has(text)) {
       return this.renderCache.get(text)!
     }
 
@@ -55,11 +52,13 @@ export class MessageFormatter {
     })
 
     // 1. Handle <thought> tags (minimal technical log)
+    // We auto-open the accordion during streaming so the user sees progress
+    const isOpen = isStreaming ? 'open' : ''
     processedText = processedText.replace(
       /<thought>\s*([\s\S]*?)(?:<\/thought>|$)/g,
       (_match, content) => {
         return `
-        <details class="rightbar__thought-details">
+        <details class="rightbar__thought-details" ${isOpen}>
           <summary class="rightbar__thought-summary">
             <span class="rightbar__thought-icon">🧠</span>
             <span class="rightbar__thought-label">LOGIC</span>
