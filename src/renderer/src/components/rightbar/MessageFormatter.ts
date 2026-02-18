@@ -82,18 +82,22 @@ export class MessageFormatter {
       }
     )
 
-    // 3. Replace remaining [RUN: ...] tags with standard UI pills
-    const cleanText = processedText.replace(/\[RUN:\s*([\s\S]*?)(?:\]|$)/g, (match, cmdBody) => {
-      const parts = cmdBody.trim().split(/\s+/)
-      const cmdName = parts[0] || 'command'
-      const isClosed = match.endsWith(']')
-      const status = isClosed ? 'Done' : 'Running'
+    // 3. Replace remaining [RUN: ...] or [DONE: ...] tags with standard UI pills
+    const cleanText = processedText.replace(
+      /\[(RUN|DONE):\s*([\s\S]*?)(?:\]|$)/g,
+      (match, type, cmdBody) => {
+        const parts = cmdBody.trim().split(/\s+/)
+        const cmdName = parts[0] || 'command'
+        const isClosed = match.endsWith(']')
+        // DONE prefix or closed bracket means it's finished
+        const status = type === 'DONE' || isClosed ? 'Done' : 'Running'
 
-      return `<span class="rightbar__command-pill" data-command="${cmdName}">
+        return `<span class="rightbar__command-pill" data-command="${cmdName}">
         <span class="rightbar__command-icon"></span>
         <span class="rightbar__command-text">${status}: ${cmdName}</span>
       </span>`
-    })
+      }
+    )
 
     const rawHtml = this.md.render(cleanText)
 

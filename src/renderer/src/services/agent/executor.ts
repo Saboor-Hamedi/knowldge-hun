@@ -317,7 +317,14 @@ export class AgentExecutor {
     }
 
     const item = this.resolveNote(id)
-    if (!item) throw new Error(`Item not found for deletion: ${id}`)
+    if (!item) {
+      // IDEMPOTENCY check: If it's already gone, we achieved the target state.
+      // Returning success prevents AI from crashing/looping on a Ghost Modal.
+      console.log(
+        `[AgentExecutor] Deletion target "${id}" already removed or not found. Target achieved.`
+      )
+      return { success: true }
+    }
 
     let res
     if (item.type === 'folder') {

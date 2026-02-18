@@ -35,20 +35,32 @@ export class AgentService {
   ): Promise<string[]> {
     const runMatches = Array.from(text.matchAll(/\[RUN:\s*([\s\S]+?)\]/g))
     const results: string[] = []
+    const executedCommands = new Set<string>()
 
     for (const match of runMatches) {
       if (signal?.aborted) break
 
       const fullCmd = match[1].trim()
+
+      // DEDUPLICATION: Don't run the exact same command twice in one message
+      if (executedCommands.has(fullCmd)) {
+        console.log(`[AgentService] Skipping duplicate command: ${fullCmd}`)
+        continue
+      }
+      executedCommands.add(fullCmd)
+
       try {
         const result = await this.executeCommand(fullCmd)
         // If result is a string, use it. Otherwise, use a technical success status
         const feedback = typeof result === 'string' ? result : 'Status: OK'
-        results.push(`> [RUN: ${fullCmd}]\n${feedback}`)
+
+        // FEEDBACK ISOLATION: Use [DONE: ] instead of [RUN: ] for reports
+        // This prevents the ConversationController from re-triggering on its own results.
+        results.push(`> [DONE: ${fullCmd}]\n${feedback}`)
         if (onProgress) onProgress()
       } catch (err) {
         console.error(`[AgentService] Execution failed: ${fullCmd}`, err)
-        results.push(`> [RUN: ${fullCmd}]\nError: ${(err as Error).message}`)
+        results.push(`> [DONE: ${fullCmd}]\nError: ${(err as Error).message}`)
         if (onProgress) onProgress()
 
         // incremental feedback: stop on first error to let AI pivot

@@ -202,9 +202,10 @@ export class ConversationController {
 
       if (actionId !== this.currentActionId) return
 
-      // SANITIZE: Strip all <details> thinking blocks BEFORE displaying to user
+      // SANITIZE: Strip all raw <thought> blocks or HTML thought blocks for the final display
       const sanitizedResponse = fullResponse
-        .replace(/<details[^>]*class="rightbar__thought-details"[^>]*>[\s\S]*?<\/details>/gi, '')
+        .replace(/<thought>[\s\S]*?<\/thought>/gi, '') // Strip raw DeepSeek thoughts
+        .replace(/<details[^>]*class="rightbar__thought-details"[^>]*>[\s\S]*?<\/details>/gi, '') // Strip rendered blocks
         .trim()
 
       if (this.state.streamingMessageIndex !== null) {
@@ -218,8 +219,10 @@ export class ConversationController {
 
       await this.ui.onAutoSaveRequired()
 
-      if (sanitizedResponse.includes('[RUN:')) {
-        await this.handleAgenticCommands(sanitizedResponse, actionId)
+      // CRITICAL: Use the raw fullResponse for trigger detection to catch commands
+      // even if they are inside thinking blocks.
+      if (fullResponse.includes('[RUN:')) {
+        await this.handleAgenticCommands(fullResponse, actionId)
       }
     } catch (err: unknown) {
       if (actionId !== this.currentActionId) return
@@ -248,13 +251,10 @@ export class ConversationController {
     this.state.isExecutingCommand = true
     this.notify()
 
-    // SANITIZE: Strip all <details> thinking blocks that the model generates despite instructions
-    const sanitized = content
-      .replace(/<details[^>]*class="rightbar__thought-details"[^>]*>[\s\S]*?<\/details>/gi, '')
-      .trim()
-
+    // Pass the raw content to processResponse to catch all tags,
+    // including those hidden in reasoning blocks.
     const results = await agentService.processResponse(
-      sanitized,
+      content,
       () => {
         if (actionId === this.currentActionId) {
           this.notify()
