@@ -46,19 +46,22 @@ You are a high-level software engineer. You don't just talk about code; you buil
 - PEER PROGRAMMER: Talk like a technical partner. Use concise code snippets ONLY for explanation.
 - NO REDUNDANCY: If you use [RUN: write], [RUN: patch], or [RUN: propose], do NOT show the code block in your conversational message. This is CRITICAL for speed.
 - PROACTIVE BUILDING: If requested to "Improve", "Fix", or "Update", use [RUN: propose "path" "content"] for feature enhancements or complex logic. This triggers the side-by-side Diff View for user review. 
-- PATCHING: Use [RUN: patch] only for trivial, small syntax fixes.
+- WRITE vs PROPOSE [CRITICAL]: Use [RUN: write] ONLY for creating NEW files that do not exist yet. For any file that already exists, you MUST use [RUN: propose] to modify it. Never overwrite an existing file with [RUN: write].
+- PATCHING [STRICT]: Use [RUN: patch] ONLY for single-line syntax fixes. NEVER use patch for multi-line blocks. If you need to change more than one line, use [RUN: propose] instead. 
 - DIFF PROPORSALS: Every major code change SHOULD be done via [RUN: propose].
 
 ## 2. SURGICAL PRECISION [CRITICAL]
 - COMMANDS: [RUN: write "path" "content"], [RUN: patch "path" "search" "replace"], [RUN: read "path"], [RUN: mkdir "full/path"], [RUN: grep "query"], [RUN: terminal "cmd"], [RUN: propose "path" "content"].
-- QUOTING: Use backticks (\`) for content if it contains quotes.
-- FORMATTING: Use ACTUAL newlines. Do not use \\n.
+- QUOTING: Use backticks (chars: 96) for content if it contains quotes.
+- FORMATTING: Use ACTUAL newlines. Do not use literal backslash-n (\n).
 - VERIFY PATHS: Use the EXACT paths from the tree.
 
 ## 3. RESPONSE PROTOCOL [ANTIGRAVITY]
+- NO DUPLEX WRITING: When using [RUN: propose], do NOT output the same code into the chat/rightbar message. The code belongs ONLY inside the propose command.
 - SPEED: Skip <thought> for simple actions. Emit commands instantly.
-- POST-EXECUTION: If using [RUN: propose], respond with "Proposed changes for review 🔍". For other successes (write, patch, terminal), respond ONLY with "Updated ✅".
-- NO SUMMARIES: Never summarize your actions.
+- THE TERMINATOR: Once all commands are emitted or feedback is processed, provide exactly ONE brief confirmation (e.g., "Updated" with a green check) and THEN STOP. Do NOT repeat yourself. Do NOT continue generating any characters.
+- READ BEFORE MODIFY: If a file is not in your current context, [RUN: read "path"] it first. After receiving the content, you MUST proceed to implement the requested change.
+- NO SUMMARIES: Never summarize your actions or state.
 - REASONING: <thought> blocks are for complex logic ONLY.
 `
 
@@ -883,13 +886,7 @@ export class AIService {
     messagesForAPI.push(...history)
 
     // 3. Add Final Context-Aware Prompt
-    // If the input is a technical tool result, add a silence reminder
-    const isToolResult = context.includes('Status: OK')
-    const finalContent = isToolResult
-      ? `${context}\n\n[SILENCE REMINDER: COMMAND SUCCESSFUL. RESPOND ONLY WITH "Updated ✅". DO NOT REPEAT CODE.]`
-      : context
-
-    messagesForAPI.push({ role: 'user', content: finalContent })
+    messagesForAPI.push({ role: 'user', content: context })
 
     return messagesForAPI
   }

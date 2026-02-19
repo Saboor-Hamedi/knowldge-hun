@@ -66,14 +66,14 @@ export type DiffChunk = {
 }
 
 export function groupDiffChanges(changes: DiffChange[]): DiffChunk[] {
-  const chunks: DiffChunk[] = []
+  const initialChunks: DiffChunk[] = []
   let lineOffset = 1
 
   for (let i = 0; i < changes.length; i++) {
     const change = changes[i]
 
     if (change.type === 'unchanged') {
-      chunks.push({
+      initialChunks.push({
         type: 'unchanged',
         originalLines: [change.value],
         newLines: [change.value],
@@ -82,15 +82,9 @@ export function groupDiffChanges(changes: DiffChange[]): DiffChunk[] {
       })
       lineOffset++
     } else {
-      // It's a change. Let's capture CONSECUTIVE removals and additions
-      // that are part of the SAME modification.
       const originalLines: string[] = []
       const newLines: string[] = []
 
-      // Look ahead to collect all consecutive changes of the same group
-      // Rules:
-      // 1. Collect all consecutive 'removed' lines
-      // 2. Collect all consecutive 'added' lines immediately following them
       while (i < changes.length && changes[i].type === 'removed') {
         originalLines.push(changes[i].value)
         i++
@@ -99,12 +93,12 @@ export function groupDiffChanges(changes: DiffChange[]): DiffChunk[] {
         newLines.push(changes[i].value)
         i++
       }
-      i-- // Step back since loop will increment
+      i--
 
       const start = lineOffset
       const end = lineOffset + originalLines.length - 1
 
-      chunks.push({
+      initialChunks.push({
         type: 'change',
         originalLines,
         newLines,
@@ -116,5 +110,58 @@ export function groupDiffChanges(changes: DiffChange[]): DiffChunk[] {
     }
   }
 
-  return chunks
+  // SECOND PASS: Merge close chunks (gap <= 3 lines)
+  const merged: DiffChunk[] = []
+  for (let i = 0; i < initialChunks.length; i++) {
+    const current = initialChunks[i]
+
+    if (merged.length === 0) {
+      merged.push(current)
+      continue
+    }
+
+    const last = merged[merged.length - 1]
+
+    if (current.type === 'unchanged') {
+      // Potentially swallow this gap if a change follows soon
+      let gapLines = 0
+      let j = i
+      while (j < initialChunks.length && initialChunks[j].type === 'unchanged' && gapLines < 3) {
+        gapLines++
+        j++
+      }
+
+      if (
+        last.type === 'change' &&
+        j < initialChunks.length &&
+        initialChunks[j].type === 'change'
+      ) {
+        // Merge the gap AND the following change into 'last'
+        for (let k = i; k < j; k++) {
+          last.originalLines.push(...initialChunks[k].originalLines)
+          last.newLines.push(...initialChunks[k].newLines)
+        }
+        const nextChange = initialChunks[j]
+        last.originalLines.push(...nextChange.originalLines)
+        last.newLines.push(...nextChange.newLines)
+        last.endLine = nextChange.endLine
+        i = j // Advance pointer
+      } else {
+        // Just push the unchanged chunk
+        merged.push(current)
+      }
+    } else {
+      // Current is a 'change'
+      if (last.type === 'change') {
+        // Consecutive change - merge immediately
+        last.originalLines.push(...current.originalLines)
+        last.newLines.push(...current.newLines)
+        last.endLine = current.endLine
+      } else {
+        merged.push(current)
+      }
+    }
+  }
+
+  return merged
 }

@@ -32,6 +32,14 @@ export class AgentExecutor {
     if (!note) throw new Error(`Note not found: ${query}`)
 
     const data = await window.api.loadNote(note.id, note.path)
+
+    // PROACTIVE: Reveal the note to the user so they see the context we are reading
+    window.dispatchEvent(
+      new CustomEvent('knowledge-hub:open-note', {
+        detail: { id: note.id, path: note.path, focus: 'none' }
+      })
+    )
+
     return {
       title: note.title,
       path: note.path || '',
@@ -122,18 +130,10 @@ export class AgentExecutor {
     const existing = this.resolveNote(title)
 
     if (existing) {
-      const result = await window.api.saveNote({
-        id: existing.id,
-        content,
-        title: existing.title,
-        path: existing.path
-      } as NotePayload)
-      void ragService.indexNote(existing.id, content, {
-        title: existing.title,
-        path: existing.path
-      })
-      this.refreshActiveNoteIfNeeded(existing.id, existing.path)
-      return result
+      // SECURITY: Prevent silent overwrites. Force agent to use 'propose' for human review.
+      throw new Error(
+        `File "${title}" already exists. For modifications, you MUST use [RUN: propose "${existing.path || title}" "new content"] to trigger the side-by-side Review/Diff UI.`
+      )
     } else {
       // CRITICAL: If parentPath is provided, resolve it to an existing folder first
       let resolvedParentPath = parentPath
@@ -218,13 +218,16 @@ export class AgentExecutor {
     if (!note) throw new Error(`Note not found: ${title}`)
 
     const data = await window.api.loadNote(note.id, note.path)
-    const content = data?.content || ''
+    const content = (data?.content || '').replace(/\r\n/g, '\n')
+    const searchNormalized = search.replace(/\r\n/g, '\n')
 
-    if (!content.includes(search)) {
-      throw new Error(`Search string not found in "${title}"`)
+    if (!content.includes(searchNormalized)) {
+      throw new Error(
+        `Search string not found in "${title}". Ensure you are patching the EXACT line content.`
+      )
     }
 
-    const newContent = content.replace(search, replace)
+    const newContent = content.replace(searchNormalized, replace.replace(/\r\n/g, '\n'))
     const result = await window.api.saveNote({
       id: note.id,
       content: newContent,

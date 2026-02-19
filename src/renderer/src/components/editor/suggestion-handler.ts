@@ -2,13 +2,18 @@ import { diffLines, groupDiffChanges, DiffChunk } from '../../utils/diff'
 import './suggestion-styles.css'
 import { codicons } from '../../utils/codicons'
 
+interface TrackedChunk extends DiffChunk {
+  id: string
+}
+
 export class SuggestionManager {
   private editor: any
   private monaco: any
   private decorations: string[] = []
-  private currentChunks: DiffChunk[] = []
+  private currentChunks: TrackedChunk[] = []
   private toolbars: HTMLElement[] = []
   private viewZones: string[] = []
+  private globalHeader: HTMLElement | null = null
 
   constructor(editor: any, monaco: any) {
     this.editor = editor
@@ -17,45 +22,73 @@ export class SuggestionManager {
 
   public propose(newContent: string): void {
     const oldContent = this.editor.getValue()
-    const changes = diffLines(oldContent, newContent)
-    this.currentChunks = groupDiffChanges(changes).filter((c) => c.type === 'change')
+    const diffs = diffLines(oldContent, newContent)
+    const rawChunks = groupDiffChanges(diffs).filter((c) => {
+      // Must have actual line changes and valid line numbers
+      return (
+        c.type === 'change' &&
+        (c.originalLines.length > 0 || c.newLines.length > 0) &&
+        c.startLine > 0
+      )
+    })
+
+    this.currentChunks = rawChunks.map((c, i) => ({
+      ...c,
+      id: `suggestion-${Date.now()}-${i}`
+    }))
 
     this.clear()
-    this.renderSuggestions()
+    if (this.currentChunks.length > 0) {
+      this.renderSuggestions()
+      this.renderGlobalHeader()
+    }
   }
 
   public clear(): void {
     this.decorations = this.editor.deltaDecorations(this.decorations, [])
-    this.toolbars.forEach((tb) => tb.remove())
+    this.toolbars.forEach((tb) => {
+      if ((tb as any).widget) {
+        this.editor.removeContentWidget((tb as any).widget)
+      }
+      tb.remove()
+    })
     this.toolbars = []
 
     this.editor.changeViewZones((accessor: any) => {
       this.viewZones.forEach((id) => accessor.removeZone(id))
       this.viewZones = []
     })
+
+    if (this.globalHeader) {
+      this.globalHeader.remove()
+      this.globalHeader = null
+    }
   }
 
   private renderSuggestions(): void {
     const newDecorations: any[] = []
+    const lineCount = this.editor.getModel()?.getLineCount() || 1
 
     this.currentChunks.forEach((chunk, index) => {
+      const safeStart = Math.max(1, Math.min(chunk.startLine, lineCount))
+      const safeEnd = Math.max(safeStart, Math.min(chunk.endLine, lineCount))
+
       // 1. Highlight removed lines
       if (chunk.originalLines.length > 0) {
         newDecorations.push({
-          range: new this.monaco.Range(chunk.startLine, 1, chunk.endLine, 1000),
+          range: new this.monaco.Range(safeStart, 1, safeEnd, 1000),
           options: {
             isWholeLine: true,
             className: 'suggestion-highlight-removed',
-            marginClassName: 'suggestion-margin-removed'
+            linesDecorationsClassName: 'suggestion-gutter-removed'
           }
         })
       }
 
       // 2. Add Toolbar for this chunk
-      this.addToolbar(chunk, index)
+      this.addToolbar(chunk)
 
-      // 3. Show "Added" content as an overlay or ViewZone?
-      // For a "beautiful" experience, let's use a ViewZone to show what would be added
+      // 3. Show "Added" content as a ViewZone
       if (chunk.newLines.length > 0) {
         this.addViewZone(chunk)
       }
@@ -64,31 +97,54 @@ export class SuggestionManager {
     this.decorations = this.editor.deltaDecorations(this.decorations, newDecorations)
   }
 
-  private addToolbar(chunk: DiffChunk, index: number): void {
+  private renderGlobalHeader(): void {
+    const header = document.createElement('div')
+    header.className = 'suggestion-global-header'
+    header.innerHTML = `
+      <div class="suggestion-global-header__title">Reviewing Changes</div>
+      <div class="suggestion-global-header__count">${this.currentChunks.length}</div>
+      <div class="suggestion-global-header__actions">
+        <button class="suggestion-global-header__btn" data-action="reject-all">Discard</button>
+        <button class="suggestion-global-header__btn suggestion-global-header__btn--primary" data-action="accept-all">Accept All</button>
+      </div>
+    `
+
+    header
+      .querySelector('[data-action="reject-all"]')
+      ?.addEventListener('click', () => this.clear())
+    header
+      .querySelector('[data-action="accept-all"]')
+      ?.addEventListener('click', () => this.acceptAll())
+
+    this.editor.getDomNode()?.appendChild(header)
+    this.globalHeader = header
+  }
+
+  private addToolbar(chunk: TrackedChunk): void {
+    const lineCount = this.editor.getModel()?.getLineCount() || 1
+    const safeLine = Math.max(1, Math.min(chunk.startLine, lineCount))
+
     const toolbar = document.createElement('div')
     toolbar.className = 'suggestion-toolbar'
 
     const acceptBtn = document.createElement('button')
     acceptBtn.className = 'suggestion-toolbar__btn suggestion-toolbar__btn--accept'
-    acceptBtn.title = 'Accept'
     acceptBtn.innerHTML = codicons.check || '✓'
-    acceptBtn.onclick = () => this.acceptSuggestion(index)
+    acceptBtn.onclick = () => this.acceptSuggestion(chunk.id)
 
     const rejectBtn = document.createElement('button')
     rejectBtn.className = 'suggestion-toolbar__btn suggestion-toolbar__btn--reject'
-    rejectBtn.title = 'Reject'
     rejectBtn.innerHTML = codicons.close || '✗'
-    rejectBtn.onclick = () => this.rejectSuggestion(index)
+    rejectBtn.onclick = () => this.rejectSuggestion(chunk.id)
 
     toolbar.appendChild(acceptBtn)
     toolbar.appendChild(rejectBtn)
 
-    // Position it at the end of the chunk
     const widget = {
       getDomNode: () => toolbar,
-      getId: () => `suggestion-toolbar-${index}`,
+      getId: () => `suggestion-toolbar-${chunk.id}`,
       getPosition: () => ({
-        position: { lineNumber: chunk.startLine, column: 1 },
+        position: { lineNumber: safeLine, column: 1 },
         preference: [1] // Above
       })
     }
@@ -98,22 +154,25 @@ export class SuggestionManager {
     ;(toolbar as any).widget = widget
   }
 
-  private addViewZone(chunk: DiffChunk): void {
+  private addViewZone(chunk: TrackedChunk): void {
     this.editor.changeViewZones((accessor: any) => {
+      const lineCount = this.editor.getModel()?.getLineCount() || 1
+      const safeLine = Math.max(1, Math.min(chunk.endLine, lineCount))
+
       const domNode = document.createElement('div')
       domNode.className = 'suggestion-view-zone'
-      domNode.style.paddingLeft = '50px' // Offset for line numbers
+      domNode.style.paddingLeft = '50px'
 
       chunk.newLines.forEach((line) => {
         const lineEl = document.createElement('div')
         lineEl.className = 'suggestion-highlight-added'
         lineEl.style.padding = '0 8px'
-        lineEl.textContent = line || ' ' // spacer
+        lineEl.textContent = line || ' '
         domNode.appendChild(lineEl)
       })
 
       const zoneId = accessor.addZone({
-        afterLineNumber: chunk.endLine,
+        afterLineNumber: safeLine,
         heightInLines: chunk.newLines.length,
         domNode: domNode
       })
@@ -121,27 +180,47 @@ export class SuggestionManager {
     })
   }
 
-  private acceptSuggestion(index: number): void {
+  private acceptSuggestion(id: string): void {
+    const index = this.currentChunks.findIndex((c) => c.id === id)
+    if (index === -1) return
+
     const chunk = this.currentChunks[index]
+    this.applyChunkEdit(chunk)
+
+    this.currentChunks.splice(index, 1)
+    if (this.currentChunks.length === 0) {
+      this.clear()
+    } else {
+      this.refreshUI()
+    }
+  }
+
+  private acceptAll(): void {
+    // Apply changes from bottom to top to keep line numbers stable
+    const sorted = [...this.currentChunks].sort((a, b) => b.startLine - a.startLine)
+    sorted.forEach((chunk) => this.applyChunkEdit(chunk))
+    this.clear()
+  }
+
+  private applyChunkEdit(chunk: TrackedChunk): void {
     const model = this.editor.getModel()
     if (!model) return
 
-    // Apply the change: Replace originalLines with newLines
-    // If originalLines is empty, it's a pure insertion.
-    // We use a point range to avoid deleting existing lines.
     const isInsertion = chunk.originalLines.length === 0
-    const range = isInsertion
-      ? new this.monaco.Range(chunk.startLine, 1, chunk.startLine, 1)
-      : new this.monaco.Range(
-          chunk.startLine,
-          1,
-          chunk.endLine,
-          model.getLineMaxColumn(chunk.endLine)
-        )
+    const lineCount = model.getLineCount()
 
-    const text =
-      chunk.newLines.join('\n') +
-      (isInsertion && chunk.startLine <= model.getLineCount() ? '\n' : '')
+    // Safety check: ensure startLine and endLine are within bounds
+    const safeStartLine = Math.max(1, Math.min(chunk.startLine, lineCount))
+    const safeEndLine = Math.max(safeStartLine, Math.min(chunk.endLine, lineCount))
+
+    const range = isInsertion
+      ? new this.monaco.Range(safeStartLine, 1, safeStartLine, 1)
+      : new this.monaco.Range(safeStartLine, 1, safeEndLine, model.getLineMaxColumn(safeEndLine))
+
+    let text = chunk.newLines.join('\n')
+    if (isInsertion && chunk.startLine <= model.getLineCount()) {
+      text += '\n'
+    }
 
     this.editor.executeEdits('ai-suggestion', [
       {
@@ -150,21 +229,28 @@ export class SuggestionManager {
         forceMoveMarkers: true
       }
     ])
-
-    // CRITICAL: Refresh all suggestions after any acceptance
-    // Acceptance shifts line numbers, making other chunk ranges invalid.
-    this.clear()
   }
 
-  private rejectSuggestion(index: number): void {
+  private rejectSuggestion(id: string): void {
+    const index = this.currentChunks.findIndex((c) => c.id === id)
+    if (index === -1) return
+
     this.currentChunks.splice(index, 1)
-    this.refreshUI()
+    if (this.currentChunks.length === 0) {
+      this.clear()
+    } else {
+      this.refreshUI()
+    }
   }
 
   private refreshUI(): void {
-    const oldToolbars = [...this.toolbars]
-    oldToolbars.forEach((tb) => {
-      this.editor.removeContentWidget((tb as any).widget)
+    // Clear toolbars and zones, leave currentChunks metadata
+    this.decorations = this.editor.deltaDecorations(this.decorations, [])
+    this.toolbars.forEach((tb) => {
+      if ((tb as any).widget) {
+        this.editor.removeContentWidget((tb as any).widget)
+      }
+      tb.remove()
     })
     this.toolbars = []
 
@@ -172,6 +258,11 @@ export class SuggestionManager {
       this.viewZones.forEach((id) => accessor.removeZone(id))
       this.viewZones = []
     })
+
+    if (this.globalHeader) {
+      const countEl = this.globalHeader.querySelector('.suggestion-global-header__count')
+      if (countEl) countEl.textContent = this.currentChunks.length.toString()
+    }
 
     this.renderSuggestions()
   }

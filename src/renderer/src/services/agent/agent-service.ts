@@ -188,7 +188,19 @@ export class AgentService {
     const args = parts.slice(1)
 
     // HAZARDOUS COMMANDS: Require confirmation
-    const isHazardous = ['terminal', 'shell', 'run', 'delete', 'rm'].includes(action)
+    const isHazardous = [
+      'terminal',
+      'shell',
+      'run',
+      'delete',
+      'rm',
+      'write',
+      'patch',
+      'create',
+      'edit',
+      'append',
+      'touch'
+    ].includes(action)
     if (isHazardous && this.onConfirm) {
       const confirmed = await this.onConfirm(cmdString)
       if (!confirmed) {
