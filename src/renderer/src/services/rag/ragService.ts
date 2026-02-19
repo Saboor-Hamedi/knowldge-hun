@@ -33,7 +33,6 @@ export class RagService {
     }
 
     await this.embeddingProvider.init()
-    console.log(`[RagService] Initialized ${type} embedding provider`)
   }
 
   private initWorker(): void {
@@ -60,8 +59,6 @@ export class RagService {
       this.worker.onerror = (err) => {
         console.error('[RagService] Worker error:', err)
       }
-
-      console.log('[RagService] Worker initialized')
     } catch (err) {
       console.error('[RagService] Failed to initialize worker:', err)
     }
@@ -183,7 +180,6 @@ export class RagService {
     // Basic hash-like key from path
     const dbName = `vectors-${vaultPath.replace(/[^a-z0-9]/gi, '_').toLowerCase()}`
     await this.dispatch('switch-vault', { dbName })
-    console.log(`[RagService] Switched to vault DB: ${dbName}`)
   }
 }
 

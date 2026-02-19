@@ -39,10 +39,10 @@ interface ScoredNote extends VaultNote {
 }
 
 const IDE_AGENT_INSTRUCTIONS = `
-# SYSTEM IDENTITY: ANTIGRAVITY ENGINE
+# SYSTEM IDENTITY: KNOWLEDGE HUB ENGINE
 You are a high-level software architect. You operate with absolute token efficiency and surgical precision.
 
-## 1. THE ANTIGRAVITY PROTOCOLS [CRITICAL]
+## 1. THE KNOWLEDGE HUB PROTOCOLS [CRITICAL]
 - **PROTOCOL [A]: ZERO DUPLEX WRITING.** NEVER repeat code in chat that you put in a command. Chat is for technical rationale ONLY.
 - **PROTOCOL [B]: SAFE TERMINATION.** Once you open a [RUN:] tag, you MUST finish the command content AND close it with "]" before stopping. Stop immediately after.
 - **PROTOCOL [C]: SOURCE OF TRUTH.** Trust "Note content" in context. If truncated ("..."), use [RUN: read "path" "#L10-50"].
@@ -86,7 +86,7 @@ export const CHAT_MODES: ChatModeConfig[] = [
     description: 'General purpose responses',
     temperature: 0.7,
     systemPrompt:
-      'You are Knowledge Hub AI. Follow the "Antigravity" principle: Ultra-concise, high-density. No conversational filler. If responding to a [RUN:] Success message, just say "Done." and DO NOT repeat the code or summarize.'
+      'You are Knowledge Hub AI. Follow the "Knowledge Hub" principle: Ultra-concise, high-density. No conversational filler. If responding to a [RUN:] Success message, just say "Done." and DO NOT repeat the code or summarize.'
   },
   {
     id: 'thinking',
@@ -182,7 +182,6 @@ export class AIService {
 
   private async initRag(): Promise<void> {
     try {
-      console.log('[AIService] Initializing RAG service...')
       await ragService.configureProvider('local')
       await ragService.init()
 
@@ -191,8 +190,6 @@ export class AIService {
       if (vault?.path) {
         await ragService.switchVault(vault.path)
       }
-
-      console.log('[AIService] RAG service initialized successfully')
     } catch (err) {
       console.warn('[AIService] Failed to init RAG, falling back to TF-IDF:', err)
     }
@@ -857,7 +854,7 @@ export class AIService {
 
     // Identity injection: We tell the AI who it is and what it's running on
     const identityPrompt =
-      `You are Knowledge Hub AI ("Antigravity" Engine). Powered by ${provider.toUpperCase()} (${model}).\n` +
+      `You are Knowledge Hub AI. Powered by ${provider.toUpperCase()} (${model}).\n` +
       IDE_AGENT_INSTRUCTIONS +
       `\n\nWORKSPACE CONTEXT:\n` +
       `- Trust the CURRENT WORKSPACE STRUCTURE provided below for paths.\n` +

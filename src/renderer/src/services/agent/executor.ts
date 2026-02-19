@@ -274,7 +274,13 @@ export class AgentExecutor {
     for (let i = 0; i <= contentLines.length - searchLines.length; i++) {
       let isMatch = true
       for (let j = 0; j < searchLines.length; j++) {
-        if (contentLines[i + j].trim() !== searchLines[j].trim()) {
+        const contentLine = contentLines[i + j].trimEnd()
+        const searchLine = searchLines[j].trimEnd()
+
+        // Skip comparing if both are just whitespace (robust against empty line mismatches)
+        if (!contentLine && !searchLine) continue
+
+        if (contentLine !== searchLine) {
           isMatch = false
           break
         }

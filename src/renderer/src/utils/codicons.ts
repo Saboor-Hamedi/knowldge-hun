@@ -7,6 +7,7 @@ import {
   FileCode,
   ChevronRight,
   ChevronDown,
+  ChevronUp,
   X,
   Plus,
   RefreshCw,
@@ -154,7 +155,9 @@ export const codicons = {
   closeAll: lucideIcon(Layers),
   closeOthers: lucideIcon(LayoutGrid),
   history: lucideIcon(History),
-  gitCommit: lucideIcon(GitCommit)
+  gitCommit: lucideIcon(GitCommit),
+  arrowUp: lucideIcon(ChevronUp, 14, 2),
+  arrowDown: lucideIcon(ChevronDown, 14, 2)
 }
 
 // Folder type detector based on folder name

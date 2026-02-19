@@ -3,27 +3,24 @@
   flex-direction: row !important;
   flex-wrap: nowrap !important;
   align-items: center;
-  gap: 6px;
-  padding: 3px 6px;
+  gap: 8px;
+  padding: 4px 8px;
   width: auto !important;
-  background: rgba(15, 15, 15, 0.9);
+  background: rgba(10, 10, 10, 1); /* Solid back for visibility */
   border: 1px solid var(--primary);
   border-radius: 4px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(8px);
-  z-index: 1000;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+  z-index: 10000; /* High z-index */
   pointer-events: all;
-  opacity: 0.8;
+  opacity: 1; /* REQUESTED: Solid */
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  transform: translateY(-50%); /* Center vertically on the line */
-  margin-left: 20px; /* Gap from code */
+  transform: translateY(-100%); /* Position ABOVE the line */
+  margin-left: 32px; /* Clear gutter and line number */
 }
 
 .suggestion-toolbar:hover {
-  opacity: 1;
-  background: rgba(25, 25, 25, 0.95);
-  box-shadow: 0 0 15px rgba(var(--primary-rgb), 0.3);
-  transform: translateY(-50%) scale(1.02);
+  transform: translateY(-100%) scale(1.05);
+  box-shadow: 0 0 20px rgba(var(--primary-rgb), 0.4);
 }
 
 .suggestion-toolbar__btn {
@@ -79,19 +76,22 @@
 /* Global Review Header */
 .suggestion-global-header {
   position: fixed;
-  bottom: calc(var(--statusbar-height) + 16px);
-  left: 50%;
-  /* Correctly center in editor area by accounting for dynamic RightBar width */
-  transform: translateX(calc(-50% - (var(--right-panel-width, 270px) / 2)));
+  bottom: 24px;
+  /* Premium Centering: Sidebar Width + (Available Space / 2) */
+  left: calc(
+    var(--sidebar-width, 260px) +
+      (100vw - var(--sidebar-width, 260px) - var(--right-panel-width, 300px)) / 2
+  );
+  transform: translateX(-50%);
   display: flex !important;
   flex-direction: row !important;
   flex-wrap: nowrap !important;
   align-items: center;
   gap: 12px;
   padding: 6px 14px;
-  background: rgba(15, 15, 15, 0.92);
+  background: rgba(10, 10, 10, 0.9);
   border: 1px solid var(--primary);
-  border-radius: 5px;
+  border-radius: 5px; /* REQUESTED: 5px */
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
   backdrop-filter: blur(20px);
   z-index: 100000;
@@ -99,25 +99,41 @@
   pointer-events: auto;
 }
 
-/* Fix RightBar input clipping */
-.rightbar__chat-input {
-  padding-left: 12px !important;
+.suggestion-global-header__nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 2px 4px;
+  border-radius: 4px;
 }
 
-/* Position header above terminal if open */
-.terminal-open .suggestion-global-header {
-  bottom: calc(var(--statusbar-height) + 316px);
+.suggestion-global-header__nav-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: transparent;
+  color: var(--text-soft);
+  cursor: pointer;
+  border-radius: 3px;
+  transition: all 0.2s ease;
 }
 
-@keyframes header-slide-up {
-  from {
-    transform: translate(calc(-50% - (var(--right-panel-width, 270px) / 2)), 20px);
-    opacity: 0;
-  }
-  to {
-    transform: translate(calc(-50% - (var(--right-panel-width, 270px) / 2)), 0);
-    opacity: 1;
-  }
+.suggestion-global-header__nav-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--primary);
+}
+
+.suggestion-global-header__count {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-strong);
+  min-width: 32px;
+  text-align: center;
+  font-family: var(--font-mono);
 }
 
 .suggestion-global-header__title {
@@ -126,15 +142,6 @@
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--text-soft);
-}
-
-.suggestion-global-header__count {
-  background: var(--primary);
-  color: #0b1220;
-  padding: 1px 6px;
-  border-radius: 4px;
-  font-size: 10px;
-  font-weight: 800;
 }
 
 .suggestion-global-header__actions {
@@ -171,4 +178,25 @@
 .suggestion-global-header__btn--primary:hover {
   opacity: 0.9;
   filter: brightness(1.1);
+}
+
+/* Fix RightBar input clipping */
+.rightbar__chat-input {
+  padding-left: 12px !important;
+}
+
+/* Position header above terminal if open */
+.terminal-open .suggestion-global-header {
+  bottom: calc(var(--statusbar-height, 22px) + 316px);
+}
+
+@keyframes header-slide-up {
+  from {
+    transform: translate(-50%, 40px);
+    opacity: 0;
+  }
+  to {
+    transform: translate(-50%, 0);
+    opacity: 1;
+  }
 }

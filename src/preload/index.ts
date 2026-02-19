@@ -266,7 +266,6 @@ if (process.contextIsolated) {
   try {
     contextBridge.exposeInMainWorld('electron', electronAPI)
     contextBridge.exposeInMainWorld('api', api)
-    console.log('[Preload] API exposed successfully. Available keys:', Object.keys(api))
   } catch (error) {
     console.error(error)
   }

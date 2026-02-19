@@ -14,6 +14,7 @@ export class SuggestionManager {
   private toolbars: HTMLElement[] = []
   private viewZones: string[] = []
   private globalHeader: HTMLElement | null = null
+  private currentChunkIndex: number = 0
 
   constructor(editor: any, monaco: any) {
     this.editor = editor
@@ -38,6 +39,8 @@ export class SuggestionManager {
     }))
 
     this.clear()
+    this.currentChunkIndex = 0
+
     if (this.currentChunks.length > 0) {
       this.renderSuggestions()
       this.renderGlobalHeader()
@@ -108,13 +111,19 @@ export class SuggestionManager {
     header.className = 'suggestion-global-header'
     header.innerHTML = `
       <div class="suggestion-global-header__title">Reviewing Changes</div>
-      <div class="suggestion-global-header__count">${this.currentChunks.length}</div>
+      <div class="suggestion-global-header__nav">
+        <button class="suggestion-global-header__nav-btn" data-action="prev" title="Previous Change">${codicons.arrowUp || '↑'}</button>
+        <div class="suggestion-global-header__count">${this.currentChunkIndex + 1} / ${this.currentChunks.length}</div>
+        <button class="suggestion-global-header__nav-btn" data-action="next" title="Next Change">${codicons.arrowDown || '↓'}</button>
+      </div>
       <div class="suggestion-global-header__actions">
         <button class="suggestion-global-header__btn" data-action="reject-all">Discard</button>
         <button class="suggestion-global-header__btn suggestion-global-header__btn--primary" data-action="accept-all">Accept All</button>
       </div>
     `
 
+    header.querySelector('[data-action="prev"]')?.addEventListener('click', () => this.jumpTo(-1))
+    header.querySelector('[data-action="next"]')?.addEventListener('click', () => this.jumpTo(1))
     header
       .querySelector('[data-action="reject-all"]')
       ?.addEventListener('click', () => this.clear())
@@ -124,6 +133,22 @@ export class SuggestionManager {
 
     parent.appendChild(header)
     this.globalHeader = header
+  }
+
+  private jumpTo(delta: number): void {
+    if (this.currentChunks.length === 0) return
+    this.currentChunkIndex =
+      (this.currentChunkIndex + delta + this.currentChunks.length) % this.currentChunks.length
+
+    // Update count display
+    if (this.globalHeader) {
+      const countEl = this.globalHeader.querySelector('.suggestion-global-header__count')
+      if (countEl)
+        countEl.textContent = `${this.currentChunkIndex + 1} / ${this.currentChunks.length}`
+    }
+
+    const chunk = this.currentChunks[this.currentChunkIndex]
+    this.editor.revealLineInCenter(chunk.startLine)
   }
 
   private addToolbar(chunk: TrackedChunk): void {
@@ -205,9 +230,31 @@ export class SuggestionManager {
   }
 
   private acceptAll(): void {
+    const edits: any[] = []
+    const model = this.editor.getModel()
+    if (!model) return
+
     // Apply changes from bottom to top to keep line numbers stable
     const sorted = [...this.currentChunks].sort((a, b) => b.startLine - a.startLine)
-    sorted.forEach((chunk) => this.applyChunkEdit(chunk))
+
+    sorted.forEach((chunk) => {
+      const isInsertion = chunk.originalLines.length === 0
+      const lineCount = model.getLineCount()
+      const safeStartLine = Math.max(1, Math.min(chunk.startLine, lineCount))
+      const safeEndLine = Math.max(safeStartLine, Math.min(chunk.endLine, lineCount))
+
+      const range = isInsertion
+        ? new this.monaco.Range(safeStartLine, 1, safeStartLine, 1)
+        : new this.monaco.Range(safeStartLine, 1, safeEndLine, model.getLineMaxColumn(safeEndLine))
+
+      let text = chunk.newLines.join('\n')
+      if (isInsertion && chunk.startLine <= model.getLineCount()) {
+        text += '\n'
+      }
+      edits.push({ range, text, forceMoveMarkers: true })
+    })
+
+    this.editor.executeEdits('ai-suggestion-all', edits)
     this.clear()
   }
 
@@ -270,7 +317,14 @@ export class SuggestionManager {
 
     if (this.globalHeader) {
       const countEl = this.globalHeader.querySelector('.suggestion-global-header__count')
-      if (countEl) countEl.textContent = this.currentChunks.length.toString()
+      if (countEl) {
+        this.currentChunkIndex = Math.min(this.currentChunkIndex, this.currentChunks.length - 1)
+        if (this.currentChunks.length > 0) {
+          countEl.textContent = `${this.currentChunkIndex + 1} / ${this.currentChunks.length}`
+        } else {
+          this.clear()
+        }
+      }
     }
 
     this.renderSuggestions()

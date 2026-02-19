@@ -85,12 +85,13 @@ export function groupDiffChanges(changes: DiffChange[]): DiffChunk[] {
       const originalLines: string[] = []
       const newLines: string[] = []
 
-      while (i < changes.length && changes[i].type === 'removed') {
-        originalLines.push(changes[i].value)
-        i++
-      }
-      while (i < changes.length && changes[i].type === 'added') {
-        newLines.push(changes[i].value)
+      // Collect ALL consecutive non-unchanged lines into one logical chunk
+      while (i < changes.length && (changes[i].type === 'removed' || changes[i].type === 'added')) {
+        if (changes[i].type === 'removed') {
+          originalLines.push(changes[i].value)
+        } else {
+          newLines.push(changes[i].value)
+        }
         i++
       }
       i--
