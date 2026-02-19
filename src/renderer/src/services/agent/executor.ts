@@ -54,6 +54,12 @@ export class AgentExecutor {
     const q = query.trim()
     const qLower = q.toLowerCase()
 
+    // 0. Handle aliases for active note
+    if (qLower === 'active' || qLower === 'current' || qLower === 'this') {
+      const active = state.notes.find((n) => n.id === state.activeId)
+      if (active) return active
+    }
+
     // 1. Try exact path match first (best for ambiguous names)
     const exact = state.notes.find((n) => n.path === q || n.id === q)
     if (exact) return exact
@@ -130,23 +136,20 @@ export class AgentExecutor {
     const existing = this.resolveNote(title)
 
     if (existing) {
-      // SECURITY: Prevent silent overwrites. Force agent to use 'propose' for human review.
+      // ANTIGRAVITY SAFETY: Prevent silent overwrites of existing files.
+      // The AI must use 'propose' to show a diff to the user.
       throw new Error(
-        `File "${title}" already exists. For modifications, you MUST use [RUN: propose "${existing.path || title}" "new content"] to trigger the side-by-side Review/Diff UI.`
+        `File "${title}" already exists at "${existing.path || existing.id}". ` +
+          `To modify it, you MUST use [RUN: propose "${existing.path || existing.id}" "content"] ` +
+          `to trigger the Review/Diff UI. "write" is for NEW files only.`
       )
     } else {
-      // CRITICAL: If parentPath is provided, resolve it to an existing folder first
+      // Proactive resolution of parentPath
       let resolvedParentPath = parentPath
       if (parentPath && parentPath !== '.') {
-        console.log(`[AgentExecutor] Attempting to resolve parent folder: "${parentPath}"`)
         const existingFolder = this.resolveFolder(parentPath)
         if (existingFolder) {
           resolvedParentPath = existingFolder
-          console.log(`[AgentExecutor] ✓ Resolved to existing folder: ${existingFolder}`)
-        } else {
-          console.warn(
-            `[AgentExecutor] ✗ Could not find existing folder "${parentPath}", will create new folder`
-          )
         }
       }
 
@@ -189,14 +192,24 @@ export class AgentExecutor {
   }
 
   /**
-   * EXECUTE: Append Note
+   * EXECUTE: Append to Note
    */
-  async appendNote(title: string, contentToAppend: string): Promise<NoteMeta> {
+  async appendNote(title: string, content: string): Promise<NoteMeta> {
     const note = this.resolveNote(title)
     if (!note) throw new Error(`Note not found: ${title}`)
 
     const data = await window.api.loadNote(note.id, note.path)
-    const newContent = (data?.content || '') + '\n' + contentToAppend
+    const existingContent = data?.content || ''
+    const newContent = existingContent + (existingContent.endsWith('\n') ? '' : '\n') + content
+
+    if (state.activeId === note.id) {
+      window.dispatchEvent(
+        new CustomEvent('knowledge-hub:propose-note', {
+          detail: { id: note.id, content: newContent }
+        })
+      )
+      return note as NoteMeta
+    }
 
     const result = await window.api.saveNote({
       id: note.id,
@@ -211,7 +224,7 @@ export class AgentExecutor {
   }
 
   /**
-   * EXECUTE: Patch Note (Search and Replace)
+   * EXECUTE: Patch Note (Robust Search and Replace)
    */
   async patchNote(title: string, search: string, replace: string): Promise<NoteMeta> {
     const note = this.resolveNote(title)
@@ -219,25 +232,70 @@ export class AgentExecutor {
 
     const data = await window.api.loadNote(note.id, note.path)
     const content = (data?.content || '').replace(/\r\n/g, '\n')
+
+    // Normalize line endings for the search string
     const searchNormalized = search.replace(/\r\n/g, '\n')
 
-    if (!content.includes(searchNormalized)) {
-      throw new Error(
-        `Search string not found in "${title}". Ensure you are patching the EXACT line content.`
-      )
+    const finalizeMatch = async (newContent: string) => {
+      // If it's the active note, trigger Suggestion Review (Copilot-style)
+      if (state.activeId === note.id) {
+        window.dispatchEvent(
+          new CustomEvent('knowledge-hub:propose-note', {
+            detail: { id: note.id, content: newContent }
+          })
+        )
+        return note as NoteMeta
+      }
+
+      // Otherwise, save directly
+      const result = await window.api.saveNote({
+        id: note.id,
+        content: newContent,
+        title: note.title,
+        path: note.path
+      } as NotePayload)
+
+      void ragService.indexNote(note.id, newContent, { title: note.title, path: note.path })
+      this.refreshActiveNoteIfNeeded(note.id, note.path)
+      return result
     }
 
-    const newContent = content.replace(searchNormalized, replace.replace(/\r\n/g, '\n'))
-    const result = await window.api.saveNote({
-      id: note.id,
-      content: newContent,
-      title: note.title,
-      path: note.path
-    } as NotePayload)
+    // 1. Try exact match first
+    if (content.includes(searchNormalized)) {
+      const newContent = content.replace(searchNormalized, replace.replace(/\r\n/g, '\n'))
+      return finalizeMatch(newContent)
+    }
 
-    void ragService.indexNote(note.id, newContent, { title: note.title, path: note.path })
-    this.refreshActiveNoteIfNeeded(note.id, note.path)
-    return result
+    // 2. Exact match failed - try robust match (line-by-line whitespace-insensitive)
+    const contentLines = content.split('\n')
+    const searchLines = searchNormalized.split('\n')
+
+    let matchIdx = -1
+    for (let i = 0; i <= contentLines.length - searchLines.length; i++) {
+      let isMatch = true
+      for (let j = 0; j < searchLines.length; j++) {
+        if (contentLines[i + j].trim() !== searchLines[j].trim()) {
+          isMatch = false
+          break
+        }
+      }
+      if (isMatch) {
+        matchIdx = i
+        break
+      }
+    }
+
+    if (matchIdx !== -1) {
+      const replacementText = replace.replace(/\r\n/g, '\n')
+      contentLines.splice(matchIdx, searchLines.length, replacementText)
+      const newContent = contentLines.join('\n')
+      return finalizeMatch(newContent)
+    }
+
+    throw new Error(
+      `Patch failed: Search block not found in "${title}". \n` +
+        `Tip: Ensure the search block is unique and matches the file content. Use [RUN: propose] for complex modifications.`
+    )
   }
 
   /**

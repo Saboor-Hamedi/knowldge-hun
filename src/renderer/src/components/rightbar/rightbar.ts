@@ -101,6 +101,8 @@ export class RightBar {
   private sessionManager!: SessionManager
   private chatRenderer!: ChatRenderer
   private conversationController!: ConversationController
+  private agentControlPanel!: HTMLElement
+  private resolveConfirmation: ((val: boolean) => void) | null = null
 
   constructor(containerId: string, aiSettingsModal: AISettingsModal) {
     this.aiSettingsModal = aiSettingsModal
@@ -163,78 +165,36 @@ export class RightBar {
 
     // Set up agent confirmation handler
     agentService.setConfirmHandler(async (command: string) => {
-      const { modalManager } = await import('../modal/modal')
       const { agentExecutor } = await import('../../services/agent/executor')
 
       const actionMatch = command.match(/^(\w+)/)
       const action = (actionMatch ? actionMatch[1].toLowerCase() : 'command') as string
 
       const isDelete = action === 'delete' || action === 'rm'
-      const title = isDelete ? 'Confirm Deletion' : 'AI Agent Authorization'
-      const variant = isDelete ? 'danger' : 'primary'
-      const actionLabel = isDelete ? 'Delete Forever' : 'Authorize'
+      const actionLabel = isDelete ? 'DELETE' : 'APPLY'
 
-      let detailsHtml = `<p>The AI Agent is requesting authorization to execute a <strong>${action}</strong> operation:</p>`
+      let detailsHtml = `Execute <strong>${action}</strong>?`
 
       if (isDelete) {
         const parts = command.split(/\s+/)
         const target = parts[1]?.replace(/^["']|["']$/g, '') || ''
-
-        // Try to resolve exactly what is being deleted for realism
         const folderPath = agentExecutor.resolveFolder(target)
         const note = !folderPath ? agentExecutor.resolveNote(target) : null
 
         if (folderPath) {
-          detailsHtml = `
-            <p>The agent wants to delete the following <strong>Project/Folder</strong>:</p>
-            <div class="agent-confirm-item">
-              <span class="agent-confirm-icon">📂</span>
-              <span class="agent-confirm-path">${folderPath}</span>
-            </div>
-            <p class="text-soft" style="font-size: 11px; margin-top: 8px;">All files and subfolders inside this directory will be permanently removed.</p>
-          `
+          detailsHtml = `Delete folder <code>${folderPath}</code>?`
         } else if (note) {
-          detailsHtml = `
-            <p>The agent wants to delete the following <strong>Note</strong>:</p>
-            <div class="agent-confirm-item">
-              <span class="agent-confirm-icon">📄</span>
-              <span class="agent-confirm-path">${note.path || note.title}</span>
-            </div>
-          `
+          detailsHtml = `Delete note <code>${note.id}</code>?`
         }
+      } else if (action === 'write' || action === 'propose' || action === 'patch') {
+        const parts = command.match(/^(?:\w+)\s+"?(.+?)"?\s+/)
+        const path = parts ? parts[1] : ''
+        detailsHtml = `${action.toUpperCase()} <code>${path}</code>?`
       }
 
       return new Promise((resolve) => {
-        modalManager.open({
-          title,
-          content: `
-            <div class="agent-confirm-modal">
-              ${detailsHtml}
-              <div class="agent-confirm-cmd"><code>${command}</code></div>
-              ${isDelete ? '<p class="text-danger" style="margin-top: 12px; font-size: 11px;">⚠️ <strong>Warning</strong>: This action is destructive and cannot be undone.</p>' : ''}
-            </div>
-          `,
-          size: 'sm',
-          buttons: [
-            {
-              label: actionLabel,
-              variant: variant,
-              onClick: (m) => {
-                resolve(true) // Resolve BEFORE closing to avoid onClose conflict
-                m.close()
-              }
-            },
-            {
-              label: 'Cancel',
-              variant: 'ghost',
-              onClick: (m) => {
-                resolve(false)
-                m.close()
-              }
-            }
-          ],
-          onClose: () => resolve(false)
-        })
+        this.resolveConfirmation = resolve
+        this.renderAgentControl(detailsHtml, actionLabel, isDelete)
       })
     })
 
@@ -309,13 +269,17 @@ export class RightBar {
         <div class="rightbar__chat-container" id="rightbar-chat-container">
           <div class="rightbar__chat-messages" id="rightbar-chat-messages"></div>
         </div>
-        <div class="rightbar__chat-input-wrapper" id="rightbar-chat-input-wrapper"></div>
+        <div class="rightbar__chat-input-wrapper" id="rightbar-chat-input-wrapper">
+          <div id="agent-control-host"></div>
+        </div>
       </div>
     `
     const rightbarElement = this.container.querySelector('.rightbar') as HTMLElement
 
     this.chatContainer = this.container.querySelector('#rightbar-chat-messages') as HTMLElement
     const inputWrapper = this.container.querySelector('#rightbar-chat-input-wrapper') as HTMLElement
+    this.agentControlPanel = this.container.querySelector('#agent-control-host') as HTMLElement
+
     this.chatInputArea = new ChatInput(inputWrapper, {
       placeholder: 'Ask anything... @note to mention',
       showModeSwitcher: false,
@@ -429,7 +393,7 @@ export class RightBar {
       this.wasAtBottom = scrollHeight - scrollTop - clientHeight < 50
     })
 
-    this.chatContainer.addEventListener('click', (e) => {
+    this.chatContainer.addEventListener('click', async (e) => {
       const target = (e.target as HTMLElement).closest('[data-action]')
       if (!target) return
       const action = (target as HTMLElement).dataset.action
@@ -576,16 +540,19 @@ export class RightBar {
               document.body.removeChild(textarea)
             })
         }
-      } else if (btn.classList.contains('rightbar__message-citation')) {
-        // Individual citation chip click (this works via delegation now)
-        const noteId = btn.dataset.noteId
-        const notePath = btn.dataset.notePath
-        if (noteId) {
-          window.dispatchEvent(
-            new CustomEvent('knowledge-hub:open-note', {
-              detail: { id: noteId, path: notePath || undefined }
-            })
-          )
+      } else if (btn.classList.contains('rightbar__message-mention')) {
+        // Mention click (@note or [[note]])
+        const name = btn.dataset.name
+        if (name) {
+          const { agentExecutor } = await import('../../services/agent/executor')
+          const note = agentExecutor.resolveNote(name)
+          if (note) {
+            window.dispatchEvent(
+              new CustomEvent('knowledge-hub:open-note', {
+                detail: { id: note.id, path: note.path || undefined }
+              })
+            )
+          }
         }
       }
     })
@@ -1031,6 +998,62 @@ export class RightBar {
       )
       button.title = originalTitle
     }, 2000)
+  }
+
+  private renderAgentControl(html: string, actionLabel: string, isDanger: boolean): void {
+    const variantClass = isDanger ? 'is-danger' : 'is-primary'
+    this.agentControlPanel.innerHTML = `
+      <div class="rightbar__agent-control ${variantClass}">
+        <div class="rightbar__agent-control-content">
+          <span class="rightbar__agent-control-icon">🤖</span>
+          <span class="rightbar__agent-control-text">${html}</span>
+        </div>
+        <div class="rightbar__agent-control-actions">
+          <button class="rightbar__agent-control-btn is-cancel" title="Reject (Esc)">REJECT</button>
+          <button class="rightbar__agent-control-btn is-confirm" title="Approve (Enter)">${actionLabel}</button>
+        </div>
+      </div>
+    `
+    this.agentControlPanel.classList.add('visible')
+    this.container.querySelector('.rightbar')?.classList.add('has-agent-control')
+
+    const confirmBtn = this.agentControlPanel.querySelector('.is-confirm') as HTMLElement
+    const cancelBtn = this.agentControlPanel.querySelector('.is-cancel') as HTMLElement
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Enter') {
+        e.preventDefault()
+        confirmBtn.click()
+        document.removeEventListener('keydown', handleKeyDown)
+      } else if (e.key === 'Escape') {
+        e.preventDefault()
+        cancelBtn.click()
+        document.removeEventListener('keydown', handleKeyDown)
+      }
+    }
+
+    confirmBtn.onclick = () => {
+      this.resolveConfirmation?.(true)
+      this.clearAgentControl()
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+
+    cancelBtn.onclick = () => {
+      this.resolveConfirmation?.(false)
+      this.clearAgentControl()
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+  }
+
+  private clearAgentControl(): void {
+    this.agentControlPanel.classList.remove('visible')
+    this.container.querySelector('.rightbar')?.classList.remove('has-agent-control')
+    setTimeout(() => {
+      this.agentControlPanel.innerHTML = ''
+    }, 200)
+    this.resolveConfirmation = null
   }
 
   private renderMessages(): void {

@@ -41,6 +41,9 @@ export class SuggestionManager {
     if (this.currentChunks.length > 0) {
       this.renderSuggestions()
       this.renderGlobalHeader()
+
+      // Reveal first change
+      this.editor.revealLineInCenter(this.currentChunks[0].startLine)
     }
   }
 
@@ -98,6 +101,9 @@ export class SuggestionManager {
   }
 
   private renderGlobalHeader(): void {
+    const parent = document.getElementById('app') || document.body
+    if (!parent) return
+
     const header = document.createElement('div')
     header.className = 'suggestion-global-header'
     header.innerHTML = `
@@ -116,7 +122,7 @@ export class SuggestionManager {
       .querySelector('[data-action="accept-all"]')
       ?.addEventListener('click', () => this.acceptAll())
 
-    this.editor.getDomNode()?.appendChild(header)
+    parent.appendChild(header)
     this.globalHeader = header
   }
 
@@ -140,12 +146,15 @@ export class SuggestionManager {
     toolbar.appendChild(acceptBtn)
     toolbar.appendChild(rejectBtn)
 
+    const model = this.editor.getModel()
+    const maxColumn = model?.getLineMaxColumn(safeLine) || 100
+
     const widget = {
       getDomNode: () => toolbar,
       getId: () => `suggestion-toolbar-${chunk.id}`,
       getPosition: () => ({
-        position: { lineNumber: safeLine, column: 1 },
-        preference: [1] // Above
+        position: { lineNumber: safeLine, column: maxColumn },
+        preference: [2, 1] // Prefer BELOW, then ABOVE
       })
     }
 

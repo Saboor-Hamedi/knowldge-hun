@@ -44,8 +44,52 @@ export class MessageFormatter {
       return this.renderCache.get(text)!
     }
 
+    let processedText = text
+
+    // ANTIGRAVITY FILTER: Detect and hide code blocks that are already in [RUN:] commands
+    // This prevents "Duplex Writing" from cluttering the UI.
+    const runMatches = Array.from(
+      processedText.matchAll(/\[RUN:\s*(\w+)\s+"?(.+?)"?\s+([\s\S]+?)\s*\]/g)
+    )
+    if (runMatches.length > 0) {
+      runMatches.forEach((match) => {
+        const commandCode = match[3].trim()
+        if (commandCode.length < 20) return // Skip tiny snippets to avoid false positives
+
+        // Normalize command for comparison
+        const normalizedCommand = commandCode.replace(/\s+/g, ' ')
+
+        // First, check for Markdown blocks
+        const codeBlockRegex = /```(?:\w+)?\n([\s\S]*?)```/g
+        let innerMatch
+        while ((innerMatch = codeBlockRegex.exec(processedText)) !== null) {
+          const blockContent = innerMatch[1].trim()
+          const normalizedBlock = blockContent.replace(/\s+/g, ' ')
+
+          // MATCH: If block is identical to command, or if command contains this block (surgical)
+          if (
+            normalizedBlock === normalizedCommand ||
+            normalizedCommand.includes(normalizedBlock) ||
+            normalizedBlock.includes(normalizedCommand)
+          ) {
+            processedText = processedText.replace(innerMatch[0], '')
+          }
+        }
+
+        // Second, check for naked code - DISABLED (too aggressive, causes clipping)
+        /*
+        if (processedText.includes(commandCode)) {
+           processedText = processedText.replace(commandCode, '')
+        }
+        */
+      })
+
+      // Clean up multiple newlines left behind
+      processedText = processedText.replace(/\n{3,}/g, '\n\n').trim()
+    }
+
     // 0. Handle [FILE: path] tags (Iterative Headers)
-    let processedText = text.replace(/\[FILE:\s*(.+?)\s*\]/g, (_match, path) => {
+    processedText = processedText.replace(/\[FILE:\s*(.+?)\s*\]/g, (_match, path) => {
       return `<div class="rightbar__file-header">
         <span class="rightbar__file-path">${this.escapeHtml(path)}</span>
       </div>`
@@ -82,7 +126,7 @@ export class MessageFormatter {
     )
 
     // 3. Replace remaining [RUN: ...] or [DONE: ...] tags with standard UI pills
-    const cleanText = processedText.replace(
+    processedText = processedText.replace(
       /\[(RUN|DONE):\s*([\s\S]*?)(?:\]|$)/g,
       (match, type, cmdBody) => {
         const parts = cmdBody.trim().split(/\s+/)
@@ -98,7 +142,16 @@ export class MessageFormatter {
       }
     )
 
-    const rawHtml = this.md.render(cleanText)
+    // 4. Handle @mentions and [[wikilinks]] (Make them interactive)
+    processedText = processedText.replace(
+      /@([a-zA-Z0-9_\-.]+)|\[\[(.*?)\]\]/g,
+      (match, atName, wikiName) => {
+        const name = atName || wikiName
+        return `<span class="rightbar__message-mention" data-name="${this.escapeHtml(name)}">${this.escapeHtml(match)}</span>`
+      }
+    )
+
+    const rawHtml = this.md.render(processedText)
 
     // Sanitize HTML - ensure we allow our custom elements and attributes
     const cleanHtml = DOMPurify.sanitize(rawHtml, {

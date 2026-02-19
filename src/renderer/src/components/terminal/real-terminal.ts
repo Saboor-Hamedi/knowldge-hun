@@ -754,6 +754,7 @@ export class RealTerminalComponent {
   toggle(): boolean {
     this.isVisible = !this.isVisible
     this.container.style.display = this.isVisible ? 'block' : 'none'
+    document.getElementById('app')?.classList.toggle('terminal-open', this.isVisible)
 
     this.getVaultPath().then((vaultPath) => {
       const key = vaultPath

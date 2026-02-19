@@ -187,20 +187,22 @@ export class AgentService {
     const action = parts[0].toLowerCase()
     const args = parts.slice(1)
 
-    // HAZARDOUS COMMANDS: Require confirmation
-    const isHazardous = [
-      'terminal',
-      'shell',
-      'run',
-      'delete',
-      'rm',
-      'write',
-      'patch',
-      'create',
-      'edit',
-      'append',
-      'touch'
-    ].includes(action)
+    // Unified Confirmation Logic:
+    // If we're editing the ACTIVE note (resolved by title or alias),
+    // we skip the RightBar panel because it triggers the Suggestion UI in the editor anyway.
+    let isEditingActiveFile = false
+    if (['patch', 'propose', 'edit', 'append'].includes(action) && args[0]) {
+      const { state } = await import('../../core/state')
+      const targetNote = agentExecutor.resolveNote(args[0])
+      if (targetNote && targetNote.id === state.activeId) {
+        isEditingActiveFile = true
+      }
+    }
+
+    const isHazardous =
+      ['terminal', 'shell', 'run', 'delete', 'rm', 'write', 'create', 'touch'].includes(action) ||
+      (['patch', 'propose', 'edit', 'append'].includes(action) && !isEditingActiveFile)
+
     if (isHazardous && this.onConfirm) {
       const confirmed = await this.onConfirm(cmdString)
       if (!confirmed) {

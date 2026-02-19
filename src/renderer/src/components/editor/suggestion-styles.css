@@ -3,38 +3,38 @@
   flex-direction: row !important;
   flex-wrap: nowrap !important;
   align-items: center;
-  gap: 8px;
-  padding: 4px 8px;
+  gap: 6px;
+  padding: 3px 6px;
   width: auto !important;
-  min-width: 60px;
-  background: rgba(20, 20, 20, 0.95);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 8px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(12px);
+  background: rgba(15, 15, 15, 0.9);
+  border: 1px solid var(--primary);
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(8px);
   z-index: 1000;
   pointer-events: all;
-  opacity: 0.9;
+  opacity: 0.8;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  transform: translateY(-100%); /* Position above the line */
+  transform: translateY(-50%); /* Center vertically on the line */
+  margin-left: 20px; /* Gap from code */
 }
 
 .suggestion-toolbar:hover {
   opacity: 1;
-  background: rgba(40, 40, 40, 0.95);
-  border-color: rgba(255, 255, 255, 0.2);
-  transform: translateY(-100%) scale(1.05);
+  background: rgba(25, 25, 25, 0.95);
+  box-shadow: 0 0 15px rgba(var(--primary-rgb), 0.3);
+  transform: translateY(-50%) scale(1.02);
 }
 
 .suggestion-toolbar__btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
-  border-radius: 6px;
+  width: 18px;
+  height: 18px;
+  border-radius: 3px;
   border: none;
-  font-size: 14px;
+  font-size: 11px;
   cursor: pointer;
   background: transparent;
   color: var(--text-soft);
@@ -42,18 +42,18 @@
 }
 
 .suggestion-toolbar__btn--accept:hover {
-  background: rgba(46, 160, 67, 0.2);
-  color: #3fb950;
+  background: rgba(46, 160, 67, 0.3);
+  color: #4cd964;
 }
 
 .suggestion-toolbar__btn--reject:hover {
-  background: rgba(248, 81, 73, 0.2);
-  color: #f85149;
+  background: rgba(248, 81, 73, 0.3);
+  color: #ff6b6b;
 }
 
 /* Added Content (ViewZone) */
 .suggestion-highlight-added {
-  background-color: rgba(63, 185, 80, 0.08) !important;
+  background-color: rgba(63, 185, 80, 0.06) !important;
   border-left: 3px solid #3fb950;
   color: #e6edf3 !important;
   font-family: var(--font-mono);
@@ -65,63 +65,76 @@
   position: absolute;
   left: -20px;
   color: #3fb950;
-  font-weight: bold;
+  opacity: 0.6;
 }
 
 /* Removed Content (Decorations) */
 .suggestion-highlight-removed {
-  background-color: rgba(248, 81, 73, 0.12) !important;
+  background-color: rgba(248, 81, 73, 0.08) !important;
   border-left: 3px solid #f85149;
   text-decoration: line-through;
-  color: rgba(248, 81, 73, 0.6) !important;
+  opacity: 0.7;
 }
 
 /* Global Review Header */
 .suggestion-global-header {
   position: fixed;
-  bottom: 80px; /* Safer distance from bottom status bar */
+  bottom: calc(var(--statusbar-height) + 16px);
   left: 50%;
-  transform: translateX(-50%);
+  /* Correctly center in editor area by accounting for dynamic RightBar width */
+  transform: translateX(calc(-50% - (var(--right-panel-width, 270px) / 2)));
   display: flex !important;
   flex-direction: row !important;
   flex-wrap: nowrap !important;
   align-items: center;
-  gap: 16px;
-  padding: 10px 20px;
-  background: rgba(20, 20, 20, 0.95);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 30px;
-  box-shadow: 0 16px 64px rgba(0, 0, 0, 0.9);
-  backdrop-filter: blur(24px);
-  z-index: 99999;
-  animation: header-slide-up 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  gap: 12px;
+  padding: 6px 14px;
+  background: rgba(15, 15, 15, 0.92);
+  border: 1px solid var(--primary);
+  border-radius: 5px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(20px);
+  z-index: 100000;
+  animation: header-slide-up 0.4s cubic-bezier(0.16, 1, 0.3, 1);
   pointer-events: auto;
+}
+
+/* Fix RightBar input clipping */
+.rightbar__chat-input {
+  padding-left: 12px !important;
+}
+
+/* Position header above terminal if open */
+.terminal-open .suggestion-global-header {
+  bottom: calc(var(--statusbar-height) + 316px);
 }
 
 @keyframes header-slide-up {
   from {
-    transform: translate(-50%, 40px);
+    transform: translate(calc(-50% - (var(--right-panel-width, 270px) / 2)), 20px);
     opacity: 0;
   }
   to {
-    transform: translate(-50%, 0);
+    transform: translate(calc(-50% - (var(--right-panel-width, 270px) / 2)), 0);
     opacity: 1;
   }
 }
 
 .suggestion-global-header__title {
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 10px;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.05em;
   color: var(--text-soft);
 }
 
 .suggestion-global-header__count {
-  background: rgba(255, 255, 255, 0.1);
-  padding: 2px 8px;
-  border-radius: 10px;
-  font-size: 11px;
+  background: var(--primary);
+  color: #0b1220;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 800;
 }
 
 .suggestion-global-header__actions {
@@ -129,34 +142,33 @@
   flex-direction: row !important;
   flex-wrap: nowrap !important;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
 }
 
 .suggestion-global-header__btn {
-  padding: 4px 12px;
-  border-radius: 12px;
+  padding: 3px 10px;
+  border-radius: 4px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(255, 255, 255, 0.05);
-  color: white;
-  font-size: 12px;
-  font-weight: 500;
+  color: var(--text-soft);
+  font-size: 11px;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .suggestion-global-header__btn:hover {
   background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.3);
+  color: var(--text-strong);
 }
 
 .suggestion-global-header__btn--primary {
-  background: #3fb950;
+  background: var(--primary);
   border: none;
-  color: black;
-  font-weight: 600;
+  color: #0b1220;
 }
 
 .suggestion-global-header__btn--primary:hover {
-  background: #4cd964;
-  transform: translateY(-1px);
+  opacity: 0.9;
+  filter: brightness(1.1);
 }

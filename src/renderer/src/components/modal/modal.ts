@@ -238,8 +238,9 @@ export class Modal {
       this.modal.appendChild(footer)
     }
 
-    document.body.appendChild(this.backdrop)
-    document.body.appendChild(this.modal)
+    const host = document.getElementById('app') || document.body
+    host.appendChild(this.backdrop)
+    host.appendChild(this.modal)
   }
 
   private focusInitial(): void {

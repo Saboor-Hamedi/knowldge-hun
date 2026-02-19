@@ -39,30 +39,26 @@ interface ScoredNote extends VaultNote {
 }
 
 const IDE_AGENT_INSTRUCTIONS = `
-# SYSTEM IDENTITY: EXPERT IDE PARTNER
-You are a high-level software engineer. You don't just talk about code; you build it.
+# SYSTEM IDENTITY: ANTIGRAVITY ENGINE
+You are a high-level software architect. You operate with absolute token efficiency and surgical precision.
 
-## 1. COMMUNICATION STYLE
-- PEER PROGRAMMER: Talk like a technical partner. Use concise code snippets ONLY for explanation.
-- NO REDUNDANCY: If you use [RUN: write], [RUN: patch], or [RUN: propose], do NOT show the code block in your conversational message. This is CRITICAL for speed.
-- PROACTIVE BUILDING: If requested to "Improve", "Fix", or "Update", use [RUN: propose "path" "content"] for feature enhancements or complex logic. This triggers the side-by-side Diff View for user review. 
-- WRITE vs PROPOSE [CRITICAL]: Use [RUN: write] ONLY for creating NEW files that do not exist yet. For any file that already exists, you MUST use [RUN: propose] to modify it. Never overwrite an existing file with [RUN: write].
-- PATCHING [STRICT]: Use [RUN: patch] ONLY for single-line syntax fixes. NEVER use patch for multi-line blocks. If you need to change more than one line, use [RUN: propose] instead. 
-- DIFF PROPORSALS: Every major code change SHOULD be done via [RUN: propose].
+## 1. THE ANTIGRAVITY PROTOCOLS [CRITICAL]
+- **PROTOCOL [A]: ZERO DUPLEX WRITING.** NEVER repeat code in chat that you put in a command. Chat is for technical rationale ONLY.
+- **PROTOCOL [B]: SAFE TERMINATION.** Once you open a [RUN:] tag, you MUST finish the command content AND close it with "]" before stopping. Stop immediately after.
+- **PROTOCOL [C]: SOURCE OF TRUTH.** Trust "Note content" in context. If truncated ("..."), use [RUN: read "path" "#L10-50"].
+- **PROTOCOL [D]: SURGICAL STRIKE.** Use [RUN: patch] for 99% of changes. Only use [RUN: propose] for full refactors.
+- **PROTOCOL [E]: NO PLACEHOLDERS.** Never use "// ... rest of code".
+- **PROTOCOL [F]: ACTIVE FILE ALIAS.** Use "current" as the path (e.g., [RUN: patch "current" "search" "replace"]) to modify the active note.
 
-## 2. SURGICAL PRECISION [CRITICAL]
-- COMMANDS: [RUN: write "path" "content"], [RUN: patch "path" "search" "replace"], [RUN: read "path"], [RUN: mkdir "full/path"], [RUN: grep "query"], [RUN: terminal "cmd"], [RUN: propose "path" "content"].
-- QUOTING: Use backticks (chars: 96) for content if it contains quotes.
-- FORMATTING: Use ACTUAL newlines. Do not use literal backslash-n (\n).
-- VERIFY PATHS: Use the EXACT paths from the tree.
+## 2. COMMAND SPECIFICATIONS
+- **[RUN: write "path" "content"]**: Create NEW files.
+- **[RUN: propose "current" "content"]**: Full file replace.
+- **[RUN: patch "current" "search" "replace"]**: SURGICAL fix (PREFER THIS). "search" MUST be a unique block.
+- **[RUN: read "path" "#L10-50"]**: Precision read.
 
-## 3. RESPONSE PROTOCOL [ANTIGRAVITY]
-- NO DUPLEX WRITING: When using [RUN: propose], do NOT output the same code into the chat/rightbar message. The code belongs ONLY inside the propose command.
-- SPEED: Skip <thought> for simple actions. Emit commands instantly.
-- THE TERMINATOR: Once all commands are emitted or feedback is processed, provide exactly ONE brief confirmation (e.g., "Updated" with a green check) and THEN STOP. Do NOT repeat yourself. Do NOT continue generating any characters.
-- READ BEFORE MODIFY: If a file is not in your current context, [RUN: read "path"] it first. After receiving the content, you MUST proceed to implement the requested change.
-- NO SUMMARIES: Never summarize your actions or state.
-- REASONING: <thought> blocks are for complex logic ONLY.
+## 3. COMMUNICATION STYLE
+- **PEER PROGRAMMER**: Absolute precision. No fluff.
+- **THE TERMINATOR**: Command -> STOP.
 `
 
 export interface NoteCitation {
@@ -136,9 +132,9 @@ export class AIService {
   private vaultMetadataCache: Map<string, NoteMetadata> = new Map()
   private vaultCacheTime: number = 0
   private readonly CACHE_DURATION = 300000 // 5 minutes for performance
-  private readonly MAX_CONTEXT_TOKENS = 16000
+  private readonly MAX_CONTEXT_TOKENS = 64000
   private readonly MAX_NOTES_TO_LOAD = 50 // Limit notes loaded at once
-  private readonly MAX_CONTENT_LENGTH = 25000 // Increased significantly for code
+  private readonly MAX_CONTENT_LENGTH = 100000 // Support large code files without truncation
   private currentMode: ChatMode = 'balanced'
 
   constructor() {
@@ -561,18 +557,18 @@ export class AIService {
       /\b(stop|don't explain|dont explain|just help|just fix|no explanation|skip the|enough|stop explaining|stop it|please stop)\b/i
     const isStopCommand = stopPhrases.test(userMessage)
 
-    // Aggressive fast-path for conversational fluff/short messages
     const trimmed = userMessage.trim().toLowerCase()
-    const isVeryShort = trimmed.length < 15
     const isAcknowledgment =
       /^(hi|hello|hey|ok|okay|thanks|good|cool|nice|👍|yep|yeah|yes)\W*$/i.test(trimmed)
 
-    if (isStopCommand || isAcknowledgment || isVeryShort) {
+    if (isStopCommand || isAcknowledgment) {
       return { context: userMessage, citations: [] }
     }
 
     let context = ''
     const citations: NoteCitation[] = []
+
+    const loadedNoteIds = new Set<string>()
 
     // Get current note context (but keep it minimal)
     if (this.editorContext) {
@@ -582,6 +578,7 @@ export class AIService {
       if (noteInfo) {
         context += `Current note: "${noteInfo.title}"\n`
         citations.push({ id: noteInfo.id, title: noteInfo.title })
+        loadedNoteIds.add(noteInfo.id)
       }
 
       const cursor = this.editorContext.getCursorPosition?.()
@@ -589,16 +586,12 @@ export class AIService {
         context += `Cursor position: Line ${cursor.line + 1}, Column ${cursor.ch + 1}\n`
       }
 
-      // Include content if user refers to it generally OR mentions the filename specifically
-      const activeTitle = noteInfo?.title?.toLowerCase() || ''
-      const askingAboutContent =
-        /\b(this note|current note|this code|this file|what does|explain this|in this)\b/i.test(
-          userMessage
-        ) ||
-        (activeTitle && userMessage.toLowerCase().includes(activeTitle))
-      if (editorContent && editorContent.trim() && askingAboutContent) {
+      // ALWAYS include the current note's content if it exists
+      if (editorContent && editorContent.trim()) {
         const contentPreview =
-          editorContent.length > 20000 ? editorContent.substring(0, 20000) + '...' : editorContent
+          editorContent.length > this.MAX_CONTENT_LENGTH
+            ? editorContent.substring(0, this.MAX_CONTENT_LENGTH) + '...'
+            : editorContent
         context += `\nNote content:\n${contentPreview}\n\n`
       }
     }
@@ -608,7 +601,7 @@ export class AIService {
     const needsVault = !isGreeting && trimmed.length > 5
 
     if (!needsVault) {
-      return { context: userMessage, citations }
+      return { context: context + userMessage, citations }
     }
 
     try {
@@ -628,8 +621,8 @@ export class AIService {
           )
 
         if (isAcknowledgment) {
-          // Don't add vault context for simple acknowledgments
-          return { context: userMessage, citations }
+          // Keep the existing context, just don't add vault metadata
+          return { context: context + userMessage, citations }
         }
 
         context += `\nVault: ${vaultSize} notes available.\n`
@@ -656,19 +649,28 @@ export class AIService {
           if (mentions.length > 0) {
             context += `\nUser explicitly mentioned specific notes:\n`
             for (const mention of mentions) {
-              const cleanMention = mention.replace('.md', '').trim().toLowerCase()
-              const targetNote = metadata.find(
-                (n) =>
-                  n.title.toLowerCase() === cleanMention ||
-                  n.title.toLowerCase() === cleanMention + '.md' ||
-                  (n.path && n.path.toLowerCase().endsWith(cleanMention)) ||
-                  (n.path && n.path.toLowerCase().endsWith(cleanMention + '.md'))
-              )
+              const cleanMention = mention.trim().toLowerCase()
+              const commonExts = ['', '.md', '.py', '.ts', '.js', '.txt', '.json']
 
-              if (targetNote) {
+              const targetNote = metadata.find((n) => {
+                const titleLower = n.title.toLowerCase()
+                const pathLower = n.path?.toLowerCase() || ''
+
+                return commonExts.some((ext) => {
+                  const mWithExt = cleanMention.endsWith(ext) ? cleanMention : cleanMention + ext
+                  return (
+                    titleLower === mWithExt ||
+                    titleLower === mWithExt.replace('.md', '') ||
+                    pathLower.endsWith(mWithExt)
+                  )
+                })
+              })
+
+              if (targetNote && !loadedNoteIds.has(targetNote.id)) {
                 try {
                   const content = await this.loadNoteContent(targetNote.id, targetNote.path)
-                  context += `\nNOTE: "${targetNote.title}" (Explicitly referenced):\n${content.substring(0, 25000)}\n`
+                  context += `\nNOTE: "${targetNote.title}" (Explicitly referenced):\n${content.substring(0, this.MAX_CONTENT_LENGTH)}\n`
+                  loadedNoteIds.add(targetNote.id)
                   if (!citations.find((c) => c.id === targetNote.id)) {
                     citations.push({
                       id: targetNote.id,
@@ -692,7 +694,10 @@ export class AIService {
             context += `\nIntent detected: Creation. Focus on asking for name and location.\n`
           } else {
             // Find and load only relevant notes (smart RAG) - use limit of 5 for better context
-            const relevantNotes = await this.findRelevantNotesHybrid(userMessage, 5)
+            let relevantNotes = await this.findRelevantNotesHybrid(userMessage, 5)
+
+            // DE-DUPLICATE: Filter out notes already loaded via Editor Context
+            relevantNotes = relevantNotes.filter((n) => !loadedNoteIds.has(n.id))
 
             if (relevantNotes.length > 0) {
               context += `\nRelevant notes from vault (${relevantNotes.length} most relevant):\n`
@@ -854,14 +859,10 @@ export class AIService {
     const identityPrompt =
       `You are Knowledge Hub AI ("Antigravity" Engine). Powered by ${provider.toUpperCase()} (${model}).\n` +
       IDE_AGENT_INSTRUCTIONS +
-      `\nSTRICT SAFETY - READ-ONLY BY DEFAULT (FOR MODIFICATIONS):\n` +
-      `- CREATION: You MAY proactively create new project structures/files [RUN: mkdir/write].\n` +
-      `- If you want to CHANGE existing code: Show the diff/proposal and WAIT for confirmation.\n` +
-      `PATH AWARENESS:\n` +
-      `- Always use the FULL relative path from the project root for [RUN:] commands.\n` +
-      `RAG & CONTEXT:\n` +
-      `- Current Workspace Structure provided below. Trust it.\n` +
-      `- TRUST THE PROVIDED NOTE CONTENT IN CONTEXT OVER YOUR TRAINING DATA.`
+      `\n\nWORKSPACE CONTEXT:\n` +
+      `- Trust the CURRENT WORKSPACE STRUCTURE provided below for paths.\n` +
+      `- Use EXACT path matches from the structure for "mkdir", "write", "patch", etc.\n` +
+      `- TRUST THE PROVIDED NOTE CONTENT IN CONTEXT AS THE ABSOLUTE SOURCE OF TRUTH.`
 
     const messagesForAPI: AIMessage[] = []
 
