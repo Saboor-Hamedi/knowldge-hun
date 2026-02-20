@@ -21,7 +21,7 @@ export class SuggestionManager {
     this.monaco = monaco
   }
 
-  public propose(newContent: string): void {
+  public propose(newContent: string, options: { skipScroll?: boolean } = {}): void {
     const oldContent = this.editor.getValue()
     const diffs = diffLines(oldContent, newContent)
     const rawChunks = groupDiffChanges(diffs).filter((c) => {
@@ -32,6 +32,11 @@ export class SuggestionManager {
         c.startLine > 0
       )
     })
+
+    // If we're already in a suggestion session, we might want to skip scrolling
+    // to avoid jumpy UI while the agent is still making edits.
+    const isAlreadyReviewing = this.currentChunks.length > 0
+    const shouldScroll = !options.skipScroll && !isAlreadyReviewing
 
     this.currentChunks = rawChunks.map((c, i) => ({
       ...c,
@@ -45,8 +50,10 @@ export class SuggestionManager {
       this.renderSuggestions()
       this.renderGlobalHeader()
 
-      // Reveal first change
-      this.editor.revealLineInCenter(this.currentChunks[0].startLine)
+      if (shouldScroll) {
+        // Reveal first change
+        this.editor.revealLineInCenter(this.currentChunks[0].startLine)
+      }
     }
   }
 

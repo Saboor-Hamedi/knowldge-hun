@@ -113,36 +113,11 @@ export class MessageFormatter {
       }
     )
 
-    // 2. Handle [RUN: read ...] specifically as a subtle "Analyzed" chip
-    processedText = processedText.replace(
-      /\[RUN:\s*read\s*"?(.+?)"?\s*(#L\d+-\d+)?\s*\]/g,
-      (_match, path, lines) => {
-        const lineRange = lines || ''
-        return `<div class="rightbar__analyzed-chip" title="Click to view full output">
-        <span class="rightbar__analyzed-icon">🔍</span>
-        <span class="rightbar__analyzed-text">Analyzed <code>${path}${lineRange}</code></span>
-      </div>`
-      }
-    )
+    // 2. Clear remaining tool tags from text (Assistant only)
+    // ChatRenderer handles tool output formatting separately.
+    processedText = processedText.replace(/\[(?:RUN|DONE|TX):\s*[\s\S]*?\]/g, '')
 
-    // 3. Replace remaining [RUN: ...] or [DONE: ...] tags with standard UI pills
-    processedText = processedText.replace(
-      /\[(RUN|DONE):\s*([\s\S]*?)(?:\]|$)/g,
-      (match, type, cmdBody) => {
-        const parts = cmdBody.trim().split(/\s+/)
-        const cmdName = parts[0] || 'command'
-        const isClosed = match.endsWith(']')
-        // DONE prefix or closed bracket means it's finished
-        const status = type === 'DONE' || isClosed ? 'Done' : 'Running'
-
-        return `<span class="rightbar__command-pill" data-command="${cmdName}">
-        <span class="rightbar__command-icon"></span>
-        <span class="rightbar__command-text">${status}: ${cmdName}</span>
-      </span>`
-      }
-    )
-
-    // 4. Handle @mentions and [[wikilinks]] (Make them interactive)
+    // 3. Handle @mentions and [[wikilinks]] (Make them interactive)
     processedText = processedText.replace(
       /@([a-zA-Z0-9_\-.]+)|\[\[(.*?)\]\]/g,
       (match, atName, wikiName) => {

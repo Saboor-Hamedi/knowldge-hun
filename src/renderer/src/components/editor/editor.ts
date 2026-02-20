@@ -536,9 +536,9 @@ export class EditorComponent {
     }
   }
 
-  public proposeChanges(newContent: string): void {
+  public proposeChanges(newContent: string, options: { skipScroll?: boolean } = {}): void {
     if (!this.suggestionManager) return
-    this.suggestionManager.propose(newContent)
+    this.suggestionManager.propose(newContent, options)
   }
 
   private getLanguageFromFilename(filename: string): string {

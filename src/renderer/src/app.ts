@@ -485,11 +485,13 @@ class App {
     })
 
     window.addEventListener('knowledge-hub:propose-note', async (e: Event) => {
-      const { id, content } = (e as CustomEvent<{ id: string; content: string }>).detail
+      const { id, content, isBatched } = (
+        e as CustomEvent<{ id: string; content: string; isBatched?: boolean }>
+      ).detail
       // 1. Ensure the note is open
       await this.vaultHandler.openNote(id, undefined, 'editor')
       // 2. Propose changes in the editor
-      this.editor.proposeChanges(content)
+      this.editor.proposeChanges(content, { skipScroll: !!isBatched })
     })
 
     this.fuzzyFinder.setSelectHandler(async (id, path, type, isFinal) => {

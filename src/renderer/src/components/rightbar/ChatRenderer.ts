@@ -1,7 +1,16 @@
 import { Avatar } from './avatar'
 import { messageFormatter } from './MessageFormatter'
 import { WELCOME_HTML, TYPING_HTML, EXECUTING_HTML } from './rightbar.constants'
-import { createElement, Edit2, Copy, RefreshCw, ThumbsUp, ThumbsDown, AlertCircle } from 'lucide'
+import {
+  createElement,
+  Edit2,
+  Copy,
+  RefreshCw,
+  ThumbsUp,
+  ThumbsDown,
+  AlertCircle,
+  Check
+} from 'lucide'
 import { ChatMessage } from '../../services/aiService'
 import { ChatIndicator } from '../common/ChatIndicator'
 
@@ -132,7 +141,9 @@ export class ChatRenderer {
             element.innerHTML = `
               ${avatar}
               <div class="rightbar__message-body">
-                <div class="rightbar__message-content">${formattedContent}</div>
+                <div class="rightbar__message-content">
+                  ${formattedContent}
+                </div>
                 ${actions}
               </div>
             `
@@ -191,71 +202,86 @@ export class ChatRenderer {
 
   private renderSystemContent(msg: ChatMessage): string {
     const lines = msg.content.split('\n')
-    const title = lines[0]
+    const firstLine = lines[0]
     const contentLines = lines.slice(1).join('\n').trim()
 
-    // Extract command if present: "> [RUN: write file.ts]"
-    const runMatch = title.match(/^>\s*\[RUN:\s*(.+?)\]$/i)
-    let cmdDisplayName = ''
-    if (runMatch) {
-      const fullCmd = runMatch[1]
-      const cmdParts = fullCmd.split(' ')
-      const action = cmdParts[0]
-      const target = cmdParts
+    // 1. Identify Command Metadata
+    // Looks for "> [DONE: patch current ...]" or "> [TX: COMMIT]"
+    const doneMatch = firstLine.match(/^>\s*\[(?:DONE|TX):\s*(.+?)\]$/i)
+    let action = 'action'
+    let target = ''
+    let fullCmd = ''
+
+    if (doneMatch) {
+      fullCmd = doneMatch[1]
+      const parts = fullCmd.split(' ')
+      action = parts[0].toLowerCase()
+      target = parts
         .slice(1)
         .join(' ')
         .replace(/^["']|["']$/g, '')
-        .substring(0, 30)
-      cmdDisplayName = `${action.toUpperCase()} ${target}${target.length >= 30 ? '...' : ''}`
     }
 
-    let icon = '⚙️'
-    let statusColor = 'var(--text-muted)'
-
-    const lowerTitle = title.toLowerCase()
-    const lowerContent = msg.content.toLowerCase()
-
-    if (lowerContent.includes('success')) {
-      icon = '✅'
-      statusColor = 'var(--success-color, #22c55e)'
-    } else if (lowerContent.includes('error')) {
-      icon = '❌'
-      statusColor = 'var(--error-color, #ef4444)'
-    } else if (lowerTitle.includes('read')) {
-      icon = '📖'
-    } else if (
-      lowerTitle.includes('write') ||
-      lowerTitle.includes('create') ||
-      lowerTitle.includes('patch')
-    ) {
-      icon = '📝'
-    } else if (lowerTitle.includes('delete') || lowerTitle.includes('rm')) {
-      icon = '🗑️'
-    } else if (lowerTitle.includes('list') || lowerTitle.includes('tree')) {
-      icon = '📂'
+    // 2. Map Professional Titles & Gems
+    const actionMap: Record<string, { label: string; icon: string; color: string }> = {
+      patch: { label: 'PATCHED', icon: '📝', color: 'var(--accent-color, #3b82f6)' },
+      patch_line: { label: 'FIXED LINE', icon: '🎯', color: 'var(--success-color, #22c55e)' },
+      write: { label: 'CREATED', icon: '✨', color: 'var(--success-color, #22c55e)' },
+      read: { label: 'ANALYZED', icon: '🔍', color: 'var(--text-muted, #94a3b8)' },
+      list: { label: 'INDEXED', icon: '📂', color: 'var(--text-muted, #94a3b8)' },
+      tree: { label: 'INDEXED', icon: '📂', color: 'var(--text-muted, #94a3b8)' },
+      search: { label: 'SEARCHED', icon: '🔎', color: 'var(--accent-color, #3b82f6)' },
+      delete: { label: 'REMOVED', icon: '🗑️', color: 'var(--error-color, #ef4444)' },
+      rm: { label: 'REMOVED', icon: '🗑️', color: 'var(--error-color, #ef4444)' },
+      terminal: { label: 'EXECUTED', icon: '💻', color: 'var(--text-primary, #f8fafc)' },
+      commit: { label: 'COMMITTED', icon: '📦', color: 'var(--success-color, #22c55e)' }
     }
 
-    const displayTitle = cmdDisplayName || title.replace(/^>\s*\[(.+?)\]$/, '$1')
+    const mapping = actionMap[action.toLowerCase()] || {
+      label: action.toUpperCase(),
+      icon: '⚙️',
+      color: 'var(--text-muted)'
+    }
 
-    // Auto-collapse if it's a long success or a mundane read operation
-    const isVerbose = contentLines.length > 200
-    const isRead = lowerTitle.includes('read') || lowerTitle.includes('list')
-    const isOpen = !isRead && !isVerbose && !lowerContent.includes('success')
+    // 3. Clean Content
+    // If content is just "Status: OK" or redundant with the command, hide it from the summary but keep in details
+    const isStatusOk = contentLines.toLowerCase().includes('status: ok')
+    const displayTarget = target ? target.replace(/^path: /, '') : ''
+
+    // 4. Determine Open State
+    // Reading/Indexing should be closed by default. Errors or complex diffs open.
+    const isMundane = ['read', 'list', 'tree', 'search'].includes(action)
+    const isError = contentLines.toLowerCase().includes('error')
+    const isOpen = isError || (!isMundane && !isStatusOk && contentLines.length > 0)
 
     return `
       <div class="rightbar__system-message">
-        <details class="rightbar__system-details" ${isOpen ? 'open' : ''}>
-          <summary class="rightbar__system-summary">
-            <div class="rightbar__system-header">
-              <span class="rightbar__system-icon" style="color: ${statusColor}">${icon}</span>
-              <span class="rightbar__system-title">${this.escapeHtml(displayTitle)}</span>
-              <span class="rightbar__system-chevron"></span>
+        <details class="rightbar__action-log" ${isOpen ? 'open' : ''}>
+          <summary class="rightbar__action-summary">
+            <div class="rightbar__action-header">
+              <span class="rightbar__action-badge" style="background: ${mapping.color}22; color: ${mapping.color}">
+                ${mapping.icon} ${mapping.label}
+              </span>
+              <span class="rightbar__action-target" 
+                    data-action="open-file" 
+                    data-path="${this.escapeHtml(displayTarget)}"
+                    title="Click to open file">
+                ${this.escapeHtml(displayTarget)}
+              </span>
+              <span class="rightbar__action-chevron"></span>
             </div>
           </summary>
-          <div class="rightbar__system-content">
-            <div class="rightbar__system-code-wrapper">
-              <pre><code>${this.escapeHtml(msg.content)}</code></pre>
-            </div>
+          <div class="rightbar__action-details">
+            ${
+              contentLines && !isStatusOk
+                ? `<div class="rightbar__action-content">
+                     <pre><code>${this.escapeHtml(contentLines)}</code></pre>
+                   </div>`
+                : `<div class="rightbar__action-status">
+                     <span class="rightbar__action-success-icon">${this.createLucideIcon(Check, 10, 2)}</span>
+                     Success
+                   </div>`
+            }
           </div>
         </details>
       </div>

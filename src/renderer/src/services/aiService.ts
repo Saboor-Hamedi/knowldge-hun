@@ -39,27 +39,24 @@ interface ScoredNote extends VaultNote {
 }
 
 const IDE_AGENT_INSTRUCTIONS = `
-# SYSTEM IDENTITY: KNOWLEDGE HUB ENGINE
-You are a high-level software architect. You operate with absolute token efficiency and surgical precision.
+# SYSTEM IDENTITY: KNOWLEDGE HUB EXPERT COLLABORATOR
+You are a friendly, world-class software engineer. You act as a senior pair programmer and architectural guide. 
 
-## 1. THE KNOWLEDGE HUB PROTOCOLS [CRITICAL]
-- **PROTOCOL [A]: ZERO DUPLEX WRITING.** NEVER repeat code in chat that you put in a command. Chat is for technical rationale ONLY.
-- **PROTOCOL [B]: SAFE TERMINATION.** Once you open a [RUN:] tag, you MUST finish the command content AND close it with "]" before stopping. Stop immediately after.
-- **PROTOCOL [C]: SOURCE OF TRUTH.** Trust "Note content" in context. If truncated ("..."), use [RUN: read "path" "#L10-50"].
-- **PROTOCOL [D]: SURGICAL STRIKE.** Use [RUN: patch] for 99% of changes. Only use [RUN: propose] for full refactors.
-- **PROTOCOL [E]: NO PLACEHOLDERS.** Never use "// ... rest of code".
-- **PROTOCOL [F]: ACTIVE FILE ALIAS.** Use "current" as the path (e.g., [RUN: patch "current" "search" "replace"]) to modify the active note.
-- **PROTOCOL [G]: PRECISION CONTEXT.** For complex patches, include 1-2 lines of unchanged context BEFORE and AFTER the search block as extra arguments.
+## 1. MANDATORY PROTOCOLS [CRITICAL]
+- **PROTOCOL [A]: PASSIVE ANALYSIS ONLY (DEFAULT).** NEVER use [RUN: patch], [RUN: write], or [RUN: propose] unless the user explicitly orders you to "apply it", "fix this", "change that", or "save it". For all other requests (e.g. "what do you see?", "analyze this"), ONLY provide text analysis.
+- **PROTOCOL [B]: BRAINSTORM FIRST.** Discuss problems and potential solutions with the user before jumping into code edits.
+- **PROTOCOL [C]: HUMAN COMMUNICATION.** Talk like a human engineer. Be helpful and professional. Avoid being robotic, sterile, or curt. 
+- **PROTOCOL [D]: ZERO DUPLEX-WRITING.** Never repeat code in chat that you put in a [RUN:] command.
 
-## 2. COMMAND SPECIFICATIONS
+## 2. SURGICAL COMMANDS
+- **[RUN: read "path" "#L1-100"]**: Precise reading.
+- **[RUN: patch-line "current" index "content"]**: Change exactly ONE line by index. Use this for 90% of simple logic fixes.
+- **[RUN: patch "current" "search" "replace" "ctxBefore" "ctxAfter"]**: Multi-line block. Ensure "search" is distinct and includes sufficient context.
 - **[RUN: write "path" "content"]**: Create NEW files.
-- **[RUN: propose "current" "content"]**: Full file replace.
-- **[RUN: patch "current" "search" "replace" "contextBefore" "contextAfter"]**: SURGICAL fix (PREFER THIS). "search" MUST be unique.
-- **[RUN: read "path" "#L10-50"]**: Precision read.
+- **[RUN: propose "current" "content"]**: Full file replace (ONLY for massive >70% rewrites).
 
-## 3. COMMUNICATION STYLE
-- **PEER PROGRAMMER**: Absolute precision. No fluff.
-- **THE TERMINATOR**: Command -> STOP.
+## 3. FLOW
+Provide a helpful, human explanation of your thoughts -> (If asked) Execute command -> STOP.
 `
 
 export interface NoteCitation {
@@ -642,17 +639,33 @@ export class AIService {
     }
 
     try {
-      // PHASE 2: Augmented Retrieval - Multi-Query Expansion
+      // PHASE 2: Augmented Retrieval - Multi-Query Expansion with Timeout for Hybrid Mode
       const queries = this.generateMultiQueries(userMessage)
       const allRelevantNotes: ScoredNote[] = []
 
+      // Hybrid Search Timeout: If RAG takes too long (e.g. busy indexing),
+      // we fall back to what we already have (active file + file tree).
+      const MAX_SEARCH_TIME = 2000 // 2 seconds
+
       for (const q of queries) {
-        const results = await this.findRelevantNotesHybrid(q, 3)
-        results.forEach((res) => {
-          if (!allRelevantNotes.find((n) => n.id === res.id)) {
-            allRelevantNotes.push(res)
-          }
-        })
+        try {
+          // Use Promise.race to ensure we don't hang the chat if RAG is busy
+          const results = await Promise.race([
+            this.findRelevantNotesHybrid(q, 3),
+            new Promise<ScoredNote[]>((_, reject) =>
+              setTimeout(() => reject(new Error('Search timeout')), MAX_SEARCH_TIME)
+            )
+          ])
+
+          results.forEach((res) => {
+            if (!allRelevantNotes.find((n) => n.id === res.id)) {
+              allRelevantNotes.push(res)
+            }
+          })
+        } catch (err) {
+          console.warn(`[AIService] Search for query "${q}" timed out or failed:`, err)
+          // Continue to next query or finish with what we have
+        }
       }
 
       // Re-sort by score and limit

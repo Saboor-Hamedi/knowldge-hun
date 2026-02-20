@@ -26,9 +26,9 @@ export function diffLines(oldContent: string, newContent: string): DiffChange[] 
     }
 
     // 2. Look ahead to see if this is an addition or a removal
-    // Simple heuristic: if we can find oldLines[i] in the next 10 lines of newLines, it's an addition
+    // Simple heuristic: if we can find oldLines[i] in the next 100 lines of newLines, it's an addition
     let foundMatch = false
-    for (let look = 1; look <= 10 && j + look < newLines.length; look++) {
+    for (let look = 1; look <= 100 && j + look < newLines.length; look++) {
       if (oldLines[i] === newLines[j + look]) {
         // Line i eventually appears in newLines. So everything between j and j+look is ADDED.
         for (let k = 0; k < look; k++) {

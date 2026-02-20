@@ -194,7 +194,7 @@ export class AgentService {
     // If we're editing the ACTIVE note (resolved by title or alias),
     // we skip the RightBar panel because it triggers the Suggestion UI in the editor anyway.
     let isEditingActiveFile = false
-    if (['patch', 'propose', 'edit', 'append'].includes(action) && args[0]) {
+    if (['patch', 'patch-line', 'propose', 'edit', 'append'].includes(action) && args[0]) {
       const { state } = await import('../../core/state')
       const targetNote = agentExecutor.resolveNote(args[0])
       if (targetNote && targetNote.id === state.activeId) {
@@ -204,7 +204,8 @@ export class AgentService {
 
     const isHazardous =
       ['terminal', 'shell', 'run', 'delete', 'rm', 'write', 'create', 'touch'].includes(action) ||
-      (['patch', 'propose', 'edit', 'append'].includes(action) && !isEditingActiveFile)
+      (['patch', 'patch-line', 'propose', 'edit', 'append'].includes(action) &&
+        !isEditingActiveFile)
 
     if (isHazardous && this.onConfirm) {
       const confirmed = await this.onConfirm(cmdString)
@@ -224,6 +225,8 @@ export class AgentService {
       case 'patch':
       case 'edit':
         return agentExecutor.patchNote(args[0], args[1], args[2], args[3], args[4])
+      case 'patch-line':
+        return agentExecutor.patchLine(args[0], parseInt(args[1], 10), args[2])
       case 'propose':
         return agentExecutor.proposeNote(args[0], args[1])
       case 'mkdir':

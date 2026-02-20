@@ -273,12 +273,28 @@ export class ConversationController {
 
     if (results.length > 0) {
       const resultsMessage = results.join('\n\n')
-      // Delay slightly before responding to user with tool results
-      setTimeout(() => {
-        if (actionId === this.currentActionId) {
-          void this.doSend(resultsMessage, false, 'system')
-        }
-      }, 50)
+
+      // ACTION FIRST: Insert the tool results BEFORE the assistant message that triggered them
+      // Find the assistant message we just streamed
+      const assistantMsgIdx = this.state.messages.findIndex(
+        (m, idx) =>
+          idx === this.state.streamingMessageIndex ||
+          (m.role === 'assistant' && idx === this.state.messages.length - 1)
+      )
+
+      if (assistantMsgIdx !== -1) {
+        this.state.messages.splice(assistantMsgIdx, 0, {
+          role: 'system',
+          content: resultsMessage,
+          timestamp: Date.now(),
+          messageId: `msg_sys_${Date.now()}_${Math.random()}`
+        })
+      } else {
+        // Fallback to append if something went wrong with indexing
+        this.addMessage('system', resultsMessage)
+      }
+
+      this.notify()
     } else {
       this.notify()
     }

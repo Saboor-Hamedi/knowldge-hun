@@ -12,12 +12,14 @@ import type { NoteMeta, NotePayload, TreeItem } from '../../core/types'
 export class AgentExecutor {
   private transactionQueue: (() => Promise<unknown>)[] = []
   private isTransactionActive = false
+  private pendingProposals: Map<string, string> = new Map()
 
   /**
    * TRANSACTION: Start a new atomic operation series
    */
   startTransaction(): void {
     this.transactionQueue = []
+    this.pendingProposals.clear()
     this.isTransactionActive = true
   }
 
@@ -31,10 +33,33 @@ export class AgentExecutor {
       for (const op of this.transactionQueue) {
         results.push(await op())
       }
+
+      // After successful execution of all operations, dispatch batched proposals
+      this.pendingProposals.forEach((content, id) => {
+        window.dispatchEvent(
+          new CustomEvent('knowledge-hub:propose-note', {
+            detail: { id, content, isBatched: true }
+          })
+        )
+      })
+
       return results
     } finally {
       this.transactionQueue = []
+      this.pendingProposals.clear()
       this.isTransactionActive = false
+    }
+  }
+
+  private dispatchProposal(id: string, content: string): void {
+    if (this.isTransactionActive) {
+      this.pendingProposals.set(id, content)
+    } else {
+      window.dispatchEvent(
+        new CustomEvent('knowledge-hub:propose-note', {
+          detail: { id, content }
+        })
+      )
     }
   }
 
@@ -187,11 +212,7 @@ export class AgentExecutor {
     const note = this.resolveNote(title)
     if (!note) throw new Error(`Note not found: ${title}`)
 
-    window.dispatchEvent(
-      new CustomEvent('knowledge-hub:propose-note', {
-        detail: { id: note.id, content }
-      })
-    )
+    this.dispatchProposal(note.id, content)
     return note
   }
 
@@ -208,11 +229,7 @@ export class AgentExecutor {
       const newContent = existingContent + (existingContent.endsWith('\n') ? '' : '\n') + content
 
       if (state.activeId === note.id) {
-        window.dispatchEvent(
-          new CustomEvent('knowledge-hub:propose-note', {
-            detail: { id: note.id, content: newContent }
-          })
-        )
+        this.dispatchProposal(note.id, newContent)
         return note as NoteMeta
       }
 
@@ -224,6 +241,49 @@ export class AgentExecutor {
       } as NotePayload)
 
       void ragService.indexNote(note.id, newContent, { title: note.title, path: note.path })
+      this.refreshActiveNoteIfNeeded(note.id, note.path)
+      return result
+    })
+  }
+
+  /**
+   * EXECUTE: Semantic Patch (Line-specific)
+   */
+  async patchLine(
+    idOrPath: string,
+    lineIndex: number,
+    newContent: string
+  ): Promise<NoteMeta | string> {
+    return this.queueOrExecute(async () => {
+      const note = this.resolveNote(idOrPath)
+      if (!note) throw new Error(`Note not found: ${idOrPath}`)
+
+      const data = await window.api.loadNote(note.id, note.path)
+      const content = data?.content || ''
+      const lines = content.split(/\r?\n/)
+
+      // 1-indexed from AI
+      const idx = lineIndex - 1
+      if (idx < 0 || idx >= lines.length) {
+        throw new Error(`Line index ${lineIndex} out of range (Total lines: ${lines.length})`)
+      }
+
+      lines[idx] = newContent
+      const updatedContent = lines.join('\n')
+
+      if (state.activeId === note.id) {
+        this.dispatchProposal(note.id, updatedContent)
+        return note as NoteMeta
+      }
+
+      const result = await window.api.saveNote({
+        id: note.id,
+        content: updatedContent,
+        title: note.title,
+        path: note.path
+      } as NotePayload)
+
+      void ragService.indexNote(note.id, updatedContent, { title: note.title, path: note.path })
       this.refreshActiveNoteIfNeeded(note.id, note.path)
       return result
     })
@@ -253,11 +313,7 @@ export class AgentExecutor {
 
       const finalizeMatch = async (newContent: string) => {
         if (state.activeId === note.id) {
-          window.dispatchEvent(
-            new CustomEvent('knowledge-hub:propose-note', {
-              detail: { id: note.id, content: newContent }
-            })
-          )
+          this.dispatchProposal(note.id, newContent)
           return note as NoteMeta
         }
 

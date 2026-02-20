@@ -24,7 +24,6 @@ import { copyConversationToClipboard } from './clipboardUtils'
 import './rightbar.css'
 import './ai-menu.css'
 
-import { messageFormatter } from './MessageFormatter'
 import { SessionManager, SessionManagerUI } from './SessionManager'
 import { ChatRenderer, RendererState } from './ChatRenderer'
 import { ConversationController, ConversationControllerUI } from './ConversationController'
@@ -405,20 +404,23 @@ export class RightBar {
         const messageIndex = parseInt(btn.dataset.messageIndex || '0', 10)
         const message = state.messages[messageIndex]
         if (message) {
-          // Get plain text from message content (remove markdown formatting)
-          const tempDiv = document.createElement('div')
-          tempDiv.innerHTML = messageFormatter.format(message.content, true)
-          const plainText = tempDiv.textContent || tempDiv.innerText || ''
+          // SURGICAL COPY: Strip all internal UI tags [RUN:], [DONE:], [FILE:], etc.
+          // and thought blocks before copying to clipboard.
+          const cleanText = message.content
+            .replace(/\[(?:RUN|DONE|FILE|TX):\s*[\s\S]*?\]/g, '')
+            .replace(/<thought>[\s\S]*?<\/thought>/gi, '')
+            .replace(/\n{3,}/g, '\n\n')
+            .trim()
 
           navigator.clipboard
-            .writeText(plainText)
+            .writeText(cleanText)
             .then(() => {
               this.showCopyFeedback(btn)
             })
             .catch(() => {
               // Fallback
               const textarea = document.createElement('textarea')
-              textarea.value = plainText
+              textarea.value = cleanText
               textarea.style.position = 'fixed'
               textarea.style.left = '-9999px'
               textarea.style.top = '0'
@@ -432,9 +434,6 @@ export class RightBar {
                 console.error('Fallback copy failed', err)
               }
               document.body.removeChild(textarea)
-            })
-            .catch((err) => {
-              console.error('Failed to copy:', err)
             })
         }
       } else if (action === 'thumbs-up' || action === 'thumbs-down') {
@@ -559,6 +558,19 @@ export class RightBar {
               }
               document.body.removeChild(textarea)
             })
+        }
+      } else if (action === 'open-file') {
+        const path = btn.dataset.path
+        if (path) {
+          const { agentExecutor } = await import('../../services/agent/executor')
+          const note = agentExecutor.resolveNote(path)
+          if (note) {
+            window.dispatchEvent(
+              new CustomEvent('knowledge-hub:open-note', {
+                detail: { id: note.id, path: note.path || undefined }
+              })
+            )
+          }
         }
       } else if (btn.classList.contains('rightbar__message-mention')) {
         // Mention click (@note or [[note]])

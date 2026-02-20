@@ -337,25 +337,121 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
-.rightbar__message--assistant .rightbar__message-body,
-.rightbar__message--system .rightbar__message-body {
-  width: 100%;
-  max-width: 100%;
-}
-
-.rightbar__message--assistant .rightbar__message-content,
-.rightbar__message--system .rightbar__system-details {
-  background: var(--panel-strong);
-  color: var(--text-strong);
+/* ---- Action Logs (System Messages) ---- */
+.rightbar__action-log {
   border: 1px solid var(--border);
-  width: 100%; /* Fully seamless */
-  box-sizing: border-box;
+  border-radius: 6px;
+  background: var(--panel-strong);
+  overflow: hidden;
+  margin-bottom: 8px;
+  transition: all 0.2s ease;
 }
 
-.rightbar__message--error .rightbar__message-content {
-  background: rgba(239, 68, 68, 0.05);
-  border: 1px solid rgba(239, 68, 68, 0.2);
-  color: var(--text-strong);
+.rightbar__action-log[open] {
+  border-color: var(--accent-soft, var(--border));
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.rightbar__action-summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 6px 10px;
+  user-select: none;
+  background: var(--panel);
+}
+
+.rightbar__action-summary::-webkit-details-marker {
+  display: none;
+}
+
+.rightbar__action-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+}
+
+.rightbar__action-badge {
+  font-family: var(--font-mono, monospace);
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 9px;
+  letter-spacing: 0.05em;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.rightbar__action-target {
+  flex: 1;
+  color: var(--text-soft);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.15s ease;
+  user-select: none;
+}
+
+.rightbar__action-target:hover {
+  color: var(--primary);
+  text-decoration: underline;
+}
+
+.rightbar__action-chevron {
+  width: 12px;
+  height: 12px;
+  opacity: 0.5;
+  transition: transform 0.2s ease;
+  position: relative;
+}
+
+.rightbar__action-chevron::after {
+  content: '→';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 10px;
+}
+
+.rightbar__action-log[open] .rightbar__action-chevron::after {
+  content: '↓';
+}
+
+.rightbar__action-details {
+  border-top: 1px solid var(--border);
+  padding: 8px;
+  background: var(--bg);
+  font-size: 11px;
+}
+
+.rightbar__action-content pre {
+  margin: 0;
+  padding: 8px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+  font-family: var(--font-mono, monospace);
+  line-height: 1.4;
+  overflow-x: auto;
+}
+
+.rightbar__action-status {
+  color: var(--text-muted);
+  font-style: italic;
+  padding: 4px 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.rightbar__action-success-icon {
+  color: var(--success-color, #22c55e);
+  display: flex;
+  align-items: center;
 }
 
 .rightbar__model-badge {
@@ -415,9 +511,72 @@
   margin-top: 0;
 }
 
-.rightbar__message-content p {
-  margin: 8px 0;
-  line-height: 1.55;
+/* ---- Reasoning Logs (Assistant Messages) ---- */
+.rightbar__reasoning-log {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--panel);
+  overflow: hidden;
+  margin-bottom: 4px;
+}
+
+.rightbar__reasoning-summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 4px 10px;
+  user-select: none;
+  background: var(--panel-strong);
+  opacity: 0.8;
+  transition: opacity 0.2s ease;
+}
+
+.rightbar__reasoning-summary:hover {
+  opacity: 1;
+}
+
+.rightbar__reasoning-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+}
+
+.rightbar__reasoning-icon {
+  font-size: 10px;
+}
+
+.rightbar__reasoning-title {
+  flex: 1;
+  color: var(--text-soft);
+  font-weight: 500;
+  font-style: italic;
+}
+
+.rightbar__reasoning-chevron {
+  width: 10px;
+  height: 10px;
+  opacity: 0.5;
+  position: relative;
+}
+
+.rightbar__reasoning-chevron::after {
+  content: '→';
+  font-size: 9px;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.rightbar__reasoning-log[open] .rightbar__reasoning-chevron::after {
+  content: '↓';
+}
+
+.rightbar__reasoning-details {
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-strong);
 }
 
 .rightbar__message-content p:first-child {
