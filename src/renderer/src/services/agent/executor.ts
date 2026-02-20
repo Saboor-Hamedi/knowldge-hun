@@ -10,6 +10,42 @@ import type { NoteMeta, NotePayload, TreeItem } from '../../core/types'
  * Handles path resolution, error handling, and RAG re-indexing.
  */
 export class AgentExecutor {
+  private transactionQueue: (() => Promise<unknown>)[] = []
+  private isTransactionActive = false
+
+  /**
+   * TRANSACTION: Start a new atomic operation series
+   */
+  startTransaction(): void {
+    this.transactionQueue = []
+    this.isTransactionActive = true
+  }
+
+  /**
+   * TRANSACTION: Commit all queued operations
+   */
+  async commitTransaction(): Promise<unknown[]> {
+    if (!this.isTransactionActive) return []
+    const results: unknown[] = []
+    try {
+      for (const op of this.transactionQueue) {
+        results.push(await op())
+      }
+      return results
+    } finally {
+      this.transactionQueue = []
+      this.isTransactionActive = false
+    }
+  }
+
+  private queueOrExecute<T>(op: () => Promise<T>): Promise<T | string> {
+    if (this.isTransactionActive) {
+      this.transactionQueue.push(op)
+      return Promise.resolve('Queued for transaction commit.')
+    }
+    return op()
+  }
+
   private dispatchVaultChange(): void {
     window.dispatchEvent(new CustomEvent('vault-changed'))
   }
@@ -33,7 +69,6 @@ export class AgentExecutor {
 
     const data = await window.api.loadNote(note.id, note.path)
 
-    // PROACTIVE: Reveal the note to the user so they see the context we are reading
     window.dispatchEvent(
       new CustomEvent('knowledge-hub:open-note', {
         detail: { id: note.id, path: note.path, focus: 'none' }
@@ -46,125 +81,95 @@ export class AgentExecutor {
       content: data?.content || ''
     }
   }
+
   /**
    * Resolve a fuzzy title or path to a specific NoteMeta
    */
-  public resolveNote(query: string): NoteMeta | undefined {
+  public resolveNote(query: string): (NoteMeta & { type: 'note' | 'folder' }) | undefined {
     if (!query) return undefined
-    const q = query.trim()
-    const qLower = q.toLowerCase()
+    const cleanQuery = query
+      .toLowerCase()
+      .trim()
+      .replace(/^vault\//, '')
 
-    // 0. Handle aliases for active note
-    if (qLower === 'active' || qLower === 'current' || qLower === 'this') {
-      const active = state.notes.find((n) => n.id === state.activeId)
-      if (active) return active
-    }
+    const byId = state.notes.find((n) => n.id === query)
+    if (byId) return { ...byId, type: 'note' }
 
-    // 1. Try exact path match first (best for ambiguous names)
-    const exact = state.notes.find((n) => n.path === q || n.id === q)
-    if (exact) return exact
+    const exact = state.notes.find(
+      (n) => n.title.toLowerCase() === cleanQuery || n.path?.toLowerCase() === cleanQuery
+    )
+    if (exact) return { ...exact, type: 'note' }
 
-    // 2. Try active note
-    const active = state.notes.find((n) => n.id === state.activeId)
-    if (active && (active.title.toLowerCase() === qLower || active.id.toLowerCase() === qLower)) {
-      return active
-    }
-
-    // 3. Search all notes by title/id/fuzzy path
-    const commonExtensions = ['.md', '.py', '.ts', '.js', '.txt', '.json']
-    return state.notes.find((n) => {
-      const idLower = n.id.toLowerCase()
-      if (n.title.toLowerCase() === qLower) return true
-      if (idLower === qLower) return true
-      if (n.path?.toLowerCase() === qLower) return true
-
-      // Try fuzzy extension matches
-      for (const ext of commonExtensions) {
-        if (idLower === `${qLower}${ext}`) return true
+    // Folder match
+    const notesWithFolders = state.notes.filter((n) => n.path)
+    for (const n of notesWithFolders) {
+      const parts = n.path!.split('/')
+      for (let i = 0; i < parts.length; i++) {
+        const folderPath = parts.slice(0, i + 1).join('/')
+        if (folderPath.toLowerCase() === cleanQuery) {
+          return {
+            id: `folder-${folderPath}`,
+            title: parts[i],
+            path: folderPath,
+            type: 'folder',
+            updatedAt: n.updatedAt
+          } as any
+        }
       }
+    }
 
-      return false
-    })
+    const fuzzy = state.notes.find(
+      (n) =>
+        n.title.toLowerCase().includes(cleanQuery) || cleanQuery.includes(n.title.toLowerCase())
+    )
+    if (fuzzy) return { ...fuzzy, type: 'note' }
+
+    return undefined as any
   }
 
-  /**
-   * Resolve a folder path
-   */
   public resolveFolder(query: string): string | undefined {
-    if (!query) return undefined
-    const q = query.trim()
-    const qLower = q.toLowerCase()
+    if (!query || query === '/' || query.toLowerCase() === 'root') return ''
+    const cleanQuery = query
+      .toLowerCase()
+      .trim()
+      .replace(/^vault\//, '')
 
-    // 1. Try exact path match
-    const exact = state.notes.find((n) => n.type === 'folder' && n.path === q)
-    if (exact) return exact.path
+    const existing = state.notes.find((n) => n.path?.toLowerCase().includes(cleanQuery))
+    if (existing) {
+      const parts = existing.path!.split('/')
+      const idx = parts.findIndex((p) => p.toLowerCase() === cleanQuery.split('/').pop())
+      if (idx !== -1) return parts.slice(0, idx + 1).join('/')
+    }
 
-    // 2. Try to find the most "relevant" folder by name
-    const matches = state.notes.filter(
-      (n) =>
-        n.type === 'folder' &&
-        (n.title.toLowerCase() === qLower || n.path?.toLowerCase() === qLower)
-    )
-
-    if (matches.length === 0) return undefined
-    if (matches.length === 1) return matches[0].path
-
-    // If there are multiple, try to find one that is "closer" to the root or previously selected
-    // For now, we return the first one but log a warning.
-    console.warn(
-      `[AgentExecutor] Ambiguous folder name "${query}": found ${matches.length} matches. Using first one.`
-    )
-    return matches[0].path
+    return cleanQuery
   }
 
   /**
    * EXECUTE: Write Note
    */
-  async writeNote(title: string, content: string, parentPath?: string): Promise<NoteMeta> {
-    // CRITICAL: Ensure we have fresh vault data (same as delete)
-    if (state.notes.length === 0) {
-      console.warn('[AgentExecutor] state.notes is empty, fetching fresh vault data...')
-      try {
-        const freshNotes = await window.api.listNotes()
-        state.notes = freshNotes
-        console.log(`[AgentExecutor] Refreshed state with ${freshNotes.length} items`)
-      } catch (err) {
-        console.error('[AgentExecutor] Failed to refresh vault state:', err)
-      }
-    }
-
-    const existing = this.resolveNote(title)
-
-    if (existing) {
-      // ANTIGRAVITY SAFETY: Prevent silent overwrites of existing files.
-      // The AI must use 'propose' to show a diff to the user.
-      throw new Error(
-        `File "${title}" already exists at "${existing.path || existing.id}". ` +
-          `To modify it, you MUST use [RUN: propose "${existing.path || existing.id}" "content"] ` +
-          `to trigger the Review/Diff UI. "write" is for NEW files only.`
-      )
-    } else {
-      // Proactive resolution of parentPath
+  async writeNote(title: string, content: string, parentPath?: string): Promise<NoteMeta | string> {
+    return this.queueOrExecute(async () => {
+      const existing = this.resolveNote(title)
       let resolvedParentPath = parentPath
-      if (parentPath && parentPath !== '.') {
-        const existingFolder = this.resolveFolder(parentPath)
-        if (existingFolder) {
-          resolvedParentPath = existingFolder
-        }
+      if (!resolvedParentPath && existing?.path) {
+        resolvedParentPath = existing.path.substring(0, existing.path.lastIndexOf('/'))
       }
 
-      const meta = await window.api.createNote(title, resolvedParentPath)
+      const meta = existing
+        ? await window.api.saveNote({ ...existing, content } as NotePayload)
+        : await window.api.createNote(title, resolvedParentPath)
+
       const result = await window.api.saveNote({
         id: meta.id,
         content,
-        title: meta.title
+        title: meta.title,
+        path: meta.path
       } as NotePayload)
-      void ragService.indexNote(meta.id, content, { title: meta.title, path: meta.path })
 
+      void ragService.indexNote(meta.id, content, { title: meta.title, path: meta.path })
       this.dispatchVaultChange()
       this.refreshActiveNoteIfNeeded(meta.id, meta.path)
 
-      // Auto-open the newly created note
       window.dispatchEvent(
         new CustomEvent('knowledge-hub:open-note', {
           detail: { id: meta.id, path: meta.path }
@@ -172,7 +177,7 @@ export class AgentExecutor {
       )
 
       return result
-    }
+    })
   }
 
   /**
@@ -182,7 +187,6 @@ export class AgentExecutor {
     const note = this.resolveNote(title)
     if (!note) throw new Error(`Note not found: ${title}`)
 
-    // We don't save yet. We just dispatch an event that the editor will catch.
     window.dispatchEvent(
       new CustomEvent('knowledge-hub:propose-note', {
         detail: { id: note.id, content }
@@ -194,50 +198,15 @@ export class AgentExecutor {
   /**
    * EXECUTE: Append to Note
    */
-  async appendNote(title: string, content: string): Promise<NoteMeta> {
-    const note = this.resolveNote(title)
-    if (!note) throw new Error(`Note not found: ${title}`)
+  async appendNote(title: string, content: string): Promise<NoteMeta | string> {
+    return this.queueOrExecute(async () => {
+      const note = this.resolveNote(title)
+      if (!note) throw new Error(`Note not found: ${title}`)
 
-    const data = await window.api.loadNote(note.id, note.path)
-    const existingContent = data?.content || ''
-    const newContent = existingContent + (existingContent.endsWith('\n') ? '' : '\n') + content
+      const data = await window.api.loadNote(note.id, note.path)
+      const existingContent = data?.content || ''
+      const newContent = existingContent + (existingContent.endsWith('\n') ? '' : '\n') + content
 
-    if (state.activeId === note.id) {
-      window.dispatchEvent(
-        new CustomEvent('knowledge-hub:propose-note', {
-          detail: { id: note.id, content: newContent }
-        })
-      )
-      return note as NoteMeta
-    }
-
-    const result = await window.api.saveNote({
-      id: note.id,
-      content: newContent,
-      title: note.title,
-      path: note.path
-    } as NotePayload)
-
-    void ragService.indexNote(note.id, newContent, { title: note.title, path: note.path })
-    this.refreshActiveNoteIfNeeded(note.id, note.path)
-    return result
-  }
-
-  /**
-   * EXECUTE: Patch Note (Robust Search and Replace)
-   */
-  async patchNote(title: string, search: string, replace: string): Promise<NoteMeta> {
-    const note = this.resolveNote(title)
-    if (!note) throw new Error(`Note not found: ${title}`)
-
-    const data = await window.api.loadNote(note.id, note.path)
-    const content = (data?.content || '').replace(/\r\n/g, '\n')
-
-    // Normalize line endings for the search string
-    const searchNormalized = search.replace(/\r\n/g, '\n')
-
-    const finalizeMatch = async (newContent: string) => {
-      // If it's the active note, trigger Suggestion Review (Copilot-style)
       if (state.activeId === note.id) {
         window.dispatchEvent(
           new CustomEvent('knowledge-hub:propose-note', {
@@ -247,7 +216,6 @@ export class AgentExecutor {
         return note as NoteMeta
       }
 
-      // Otherwise, save directly
       const result = await window.api.saveNote({
         id: note.id,
         content: newContent,
@@ -258,50 +226,95 @@ export class AgentExecutor {
       void ragService.indexNote(note.id, newContent, { title: note.title, path: note.path })
       this.refreshActiveNoteIfNeeded(note.id, note.path)
       return result
-    }
+    })
+  }
 
-    // 1. Try exact match first
-    if (content.includes(searchNormalized)) {
-      const newContent = content.replace(searchNormalized, replace.replace(/\r\n/g, '\n'))
-      return finalizeMatch(newContent)
-    }
+  /**
+   * EXECUTE: Patch Note (Robust Context-Aware Search and Replace)
+   */
+  async patchNote(
+    title: string,
+    search: string,
+    replace: string,
+    contextBefore?: string,
+    contextAfter?: string
+  ): Promise<NoteMeta | string> {
+    return this.queueOrExecute(async () => {
+      const note = this.resolveNote(title)
+      if (!note) throw new Error(`Note not found: ${title}`)
 
-    // 2. Exact match failed - try robust match (line-by-line whitespace-insensitive)
-    const contentLines = content.split('\n')
-    const searchLines = searchNormalized.split('\n')
+      const data = await window.api.loadNote(note.id, note.path)
+      const originalContent = (data?.content || '').replace(/\r\n/g, '\n')
 
-    let matchIdx = -1
-    for (let i = 0; i <= contentLines.length - searchLines.length; i++) {
-      let isMatch = true
-      for (let j = 0; j < searchLines.length; j++) {
-        const contentLine = contentLines[i + j].trimEnd()
-        const searchLine = searchLines[j].trimEnd()
+      const searchNormalized = search.replace(/\r\n/g, '\n')
+      const replaceNormalized = replace.replace(/\r\n/g, '\n')
+      const ctxBeforeNorm = contextBefore?.replace(/\r\n/g, '\n') || ''
+      const ctxAfterNorm = contextAfter?.replace(/\r\n/g, '\n') || ''
 
-        // Skip comparing if both are just whitespace (robust against empty line mismatches)
-        if (!contentLine && !searchLine) continue
+      const finalizeMatch = async (newContent: string) => {
+        if (state.activeId === note.id) {
+          window.dispatchEvent(
+            new CustomEvent('knowledge-hub:propose-note', {
+              detail: { id: note.id, content: newContent }
+            })
+          )
+          return note as NoteMeta
+        }
 
-        if (contentLine !== searchLine) {
-          isMatch = false
-          break
+        const result = await window.api.saveNote({
+          id: note.id,
+          content: newContent,
+          title: note.title,
+          path: note.path
+        } as NotePayload)
+
+        void ragService.indexNote(note.id, newContent, { title: note.title, path: note.path })
+        this.refreshActiveNoteIfNeeded(note.id, note.path)
+        return result
+      }
+
+      if (ctxBeforeNorm || ctxAfterNorm) {
+        const fullBlock = (ctxBeforeNorm + searchNormalized + ctxAfterNorm).trim()
+        if (originalContent.includes(fullBlock)) {
+          const replacementBlock = ctxBeforeNorm + replaceNormalized + ctxAfterNorm
+          const newContent = originalContent.replace(fullBlock, replacementBlock)
+          return finalizeMatch(newContent)
         }
       }
-      if (isMatch) {
-        matchIdx = i
-        break
+
+      if (originalContent.includes(searchNormalized)) {
+        const newContent = originalContent.replace(searchNormalized, replaceNormalized)
+        return finalizeMatch(newContent)
       }
-    }
 
-    if (matchIdx !== -1) {
-      const replacementText = replace.replace(/\r\n/g, '\n')
-      contentLines.splice(matchIdx, searchLines.length, replacementText)
-      const newContent = contentLines.join('\n')
-      return finalizeMatch(newContent)
-    }
+      const contentLines = originalContent.split('\n')
+      const searchLines = searchNormalized.split('\n')
 
-    throw new Error(
-      `Patch failed: Search block not found in "${title}". \n` +
-        `Tip: Ensure the search block is unique and matches the file content. Use [RUN: propose] for complex modifications.`
-    )
+      const findMatch = (lines: string[], target: string[]): number => {
+        for (let i = 0; i <= lines.length - target.length; i++) {
+          let isMatch = true
+          for (let j = 0; j < target.length; j++) {
+            const l1 = lines[i + j].trim()
+            const l2 = target[j].trim()
+            if (!l1 && !l2) continue
+            if (l1 !== l2) {
+              isMatch = false
+              break
+            }
+          }
+          if (isMatch) return i
+        }
+        return -1
+      }
+
+      const matchIdx = findMatch(contentLines, searchLines)
+      if (matchIdx !== -1) {
+        contentLines.splice(matchIdx, searchLines.length, replaceNormalized)
+        return finalizeMatch(contentLines.join('\n'))
+      }
+
+      throw new Error(`Patch failed: Precision block not found in "${title}".`)
+    })
   }
 
   /**
@@ -314,30 +327,38 @@ export class AgentExecutor {
   /**
    * EXECUTE: Create Folder
    */
-  async createFolder(name: string, parentPath?: string): Promise<{ name: string; path: string }> {
-    console.log(`[AgentExecutor] Creating folder "${name}" with parent:`, parentPath || 'root')
-    const result = await window.api.createFolder(name, parentPath)
-    this.dispatchVaultChange()
-    console.log(`[AgentExecutor] Folder created at:`, result.path)
-    return result
+  async createFolder(
+    name: string,
+    parentPath?: string
+  ): Promise<{ name: string; path: string } | string> {
+    return this.queueOrExecute(async () => {
+      const result = await window.api.createFolder(name, parentPath)
+      this.dispatchVaultChange()
+      return result
+    })
   }
 
   /**
    * EXECUTE: Rename
    */
-  async rename(oldId: string, newName: string): Promise<NoteMeta | { name: string; path: string }> {
-    const item = this.resolveNote(oldId)
-    if (item) {
-      let result
-      if (item.type === 'folder') {
-        result = await window.api.renameFolder(item.path!, newName)
-      } else {
-        result = await window.api.renameNote(item.id, newName, item.path)
+  async rename(
+    oldId: string,
+    newName: string
+  ): Promise<NoteMeta | { name: string; path: string } | string> {
+    return this.queueOrExecute(async () => {
+      const item = this.resolveNote(oldId)
+      if (item) {
+        let result
+        if (item.type === 'folder') {
+          result = await window.api.renameFolder(item.path!, newName)
+        } else {
+          result = await window.api.renameNote(item.id, newName, item.path)
+        }
+        this.dispatchVaultChange()
+        return result
       }
-      this.dispatchVaultChange()
-      return result
-    }
-    throw new Error(`Item not found for renaming: ${oldId}`)
+      throw new Error(`Item not found for renaming: ${oldId}`)
+    })
   }
 
   /**
@@ -346,94 +367,69 @@ export class AgentExecutor {
   async move(
     id: string,
     targetFolderPath: string
-  ): Promise<NoteMeta | { success?: boolean; path?: string }> {
-    const item = this.resolveNote(id)
-    if (!item) throw new Error(`Item not found for moving: ${id}`)
+  ): Promise<NoteMeta | { success?: boolean; path?: string } | string> {
+    return this.queueOrExecute(async () => {
+      const item = this.resolveNote(id)
+      if (!item) throw new Error(`Item not found for moving: ${id}`)
 
-    const targetPath = this.resolveFolder(targetFolderPath)
-    if (!targetPath) throw new Error(`Target folder not found: ${targetFolderPath}`)
+      const targetPath = this.resolveFolder(targetFolderPath)
+      if (!targetPath) throw new Error(`Target folder not found: ${targetFolderPath}`)
 
-    console.log(
-      `[AgentExecutor] Moving item "${item.title}" (${item.path}) to target path:`,
-      targetPath
-    )
-
-    if (item.type === 'folder') {
-      const res = await window.api.moveFolder(item.path!, targetPath)
-      this.dispatchVaultChange()
-      return res
-    } else {
-      const res = await window.api.moveNote(item.id, item.path, targetPath)
-      this.dispatchVaultChange()
-      return res
-    }
+      if (item.type === 'folder') {
+        const res = await window.api.moveFolder(item.path!, targetPath)
+        this.dispatchVaultChange()
+        return res
+      } else {
+        const res = await window.api.moveNote(item.id, item.path, targetPath)
+        this.dispatchVaultChange()
+        return res
+      }
+    })
   }
 
   /**
    * EXECUTE: Delete
    */
-  async delete(id: string): Promise<{ success: boolean }> {
-    // CRITICAL: Ensure we have fresh vault data
-    if (state.notes.length === 0) {
-      console.warn('[AgentExecutor] state.notes is empty, fetching fresh vault data...')
-      try {
-        const freshNotes = await window.api.listNotes()
-        state.notes = freshNotes
-        console.log(`[AgentExecutor] Refreshed state with ${freshNotes.length} items`)
-      } catch (err) {
-        console.error('[AgentExecutor] Failed to refresh vault state:', err)
+  async delete(id: string): Promise<{ success: boolean } | string> {
+    return this.queueOrExecute(async () => {
+      const item = this.resolveNote(id)
+      if (!item) return { success: true }
+
+      let res
+      if (item.type === 'folder') {
+        res = await window.api.deleteFolder(item.id)
+        const folderPathPrefix = item.id.endsWith('/') ? item.id : item.id + '/'
+        const idsToClose = state.openTabs
+          .filter(
+            (tab) => tab.path?.startsWith(folderPathPrefix) || tab.id.startsWith(folderPathPrefix)
+          )
+          .map((tab) => tab.id)
+        if (idsToClose.length > 0) {
+          tabService.closeTabs(idsToClose)
+        }
+      } else {
+        res = await window.api.deleteNote(item.id, item.path || '')
+        tabService.closeTab(item.id)
+        void ragService.deleteNote(item.id)
       }
-    }
-
-    const item = this.resolveNote(id)
-    if (!item) {
-      // IDEMPOTENCY check: If it's already gone, we achieved the target state.
-      // Returning success prevents AI from crashing/looping on a Ghost Modal.
-      console.log(
-        `[AgentExecutor] Deletion target "${id}" already removed or not found. Target achieved.`
-      )
-      return { success: true }
-    }
-
-    let res
-    if (item.type === 'folder') {
-      // For folders, use item.id as the path (folders don't have a separate path property)
-      res = await window.api.deleteFolder(item.id)
-
-      // Close tabs for notes inside this folder
-      const folderPathPrefix = item.id.endsWith('/') ? item.id : item.id + '/'
-      const idsToClose = state.openTabs
-        .filter(
-          (tab) => tab.path?.startsWith(folderPathPrefix) || tab.id.startsWith(folderPathPrefix)
-        )
-        .map((tab) => tab.id)
-
-      if (idsToClose.length > 0) {
-        tabService.closeTabs(idsToClose)
-      }
-    } else {
-      res = await window.api.deleteNote(item.id, item.path || '')
-      tabService.closeTab(item.id)
-      void ragService.deleteNote(item.id)
-    }
-    this.dispatchVaultChange()
-    return res
+      this.dispatchVaultChange()
+      return res
+    })
   }
+
   /**
-   * EXECUTE: Run terminal command
+   * EXECUTE: Terminal/Shell
    */
   async executeTerminal(command: string): Promise<string> {
     try {
-      // Get current vault path for CWD
       const vault = await window.api.getVault()
       const result = (await window.api.invoke('terminal:run-command', command, vault.path)) as {
         success: boolean
         output: string
         error: string
       }
-
       if (result.success) {
-        return result.output || 'Command executed successfully (no output).'
+        return result.output || 'Command executed successfully.'
       } else {
         return `Error: ${result.error}\nOutput: ${result.output}`
       }
@@ -443,34 +439,25 @@ export class AgentExecutor {
   }
 
   /**
-   * Helper to format the vault tree for AI output
+   * UTILS: Tree formatting for AI context
    */
-  public formatTree(items: TreeItem[], indent = '', maxItems = 100): string {
+  formatTree(items: TreeItem[], prefix = '', limit = 100): string {
+    let result = ''
     let count = 0
-    const build = (list: TreeItem[], currentIndent = ''): string => {
-      let res = ''
-      for (const item of list) {
-        if (count >= maxItems) {
-          if (count === maxItems) {
-            res += `${currentIndent}... (tree truncated, use 'ls' or 'tree' for more)\n`
-            count++
-          }
-          continue
-        }
-
-        const icon = item.type === 'folder' ? '📂' : '📄'
-        const pathSuffix = item.id ? ` (PATH: ${item.id})` : ''
-        res += `${currentIndent}${icon} ${item.title}${pathSuffix}\n`
+    const render = (children: TreeItem[], currentPrefix: string) => {
+      for (const item of children) {
+        if (count >= limit) break
         count++
-
-        if (item.children && item.children.length > 0) {
-          res += build(item.children, currentIndent + '  ')
+        const isLast = children.indexOf(item) === children.length - 1
+        const line = `${currentPrefix}${isLast ? '└── ' : '├── '}${item.title}${item.type === 'folder' ? '/' : ''}`
+        result += line + '\n'
+        if (item.type === 'folder' && item.children) {
+          render(item.children, currentPrefix + (isLast ? '    ' : '│   '))
         }
       }
-      return res
     }
-
-    return build(items, indent)
+    render(items, prefix)
+    return result
   }
 }
 

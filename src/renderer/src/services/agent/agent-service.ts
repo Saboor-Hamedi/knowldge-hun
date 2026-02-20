@@ -40,13 +40,14 @@ export class AgentService {
     // This allows brackets like [1, 2] to exist inside the command arguments (e.g. in code content)
     // without prematurely terminating the match.
     let searchIdx = 0
+    const commandBlocks: string[] = []
+
+    // First pass: collect all commands
     while (true) {
       const startTag = '[RUN:'
       const startIdx = text.indexOf(startTag, searchIdx)
       if (startIdx === -1) break
 
-      // Find the closing bracket that matches this [RUN:
-      // We must respect quotes and escaped characters
       let endIdx = -1
       let inQuotes = false
       let quoteChar = ''
@@ -54,17 +55,14 @@ export class AgentService {
 
       for (let i = startIdx + startTag.length; i < text.length; i++) {
         const char = text[i]
-
         if (escaped) {
           escaped = false
           continue
         }
-
         if (char === '\\') {
           escaped = true
           continue
         }
-
         const isQuote = char === '"' || char === "'" || char === '`'
         if (isQuote && (!inQuotes || char === quoteChar)) {
           if (!inQuotes) {
@@ -75,46 +73,51 @@ export class AgentService {
             quoteChar = ''
           }
         }
-
         if (char === ']' && !inQuotes) {
           endIdx = i
           break
         }
       }
 
-      if (endIdx === -1) {
-        // Unclosed [RUN: block - potentially still being streamed
-        break
-      }
-
+      if (endIdx === -1) break
       searchIdx = endIdx + 1
-      const fullCmd = text.substring(startIdx + startTag.length, endIdx).trim()
+      commandBlocks.push(text.substring(startIdx + startTag.length, endIdx).trim())
+    }
 
+    if (commandBlocks.length === 0) return []
+
+    // TRANSACTION MODE: If multiple commands, use transaction
+    const useTransaction = commandBlocks.length > 1
+    if (useTransaction) {
+      agentExecutor.startTransaction()
+    }
+
+    for (const fullCmd of commandBlocks) {
       if (signal?.aborted) break
-
-      // DEDUPLICATION: Don't run the exact same command twice in one message
-      if (executedCommands.has(fullCmd)) {
-        console.log(`[AgentService] Skipping duplicate command: ${fullCmd}`)
-        continue
-      }
+      if (executedCommands.has(fullCmd)) continue
       executedCommands.add(fullCmd)
 
       try {
         const result = await this.executeCommand(fullCmd)
-        // If result is a string, use it. Otherwise, use a technical success status
         const feedback = typeof result === 'string' ? result : 'Status: OK'
-
-        // FEEDBACK ISOLATION: Use [DONE: ] instead of [RUN: ] for reports
-        // This prevents the ConversationController from re-triggering on its own results.
         results.push(`> [DONE: ${fullCmd}]\n${feedback}`)
         if (onProgress) onProgress()
       } catch (err) {
         console.error(`[AgentService] Execution failed: ${fullCmd}`, err)
         results.push(`> [DONE: ${fullCmd}]\nError: ${(err as Error).message}`)
         if (onProgress) onProgress()
-
-        // incremental feedback: stop on first error to let AI pivot
         break
+      }
+    }
+
+    if (useTransaction && !signal?.aborted) {
+      try {
+        const txResults = await agentExecutor.commitTransaction()
+        results.push(
+          `> [TX: COMMIT]\nAtomic commit successful. ${txResults.length} operations applied.`
+        )
+      } catch (err) {
+        results.push(`> [TX: ROLLBACK]\nAtomic commit failed: ${(err as Error).message}`)
       }
     }
 
@@ -220,7 +223,7 @@ export class AgentService {
         return agentExecutor.appendNote(args[0], args[1])
       case 'patch':
       case 'edit':
-        return agentExecutor.patchNote(args[0], args[1], args[2])
+        return agentExecutor.patchNote(args[0], args[1], args[2], args[3], args[4])
       case 'propose':
         return agentExecutor.proposeNote(args[0], args[1])
       case 'mkdir':

@@ -117,13 +117,17 @@ export class SuggestionManager {
         <button class="suggestion-global-header__nav-btn" data-action="next" title="Next Change">${codicons.arrowDown || '↓'}</button>
       </div>
       <div class="suggestion-global-header__actions">
-        <button class="suggestion-global-header__btn" data-action="reject-all">Discard</button>
+        <button class="suggestion-global-header__btn suggestion-global-header__btn--danger" data-action="delete-all">Delete All Code</button>
+        <button class="suggestion-global-header__btn" data-action="reject-all">Discard Changes</button>
         <button class="suggestion-global-header__btn suggestion-global-header__btn--primary" data-action="accept-all">Accept All</button>
       </div>
     `
 
     header.querySelector('[data-action="prev"]')?.addEventListener('click', () => this.jumpTo(-1))
     header.querySelector('[data-action="next"]')?.addEventListener('click', () => this.jumpTo(1))
+    header
+      .querySelector('[data-action="delete-all"]')
+      ?.addEventListener('click', () => this.deleteAll())
     header
       .querySelector('[data-action="reject-all"]')
       ?.addEventListener('click', () => this.clear())
@@ -243,18 +247,37 @@ export class SuggestionManager {
       const safeStartLine = Math.max(1, Math.min(chunk.startLine, lineCount))
       const safeEndLine = Math.max(safeStartLine, Math.min(chunk.endLine, lineCount))
 
-      const range = isInsertion
-        ? new this.monaco.Range(safeStartLine, 1, safeStartLine, 1)
-        : new this.monaco.Range(safeStartLine, 1, safeEndLine, model.getLineMaxColumn(safeEndLine))
-
+      // IF it's a replacement (type 'change' with originalLines), we replace the range
+      // IF it's a pure insertion, we append at the line
+      let range: any
       let text = chunk.newLines.join('\n')
-      if (isInsertion && chunk.startLine <= model.getLineCount()) {
-        text += '\n'
+
+      if (isInsertion) {
+        range = new this.monaco.Range(safeStartLine, 1, safeStartLine, 1)
+        if (safeStartLine <= lineCount) text += '\n'
+      } else {
+        range = new this.monaco.Range(
+          safeStartLine,
+          1,
+          safeEndLine,
+          model.getLineMaxColumn(safeEndLine)
+        )
       }
+
       edits.push({ range, text, forceMoveMarkers: true })
     })
 
     this.editor.executeEdits('ai-suggestion-all', edits)
+    this.clear()
+  }
+
+  private deleteAll(): void {
+    const model = this.editor.getModel()
+    if (!model) return
+    const range = model.getFullModelRange()
+    this.editor.executeEdits('ai-suggestion-delete-all', [
+      { range, text: '', forceMoveMarkers: true }
+    ])
     this.clear()
   }
 

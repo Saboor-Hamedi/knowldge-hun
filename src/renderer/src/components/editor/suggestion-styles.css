@@ -180,6 +180,18 @@
   filter: brightness(1.1);
 }
 
+.suggestion-global-header__btn--danger {
+  background: rgba(248, 81, 73, 0.1);
+  border: 1px solid rgba(248, 81, 73, 0.4);
+  color: #ff6b6b;
+}
+
+.suggestion-global-header__btn--danger:hover {
+  background: rgba(248, 81, 73, 0.2);
+  border-color: #f85149;
+  color: #ff4d4d;
+}
+
 /* Fix RightBar input clipping */
 .rightbar__chat-input {
   padding-left: 12px !important;

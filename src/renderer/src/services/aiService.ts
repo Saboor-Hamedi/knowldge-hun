@@ -49,11 +49,12 @@ You are a high-level software architect. You operate with absolute token efficie
 - **PROTOCOL [D]: SURGICAL STRIKE.** Use [RUN: patch] for 99% of changes. Only use [RUN: propose] for full refactors.
 - **PROTOCOL [E]: NO PLACEHOLDERS.** Never use "// ... rest of code".
 - **PROTOCOL [F]: ACTIVE FILE ALIAS.** Use "current" as the path (e.g., [RUN: patch "current" "search" "replace"]) to modify the active note.
+- **PROTOCOL [G]: PRECISION CONTEXT.** For complex patches, include 1-2 lines of unchanged context BEFORE and AFTER the search block as extra arguments.
 
 ## 2. COMMAND SPECIFICATIONS
 - **[RUN: write "path" "content"]**: Create NEW files.
 - **[RUN: propose "current" "content"]**: Full file replace.
-- **[RUN: patch "current" "search" "replace"]**: SURGICAL fix (PREFER THIS). "search" MUST be a unique block.
+- **[RUN: patch "current" "search" "replace" "contextBefore" "contextAfter"]**: SURGICAL fix (PREFER THIS). "search" MUST be unique.
 - **[RUN: read "path" "#L10-50"]**: Precision read.
 
 ## 3. COMMUNICATION STYLE
@@ -343,6 +344,34 @@ export class AIService {
   }
 
   /**
+   * Generate multiple query variations to improve search recall
+   */
+  private generateMultiQueries(query: string): string[] {
+    const terms = this.extractQueryTerms(query)
+    const variations = [query]
+
+    // 1. Term-only query
+    if (terms.length > 0) {
+      variations.push(terms.join(' '))
+    }
+
+    // 2. Focused query (first 3 terms)
+    if (terms.length > 3) {
+      variations.push(terms.slice(0, 3).join(' '))
+    }
+
+    // 3. Synonym-like expansion for code tasks
+    if (query.toLowerCase().includes('fix') || query.toLowerCase().includes('bug')) {
+      variations.push(`${query} error issue failure`)
+    }
+    if (query.toLowerCase().includes('how to') || query.toLowerCase().includes('implement')) {
+      variations.push(`${query} example tutorial documentation`)
+    }
+
+    return Array.from(new Set(variations)).slice(0, 3)
+  }
+
+  /**
    * Calculate TF-IDF score for better relevance
    */
   private calculateRelevanceScore(
@@ -602,143 +631,63 @@ export class AIService {
     }
 
     try {
-      const metadata = await this.loadVaultMetadata()
-      const vaultSize = metadata.length
+      // PHASE 2: Augmented Retrieval - Multi-Query Expansion
+      const queries = this.generateMultiQueries(userMessage)
+      const allRelevantNotes: ScoredNote[] = []
 
-      if (vaultSize === 0) {
-        context += `\nNote: The vault is empty.\n`
-      } else {
-        // Only mention vault access if it seems relevant
-        const lowerMessage = userMessage.toLowerCase()
-
-        // Check if this is just an acknowledgment (user saying "okay", "fine", etc.) OR a greeting
-        const isAcknowledgment =
-          /^(okay|ok|fine|thanks|got it|alright|cool|nice|good|sure|yep|yeah|yes|hello|hi|hey|greetings|hiya)\b/i.test(
-            userMessage.trim()
-          )
-
-        if (isAcknowledgment) {
-          // Keep the existing context, just don't add vault metadata
-          return { context: context + userMessage, citations }
-        }
-
-        context += `\nVault: ${vaultSize} notes available.\n`
-
-        const isVaultQuery =
-          (lowerMessage.includes('vault') || lowerMessage.includes('folder structure')) &&
-          (lowerMessage.includes('show') ||
-            lowerMessage.includes('list') ||
-            lowerMessage.includes('tree'))
-
-        if (isVaultQuery) {
-          const notes = await window.api.listNotes()
-          const tree = agentExecutor.formatTree(notes)
-          context += `\nVault Structure:\n${tree}\n`
-        } else {
-          // Check for explicit @mentions or [[wikilinks]]
-          const mentionRegex = /@([a-zA-Z0-9_\-.]+)|\[\[(.*?)\]\]/g
-          const mentions: string[] = []
-          let match
-          while ((match = mentionRegex.exec(userMessage)) !== null) {
-            mentions.push(match[1] || match[2]) // catch @group or [[group]]
+      for (const q of queries) {
+        const results = await this.findRelevantNotesHybrid(q, 3)
+        results.forEach((res) => {
+          if (!allRelevantNotes.find((n) => n.id === res.id)) {
+            allRelevantNotes.push(res)
           }
-
-          if (mentions.length > 0) {
-            context += `\nUser explicitly mentioned specific notes:\n`
-            for (const mention of mentions) {
-              const cleanMention = mention.trim().toLowerCase()
-              const commonExts = ['', '.md', '.py', '.ts', '.js', '.txt', '.json']
-
-              const targetNote = metadata.find((n) => {
-                const titleLower = n.title.toLowerCase()
-                const pathLower = n.path?.toLowerCase() || ''
-
-                return commonExts.some((ext) => {
-                  const mWithExt = cleanMention.endsWith(ext) ? cleanMention : cleanMention + ext
-                  return (
-                    titleLower === mWithExt ||
-                    titleLower === mWithExt.replace('.md', '') ||
-                    pathLower.endsWith(mWithExt)
-                  )
-                })
-              })
-
-              if (targetNote && !loadedNoteIds.has(targetNote.id)) {
-                try {
-                  const content = await this.loadNoteContent(targetNote.id, targetNote.path)
-                  context += `\nNOTE: "${targetNote.title}" (Explicitly referenced):\n${content.substring(0, this.MAX_CONTENT_LENGTH)}\n`
-                  loadedNoteIds.add(targetNote.id)
-                  if (!citations.find((c) => c.id === targetNote.id)) {
-                    citations.push({
-                      id: targetNote.id,
-                      title: targetNote.title,
-                      path: targetNote.path
-                    })
-                  }
-                } catch (err) {
-                  console.warn(`Failed to load mentioned note: ${mention}`, err)
-                }
-              }
-            }
-          }
-
-          // Check if the user is asking to create something (don't load vault context for this)
-          const isCreationIntent =
-            /\b(create|make|new|mkdir|touch|generate|setup)\b/i.test(userMessage) &&
-            /\b(folder|file|note|directory)\b/i.test(userMessage)
-
-          if (isCreationIntent) {
-            context += `\nIntent detected: Creation. Focus on asking for name and location.\n`
-          } else {
-            // Find and load only relevant notes (smart RAG) - use limit of 5 for better context
-            let relevantNotes = await this.findRelevantNotesHybrid(userMessage, 5)
-
-            // DE-DUPLICATE: Filter out notes already loaded via Editor Context
-            relevantNotes = relevantNotes.filter((n) => !loadedNoteIds.has(n.id))
-
-            if (relevantNotes.length > 0) {
-              context += `\nRelevant notes from vault (${relevantNotes.length} most relevant):\n`
-
-              let totalLength = 0
-              for (const note of relevantNotes) {
-                // Use snippets if available, otherwise truncate
-                const contentToShow =
-                  note.relevanceSnippets && note.relevanceSnippets.length > 0
-                    ? note.relevanceSnippets.join(' ')
-                    : note.content.length > this.MAX_CONTENT_LENGTH
-                      ? note.content.substring(0, this.MAX_CONTENT_LENGTH) + '...'
-                      : note.content
-
-                const path = note.path ? ` [${note.path}]` : ''
-                const noteContext = `\n"${note.title}"${path}:\n${contentToShow}\n`
-
-                // Estimate tokens (rough: 1 token ≈ 4 chars)
-                const estimatedTokens = noteContext.length / 4
-
-                // Don't exceed context window
-                if (totalLength + estimatedTokens > this.MAX_CONTEXT_TOKENS * 0.6) {
-                  context += `\n... and ${relevantNotes.length - relevantNotes.indexOf(note)} more relevant notes.\n`
-                  break
-                }
-
-                context += noteContext
-                totalLength += estimatedTokens
-
-                // Add to citations
-                if (!citations.find((c) => c.id === note.id)) {
-                  citations.push({ id: note.id, title: note.title, path: note.path })
-                }
-              }
-            } else {
-              // No relevant matches found - don't add fallback notes to citations
-              // Only provide context hint to AI without showing irrelevant citations to user
-              context += `\nNo notes found matching your query. The vault contains ${vaultSize} notes that you can ask about.\n`
-            }
-          }
-        }
-
-        context += `\nYou can reference any note by its title. When the user asks about their vault or notes, you have full context.\n`
+        })
       }
+
+      // Re-sort by score and limit
+      let relevantNotes = allRelevantNotes.sort((a, b) => b.score - a.score).slice(0, 7)
+
+      // DE-DUPLICATE: Filter out notes already loaded via Editor Context
+      relevantNotes = relevantNotes.filter((n) => !loadedNoteIds.has(n.id))
+
+      if (relevantNotes.length > 0) {
+        context += `\nRelevant notes from vault (${relevantNotes.length} most relevant):\n`
+
+        let totalLength = 0
+        for (const note of relevantNotes) {
+          // Use snippets if available, otherwise truncate
+          const contentToShow =
+            note.relevanceSnippets && note.relevanceSnippets.length > 0
+              ? note.relevanceSnippets.join(' ')
+              : note.content.length > this.MAX_CONTENT_LENGTH
+                ? note.content.substring(0, this.MAX_CONTENT_LENGTH) + '...'
+                : note.content
+
+          const path = note.path ? ` [${note.path}]` : ''
+          const noteContext = `\n"${note.title}"${path}:\n${contentToShow}\n`
+
+          // Estimate tokens (rough: 1 token ≈ 4 chars)
+          const estimatedTokens = noteContext.length / 4
+
+          // Don't exceed context window
+          if (totalLength + estimatedTokens > this.MAX_CONTEXT_TOKENS * 0.6) {
+            context += `\n... and ${relevantNotes.length - relevantNotes.indexOf(note)} more relevant notes.\n`
+            break
+          }
+
+          context += noteContext
+          totalLength += estimatedTokens
+
+          // Add to citations
+          if (!citations.find((c) => c.id === note.id)) {
+            citations.push({ id: note.id, title: note.title, path: note.path })
+          }
+        }
+      } else {
+        context += `\nNo relevant notes found in vault matching your query.\n`
+      }
+
+      context += `\nYou can reference any note by its title. When the user asks about their vault or notes, you have full context.\n`
     } catch (error) {
       console.error('[AIService] Failed to load vault for context:', error)
       context +=
