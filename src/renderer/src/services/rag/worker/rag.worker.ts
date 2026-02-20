@@ -1,14 +1,13 @@
 import { VectorDB } from './vector-db'
-import * as Transformers from '@xenova/transformers'
+import { pipeline, env } from '@xenova/transformers'
 import type { RagWorkerJob } from './rag.worker.types'
 
-const env = (Transformers as any).env || (Transformers as any).default?.env || (Transformers as any)
 if (env) {
-  env.allowLocalModels = false
-  env.allowRemoteModels = true
-  env.useBrowserCache = false
-  env.remoteHost = 'https://huggingface.co'
-  env.remotePrefix = 'models/'
+  ;(env as any).allowLocalModels = false
+  ;(env as any).allowRemoteModels = true
+  ;(env as any).useBrowserCache = false
+  ;(env as any).remoteHost = 'https://huggingface.co'
+  ;(env as any).remotePrefix = 'models/'
 }
 
 const db = new VectorDB()
@@ -29,11 +28,9 @@ async function initModel(): Promise<void> {
   initPromise = (async () => {
     try {
       console.log('[RagWorker] Pipeline loading...')
-      extractor = await (Transformers as any).pipeline(
-        'feature-extraction',
-        'Xenova/all-MiniLM-L6-v2',
-        { quantized: false }
-      )
+      extractor = await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2', {
+        quantized: false
+      })
       console.log('[RagWorker] Pipeline ready')
     } catch (err: any) {
       console.error('[RagWorker] Init error:', err)

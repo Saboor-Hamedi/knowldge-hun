@@ -124,7 +124,6 @@ export class RagService {
     }
 
     try {
-      
       if (this.embeddingProvider instanceof LocalEmbeddingProvider) {
         return this.dispatch('search', { query, limit })
       } else {

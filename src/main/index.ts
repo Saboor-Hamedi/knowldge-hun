@@ -883,11 +883,17 @@ app.whenReady().then(async () => {
 
     // Production build variations (ASAR vs non-ASAR, or custom resource paths)
     if (!is.dev && !existsSync(docsDir)) {
-      docsDir = join(process.resourcesPath, 'resources/docs')
+      // Try nested resources folder (sometimes electron-builder preserves it)
+      const alternatePath = join(process.resourcesPath, 'resources/docs')
+      if (existsSync(alternatePath)) {
+        docsDir = alternatePath
+      }
     }
 
     if (!existsSync(docsDir)) {
-      console.warn(`[Main] Documentation directory not found at any known location: ${docsDir}`)
+      console.warn(
+        `[Main] Documentation directory NOT found. Tried:\n 1. ${join(process.resourcesPath, 'docs')}\n 2. ${join(process.resourcesPath, 'resources/docs')}`
+      )
       return section === 'list' ? [] : 'Documentation not available.'
     }
 

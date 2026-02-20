@@ -1,6 +1,6 @@
 {
   "name": "knowledgehub",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "private": true,
   "description": "A minimal Electron application with TypeScript",
   "main": "./out/main/index.js",
@@ -66,6 +66,12 @@
     "win": {
       "artifactName": "${name}-Setup-${version}.${ext}"
     },
+    "extraResources": [
+      {
+        "from": "resources/docs",
+        "to": "docs"
+      }
+    ],
     "publish": [
       {
         "provider": "github",
