@@ -203,6 +203,7 @@ function createWindow(isNewInstance = false): void {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,
       webSecurity: true,
+      devTools: is.dev,
       additionalArguments: isNewInstance ? ['--new-instance'] : []
     }
   })
@@ -333,6 +334,22 @@ app.whenReady().then(async () => {
 
   // Set up Application Menu
   const isMac = process.platform === 'darwin'
+  const viewMenu: MenuItemConstructorOptions = is.dev
+    ? { role: 'viewMenu' }
+    : {
+        label: 'View',
+        submenu: [
+          { role: 'reload' },
+          { role: 'forceReload' },
+          { type: 'separator' },
+          { role: 'resetZoom' },
+          { role: 'zoomIn' },
+          { role: 'zoomOut' },
+          { type: 'separator' },
+          { role: 'togglefullscreen' }
+        ]
+      }
+
   const template: MenuItemConstructorOptions[] = [
     {
       label: 'File',
@@ -346,7 +363,7 @@ app.whenReady().then(async () => {
       ]
     },
     { role: 'editMenu' },
-    { role: 'viewMenu' },
+    viewMenu,
     { role: 'windowMenu' }
   ]
   const menu = Menu.buildFromTemplate(template)
