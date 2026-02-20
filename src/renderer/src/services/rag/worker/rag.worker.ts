@@ -13,15 +13,18 @@ if (env) {
 
 const db = new VectorDB()
 let extractor: any = null
-
 let initPromise: Promise<void> | null = null
+
+// --- Priority Queue Logic ---
+const highPriorityQueue: RagWorkerJob[] = []
+const lowPriorityQueue: RagWorkerJob[] = []
+let isProcessing = false
+
+const HIGH_PRIORITY_TYPES = ['init', 'search', 'embed', 'switch-vault', 'delete', 'debug']
 
 async function initModel(): Promise<void> {
   if (extractor) return
-
-  if (initPromise) {
-    return initPromise
-  }
+  if (initPromise) return initPromise
 
   initPromise = (async () => {
     try {
@@ -29,14 +32,11 @@ async function initModel(): Promise<void> {
       extractor = await (Transformers as any).pipeline(
         'feature-extraction',
         'Xenova/all-MiniLM-L6-v2',
-        {
-          quantized: false
-        }
+        { quantized: false }
       )
       console.log('[RagWorker] Pipeline ready')
     } catch (err: any) {
       console.error('[RagWorker] Init error:', err)
-      // Reset promise so we can retry later
       initPromise = null
       throw err
     }
@@ -45,7 +45,13 @@ async function initModel(): Promise<void> {
   return initPromise
 }
 
-// Basic cosine similarity function for vector comparison
+async function computeHash(content: string): Promise<string> {
+  const msgUint8 = new TextEncoder().encode(content)
+  const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8)
+  const hashArray = Array.from(new Uint8Array(hashBuffer))
+  return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('')
+}
+
 export function cosineSimilarity(
   vecA: Float32Array | number[],
   vecB: Float32Array | number[]
@@ -65,9 +71,32 @@ export function cosineSimilarity(
 
 const ctx: Worker = self as any
 
-ctx.addEventListener('message', async (event: MessageEvent<RagWorkerJob>) => {
-  const { id, type, payload } = event.data
+ctx.addEventListener('message', (event: MessageEvent<RagWorkerJob>) => {
+  const job = event.data
+  if (HIGH_PRIORITY_TYPES.includes(job.type)) {
+    highPriorityQueue.push(job)
+  } else {
+    lowPriorityQueue.push(job)
+  }
+  processQueue()
+})
 
+async function processQueue() {
+  if (isProcessing) return
+  isProcessing = true
+
+  while (highPriorityQueue.length > 0 || lowPriorityQueue.length > 0) {
+    const job = highPriorityQueue.shift() || lowPriorityQueue.shift()
+    if (job) {
+      await handleJob(job)
+    }
+  }
+
+  isProcessing = false
+}
+
+async function handleJob(job: RagWorkerJob) {
+  const { id, type, payload } = job
   try {
     let result: any
 
@@ -95,10 +124,24 @@ ctx.addEventListener('message', async (event: MessageEvent<RagWorkerJob>) => {
         }
         if (!queryVector) throw new Error('No search vector provided')
         const queryVec = new Float32Array(queryVector)
+
+        // Fetch feedback for ranking adjustment
+        const allFeedback = await db.getAllFeedback()
+        const relevantFeedback = allFeedback.filter((f) => f.query === query)
+
         const candidates: { id: string; score: number; metadata: any }[] = []
         await db.iterate((record) => {
-          const score = cosineSimilarity(queryVec, record.vector)
-          if (score > 0.1) {
+          let score = cosineSimilarity(queryVec, record.vector)
+
+          // Apply feedback adjustments if query matches exactly
+          // (In future we could use vector similarity for query feedback too)
+          const noteFeedback = relevantFeedback.filter((f) => f.noteId === record.id)
+          noteFeedback.forEach((f) => {
+            if (f.score < 0) score *= 0.5 // Penalty
+            if (f.score > 0) score *= 1.2 // Boost
+          })
+
+          if (score > 0.05) {
             candidates.push({ id: record.id, score, metadata: record.metadata })
           }
         })
@@ -107,22 +150,41 @@ ctx.addEventListener('message', async (event: MessageEvent<RagWorkerJob>) => {
         break
       }
 
+      case 'add-feedback': {
+        const { query, noteId, score } = payload
+        await db.addFeedback({
+          query,
+          noteId,
+          score,
+          timestamp: Date.now()
+        })
+        result = { feedbackRecorded: true }
+        break
+      }
+
       case 'index': {
         const { id, vector, content, metadata } = payload
         let finalVector = vector
+        let contentHash = payload.contentHash
+
         if (content && !finalVector) {
           if (!extractor) await initModel()
           const output = await extractor(content, { pooling: 'mean', normalize: true })
           finalVector = Array.from(output.data)
+          if (!contentHash) {
+            contentHash = await computeHash(content)
+          }
         }
+
         if (!finalVector) throw new Error('No vector or content provided for indexing')
         await db.upsert({
           id,
           vector: new Float32Array(finalVector),
+          contentHash,
           metadata: { ...metadata, path: metadata.path || '' },
           updatedAt: Date.now()
         })
-        result = { indexed: true, id }
+        result = { indexed: true, id, contentHash }
         break
       }
 
@@ -136,7 +198,6 @@ ctx.addEventListener('message', async (event: MessageEvent<RagWorkerJob>) => {
       case 'debug': {
         await db.connect()
         let lastError: string | undefined
-        // Try to verify/kickstart model if not loaded
         if (!extractor) {
           try {
             await initModel()
@@ -158,7 +219,6 @@ ctx.addEventListener('message', async (event: MessageEvent<RagWorkerJob>) => {
       case 'get-all-metadata': {
         await db.connect()
         const meta = await db.getAllMetadata()
-        // Convert Map to Object for serialization
         result = Object.fromEntries(meta)
         break
       }
@@ -174,16 +234,8 @@ ctx.addEventListener('message', async (event: MessageEvent<RagWorkerJob>) => {
         throw new Error(`Unknown job type: ${type}`)
     }
 
-    ctx.postMessage({
-      id,
-      success: true,
-      payload: result
-    })
+    ctx.postMessage({ id, success: true, payload: result })
   } catch (err: any) {
-    ctx.postMessage({
-      id,
-      success: false,
-      error: err.message || 'Unknown worker error'
-    })
+    ctx.postMessage({ id, success: false, error: err.message || 'Unknown worker error' })
   }
-})
+}

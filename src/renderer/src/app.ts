@@ -1192,8 +1192,12 @@ class App {
         const parent = this.sidebar.getSelectedFolderPath() || undefined
 
         const result = await agentExecutor.writeNote(titleInput, content, parent)
-        this.hubConsole.log(`Updated note: "${result.title}"`, 'system')
-        await this.fileOps['callbacks'].openNote(result.id, result.path, 'editor')
+        if (typeof result !== 'string') {
+          this.hubConsole.log(`Updated note: "${result.title}"`, 'system')
+          await this.fileOps['callbacks'].openNote(result.id, result.path, 'editor')
+        } else {
+          this.hubConsole.log(result, 'system')
+        }
       }
     })
     this.hubConsole.registerCommand({
@@ -1207,12 +1211,12 @@ class App {
         const titleInput = args[0]
         const content = args.slice(1).join(' ')
 
-        const note = await agentExecutor.appendNote(titleInput, content)
-        if (note) {
-          this.hubConsole.log(`Appended to note: "${note.title}"`, 'system')
-          await this.fileOps['callbacks'].openNote(note.id, note.path, 'editor')
+        const result = await agentExecutor.appendNote(titleInput, content)
+        if (typeof result !== 'string') {
+          this.hubConsole.log(`Appended to note: "${result.title}"`, 'system')
+          await this.fileOps['callbacks'].openNote(result.id, result.path, 'editor')
         } else {
-          this.hubConsole.log(`Note "${titleInput}" not found to append.`, 'error')
+          this.hubConsole.log(result, 'system')
         }
       }
     })

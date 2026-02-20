@@ -181,6 +181,16 @@ export class AIService {
     }
   }
 
+  /**
+   * Clear all in-memory caches (called on vault switch)
+   */
+  public clearCache(): void {
+    this.vaultCache.clear()
+    this.vaultMetadataCache.clear()
+    this.vaultCacheTime = 0
+    console.log('[AIService] Caches cleared')
+  }
+
   private async initRag(): Promise<void> {
     try {
       await ragService.configureProvider('local')
@@ -189,6 +199,7 @@ export class AIService {
       // Switch to vault-specific DB immediately
       const vault = await window.api.getVault()
       if (vault?.path) {
+        this.clearCache() // Clear in-memory caches when switching vault
         await ragService.switchVault(vault.path)
       }
     } catch (err) {

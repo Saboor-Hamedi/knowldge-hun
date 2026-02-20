@@ -124,15 +124,31 @@ export class RagService {
     }
 
     try {
+      
       if (this.embeddingProvider instanceof LocalEmbeddingProvider) {
         return this.dispatch('search', { query, limit })
       } else {
         const queryVector = await this.embeddingProvider.embed(query)
-        return this.dispatch('search', { queryVector, limit })
+        // Ensure we still pass the query string for feedback matching
+        return this.dispatch('search', { queryVector, query, limit })
       }
     } catch (err) {
       console.error('[RagService] Search failed:', err)
       return []
+    }
+  }
+
+  /**
+   * Record user feedback for a search result
+   * @param query The original query string
+   * @param noteId The ID of the note being rated
+   * @param score +1 for positive, -1 for negative
+   */
+  async recordFeedback(query: string, noteId: string, score: number): Promise<void> {
+    try {
+      await this.dispatch('add-feedback', { query, noteId, score })
+    } catch (err) {
+      console.error('[RagService] Failed to record feedback:', err)
     }
   }
 
@@ -172,7 +188,7 @@ export class RagService {
     return this.dispatch('debug', {})
   }
 
-  async getAllMetadata(): Promise<Record<string, number>> {
+  async getAllMetadata(): Promise<Record<string, { updatedAt: number; contentHash?: string }>> {
     return this.dispatch('get-all-metadata', {})
   }
 

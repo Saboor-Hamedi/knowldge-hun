@@ -6,6 +6,7 @@ export interface RagWorkerJob {
     | 'init'
     | 'delete'
     | 'embed'
+    | 'add-feedback'
     | 'debug'
     | 'get-all-metadata'
     | 'switch-vault'

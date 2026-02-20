@@ -75,7 +75,7 @@ export class SuggestionManager {
     const newDecorations: any[] = []
     const lineCount = this.editor.getModel()?.getLineCount() || 1
 
-    this.currentChunks.forEach((chunk, index) => {
+    this.currentChunks.forEach((chunk) => {
       const safeStart = Math.max(1, Math.min(chunk.startLine, lineCount))
       const safeEnd = Math.max(safeStart, Math.min(chunk.endLine, lineCount))
 

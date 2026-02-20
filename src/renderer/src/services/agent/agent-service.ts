@@ -289,7 +289,7 @@ export class AgentService {
     const cleanContent = fullText.replace(/\[RUN:\s*(.+?)\]/g, '').trim()
 
     const meta = await agentExecutor.writeNote(title, cleanContent)
-    return meta.id
+    return typeof meta === 'string' ? '' : meta.id
   }
 }
 

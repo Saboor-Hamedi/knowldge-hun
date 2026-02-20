@@ -2,6 +2,7 @@ import { state } from '../../core/state'
 import { aiService, type ChatMessage } from '../../services/aiService'
 import { agentService } from '../../services/agent/agent-service'
 import { sessionStorageService, type ChatSession } from '../../services/sessionStorageService'
+import { ragService } from '../../services/rag/ragService'
 import { SessionSidebar } from './session-sidebar'
 import { AIMenu, type AIMenuItem } from './ai-menu'
 import { AISettingsModal } from '../settings/ai-settings-modal'
@@ -493,6 +494,25 @@ export class RightBar {
         // Update message feedback and persist
         message.feedback = newFeedback
         void this.autoSaveSession()
+
+        // Deep RAG Refinement: Record feedback for each citation
+        if (newFeedback && message.citations && message.citations.length > 0) {
+          // Find the user query that prompted this message
+          let userQuery = ''
+          for (let i = messageIndex - 1; i >= 0; i--) {
+            if (state.messages[i].role === 'user') {
+              userQuery = state.messages[i].content
+              break
+            }
+          }
+
+          if (userQuery) {
+            const score = newFeedback === 'thumbs-up' ? 1 : -1
+            message.citations.forEach((citation) => {
+              void ragService.recordFeedback(userQuery, citation.id, score)
+            })
+          }
+        }
       } else if (action === 'retry' && state.lastFailedMessage) {
         const toSend = state.lastFailedMessage
         void this.conversationController.sendMessage(toSend)

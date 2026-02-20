@@ -383,9 +383,18 @@ export class VaultHandler {
     let isInitialized = false
 
     aiStatusManager.show('AI Brain: Checking...')
-    let existingMetadata: Record<string, number> = {}
+
+    // Helper to compute content hash in renderer
+    const computeHash = async (content: string): Promise<string> => {
+      const msgUint8 = new TextEncoder().encode(content)
+      const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8)
+      const hashArray = Array.from(new Uint8Array(hashBuffer))
+      return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('')
+    }
+
+    let existingMetadata: Record<string, { updatedAt: number; contentHash?: string }> = {}
     try {
-      existingMetadata = await ragService.getAllMetadata()
+      existingMetadata = (await ragService.getAllMetadata()) as any
     } catch (e) {
       console.warn('[RAG] Failed to fetch existing metadata:', e)
     }
@@ -400,9 +409,15 @@ export class VaultHandler {
       }
     }
 
+    // Filter notes that actually need re-indexing
     const potentiallyChanged = notesToIndex.filter((note) => {
-      const indexedTime = existingMetadata[note.id]
-      return !indexedTime || note.updatedAt > indexedTime
+      const meta = existingMetadata[note.id]
+      // If we don't even have metadata, it definitely needs indexing
+      if (!meta) return true
+      // If the timestamp is exactly the same, we can trust it (fast path)
+      if (note.updatedAt === meta.updatedAt) return false
+      // Otherwise, we rely on the hash check later in the loop to be 100% sure
+      return true
     })
 
     if (potentiallyChanged.length === 0) {
@@ -414,6 +429,15 @@ export class VaultHandler {
       try {
         const content = (await window.api.loadNote(note.id, note.path)) as NotePayload | null
         if (!content || !content.content.trim() || content.content.length > 1024 * 1024) continue
+
+        // Verification: If timestamp differed, check the actual content hash
+        const meta = existingMetadata[note.id]
+        if (meta && meta.contentHash) {
+          const currentHash = await computeHash(content.content)
+          if (currentHash === meta.contentHash) {
+            continue // Content hasn't changed despite timestamp diff
+          }
+        }
 
         if (!isInitialized) {
           aiStatusManager.show('AI Brain: Loading models...')
